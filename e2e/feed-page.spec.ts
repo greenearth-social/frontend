@@ -5,13 +5,11 @@ test.describe("Feed Page", () => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
 
-    await page.goto("/");
-
-    await page.waitForSelector("app-shell", { timeout: 15000 });
-    await page.waitForSelector("feed-item-card", { timeout: 15000 });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await page.waitForSelector("feed-item-card", { timeout: 30000 });
 
     if (errors.length > 0) {
-      console.error("Page errors:", errors);
+      throw new Error(`Page errors before test: ${errors.join(" | ")}`);
     }
   });
 
