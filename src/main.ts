@@ -2,7 +2,6 @@ import "./styles/index.css";
 
 import { RootStore } from "./stores/root-store";
 import type { ServiceProvider } from "./services/service-provider";
-import { initFirestore } from "./services/firebase/firebase-init";
 
 const useMock = import.meta.env.VITE_USE_MOCK_SERVICES !== "false";
 
@@ -27,6 +26,7 @@ async function init() {
   } else {
     // Load runtime config for database name
     const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
+    const { initFirestore } = await import("./services/firebase/firebase-init");
     if (!useEmulators) {
       try {
         const res = await fetch("/config.json");
