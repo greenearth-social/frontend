@@ -71,10 +71,10 @@ jobs:
           retention-days: 1
 
   # -----------------------------------------------------------------------
-  # Deploy stage — PR preview channel. Hosting only (no functions/rules).
+  # Deploy stage — manual trigger only (workflow_dispatch).
   # -----------------------------------------------------------------------
   deploy-stage:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     needs: ci
     runs-on: ubuntu-latest
     steps:
@@ -97,17 +97,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Authenticate with Firebase
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
-
       - name: Deploy Hosting (stage preview channel)
         run: |
           firebase hosting:channel:deploy stage \
             --project greenearth-471522 \
             --only hosting \
-            --non-interactive
+            --non-interactive \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
 
   # -----------------------------------------------------------------------
   # Deploy prod — merge to main only. Hosting (live) + functions + rules.
@@ -151,17 +147,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Authenticate with Firebase
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
-
       - name: Deploy Hosting (live channel)
         run: |
           firebase hosting:channel:deploy live \
             --project greenearth-471522 \
             --only hosting \
-            --non-interactive
+            --non-interactive \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
 
       - name: Deploy Functions + Firestore rules
         run: |
@@ -169,4 +161,5 @@ jobs:
             --only functions,firestore:rules \
             --project greenearth-471522 \
             --non-interactive \
-            --force
+            --force \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
