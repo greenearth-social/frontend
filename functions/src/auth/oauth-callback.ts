@@ -2,12 +2,12 @@ import { onRequest } from "firebase-functions/v2/https";
 import type { Request, Response } from "express";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
 import { importJWK } from "jose";
 import {
   createClientAssertion,
   createDpopProof,
   getClientPrivateKey,
+  decryptState,
 } from "./helpers.js";
 
 const AUTH_SERVER = "https://bsky.social";
@@ -17,23 +17,18 @@ if (getApps().length === 0) {
 }
 
 const auth = getAuth();
-const db = getFirestore();
 
-interface PendingOAuthState {
-  state: string;
+interface OAuthSessionState {
   codeVerifier: string;
   authServerIssuer: string;
   dpopPrivateJwk: string;
   dpopPublicJwk: string;
-  dpopNonce: string | null;
   returnUrl: string;
   redirectUri: string;
-  createdAt: Date;
-  expireAt: Date;
 }
 
 export const oauthCallback = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY"] },
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
   async (req: Request, res: Response) => {
   try {
   const appOrigin = process.env.APP_ORIGIN;
@@ -64,26 +59,22 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 1. Look up pending state
-  const pendingRef = db.collection("pendingOAuthRequests").doc(state);
-  const pendingDoc = await pendingRef.get();
-  if (!pendingDoc.exists) {
-    res.status(400).send("Invalid or expired state");
+  // 1. Decrypt and authenticate the OAuth session state
+  let session: OAuthSessionState;
+  try {
+    session = await decryptState<OAuthSessionState>(state);
+  } catch {
+    res.status(400).send("Invalid or tampered state parameter");
     return;
   }
 
-  const pending = pendingDoc.data() as PendingOAuthState;
-
-  // 2. Validate iss
-  if (pending.authServerIssuer !== iss) {
+  // 2. Validate iss matches
+  if (session.authServerIssuer !== iss) {
     res.status(400).send("Issuer mismatch");
     return;
   }
 
-  // 3. Delete pending doc (prevent replay)
-  await pendingRef.delete();
-
-  // 4. Discover auth server token endpoint
+  // 3. Discover auth server token endpoint
   let authServerMeta: Record<string, string>;
   try {
     const metaRes = await fetch(
@@ -105,13 +96,13 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 5. Exchange code for tokens
+  // 4. Exchange code for tokens
   const clientKey = await getClientPrivateKey();
   const clientId = `${appOrigin}/.well-known/oauth-client-metadata`;
-  const redirectUri = pending.redirectUri;
+  const redirectUri = session.redirectUri;
 
-  const dpopPrivateJwk = JSON.parse(pending.dpopPrivateJwk) as JsonWebKey;
-  const dpopPublicJwk = JSON.parse(pending.dpopPublicJwk) as JsonWebKey;
+  const dpopPrivateJwk = JSON.parse(session.dpopPrivateJwk) as JsonWebKey;
+  const dpopPublicJwk = JSON.parse(session.dpopPublicJwk) as JsonWebKey;
   const dpopPrivateKey = (await importJWK(dpopPrivateJwk, "ES256")) as CryptoKey;
 
   const tokenUrl = new URL(tokenEndpoint);
@@ -121,7 +112,6 @@ export const oauthCallback = onRequest(
     tokenUrlString,
     dpopPrivateKey,
     dpopPublicJwk,
-    pending.dpopNonce ?? undefined,
   );
 
   const clientAssertion = await createClientAssertion(
@@ -135,7 +125,7 @@ export const oauthCallback = onRequest(
     client_id: clientId,
     grant_type: "authorization_code",
     code: code,
-    code_verifier: pending.codeVerifier,
+    code_verifier: session.codeVerifier,
     redirect_uri: redirectUri,
     client_assertion_type:
       "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
@@ -201,7 +191,7 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 6. Mint Firebase custom token
+  // 5. Mint Firebase custom token
   let firebaseToken: string;
   try {
     firebaseToken = await auth.createCustomToken(did);
@@ -210,8 +200,8 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 7. Redirect to frontend with token (absolute URL to avoid proxy issues)
-  const returnUrl = pending.returnUrl || "/";
+  // 6. Redirect to frontend with token
+  const returnUrl = session.returnUrl || "/";
   const finishUrl = `${appOrigin}/#/auth/finish?token=${encodeURIComponent(firebaseToken)}&return_url=${encodeURIComponent(returnUrl)}`;
   res.redirect(302, finishUrl);
 

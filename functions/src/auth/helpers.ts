@@ -87,6 +87,70 @@ export async function createDpopProof(
 }
 
 // ---------------------------------------------------------------------------
+// AEAD state encryption  (AES-256-GCM for OAuth state parameter)
+// ---------------------------------------------------------------------------
+
+let cachedEncryptionKey: CryptoKey | null = null;
+
+async function getStateEncryptionKey(): Promise<CryptoKey> {
+  if (cachedEncryptionKey) return cachedEncryptionKey;
+
+  const keyHex = process.env.OAUTH_STATE_ENCRYPTION_KEY;
+  if (!keyHex) {
+    throw new Error("OAUTH_STATE_ENCRYPTION_KEY not configured");
+  }
+
+  const keyBytes = new Uint8Array(Buffer.from(keyHex, "hex"));
+  cachedEncryptionKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"],
+  );
+  return cachedEncryptionKey;
+}
+
+export async function encryptState(
+  data: Record<string, unknown>,
+): Promise<string> {
+  const key = await getStateEncryptionKey();
+  const encoder = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = encoder.encode(JSON.stringify(data));
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    plaintext,
+  );
+
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+
+  return Buffer.from(combined).toString("base64url");
+}
+
+export async function decryptState<T = Record<string, unknown>>(
+  encrypted: string,
+): Promise<T> {
+  const key = await getStateEncryptionKey();
+  const combined = new Uint8Array(Buffer.from(encrypted, "base64url"));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext,
+  );
+
+  const decoder = new TextDecoder();
+  return JSON.parse(decoder.decode(plaintext)) as T;
+}
+
+// ---------------------------------------------------------------------------
 // Import the stored ES256 client private key (file in dev, env var in prod)
 // ---------------------------------------------------------------------------
 

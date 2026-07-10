@@ -71,15 +71,59 @@ jobs:
           retention-days: 1
 
   # -----------------------------------------------------------------------
-  # Deploy stage — deploys hosting + functions + rules with stage DB config.
-  # Runs on every push and PR. Remove the 'needs: ci' dependency for faster
-  # iteration if you trust the branch changes.
+  # Deploy stage — PR preview channel. Hosting only (no functions/rules).
   # -----------------------------------------------------------------------
   deploy-stage:
+    if: github.event_name == 'pull_request'
     needs: ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Write stage database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Authenticate with Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Hosting (stage preview channel)
+        run: |
+          firebase hosting:channel:deploy stage \
+            --project greenearth-471522 \
+            --only hosting \
+            --non-interactive
+
+  # -----------------------------------------------------------------------
+  # Deploy prod — merge to main only. Hosting (live) + functions + rules.
+  # -----------------------------------------------------------------------
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
 
       - uses: actions/download-artifact@v4
         with:
@@ -91,9 +135,9 @@ jobs:
           name: functions-build
           path: functions/
 
-      - name: Write stage database config
+      - name: Write prod database config
         run: |
-          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
 
       - name: Write functions .env from GitHub Variables
         run: |
@@ -101,47 +145,11 @@ jobs:
           APP_ORIGIN=${{ vars.APP_ORIGIN }}
           BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
           BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
+          OAUTH_STATE_ENCRYPTION_KEY=${{ secrets.OAUTH_STATE_ENCRYPTION_KEY }}
           ENVEOF
 
-      - name: Authenticate with Firebase
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
-
-      - name: Deploy Hosting (stage preview channel)
-        run: |
-          npx firebase-tools hosting:channel:deploy stage \
-            --project greenearth-471522 \
-            --only hosting \
-            --non-interactive
-
-      - name: Deploy Functions + Firestore rules
-        run: |
-          npx firebase-tools deploy \
-            --only functions,firestore:rules \
-            --project greenearth-471522 \
-            --non-interactive \
-            --force
-
-  # -----------------------------------------------------------------------
-  # Deploy prod — push to main only. Requires manual approval.
-  # -----------------------------------------------------------------------
-  deploy-prod:
-    needs: deploy-stage
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-      - name: Write prod database config
-        run: |
-          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
 
       - name: Authenticate with Firebase
         run: |
@@ -150,7 +158,15 @@ jobs:
 
       - name: Deploy Hosting (live channel)
         run: |
-          npx firebase-tools hosting:channel:deploy live \
+          firebase hosting:channel:deploy live \
             --project greenearth-471522 \
             --only hosting \
             --non-interactive
+
+      - name: Deploy Functions + Firestore rules
+        run: |
+          firebase deploy \
+            --only functions,firestore:rules \
+            --project greenearth-471522 \
+            --non-interactive \
+            --force

@@ -1,7 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
 import type { Request, Response } from "express";
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import {
   generateToken,
   createCodeChallenge,
@@ -11,18 +9,13 @@ import {
   createClientAssertion,
   createDpopProof,
   getClientPrivateKey,
+  encryptState,
 } from "./helpers.js";
 
 const AUTH_SERVER = "https://bsky.social";
 
-if (getApps().length === 0) {
-  initializeApp();
-}
-
-const db = getFirestore();
-
 export const authBluesky = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY"] },
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
   async (req: Request, res: Response) => {
   try {
   const appOrigin = process.env.APP_ORIGIN;
@@ -43,14 +36,11 @@ export const authBluesky = onRequest(
   const codeVerifier = generateToken(48);
   const codeChallenge = await createCodeChallenge(codeVerifier);
 
-  // 2. State
-  const state = generateToken();
-
-  // 3. DPoP key pair
+  // 2. DPoP key pair
   const dpopKeyPair = await generateDpopKeyPair();
   const dpopPublicJwk = await exportPublicJwk(dpopKeyPair.publicKey);
 
-  // 4. Client assertion for PAR
+  // 3. Client assertion for PAR
   const clientKey = await getClientPrivateKey();
   const clientId = `${appOrigin}/.well-known/oauth-client-metadata`;
   const redirectUri = `${appOrigin}/oauth/callback`;
@@ -61,7 +51,7 @@ export const authBluesky = onRequest(
     kid,
   );
 
-  // 5. Discover auth server metadata
+  // 4. Discover auth server metadata
   let authServerMeta: Record<string, string>;
   try {
     const metaRes = await fetch(
@@ -84,6 +74,18 @@ export const authBluesky = onRequest(
     res.status(502).send("Auth server missing required endpoints");
     return;
   }
+
+  // 5. Encrypt session state into OAuth state parameter (AEAD)
+  const state = await encryptState({
+    codeVerifier,
+    authServerIssuer: AUTH_SERVER,
+    dpopPrivateJwk: JSON.stringify(
+      await exportPrivateJwk(dpopKeyPair.privateKey),
+    ),
+    dpopPublicJwk: JSON.stringify(dpopPublicJwk),
+    returnUrl,
+    redirectUri,
+  });
 
   // 6. Send PAR request (with DPoP nonce retry)
   const parBody = new URLSearchParams({
@@ -149,25 +151,7 @@ export const authBluesky = onRequest(
     return;
   }
 
-  // 7. Store pending state in Firestore (with TTL)
-  const pendingRef = db.collection("pendingOAuthRequests").doc(state);
-  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-  await pendingRef.set({
-    state,
-    codeVerifier,
-    authServerIssuer: AUTH_SERVER,
-    dpopPrivateJwk: JSON.stringify(
-      await exportPrivateJwk(dpopKeyPair.privateKey),
-    ),
-    dpopPublicJwk: JSON.stringify(dpopPublicJwk),
-    dpopNonce: dpopNonce ?? null,
-    returnUrl,
-    redirectUri,
-    createdAt: new Date(),
-    expireAt,
-  });
-
-  // 8. Redirect to authorization endpoint
+  // 7. Redirect to authorization endpoint
   const redirectUrl =
     `${authEndpoint}?client_id=${encodeURIComponent(clientId)}` +
     `&request_uri=${encodeURIComponent(requestUri)}`;
