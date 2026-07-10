@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   # -----------------------------------------------------------------------
-  # CI — runs on every push and PR
+  # CI — lint, typecheck, unit tests, E2E, build. Runs on every push and PR.
   # -----------------------------------------------------------------------
   ci:
     runs-on: ubuntu-latest
@@ -26,6 +26,10 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Install functions dependencies (needed for lint)
+        working-directory: functions
+        run: npm ci
 
       - run: npm run lint
       - run: npm run typecheck
@@ -42,9 +46,7 @@ jobs:
 
       - name: Build functions
         working-directory: functions
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
       - uses: actions/upload-artifact@v4
         with:
@@ -62,58 +64,12 @@ jobs:
           retention-days: 1
 
   # -----------------------------------------------------------------------
-  # PR deploy — deploys hosting only to a per-PR preview channel (stage DB)
-  # -----------------------------------------------------------------------
-  deploy-pr:
-    needs: ci
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-      - name: Write stage database config
-        run: |
-          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
-
-      - name: Authenticate with Firebase
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
-
-      - name: Deploy Hosting (PR preview channel)
-        id: deploy
-        run: |
-          npx firebase-tools hosting:channel:deploy "pr-${{ github.event.number }}" \
-            --project greenearth-471522 \
-            --only hosting \
-            --non-interactive \
-            | tee /dev/stderr \
-            | grep "Channel URL" | awk '{print $3}' > "$RUNNER_TEMP/preview-url.txt"
-          echo "url=$(cat $RUNNER_TEMP/preview-url.txt)" >> "$GITHUB_OUTPUT"
-
-      - name: Comment preview URL on PR
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          message: |
-            ## Preview deployed
-
-            [Open preview channel](${{ steps.deploy.outputs.url }})
-
-            Using **greenearth-stage** Firestore database.
-
-            _Channel expires after 7 days of inactivity._
-
-  # -----------------------------------------------------------------------
-  # Deploy stage — main branch preview + functions + rules
+  # Deploy stage — deploys hosting + functions + rules with stage DB config.
+  # Runs on every push and PR. Remove the 'needs: ci' dependency for faster
+  # iteration if you trust the branch changes.
   # -----------------------------------------------------------------------
   deploy-stage:
     needs: ci
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -161,10 +117,11 @@ jobs:
             --force
 
   # -----------------------------------------------------------------------
-  # Deploy prod — live channel. Requires manual approval.
+  # Deploy prod — push to main only. Requires manual approval.
   # -----------------------------------------------------------------------
   deploy-prod:
     needs: deploy-stage
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:

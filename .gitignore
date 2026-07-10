@@ -6,5 +6,13 @@ test-results/
 .env.local
 .DS_Store
 .env
-functions/keys/
+
+# Firebase emulator artifacts
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
+.firebase/
+
+# Functions build output + keys (generated at build/runtime)
 functions/lib/
+functions/keys/
