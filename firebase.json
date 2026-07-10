@@ -1,0 +1,40 @@
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/.well-known/oauth-client-metadata",
+        "function": "oauthClientMetadata"
+      },
+      {
+        "source": "/.well-known/jwks.json",
+        "function": "oauthJwks"
+      },
+      {
+        "source": "/auth/bluesky",
+        "function": "authBluesky"
+      },
+      {
+        "source": "/oauth/callback",
+        "function": "oauthCallback"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions"
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8080 },
+    "functions": { "port": 5001 },
+    "singleProjectMode": true
+  }
+}

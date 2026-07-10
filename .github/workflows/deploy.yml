@@ -1,0 +1,192 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # CI — runs on every push and PR
+  # -----------------------------------------------------------------------
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build functions
+        working-directory: functions
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-build
+          path: |
+            functions/lib/
+            functions/package.json
+            functions/node_modules/
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # PR deploy — deploys hosting only to a per-PR preview channel (stage DB)
+  # -----------------------------------------------------------------------
+  deploy-pr:
+    needs: ci
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Write stage database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+
+      - name: Authenticate with Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Hosting (PR preview channel)
+        id: deploy
+        run: |
+          npx firebase-tools hosting:channel:deploy "pr-${{ github.event.number }}" \
+            --project greenearth-471522 \
+            --only hosting \
+            --non-interactive \
+            | tee /dev/stderr \
+            | grep "Channel URL" | awk '{print $3}' > "$RUNNER_TEMP/preview-url.txt"
+          echo "url=$(cat $RUNNER_TEMP/preview-url.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ## Preview deployed
+
+            [Open preview channel](${{ steps.deploy.outputs.url }})
+
+            Using **greenearth-stage** Firestore database.
+
+            _Channel expires after 7 days of inactivity._
+
+  # -----------------------------------------------------------------------
+  # Deploy stage — main branch preview + functions + rules
+  # -----------------------------------------------------------------------
+  deploy-stage:
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: functions-build
+          path: functions/
+
+      - name: Write stage database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+
+      - name: Write functions .env from GitHub Variables
+        run: |
+          cat > functions/.env << 'ENVEOF'
+          APP_ORIGIN=${{ vars.APP_ORIGIN }}
+          BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
+          BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
+          ENVEOF
+
+      - name: Authenticate with Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Hosting (stage preview channel)
+        run: |
+          npx firebase-tools hosting:channel:deploy stage \
+            --project greenearth-471522 \
+            --only hosting \
+            --non-interactive
+
+      - name: Deploy Functions + Firestore rules
+        run: |
+          npx firebase-tools deploy \
+            --only functions,firestore:rules \
+            --project greenearth-471522 \
+            --non-interactive \
+            --force
+
+  # -----------------------------------------------------------------------
+  # Deploy prod — live channel. Requires manual approval.
+  # -----------------------------------------------------------------------
+  deploy-prod:
+    needs: deploy-stage
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Write prod database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
+
+      - name: Authenticate with Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Hosting (live channel)
+        run: |
+          npx firebase-tools hosting:channel:deploy live \
+            --project greenearth-471522 \
+            --only hosting \
+            --non-interactive

@@ -1,0 +1,109 @@
+{
+  "requestId": "abc123-def456-ghi789",
+  "userDid": "did:plc:sample1",
+  "username": "alice.bsky.social",
+  "feedName": "your-feed",
+  "generatedAt": "2026-07-07T12:00:00Z",
+  "generateRequest": {
+    "generators": [
+      { "name": "two_tower", "weight": 1.0 },
+      { "name": "followed_users", "weight": 1.0 }
+    ],
+    "userDid": "did:plc:sample1",
+    "numCandidates": 50,
+    "videoOnly": false,
+    "excludeUris": [],
+    "infill": null
+  },
+  "rankerModel": "two_tower, perspective",
+  "diversify": true,
+  "generatorOutputs": [
+    {
+      "generatorName": "two_tower",
+      "candidates": [
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one from two_tower", "score": 0.85, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null },
+        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two from two_tower", "score": 0.72, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article" },
+        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three from two_tower", "score": 0.64, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null },
+        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "content": "Post four from two_tower", "score": 0.55, "authorDid": "did:plc:author4", "authorUsername": "author4.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null },
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "content": "Post five (same author as post1)", "score": 0.50, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null }
+      ]
+    },
+    {
+      "generatorName": "followed_users",
+      "candidates": [
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one from followed", "score": 0.90, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null },
+        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two from followed", "score": 0.65, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article" },
+        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three from followed", "score": 0.78, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null },
+        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "content": "Post six from followed user", "score": 0.88, "authorDid": "did:plc:author5", "authorUsername": "author5.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null }
+      ]
+    }
+  ],
+  "finalCandidates": [
+    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one final", "score": 0.82, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null },
+    { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two final", "score": 0.45, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article" },
+    { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three final", "score": 0.61, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null },
+    { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "content": "Post four final", "score": 0.55, "authorDid": "did:plc:author4", "authorUsername": "author4.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null },
+    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "content": "Post five final (same author)", "score": 0.40, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null },
+    { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "content": "Post six final", "score": 0.72, "authorDid": "did:plc:author5", "authorUsername": "author5.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null }
+  ],
+  "ranking": {
+    "rankings": [
+      { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "rank": 1, "rankScore": 0.91 },
+      { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "rank": 2, "rankScore": 0.78 },
+      { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "rank": 3, "rankScore": 0.65 },
+      { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "rank": 4, "rankScore": 0.52 },
+      { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "rank": 5, "rankScore": 0.48 },
+      { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "rank": 6, "rankScore": 0.35 }
+    ]
+  },
+  "modelScores": [
+    {
+      "modelName": "two_tower",
+      "weight": 0.6,
+      "scores": [
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "score": 0.85 },
+        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "score": 0.72 },
+        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "score": 0.64 },
+        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "score": 0.45 },
+        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "score": 0.55 },
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "score": 0.40 }
+      ]
+    },
+    {
+      "modelName": "perspective",
+      "weight": 0.4,
+      "scores": [
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "score": 0.95 },
+        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "score": 0.82 },
+        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "score": 0.60 },
+        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "score": 0.55 },
+        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "score": 0.30 },
+        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "score": 0.25 }
+      ]
+    }
+  ],
+  "orderAfterRank": [
+    "at://did:plc:author1/app.bsky.feed.post/post1",
+    "at://did:plc:author5/app.bsky.feed.post/post6",
+    "at://did:plc:author3/app.bsky.feed.post/post3",
+    "at://did:plc:author2/app.bsky.feed.post/post2",
+    "at://did:plc:author4/app.bsky.feed.post/post4",
+    "at://did:plc:author1/app.bsky.feed.post/post5"
+  ],
+  "finalOrder": [
+    "at://did:plc:author1/app.bsky.feed.post/post1",
+    "at://did:plc:author3/app.bsky.feed.post/post3",
+    "at://did:plc:author5/app.bsky.feed.post/post6",
+    "at://did:plc:author2/app.bsky.feed.post/post2",
+    "at://did:plc:author4/app.bsky.feed.post/post4",
+    "at://did:plc:author1/app.bsky.feed.post/post5"
+  ],
+  "diversification": [
+    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "relevance": 0.91, "score": 0.91, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+    { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "relevance": 0.65, "score": 0.65, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+    { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "relevance": 0.78, "score": 0.78, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+    { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "relevance": 0.52, "score": 0.52, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+    { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "relevance": 0.48, "score": 0.48, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "relevance": 0.35, "score": 0.35, "authorPenalty": -0.15, "contentPenalty": 0.0 }
+  ]
+}
