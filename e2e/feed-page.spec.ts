@@ -5,8 +5,8 @@ test.describe("Feed Page", () => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
 
-    await page.goto("/", { waitUntil: "networkidle" });
-    await page.waitForSelector("feed-item-card", { timeout: 30000 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("feed-item-card", { timeout: 10000 });
 
     if (errors.length > 0) {
       throw new Error(`Page errors before test: ${errors.join(" | ")}`);
