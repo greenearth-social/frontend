@@ -2,15 +2,23 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Feed Page", () => {
   test.beforeEach(async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
+    let pageError: string | null = null;
+    page.on("pageerror", (err) => {
+      pageError = err.message;
+    });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("feed-item-card", { timeout: 10000 });
 
-    if (errors.length > 0) {
-      throw new Error(`Page errors before test: ${errors.join(" | ")}`);
-    }
+    await Promise.race([
+      page.waitForSelector("feed-item-card", { timeout: 10000 }),
+      new Promise<void>((_, reject) => {
+        const check = () => {
+          if (pageError) reject(new Error(`Page error: ${pageError}`));
+          else setTimeout(check, 100);
+        };
+        check();
+      }),
+    ]);
   });
 
   test("shows feed title", async ({ page }) => {
