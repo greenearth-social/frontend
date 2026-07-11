@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "greenearth-471522",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [

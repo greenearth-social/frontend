@@ -60,7 +60,6 @@ jobs:
         run: |
           firebase hosting:channel:deploy live \
             --project greenearth-471522 \
-            --only hosting \
             --non-interactive
 
       - name: Deploy Functions + Firestore rules

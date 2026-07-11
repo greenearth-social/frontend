@@ -104,5 +104,4 @@ jobs:
         run: |
           firebase hosting:channel:deploy stage \
             --project greenearth-471522 \
-            --only hosting \
             --non-interactive
