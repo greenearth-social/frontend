@@ -6,6 +6,11 @@ on:
     types: [completed]
     branches: [main]
 
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
 jobs:
   # -----------------------------------------------------------------------
   # Deploy prod — auto after CI passes on main. Hosting (live) + functions + rules.
@@ -44,6 +49,10 @@ jobs:
           OAUTH_STATE_ENCRYPTION_KEY=${{ secrets.OAUTH_STATE_ENCRYPTION_KEY }}
           ENVEOF
 
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
@@ -52,8 +61,7 @@ jobs:
           firebase hosting:channel:deploy live \
             --project greenearth-471522 \
             --only hosting \
-            --non-interactive \
-            --token "${{ secrets.FIREBASE_TOKEN }}"
+            --non-interactive
 
       - name: Deploy Functions + Firestore rules
         run: |
@@ -61,5 +69,4 @@ jobs:
             --only functions,firestore:rules \
             --project greenearth-471522 \
             --non-interactive \
-            --force \
-            --token "${{ secrets.FIREBASE_TOKEN }}"
+            --force

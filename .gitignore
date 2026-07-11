@@ -16,3 +16,4 @@ firebase-debug.log
 # Functions build output + keys (generated at build/runtime)
 functions/lib/
 functions/keys/
+functions/serviceAccountKey.json
