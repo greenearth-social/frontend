@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # CI — lint, typecheck, unit tests, E2E, build.
+  # -----------------------------------------------------------------------
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install functions dependencies (needed for lint)
+        working-directory: functions
+        run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build functions
+        working-directory: functions
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-build
+          path: |
+            functions/lib/
+            functions/package.json
+            functions/node_modules/
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Deploy stage — appears on PR page as "awaiting approval".
+  # Requires a "stage" environment with required reviewers in repo settings.
+  # -----------------------------------------------------------------------
+  deploy-stage:
+    needs: ci
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: stage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Write stage database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Deploy Hosting (stage preview channel)
+        run: |
+          firebase hosting:channel:deploy stage \
+            --project greenearth-471522 \
+            --only hosting \
+            --non-interactive \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
