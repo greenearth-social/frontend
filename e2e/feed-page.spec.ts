@@ -41,7 +41,7 @@ test.describe("Feed Page", () => {
 
   test("shows signed-in user in sidebar", async ({ page }) => {
     const sidebar = page.locator("aside").first();
-    await expect(sidebar).toContainText("mock@example.com");
+    await expect(sidebar).toContainText("@Mock User");
   });
 
   test("shows Post Observability header", async ({ page }) => {
