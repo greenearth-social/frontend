@@ -25,8 +25,8 @@ test.describe("Feed Page", () => {
     await expect(page.locator("h1")).toContainText("Post Observability");
   });
 
-  test("shows 6 feed cards", async ({ page }) => {
-    await expect(page.locator("feed-item-card")).toHaveCount(6);
+  test("shows 3 feed cards (default per page)", async ({ page }) => {
+    await expect(page.locator("feed-item-card")).toHaveCount(3);
   });
 
   test("shows Open in Bluesky link on first card", async ({ page }) => {
