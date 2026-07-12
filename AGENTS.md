@@ -46,6 +46,7 @@ functions/          → Cloud Functions OAuth bridge + metadata endpoints
 
 ### Key rules
 
+- **Never modify or delete environment variables, .env files, Firebase secrets, or any configuration without explicit permission.** Do not run `firebase deploy`, `firebase functions:secrets:*`, or any deployment commands unless asked.
 - **Stores never import Firebase, atproto, or HTTP clients.** They only consume service interfaces injected via `ServiceProvider`.
 - **Single DID = single Firebase user.** No multi-account. `AccountStore.activeAccount` is derived from `authStore.currentUser.uid`. The `IAccountService` interface and `account-switcher` component have been removed.
 - **`getRootStore()`** (from `main.ts`) is the DI entry point. Components call it directly rather than receiving stores as Lit properties.
