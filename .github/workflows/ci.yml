@@ -47,6 +47,16 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
+      - name: Debug env vars
+        env:
+          API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          USE_MOCK: ${{ vars.VITE_USE_MOCK_SERVICES }}
+        run: |
+          echo "VITE_USE_MOCK_SERVICES length: ${#USE_MOCK}"
+          echo "VITE_USE_MOCK_SERVICES value: [$USE_MOCK]"
+          echo "VITE_FIREBASE_API_KEY length: ${#API_KEY}"
+          echo "VITE_FIREBASE_API_KEY first 5: ${API_KEY:0:5}"
+
       - name: Build frontend
         env:
           VITE_USE_MOCK_SERVICES: ${{ vars.VITE_USE_MOCK_SERVICES }}
