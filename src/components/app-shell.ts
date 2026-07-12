@@ -161,7 +161,6 @@ export class AppShell extends MobxLitElement {
       color: var(--bluesky-text);
       flex: 1;
       min-width: 0;
-      overflow: hidden;
     }
     .user-details {
       display: none;
