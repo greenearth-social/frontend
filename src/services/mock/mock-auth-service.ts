@@ -11,10 +11,7 @@ export class MockAuthService implements IAuthService {
   }
 
   constructor() {
-    this.#currentUser = {
-      uid: "mock-user-1",
-      email: "mock@example.com",
-    };
+    this.#currentUser = null;
   }
 
   signInWithCustomToken(_token: string): Promise<void> {

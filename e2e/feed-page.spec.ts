@@ -7,7 +7,7 @@ test.describe("Feed Page", () => {
       pageError = err.message;
     });
 
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/#/auth/finish?token=test-token", { waitUntil: "domcontentloaded" });
 
     await Promise.race([
       page.waitForSelector("feed-item-card", { timeout: 10000 }),

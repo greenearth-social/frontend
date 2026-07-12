@@ -384,6 +384,16 @@ export class AppShell extends MobxLitElement {
         padding-top: 0.5rem;
       }
     }
+
+    /* ── Logged-out layout ── */
+    .shell-container.logged-out {
+      max-width: 100%;
+    }
+    .center-column.logged-out-main {
+      max-width: 100%;
+      border-left: none;
+      border-right: none;
+    }
   `;
 
   connectedCallback(): void {
@@ -544,17 +554,19 @@ export class AppShell extends MobxLitElement {
         ${sidebarContent}
       </aside>
 
-      <div class="shell-container">
-        <aside class="left-sidebar left-sidebar-desktop hidden lg:flex">
-          <div class="left-sidebar-inner">
-            <div class="sidebar-logo">
-              <img src="/assets/greenearth-logo.png" alt="GreenEarth" />
+      <div class="shell-container ${!authStore.isSignedIn ? "logged-out" : ""}">
+        ${authStore.isSignedIn ? html`
+          <aside class="left-sidebar left-sidebar-desktop hidden lg:flex">
+            <div class="left-sidebar-inner">
+              <div class="sidebar-logo">
+                <img src="/assets/greenearth-logo.png" alt="GreenEarth" />
+              </div>
+              ${sidebarContent}
             </div>
-            ${sidebarContent}
-          </div>
-        </aside>
+          </aside>
+        ` : ""}
 
-        <main class="center-column">
+        <main class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}">
           ${
             this._currentRoute === "/controls"
               ? html`<controls-page .onOpenMenu=${this.#openDrawer}></controls-page>`
@@ -566,16 +578,18 @@ export class AppShell extends MobxLitElement {
           }
         </main>
 
-        <aside class="right-sidebar">
-          <div class="right-sidebar-inner">
-            <right-sidebar
-              .activeFeed=${uiStore.selectedFeed}
-              @feed-select=${(e: CustomEvent<{ feed: string }>) => {
-                uiStore.setSelectedFeed(e.detail.feed);
-              }}
-            ></right-sidebar>
-          </div>
-        </aside>
+        ${authStore.isSignedIn ? html`
+          <aside class="right-sidebar">
+            <div class="right-sidebar-inner">
+              <right-sidebar
+                .activeFeed=${uiStore.selectedFeed}
+                @feed-select=${(e: CustomEvent<{ feed: string }>) => {
+                  uiStore.setSelectedFeed(e.detail.feed);
+                }}
+              ></right-sidebar>
+            </div>
+          </aside>
+        ` : ""}
       </div>
     `;
   }
@@ -604,8 +618,10 @@ export class AppShell extends MobxLitElement {
     const store = getRootStore();
     if (!store) return;
 
-    if (!store.authStore.isSignedIn && !this._justSignedOut) {
-      this.#redirectToAuth();
+    if (!store.authStore.isSignedIn) {
+      if (hash !== "/feed" && hash !== "") {
+        window.location.hash = "/feed";
+      }
       return;
     }
 
@@ -639,12 +655,6 @@ export class AppShell extends MobxLitElement {
     }
     this.requestUpdate();
   };
-
-  #redirectToAuth() {
-    const returnUrl = window.location.hash.slice(1) || "/feed";
-    const authPath = `/auth/bluesky?return_url=${encodeURIComponent(returnUrl)}`;
-    window.location.href = authPath;
-  }
 
   async #handleAuthFinish() {
     const params = new URLSearchParams(window.location.hash.split("?")[1] ?? "");

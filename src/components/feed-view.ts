@@ -16,16 +16,20 @@ export class FeedView extends MobxLitElement {
       padding-bottom: 0.5rem;
       overflow: visible;
     }
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      border-bottom: 1px solid var(--bluesky-border);
+    }
   `;
 
   render() {
     if (this.items.length === 0) {
       return html`
-        <div class="text-center py-16 px-4" style="border-bottom: 1px solid var(--bluesky-border);">
-          <p class="text-lg font-bold" style="color: var(--bluesky-text)">No feed items yet</p>
-          <p class="text-sm mt-1" style="color: var(--bluesky-text-secondary)">
-            Try triggering a recompute.
-          </p>
+        <div class="empty-state">
+          <p class="text-xl font-bold" style="color: var(--bluesky-text)">No feed items yet</p>
         </div>
       `;
     }

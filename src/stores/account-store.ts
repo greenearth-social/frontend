@@ -13,10 +13,11 @@ export class AccountStore {
   get activeAccount(): BlueskyAccount | null {
     const user = this.root.authStore.currentUser;
     if (!user) return null;
+    const handle = user.email ?? user.uid;
     return {
       did: user.uid,
-      handle: user.email ?? user.uid,
-      displayName: user.uid,
+      handle,
+      displayName: handle,
     };
   }
 }
