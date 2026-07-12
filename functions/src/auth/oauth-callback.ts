@@ -200,18 +200,40 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 5b. Resolve DID to handle and set as displayName
+  // 5b. Resolve DID to handle and display name, set on Firebase user
   try {
     const plcRes = await fetch(`https://plc.directory/${did}`);
+    console.log("PLC resolve status:", plcRes.status);
     if (plcRes.ok) {
       const plcDoc = (await plcRes.json()) as { alsoKnownAs?: string[] };
       const handle = plcDoc.alsoKnownAs?.[0]?.replace("at://", "");
+      console.log("Resolved handle:", handle);
       if (handle) {
-        await auth.updateUser(did, { displayName: handle });
+        const profileRes = await fetch(
+          `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${did}`,
+        );
+        console.log("Profile resolve status:", profileRes.status);
+        let displayName = handle;
+        if (profileRes.ok) {
+          const profile = (await profileRes.json()) as { displayName?: string };
+          displayName = profile.displayName || handle;
+          console.log("Resolved displayName:", displayName);
+        }
+        try {
+          await auth.updateUser(did, { displayName: `${displayName}|${handle}` });
+          console.log("updateUser success for", did);
+        } catch (err: unknown) {
+          const code = (err as { code?: string }).code;
+          console.log("updateUser failed:", code, String(err));
+          if (code === "auth/user-not-found") {
+            await auth.createUser({ uid: did, displayName: `${displayName}|${handle}` });
+            console.log("createUser success for", did);
+          }
+        }
       }
     }
-  } catch {
-    // Non-critical — user will see DID fallback
+  } catch (err: unknown) {
+    console.error("Profile resolution error:", String(err));
   }
 
   // 6. Redirect to frontend with token

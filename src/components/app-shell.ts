@@ -14,7 +14,7 @@ import "./right-sidebar";
 
 const NAV_ITEMS = [
   { icon: "activity", label: "Post Observability", route: "/feed" },
-  { icon: "controls", label: "Controls", route: "/controls" },
+  { icon: "controls", label: "Feed Controls", route: "/controls" },
   { icon: "info", label: "How It Works", route: "/how-it-works" },
   { icon: "settings", label: "Settings", route: "/settings" },
 ];
@@ -165,6 +165,8 @@ export class AppShell extends MobxLitElement {
     }
     .user-details {
       display: none;
+      min-width: 0;
+      overflow: hidden;
     }
     @media (min-width: 1024px) {
       .user-details {
@@ -431,9 +433,10 @@ export class AppShell extends MobxLitElement {
     }
 
     const authorName =
-      accountStore.activeAccount?.displayName || accountStore.activeAccount?.handle || "";
+      accountStore.activeAccount?.displayName || "";
     const authorHandle = accountStore.activeAccount?.handle || "";
-    const authorInitial = (authorName[0] ?? "?").toUpperCase();
+    const authorInitial = (authorHandle[0] || "?").toUpperCase();
+    const showDisplayName = authorName && authorName !== authorHandle;
 
     const sidebarContent = html`
       <div class="sidebar-nav-wrapper">
@@ -462,8 +465,8 @@ export class AppShell extends MobxLitElement {
                       style="--wa-avatar-size: 40px; flex-shrink: 0;"
                     ></wa-avatar>
                     <div class="flex-1 min-w-0 text-left user-details">
-                      <div class="text-sm font-semibold truncate">${authorName || "Unknown"}</div>
-                      <div class="text-xs truncate" style="color: var(--bluesky-text-secondary)">
+                      ${showDisplayName ? html`<div class="text-sm font-semibold truncate">${authorName}</div>` : ""}
+                      <div class="${showDisplayName ? "text-xs" : "text-sm font-semibold"} truncate" style="color: var(--bluesky-text-secondary)">
                         @${authorHandle || "unknown"}
                       </div>
                     </div>

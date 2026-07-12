@@ -111,6 +111,7 @@ export class FeedStore {
       this._updateVisibleItems();
       this.lastGeneratedAt = snapshot.generatedAt;
     } catch (e) {
+      console.error("FeedStore.loadFeed error:", e);
       this.error = e instanceof Error ? e.message : "Failed to load feed";
       this._allItems = [];
       this._currentPage = 1;
