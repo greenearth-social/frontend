@@ -46,7 +46,6 @@ jobs:
           APP_ORIGIN=${{ vars.APP_ORIGIN }}
           BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
           BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
-          OAUTH_STATE_ENCRYPTION_KEY=${{ secrets.OAUTH_STATE_ENCRYPTION_KEY }}
           ENVEOF
 
       - uses: google-github-actions/auth@v2
