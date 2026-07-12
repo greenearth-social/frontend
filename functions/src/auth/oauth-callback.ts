@@ -200,6 +200,20 @@ export const oauthCallback = onRequest(
     return;
   }
 
+  // 5b. Resolve DID to handle and set as displayName
+  try {
+    const plcRes = await fetch(`https://plc.directory/${did}`);
+    if (plcRes.ok) {
+      const plcDoc = (await plcRes.json()) as { alsoKnownAs?: string[] };
+      const handle = plcDoc.alsoKnownAs?.[0]?.replace("at://", "");
+      if (handle) {
+        await auth.updateUser(did, { displayName: handle });
+      }
+    }
+  } catch {
+    // Non-critical — user will see DID fallback
+  }
+
   // 6. Redirect to frontend with token
   const returnUrl = session.returnUrl || "/";
   const finishUrl = `${appOrigin}/#/auth/finish?token=${encodeURIComponent(firebaseToken)}&return_url=${encodeURIComponent(returnUrl)}`;

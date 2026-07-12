@@ -19,10 +19,10 @@ export interface HydratedPostResult {
 }
 
 export interface IAuthService {
-  readonly currentUser: { uid: string; email: string | null } | null;
+  readonly currentUser: { uid: string; email: string | null; displayName: string | null } | null;
   signInWithCustomToken(token: string): Promise<void>;
   signOut(): Promise<void>;
-  onAuthStateChanged(callback: (user: { uid: string; email: string | null } | null) => void): () => void;
+  onAuthStateChanged(callback: (user: { uid: string; email: string | null; displayName: string | null } | null) => void): () => void;
 }
 
 export interface IFeedDebugService {

@@ -8,10 +8,10 @@ import type { IAuthService } from "../types";
 import { auth } from "./firebase-init";
 
 export class FirebaseAuthService implements IAuthService {
-  get currentUser(): { uid: string; email: string | null } | null {
+  get currentUser(): { uid: string; email: string | null; displayName: string | null } | null {
     const user = auth.currentUser;
     if (!user) return null;
-    return { uid: user.uid, email: user.email };
+    return { uid: user.uid, email: user.email, displayName: user.displayName };
   }
 
   async signInWithCustomToken(token: string): Promise<void> {
@@ -23,11 +23,11 @@ export class FirebaseAuthService implements IAuthService {
   }
 
   onAuthStateChanged(
-    callback: (user: { uid: string; email: string | null } | null) => void,
+    callback: (user: { uid: string; email: string | null; displayName: string | null } | null) => void,
   ): () => void {
     return fbOnAuthStateChanged(auth, (user: User | null) => {
       if (user) {
-        callback({ uid: user.uid, email: user.email });
+        callback({ uid: user.uid, email: user.email, displayName: user.displayName });
       } else {
         callback(null);
       }

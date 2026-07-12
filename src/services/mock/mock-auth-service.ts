@@ -1,9 +1,9 @@
 import type { IAuthService } from "../types";
 
 export class MockAuthService implements IAuthService {
-  #currentUser: { uid: string; email: string | null } | null = null;
+  #currentUser: { uid: string; email: string | null; displayName: string | null } | null = null;
   #listeners = new Set<
-    (user: { uid: string; email: string | null } | null) => void
+    (user: { uid: string; email: string | null; displayName: string | null } | null) => void
   >();
 
   get currentUser() {
@@ -18,6 +18,7 @@ export class MockAuthService implements IAuthService {
     this.#currentUser = {
       uid: "mock-user-1",
       email: "mock@example.com",
+      displayName: "Mock User",
     };
     this.#notify();
     return Promise.resolve();
@@ -30,7 +31,7 @@ export class MockAuthService implements IAuthService {
   }
 
   onAuthStateChanged(
-    callback: (user: { uid: string; email: string | null } | null) => void,
+    callback: (user: { uid: string; email: string | null; displayName: string | null } | null) => void,
   ): () => void {
     this.#listeners.add(callback);
     callback(this.#currentUser);

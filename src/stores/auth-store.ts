@@ -3,7 +3,7 @@ import type { RootStore } from "./root-store";
 
 export class AuthStore {
   root: RootStore;
-  currentUser: { uid: string; email: string | null } | null;
+  currentUser: { uid: string; email: string | null; displayName: string | null } | null;
 
   constructor(root: RootStore) {
     this.root = root;
