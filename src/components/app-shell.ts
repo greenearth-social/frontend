@@ -165,7 +165,6 @@ export class AppShell extends MobxLitElement {
     .user-details {
       display: none;
       min-width: 0;
-      overflow: hidden;
     }
     @media (min-width: 1024px) {
       .user-details {
