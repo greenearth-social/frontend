@@ -165,6 +165,7 @@ export class AppShell extends MobxLitElement {
     .user-details {
       display: none;
       min-width: 0;
+      overflow: hidden;
     }
     @media (min-width: 1024px) {
       .user-details {
@@ -173,6 +174,29 @@ export class AppShell extends MobxLitElement {
     }
     .drawer .user-details {
       display: block;
+    }
+
+    .user-details-name {
+      font-weight: 600;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--bluesky-text);
+    }
+
+    .user-details-handle {
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--bluesky-text-secondary);
+    }
+
+    .user-details-handle--primary {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--bluesky-text-secondary);
     }
 
     .more-btn {
@@ -463,8 +487,8 @@ export class AppShell extends MobxLitElement {
                       style="--wa-avatar-size: 40px; flex-shrink: 0;"
                     ></wa-avatar>
                     <div class="flex-1 min-w-0 text-left user-details">
-                      ${showDisplayName ? html`<div class="text-sm font-semibold truncate">${authorName}</div>` : ""}
-                      <div class="${showDisplayName ? "text-xs" : "text-sm font-semibold"} truncate" style="color: var(--bluesky-text-secondary)">
+                      ${showDisplayName ? html`<div class="user-details-name">${authorName}</div>` : ""}
+                      <div class="${showDisplayName ? "user-details-handle" : "user-details-handle--primary"}">
                         @${authorHandle || "unknown"}
                       </div>
                     </div>
