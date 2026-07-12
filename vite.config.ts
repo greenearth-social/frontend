@@ -15,7 +15,6 @@ export default defineConfig(({ mode }) => {
     rewrite: () => `/${PROJECT_ID}/us-central1/${functionName}`,
   });
 
-  // Custom middleware to properly forward query params to the callback function
   const callbackMiddleware = (): Plugin => ({
     name: "oauth-callback-proxy",
     configureServer(server) {

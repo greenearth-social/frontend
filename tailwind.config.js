@@ -4,6 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        bluesky: {
+          bg: "#15202b",
+          "bg-card": "#1e2732",
+          "bg-hover": "#1c2b3b",
+          border: "#2f3336",
+          text: "#e7e9ea",
+          "text-secondary": "#71767b",
+          brand: "#1083fe",
+          "brand-hover": "#1a8dfe",
+          danger: "#f4212e",
+          like: "#f91880",
+          repost: "#00ba7c",
+          nav: "#0f1923",
+        },
         generator: {
           two_tower: "#22c55e",
           followed_users: "#3b82f6",

@@ -52,7 +52,22 @@ function mapCandidatePost(raw: Record<string, unknown>): CandidatePost {
     imageCount: asNumberOrNull(raw.image_count),
     videoCount: asNumberOrNull(raw.video_count),
     externalUri: asStringOrNull(raw.external_uri),
+    imageUrls: asStringArray(raw.image_urls),
+    videoUrl: asStringOrNull(raw.video_url),
+    linkCard: mapLinkCard(raw.link_card),
   };
+}
+
+function mapLinkCard(raw: unknown): CandidatePost["linkCard"] {
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    return {
+      title: asString(r.title),
+      description: asString(r.description),
+      imageUrl: asString(r.image_url),
+    };
+  }
+  return null;
 }
 
 function mapCandidateResult(raw: Record<string, unknown>): CandidateResult {

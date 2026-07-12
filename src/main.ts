@@ -1,7 +1,11 @@
 import "./styles/index.css";
 
+import { setBasePath } from "@awesome.me/webawesome";
+import "./components/icon-library";
 import { RootStore } from "./stores/root-store";
 import type { ServiceProvider } from "./services/service-provider";
+
+setBasePath("/");
 
 const useMock = import.meta.env.VITE_USE_MOCK_SERVICES !== "false";
 
@@ -24,7 +28,6 @@ async function init() {
       hydrationService: new MockHydrationService(),
     };
   } else {
-    // Load runtime config for database name
     const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
     const { initFirestore } = await import("./services/firebase/firebase-init");
     if (!useEmulators) {
@@ -37,7 +40,7 @@ async function init() {
           }
         }
       } catch {
-        // Fall back to default database if config.json is unavailable
+        // Fall back to default database
       }
     }
 

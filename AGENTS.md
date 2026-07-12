@@ -25,17 +25,33 @@ src/
     root-store.ts   → owns all stores + ServiceProvider
   models/           → Domain types; feed-debug-snapshot.ts + bluesky-account.ts
   components/       → Lit elements with Tailwind (extend MobxLitElement)
-  pages/            → feed-page.ts accesses stores via getRootStore()
+    app-shell.ts    → Main layout: left sidebar (1024px+), center column, right sidebar (1200px+)
+    feed-tabs.ts    → Horizontal scrollable tabs with gradient fade overlays on edges
+    feed-view.ts    → Feed item list with selection
+    pagination-control.ts → Page navigation with per-page selector
+    right-sidebar.ts → Feed history selector (latest, previous, N feeds ago)
+  pages/            → feed-page.ts, controls-page.ts, how-it-works-page.ts, settings-page.ts
+  styles/index.css  → CSS variables (Bluesky dark theme), Tailwind setup
+  utils/            → relative-time.ts
   test/fixtures/    → sample-feed-debug.json
 functions/          → Cloud Functions OAuth bridge + metadata endpoints
 ```
+
+### Responsive breakpoints
+
+- **< 1024px**: Left sidebar hidden, drawer menu appears, center column expands full width
+- **1024px–1199px**: Left sidebar visible (275px), center column max 600px
+- **≥ 1200px**: Right sidebar visible (350px), full three-column layout
+- Hamburger buttons on all pages show at < 1024px
 
 ### Key rules
 
 - **Stores never import Firebase, atproto, or HTTP clients.** They only consume service interfaces injected via `ServiceProvider`.
 - **Single DID = single Firebase user.** No multi-account. `AccountStore.activeAccount` is derived from `authStore.currentUser.uid`. The `IAccountService` interface and `account-switcher` component have been removed.
 - **`getRootStore()`** (from `main.ts`) is the DI entry point. Components call it directly rather than receiving stores as Lit properties.
-- **Routing** is hash-based (`#/feed`, `#/auth/finish`, `#/about`), handled in `app-shell.ts`.
+- **Routing** is hash-based (`#/feed`, `#/controls`, `#/how-it-works`, `#/settings`, `#/auth/finish`), handled in `app-shell.ts`.
+- **CSS variables** defined in `src/styles/index.css` use Bluesky dark theme naming (`--bluesky-*`). All components reference these variables for consistency.
+- **Feed tabs** have persistent gradient overlays on left/right edges (using `::before`/`::after` on `.tabs-container`) so tabs scroll underneath while edges stay faded.
 
 ## Real services mode
 

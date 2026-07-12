@@ -1,3 +1,60 @@
+@import "@awesome.me/webawesome/dist/styles/webawesome.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bluesky-bg: #15202b;
+  --bluesky-bg-card: #1e2732;
+  --bluesky-bg-hover: #1c2b3b;
+  --bluesky-border: #2f3336;
+  --bluesky-text: #e7e9ea;
+  --bluesky-text-secondary: #71767b;
+  --bluesky-brand: #1083fe;
+  --bluesky-brand-hover: #1a8dfe;
+  --bluesky-danger: #f4212e;
+  --bluesky-like: #f91880;
+  --bluesky-repost: #00ba7c;
+  --bluesky-nav-bg: #0f1923;
+
+  --wa-color-surface-default: var(--bluesky-bg);
+  --wa-color-surface-raised: var(--bluesky-bg-hover);
+  --wa-color-surface-border: var(--bluesky-border);
+  --wa-color-text-normal: var(--bluesky-text);
+  --wa-color-text-quiet: var(--bluesky-text-secondary);
+  --wa-color-text-link: var(--bluesky-brand);
+  --wa-color-brand-fill-normal: var(--bluesky-brand);
+  --wa-color-brand-fill-hover: var(--bluesky-brand-hover);
+  --wa-color-danger-fill-normal: var(--bluesky-danger);
+  --wa-color-neutral-fill-normal: #3e4144;
+  --wa-color-neutral-fill-hover: #4e5054;
+  --wa-color-neutral-text-normal: var(--bluesky-text);
+  --wa-color-green-fill-normal: #22c55e;
+  --wa-color-purple-fill-normal: #8b5cf6;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    background-color: var(--bluesky-bg);
+    color: var(--bluesky-text);
+  }
+
+  body {
+    overscroll-behavior-y: none;
+    background-color: var(--bluesky-bg);
+    color: var(--bluesky-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  a {
+    color: var(--bluesky-brand);
+  }
+
+  a:hover {
+    color: var(--bluesky-brand-hover);
+  }
+}

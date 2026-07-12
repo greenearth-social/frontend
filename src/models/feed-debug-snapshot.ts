@@ -18,6 +18,13 @@ export interface CandidatePost {
   imageCount: number | null;
   videoCount: number | null;
   externalUri: string | null;
+  imageUrls: string[] | null;
+  videoUrl: string | null;
+  linkCard: {
+    title: string;
+    description: string;
+    imageUrl: string;
+  } | null;
 }
 
 export interface CandidateResult {
@@ -82,14 +89,27 @@ export interface FeedItemView {
   postUrl: string | null;
   finalPosition: number;
   author: string;
+  displayName: string;
+  avatarUrl: string | null;
+  createdAt: string;
   content: string;
   mediaLabels: string[];
+  imageUrls: string[];
+  videoUrl: string | null;
+  linkCard: {
+    title: string;
+    description: string;
+    imageUrl: string;
+  } | null;
   generators: GeneratorView[];
   rankPosition: number | null;
   rankScore: number | null;
   afterRankPosition: number | null;
   modelScores: ModelScoreView[];
   diversification: DiversificationView | null;
+  replyCount: number;
+  repostCount: number;
+  likeCount: number;
 }
 
 export function atUriToBskyUrl(atUri: string): string | null {
@@ -133,7 +153,23 @@ export function scoreAxisPositionPct(score: number): number {
 
 export function buildFeedItems(
   doc: FeedDebugDocument,
-  hydrated?: Map<string, { text: string; authorHandle: string }>,
+  hydrated?: Map<string, {
+    text: string;
+    authorHandle: string;
+    displayName: string;
+    avatarUrl: string | null;
+    createdAt: string;
+    replyCount: number;
+    repostCount: number;
+    likeCount: number;
+    imageUrls: string[];
+    videoUrl: string | null;
+    linkCard: {
+      title: string;
+      description: string;
+      imageUrl: string;
+    } | null;
+  }>,
 ): FeedItemView[] {
   const generatorsByUri = new Map<string, GeneratorView[]>();
   for (const result of doc.generatorOutputs) {
@@ -199,6 +235,13 @@ export function buildFeedItems(
     let author: string;
     let content: string;
     let mediaLabels: string[];
+    let imageUrls: string[];
+    let videoUrl: string | null;
+    let linkCard: {
+      title: string;
+      description: string;
+      imageUrl: string;
+    } | null;
 
     const h = hydrated?.get(atUri);
 
@@ -207,25 +250,47 @@ export function buildFeedItems(
       author = handle ? `@${handle}` : "unknown author";
       content = (candidate.content ?? "").replace(/\n/g, " ");
       mediaLabels = mediaLabelsFor(candidate);
+      imageUrls = candidate.imageUrls ?? [];
+      videoUrl = candidate.videoUrl ?? null;
+      linkCard = candidate.linkCard ?? null;
     } else {
       author = h?.authorHandle ?? "unknown author";
       content = h?.text ?? "";
       mediaLabels = [];
+      imageUrls = [];
+      videoUrl = null;
+      linkCard = null;
     }
+
+    const displayName = h?.displayName ?? "";
+    const avatarUrl = h?.avatarUrl ?? null;
+    const createdAt = h?.createdAt ?? "";
+    const replyCount = h?.replyCount ?? 0;
+    const repostCount = h?.repostCount ?? 0;
+    const likeCount = h?.likeCount ?? 0;
 
     items.push({
       atUri,
       postUrl: atUriToBskyUrl(atUri),
       finalPosition: finalPosition + 1,
       author,
+      displayName,
+      avatarUrl,
+      createdAt,
       content,
       mediaLabels,
+      imageUrls,
+      videoUrl,
+      linkCard,
       generators: generatorsByUri.get(atUri) ?? [],
       rankPosition: rankInfo?.rank ?? null,
       rankScore: rankInfo?.rankScore ?? null,
       afterRankPosition: afterRankPos.get(atUri) ?? null,
       modelScores: modelScoresByUri.get(atUri) ?? [],
       diversification: divByUri.get(atUri) ?? null,
+      replyCount,
+      repostCount,
+      likeCount,
     });
   }
 

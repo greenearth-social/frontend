@@ -22,38 +22,38 @@ test.describe("Feed Page", () => {
   });
 
   test("shows feed title", async ({ page }) => {
-    await expect(page.locator("h1")).toContainText("Your Feed");
+    await expect(page.locator("h1")).toContainText("Post Observability");
   });
 
   test("shows 6 feed cards", async ({ page }) => {
     await expect(page.locator("feed-item-card")).toHaveCount(6);
   });
 
-  test("displays generator badges", async ({ page }) => {
-    const badges = page.locator("generator-badge");
-    await expect(badges.first()).toBeVisible();
-    await expect(badges.first()).toContainText("two_tower");
+  test("shows Open in Bluesky link on first card", async ({ page }) => {
+    const firstCard = page.locator("feed-item-card").first();
+    await expect(firstCard.locator("text=/Open in Bluesky/")).toBeVisible();
   });
 
-  test("expands reason panel on toggle", async ({ page }) => {
-    const toggleBtn = page.locator("feed-item-card button").first();
-    await toggleBtn.click();
-    const panel = page.locator("reason-panel").first();
-    await expect(panel).toBeVisible();
-    await expect(panel).toContainText("Generators");
+  test("shows rank scores chart on first card", async ({ page }) => {
+    const firstCard = page.locator("feed-item-card").first();
+    await expect(firstCard.locator("rank-scores-chart")).toBeVisible();
   });
 
-  test("shows signed-in user in header", async ({ page }) => {
-    const header = page.locator("header");
-    await expect(header).toContainText("mock@example.com");
+  test("shows signed-in user in sidebar", async ({ page }) => {
+    const sidebar = page.locator("aside").first();
+    await expect(sidebar).toContainText("mock@example.com");
   });
 
-  test("shows generated timestamp", async ({ page }) => {
-    await expect(page.locator("text=/Generated at/")).toBeVisible();
+  test("shows Post Observability header", async ({ page }) => {
+    await expect(page.locator("h1")).toHaveText("Post Observability");
   });
 
-  test("recompute button is visible", async ({ page }) => {
-    const recomputeBtn = page.locator("button", { hasText: "Recompute feed" });
-    await expect(recomputeBtn).toBeVisible();
+  test("shows Why am I seeing this subtitle", async ({ page }) => {
+    await expect(page.locator("text=/Why am I seeing this/")).toBeVisible();
+  });
+
+  test("shows feeds card in right sidebar", async ({ page }) => {
+    const feeds = page.locator("right-sidebar");
+    await expect(feeds).toContainText("Feeds");
   });
 });

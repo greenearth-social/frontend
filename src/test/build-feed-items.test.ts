@@ -73,6 +73,9 @@ describe("mediaLabelsFor", () => {
     imageCount: null,
     videoCount: null,
     externalUri: null,
+    imageUrls: null,
+    videoUrl: null,
+    linkCard: null,
   };
 
   it("returns empty for no media", () => {
@@ -158,10 +161,31 @@ describe("buildFeedItems", () => {
   });
 
   it("merges hydrated data", () => {
-    const hydrated = new Map<string, { text: string; authorHandle: string }>();
+    const hydrated = new Map<string, {
+      text: string;
+      authorHandle: string;
+      displayName: string;
+      avatarUrl: string | null;
+      createdAt: string;
+      replyCount: number;
+      repostCount: number;
+      likeCount: number;
+      imageUrls: string[];
+      videoUrl: string | null;
+      linkCard: { title: string; description: string; imageUrl: string } | null;
+    }>();
     hydrated.set("at://did:plc:author1/app.bsky.feed.post/post1", {
       text: "Hydrated text",
       authorHandle: "hydrated.user",
+      displayName: "Hydrated User",
+      avatarUrl: null,
+      createdAt: "2026-07-10T12:00:00Z",
+      replyCount: 5,
+      repostCount: 3,
+      likeCount: 42,
+      imageUrls: [],
+      videoUrl: null,
+      linkCard: null,
     });
     const items = buildFeedItems(doc, hydrated);
     const found = items.find(
