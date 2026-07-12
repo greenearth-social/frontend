@@ -49,7 +49,7 @@ jobs:
 
       - name: Debug env vars
         env:
-          API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           USE_MOCK: ${{ vars.VITE_USE_MOCK_SERVICES }}
         run: |
           echo "VITE_USE_MOCK_SERVICES length: ${#USE_MOCK}"
@@ -60,11 +60,11 @@ jobs:
       - name: Build frontend
         env:
           VITE_USE_MOCK_SERVICES: ${{ vars.VITE_USE_MOCK_SERVICES }}
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         run: npm run build
 
       - name: Build functions
