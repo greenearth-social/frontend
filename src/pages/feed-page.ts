@@ -148,9 +148,10 @@ export class FeedPage extends MobxLitElement {
         </div>
 
         <feed-tabs
-          .activeTab=${uiStore.selectedFeed}
-          @tab-change=${(e: CustomEvent<{ tab: string }>) => {
-          uiStore.setSelectedFeed(e.detail.tab);
+          .feeds=${feedStore.feedList}
+          .activeRequestId=${feedStore.currentRequestId}
+          @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
+          void feedStore.loadFeedDetail(e.detail.requestId);
         }}
         ></feed-tabs>
 

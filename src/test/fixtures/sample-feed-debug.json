@@ -1,109 +1,129 @@
 {
   "requestId": "abc123-def456-ghi789",
-  "userDid": "did:plc:sample1",
-  "username": "alice.bsky.social",
-  "feedName": "your-feed",
   "generatedAt": "2026-07-07T12:00:00Z",
-  "generateRequest": {
-    "generators": [
-      { "name": "two_tower", "weight": 1.0 },
-      { "name": "followed_users", "weight": 1.0 }
-    ],
-    "userDid": "did:plc:sample1",
-    "numCandidates": 50,
-    "videoOnly": false,
-    "excludeUris": [],
-    "infill": null
-  },
-  "rankerModel": "two_tower, perspective",
-  "diversify": true,
-  "generatorOutputs": [
+  "items": [
     {
-      "generatorName": "two_tower",
-      "candidates": [
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one from two_tower", "score": 0.85, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null, "imageUrls": ["https://picsum.photos/seed/post1a/600/400", "https://picsum.photos/seed/post1b/600/400"], "videoUrl": null, "linkCard": null },
-        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two from two_tower", "score": 0.72, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article", "imageUrls": [], "videoUrl": null, "linkCard": { "title": "Algorithmic Transparency Report", "description": "New research reveals how social media algorithms rank content in users feeds.", "imageUrl": "https://picsum.photos/seed/link2/800/400" } },
-        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three from two_tower", "score": 0.64, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null, "imageUrls": [], "videoUrl": "https://example.com/video.mp4", "linkCard": null },
-        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "content": "Post four from two_tower", "score": 0.55, "authorDid": "did:plc:author4", "authorUsername": "author4.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null },
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "content": "Post five (same author as post1)", "score": 0.50, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null }
-      ]
+      "atUri": "at://did:plc:author1/app.bsky.feed.post/post1",
+      "rank": 1,
+      "rankScore": 0.91,
+      "afterRankPosition": 1,
+      "author": { "handle": "alice.bsky.social", "displayName": "Alice Chen", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:55:00Z",
+      "content": "Post one from two_tower",
+      "generators": [
+        { "name": "two_tower", "score": 0.85 },
+        { "name": "followed_users", "score": 0.90 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.85 },
+        { "name": "perspective", "weight": 0.4, "score": 0.95 }
+      ],
+      "diversification": { "relevance": 0.91, "score": 0.91, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+      "media": { "imageUrls": ["https://picsum.photos/seed/post1a/600/400", "https://picsum.photos/seed/post1b/600/400"], "videoUrl": null, "linkCardUrl": null, "linkCardTitle": null, "linkCardDescription": null, "labels": ["2 images"] },
+      "engagement": { "replyCount": 5, "repostCount": 12, "likeCount": 47 },
+      "postUrl": "https://bsky.app/profile/did:plc:author1/post/post1"
     },
     {
-      "generatorName": "followed_users",
-      "candidates": [
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one from followed", "score": 0.90, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null, "imageUrls": ["https://picsum.photos/seed/post1a/600/400", "https://picsum.photos/seed/post1b/600/400"], "videoUrl": null, "linkCard": null },
-        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two from followed", "score": 0.65, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article", "imageUrls": [], "videoUrl": null, "linkCard": { "title": "Algorithmic Transparency Report", "description": "New research reveals how social media algorithms rank content in users feeds.", "imageUrl": "https://picsum.photos/seed/link2/800/400" } },
-        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three from followed", "score": 0.78, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null, "imageUrls": [], "videoUrl": "https://example.com/video.mp4", "linkCard": null },
-        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "content": "Post six from followed user", "score": 0.88, "authorDid": "did:plc:author5", "authorUsername": "author5.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null }
-      ]
-    }
-  ],
-  "finalCandidates": [
-    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "content": "Post one final", "score": 0.82, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": true, "containsVideo": false, "imageCount": 2, "videoCount": 0, "externalUri": null, "imageUrls": ["https://picsum.photos/seed/post1a/600/400", "https://picsum.photos/seed/post1b/600/400"], "videoUrl": null, "linkCard": null },
-    { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "content": "Post two final", "score": 0.45, "authorDid": "did:plc:author2", "authorUsername": "author2.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": "https://example.com/article", "imageUrls": [], "videoUrl": null, "linkCard": { "title": "Algorithmic Transparency Report", "description": "New research reveals how social media algorithms rank content in users feeds.", "imageUrl": "https://picsum.photos/seed/link2/800/400" } },
-    { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "content": "Post three final", "score": 0.61, "authorDid": "did:plc:author3", "authorUsername": "author3.bsky.social", "containsImages": false, "containsVideo": true, "imageCount": 0, "videoCount": 1, "externalUri": null, "imageUrls": [], "videoUrl": "https://example.com/video.mp4", "linkCard": null },
-    { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "content": "Post four final", "score": 0.55, "authorDid": "did:plc:author4", "authorUsername": "author4.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null },
-    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "content": "Post five final (same author)", "score": 0.40, "authorDid": "did:plc:author1", "authorUsername": "author1.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null },
-    { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "content": "Post six final", "score": 0.72, "authorDid": "did:plc:author5", "authorUsername": "author5.bsky.social", "containsImages": false, "containsVideo": false, "imageCount": 0, "videoCount": 0, "externalUri": null, "imageUrls": [], "videoUrl": null, "linkCard": null }
-  ],
-  "ranking": {
-    "rankings": [
-      { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "rank": 1, "rankScore": 0.91 },
-      { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "rank": 2, "rankScore": 0.78 },
-      { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "rank": 3, "rankScore": 0.65 },
-      { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "rank": 4, "rankScore": 0.52 },
-      { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "rank": 5, "rankScore": 0.48 },
-      { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "rank": 6, "rankScore": 0.35 }
-    ]
-  },
-  "modelScores": [
-    {
-      "modelName": "two_tower",
-      "weight": 0.6,
-      "scores": [
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "score": 0.85 },
-        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "score": 0.72 },
-        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "score": 0.64 },
-        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "score": 0.45 },
-        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "score": 0.55 },
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "score": 0.40 }
-      ]
+      "atUri": "at://did:plc:author3/app.bsky.feed.post/post3",
+      "rank": 3,
+      "rankScore": 0.65,
+      "afterRankPosition": 3,
+      "author": { "handle": "carol.bsky.social", "displayName": "Carol Zhang", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:45:00Z",
+      "content": "Post three from two_tower",
+      "generators": [
+        { "name": "two_tower", "score": 0.64 },
+        { "name": "followed_users", "score": 0.78 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.64 },
+        { "name": "perspective", "weight": 0.4, "score": 0.60 }
+      ],
+      "diversification": { "relevance": 0.65, "score": 0.65, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+      "media": { "imageUrls": [], "videoUrl": "https://example.com/video.mp4", "linkCardUrl": null, "linkCardTitle": null, "linkCardDescription": null, "labels": ["video"] },
+      "engagement": { "replyCount": 2, "repostCount": 5, "likeCount": 23 },
+      "postUrl": "https://bsky.app/profile/did:plc:author3/post/post3"
     },
     {
-      "modelName": "perspective",
-      "weight": 0.4,
-      "scores": [
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "score": 0.95 },
-        { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "score": 0.82 },
-        { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "score": 0.60 },
-        { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "score": 0.55 },
-        { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "score": 0.30 },
-        { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "score": 0.25 }
-      ]
+      "atUri": "at://did:plc:author5/app.bsky.feed.post/post6",
+      "rank": 2,
+      "rankScore": 0.78,
+      "afterRankPosition": 2,
+      "author": { "handle": "eve.bsky.social", "displayName": "Eve Johnson", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:40:00Z",
+      "content": "Post six from followed user",
+      "generators": [
+        { "name": "followed_users", "score": 0.88 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.72 },
+        { "name": "perspective", "weight": 0.4, "score": 0.82 }
+      ],
+      "diversification": { "relevance": 0.78, "score": 0.78, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+      "media": { "imageUrls": [], "videoUrl": null, "linkCardUrl": null, "linkCardTitle": null, "linkCardDescription": null, "labels": [] },
+      "engagement": { "replyCount": 0, "repostCount": 2, "likeCount": 15 },
+      "postUrl": "https://bsky.app/profile/did:plc:author5/post/post6"
+    },
+    {
+      "atUri": "at://did:plc:author2/app.bsky.feed.post/post2",
+      "rank": 4,
+      "rankScore": 0.52,
+      "afterRankPosition": 4,
+      "author": { "handle": "bob.bsky.social", "displayName": "Bob Rivera", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:35:00Z",
+      "content": "Post two from two_tower",
+      "generators": [
+        { "name": "two_tower", "score": 0.72 },
+        { "name": "followed_users", "score": 0.65 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.45 },
+        { "name": "perspective", "weight": 0.4, "score": 0.55 }
+      ],
+      "diversification": { "relevance": 0.52, "score": 0.52, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+      "media": { "imageUrls": [], "videoUrl": null, "linkCardUrl": "https://example.com/article", "linkCardTitle": "Algorithmic Transparency Report", "linkCardDescription": "New research reveals how social media algorithms rank content in users feeds.", "labels": ["link"] },
+      "engagement": { "replyCount": 8, "repostCount": 20, "likeCount": 91 },
+      "postUrl": "https://bsky.app/profile/did:plc:author2/post/post2"
+    },
+    {
+      "atUri": "at://did:plc:author4/app.bsky.feed.post/post4",
+      "rank": 5,
+      "rankScore": 0.48,
+      "afterRankPosition": 5,
+      "author": { "handle": "dave.bsky.social", "displayName": "Dave Kim", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:30:00Z",
+      "content": "Post four from two_tower",
+      "generators": [
+        { "name": "two_tower", "score": 0.55 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.55 },
+        { "name": "perspective", "weight": 0.4, "score": 0.30 }
+      ],
+      "diversification": { "relevance": 0.48, "score": 0.48, "authorPenalty": 0.0, "contentPenalty": 0.0 },
+      "media": { "imageUrls": [], "videoUrl": null, "linkCardUrl": null, "linkCardTitle": null, "linkCardDescription": null, "labels": [] },
+      "engagement": { "replyCount": 1, "repostCount": 0, "likeCount": 7 },
+      "postUrl": "https://bsky.app/profile/did:plc:author4/post/post4"
+    },
+    {
+      "atUri": "at://did:plc:author1/app.bsky.feed.post/post5",
+      "rank": 6,
+      "rankScore": 0.35,
+      "afterRankPosition": 6,
+      "author": { "handle": "alice.bsky.social", "displayName": "Alice Chen", "avatarUrl": null },
+      "createdAt": "2026-07-07T11:25:00Z",
+      "content": "Post five (same author as post1)",
+      "generators": [
+        { "name": "two_tower", "score": 0.50 }
+      ],
+      "modelScores": [
+        { "name": "two_tower", "weight": 0.6, "score": 0.40 },
+        { "name": "perspective", "weight": 0.4, "score": 0.25 }
+      ],
+      "diversification": { "relevance": 0.35, "score": 0.35, "authorPenalty": -0.15, "contentPenalty": 0.0 },
+      "media": { "imageUrls": [], "videoUrl": null, "linkCardUrl": null, "linkCardTitle": null, "linkCardDescription": null, "labels": [] },
+      "engagement": { "replyCount": 3, "repostCount": 1, "likeCount": 12 },
+      "postUrl": "https://bsky.app/profile/did:plc:author1/post/post5"
     }
-  ],
-  "orderAfterRank": [
-    "at://did:plc:author1/app.bsky.feed.post/post1",
-    "at://did:plc:author5/app.bsky.feed.post/post6",
-    "at://did:plc:author3/app.bsky.feed.post/post3",
-    "at://did:plc:author2/app.bsky.feed.post/post2",
-    "at://did:plc:author4/app.bsky.feed.post/post4",
-    "at://did:plc:author1/app.bsky.feed.post/post5"
-  ],
-  "finalOrder": [
-    "at://did:plc:author1/app.bsky.feed.post/post1",
-    "at://did:plc:author3/app.bsky.feed.post/post3",
-    "at://did:plc:author5/app.bsky.feed.post/post6",
-    "at://did:plc:author2/app.bsky.feed.post/post2",
-    "at://did:plc:author4/app.bsky.feed.post/post4",
-    "at://did:plc:author1/app.bsky.feed.post/post5"
-  ],
-  "diversification": [
-    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post1", "relevance": 0.91, "score": 0.91, "authorPenalty": 0.0, "contentPenalty": 0.0 },
-    { "atUri": "at://did:plc:author3/app.bsky.feed.post/post3", "relevance": 0.65, "score": 0.65, "authorPenalty": 0.0, "contentPenalty": 0.0 },
-    { "atUri": "at://did:plc:author5/app.bsky.feed.post/post6", "relevance": 0.78, "score": 0.78, "authorPenalty": 0.0, "contentPenalty": 0.0 },
-    { "atUri": "at://did:plc:author2/app.bsky.feed.post/post2", "relevance": 0.52, "score": 0.52, "authorPenalty": 0.0, "contentPenalty": 0.0 },
-    { "atUri": "at://did:plc:author4/app.bsky.feed.post/post4", "relevance": 0.48, "score": 0.48, "authorPenalty": 0.0, "contentPenalty": 0.0 },
-    { "atUri": "at://did:plc:author1/app.bsky.feed.post/post5", "relevance": 0.35, "score": 0.35, "authorPenalty": -0.15, "contentPenalty": 0.0 }
   ]
 }

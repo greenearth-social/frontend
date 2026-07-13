@@ -21,6 +21,13 @@
         "function": "oauthCallback"
       },
       {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "__CLOUD_RUN_SERVICE__",
+          "region": "us-east1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

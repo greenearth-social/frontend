@@ -19,13 +19,12 @@ async function init() {
   let services: ServiceProvider;
 
   if (useMock) {
-    const { MockAuthService, MockFeedDebugService, MockHydrationService } =
+    const { MockAuthService, MockFeedApiService } =
       await import("./services/mock");
 
     services = {
       authService: new MockAuthService(),
-      feedDebugService: new MockFeedDebugService(),
-      hydrationService: new MockHydrationService(),
+      feedApiService: new MockFeedApiService(),
     };
   } else {
     const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
@@ -47,17 +46,17 @@ async function init() {
     const { FirebaseAuthService } = await import(
       "./services/firebase/firebase-auth-service"
     );
-    const { FirestoreFeedDebugService } = await import(
-      "./services/firebase/firestore-feed-debug-service"
-    );
-    const { CloudFunctionHydrationService } = await import(
-      "./services/api/cloud-function-hydration-service"
+    const { FeedApiService } = await import(
+      "./services/api/feed-api-service"
     );
 
+    const apiBaseUrl: string = (import.meta.env.VITE_API_BASE_URL as string) || "";
+
+    const authService = new FirebaseAuthService();
+
     services = {
-      authService: new FirebaseAuthService(),
-      feedDebugService: new FirestoreFeedDebugService(),
-      hydrationService: new CloudFunctionHydrationService(),
+      authService,
+      feedApiService: new FeedApiService(apiBaseUrl, () => authService.getIdToken()),
     };
   }
 

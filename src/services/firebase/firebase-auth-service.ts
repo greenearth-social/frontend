@@ -22,6 +22,12 @@ export class FirebaseAuthService implements IAuthService {
     await fbSignOut(auth);
   }
 
+  async getIdToken(): Promise<string> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not signed in");
+    return user.getIdToken();
+  }
+
   onAuthStateChanged(
     callback: (user: { uid: string; email: string | null; displayName: string | null } | null) => void,
   ): () => void {

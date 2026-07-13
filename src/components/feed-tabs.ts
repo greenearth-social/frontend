@@ -1,18 +1,12 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
-
-const TABS = [
-  { label: "Latest", route: "latest" },
-  { label: "Previous", route: "previous" },
-  { label: "2 Feeds ago", route: "2-ago" },
-  { label: "3 Feeds ago", route: "3-ago" },
-  { label: "4 Feeds ago", route: "4-ago" },
-  { label: "5 Feeds ago", route: "5-ago" },
-];
+import type { FeedSummary } from "../models/feed-debug-snapshot";
+import { relativeTime } from "../utils/relative-time";
 
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
-  @property({ type: String }) activeTab = "latest";
+  @property({ type: Array }) feeds: FeedSummary[] = [];
+  @property({ type: String }) activeRequestId: string | null = null;
 
   static styles = css`
     :host {
@@ -92,17 +86,19 @@ export class FeedTabs extends LitElement {
   `;
 
   render() {
+    if (this.feeds.length === 0) return html``;
+
     return html`
       <div class="tabs-container">
         <div class="tabs-wrapper">
           <div class="tabs">
-            ${TABS.map(
-              (tab) => html`
+            ${this.feeds.map(
+              (f, index) => html`
                 <div
-                  class="tab ${this.activeTab === tab.route ? "active" : ""}"
-                  @click=${() => { this.#selectTab(tab.route); }}
+                  class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
+                  @click=${() => { this.#selectTab(f.requestId); }}
                 >
-                  ${tab.label}
+                  ${index === 0 ? "Latest" : relativeTime(f.generatedAt)}
                 </div>
               `,
             )}
@@ -112,13 +108,12 @@ export class FeedTabs extends LitElement {
     `;
   }
 
-  #selectTab(route: string) {
-    this.activeTab = route;
+  #selectTab(requestId: string) {
     this.dispatchEvent(
       new CustomEvent("tab-change", {
         bubbles: true,
         composed: true,
-        detail: { tab: route },
+        detail: { requestId },
       }),
     );
   }

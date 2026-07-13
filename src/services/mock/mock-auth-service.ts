@@ -24,6 +24,10 @@ export class MockAuthService implements IAuthService {
     return Promise.resolve();
   }
 
+  getIdToken(): Promise<string> {
+    return Promise.resolve("mock-id-token");
+  }
+
   signOut(): Promise<void> {
     this.#currentUser = null;
     this.#notify();

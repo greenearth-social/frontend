@@ -56,6 +56,10 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       allowedHosts: VITE_ALLOWED_HOSTS,
       proxy: {
+        "/api": {
+          target: "http://localhost:8000",
+          changeOrigin: true,
+        },
         "/.well-known/oauth-client-metadata": functionProxy("oauthClientMetadata"),
         "/.well-known/jwks.json": functionProxy("oauthJwks"),
         "/auth/bluesky": functionProxy("authBluesky"),

@@ -1,7 +1,6 @@
-import type { IAuthService, IFeedDebugService, IHydrationService } from "./types";
+import type { IAuthService, IFeedApiService } from "./types";
 
 export interface ServiceProvider {
   authService: IAuthService;
-  feedDebugService: IFeedDebugService;
-  hydrationService: IHydrationService;
+  feedApiService: IFeedApiService;
 }

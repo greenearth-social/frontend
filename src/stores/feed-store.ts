@@ -1,6 +1,6 @@
 import { makeAutoObservable } from "mobx";
-import type { FeedItemView } from "../models/feed-debug-snapshot";
-import { buildFeedItems } from "../models/feed-debug-snapshot";
+import type { FeedItemView, FeedSummary } from "../models/feed-debug-snapshot";
+import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 3;
@@ -16,6 +16,9 @@ export class FeedStore {
   isLoading: boolean = false;
   error: string | null = null;
   lastGeneratedAt: string | null = null;
+
+  feedList: FeedSummary[] = [];
+  currentRequestId: string | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
@@ -46,7 +49,7 @@ export class FeedStore {
     if (this._currentPage > this.totalPages && this.totalPages > 0) {
       this._currentPage = this.totalPages;
     }
-    
+
     const start = (this._currentPage - 1) * this._postsPerPage;
     const end = start + this._postsPerPage;
     this.items = this._allItems.slice(start, end);
@@ -79,60 +82,41 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
-  async loadFeed(): Promise<void> {
-    const active = this.root.accountStore.activeAccount;
-    if (!active) {
-      return;
-    }
-
+  async loadFeedList(): Promise<void> {
     this.isLoading = true;
     this.error = null;
 
     try {
-      const snapshot =
-        await this.root.services.feedDebugService.loadLatestSnapshot(
-          active.did,
-        );
-      if (!snapshot) {
-        this._allItems = [];
-        this._currentPage = 1;
-        this._updateVisibleItems();
-        this.lastGeneratedAt = null;
-        return;
+      const response = await this.root.services.feedApiService.listFeeds();
+      this.feedList = response.feeds;
+      if (this.feedList.length > 0 && this.feedList[0]) {
+        await this.loadFeedDetail(this.feedList[0].requestId);
       }
-
-      const uris = snapshot.finalOrder;
-      const hydrated = await this.root.services.hydrationService.hydratePosts(
-        uris,
-      );
-
-      this._allItems = buildFeedItems(snapshot, hydrated);
-      this._currentPage = 1;
-      this._updateVisibleItems();
-      this.lastGeneratedAt = snapshot.generatedAt;
     } catch (e) {
-      console.error("FeedStore.loadFeed error:", e);
-      this.error = e instanceof Error ? e.message : "Failed to load feed";
-      this._allItems = [];
-      this._currentPage = 1;
-      this._updateVisibleItems();
+      console.error("FeedStore.loadFeedList error:", e);
+      this.error = e instanceof Error ? e.message : "Failed to load feed list";
     } finally {
       this.isLoading = false;
     }
   }
 
-  async refreshFeed(): Promise<void> {
-    const active = this.root.accountStore.activeAccount;
-    if (!active) return;
-
+  async loadFeedDetail(requestId: string): Promise<void> {
+    this.currentRequestId = requestId;
     this.isLoading = true;
     this.error = null;
 
     try {
-      await this.root.services.feedDebugService.triggerSnapshot(active.did);
-      await this.loadFeed();
+      const response = await this.root.services.feedApiService.getFeedDetail(requestId);
+      this._allItems = transformFeedItems(response.items);
+      this._currentPage = 1;
+      this._updateVisibleItems();
+      this.lastGeneratedAt = response.generatedAt;
     } catch (e) {
-      this.error = e instanceof Error ? e.message : "Failed to refresh feed";
+      console.error("FeedStore.loadFeedDetail error:", e);
+      this.error = e instanceof Error ? e.message : "Failed to load feed";
+      this._allItems = [];
+      this._currentPage = 1;
+      this._updateVisibleItems();
     } finally {
       this.isLoading = false;
     }

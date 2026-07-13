@@ -1,18 +1,12 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
-
-const FEEDS = [
-  { icon: "feed-list", label: "Latest", route: "latest" },
-  { icon: "feed-list", label: "Previous", route: "previous" },
-  { icon: "feed-list", label: "2 Feeds ago", route: "2-ago" },
-  { icon: "feed-list", label: "3 Feeds ago", route: "3-ago" },
-  { icon: "feed-list", label: "4 Feeds ago", route: "4-ago" },
-  { icon: "feed-list", label: "5 Feeds ago", route: "5-ago" },
-];
+import type { FeedSummary } from "../models/feed-debug-snapshot";
+import { relativeTime } from "../utils/relative-time";
 
 @customElement("right-sidebar")
 export class RightSidebar extends LitElement {
-  @property({ type: String }) activeFeed = "latest";
+  @property({ type: Array }) feeds: FeedSummary[] = [];
+  @property({ type: String }) activeRequestId: string | null = null;
 
   static styles = css`
     :host { display: block; }
@@ -59,15 +53,31 @@ export class RightSidebar extends LitElement {
   `;
 
   render() {
+    if (this.feeds.length === 0) {
+      return html`
+        <div style="padding: 0.5rem 0;">
+          <div class="card">
+            <div class="card-header">Feeds</div>
+            <div class="feed-item" style="cursor: default; color: var(--bluesky-text-secondary);">
+              No recent feeds
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     return html`
       <div style="padding: 0.5rem 0;">
         <div class="card">
           <div class="card-header">Feeds</div>
-          ${FEEDS.map(
-            (f) => html`
-              <div class="feed-item ${f.route === this.activeFeed ? "active" : ""}" @click=${() => { this.#selectFeed(f.route); }}>
-                <wa-icon name=${f.icon} library="app"></wa-icon>
-                <span>${f.label}</span>
+          ${this.feeds.map(
+            (f, index) => html`
+              <div
+                class="feed-item ${f.requestId === this.activeRequestId ? "active" : ""}"
+                @click=${() => { this.#selectFeed(f.requestId); }}
+              >
+                <wa-icon name="feed-list" library="app"></wa-icon>
+                <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
               </div>
             `,
           )}
@@ -76,12 +86,12 @@ export class RightSidebar extends LitElement {
     `;
   }
 
-  #selectFeed(route: string) {
+  #selectFeed(requestId: string) {
     this.dispatchEvent(
       new CustomEvent("feed-select", {
         bubbles: true,
         composed: true,
-        detail: { feed: route },
+        detail: { requestId },
       }),
     );
   }

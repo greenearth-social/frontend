@@ -1,15 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildFeedItems,
   scoreAxisPositionPct,
-  atUriToBskyUrl,
   weightedRankScore,
-  mediaLabelsFor,
+  transformFeedItems,
 } from "../models/feed-debug-snapshot";
-import type {
-  FeedDebugDocument,
-  CandidatePost,
-} from "../models/feed-debug-snapshot";
+import type { ApiFeedItem } from "../models/feed-debug-snapshot";
 import sampleFixture from "./fixtures/sample-feed-debug.json";
 
 describe("scoreAxisPositionPct", () => {
@@ -31,21 +26,6 @@ describe("scoreAxisPositionPct", () => {
   });
 });
 
-describe("atUriToBskyUrl", () => {
-  it("converts an AT URI to a Bluesky URL", () => {
-    expect(
-      atUriToBskyUrl(
-        "at://did:plc:abc/app.bsky.feed.post/3jxyz123",
-      ),
-    ).toBe("https://bsky.app/profile/did:plc:abc/post/3jxyz123");
-  });
-
-  it("returns null for invalid URIs", () => {
-    expect(atUriToBskyUrl("https://example.com")).toBeNull();
-    expect(atUriToBskyUrl("")).toBeNull();
-  });
-});
-
 describe("weightedRankScore", () => {
   it("computes weighted average", () => {
     const scores = [
@@ -61,168 +41,95 @@ describe("weightedRankScore", () => {
   });
 });
 
-describe("mediaLabelsFor", () => {
-  const base: CandidatePost = {
-    atUri: "at://did/app.bsky.feed.post/1",
-    content: "hello",
-    score: 0.5,
-    authorDid: "did:plc:a",
-    authorUsername: "user",
-    containsImages: null,
-    containsVideo: null,
-    imageCount: null,
-    videoCount: null,
-    externalUri: null,
-    imageUrls: null,
-    videoUrl: null,
-    linkCard: null,
-  };
+describe("transformFeedItems", () => {
+  const items = (sampleFixture as unknown as { items: ApiFeedItem[] }).items;
 
-  it("returns empty for no media", () => {
-    expect(mediaLabelsFor(base)).toEqual([]);
-  });
-
-  it("shows image count", () => {
-    expect(mediaLabelsFor({ ...base, imageCount: 2 })).toEqual(["2 images"]);
-    expect(mediaLabelsFor({ ...base, imageCount: 1 })).toEqual(["1 image"]);
-  });
-
-  it("shows video count", () => {
-    expect(mediaLabelsFor({ ...base, videoCount: 1 })).toEqual(["1 video"]);
-  });
-
-  it("shows external link", () => {
-    expect(mediaLabelsFor({ ...base, externalUri: "https://x.com" })).toEqual([
-      "link",
-    ]);
-  });
-
-  it("shows fallback boolean flags when count is null", () => {
-    expect(mediaLabelsFor({ ...base, containsImages: true })).toEqual(["image"]);
-    expect(mediaLabelsFor({ ...base, containsVideo: true })).toEqual(["video"]);
-  });
-});
-
-describe("buildFeedItems", () => {
-  const doc = sampleFixture as unknown as FeedDebugDocument;
-
-  it("produces correct number of items from finalOrder", () => {
-    const items = buildFeedItems(doc);
-    expect(items).toHaveLength(doc.finalOrder.length);
+  it("produces correct number of items", () => {
+    const result = transformFeedItems(items);
+    expect(result).toHaveLength(items.length);
   });
 
   it("sets final position correctly (1-indexed)", () => {
-    const items = buildFeedItems(doc);
-    expect(items[0]).toBeDefined();
-    expect(items[items.length - 1]).toBeDefined();
-    expect(items[0]?.finalPosition).toBe(1);
-    expect(items[items.length - 1]?.finalPosition).toBe(items.length);
+    const result = transformFeedItems(items);
+    expect(result[0]).toBeDefined();
+    expect(result[0]?.finalPosition).toBe(1);
+    expect(result[result.length - 1]?.finalPosition).toBe(result.length);
   });
 
-  it("merges generator contributions", () => {
-    const items = buildFeedItems(doc);
-    expect(items[0]).toBeDefined();
-    const first = items[0];
-    expect(first?.generators.length).toBeGreaterThan(0);
-    const names = first?.generators.map((g) => g.name);
+  it("flattens author object to string fields", () => {
+    const result = transformFeedItems(items);
+    expect(result[0]?.author).toBe("@alice.bsky.social");
+    expect(result[0]?.displayName).toBe("Alice Chen");
+    expect(result[0]?.avatarUrl).toBeNull();
+  });
+
+  it("flattens media object", () => {
+    const result = transformFeedItems(items);
+    const withImages = result.find((i) => i.mediaLabels.includes("2 images"));
+    expect(withImages).toBeDefined();
+    expect(withImages?.imageUrls).toHaveLength(2);
+  });
+
+  it("flattens engagement object", () => {
+    const result = transformFeedItems(items);
+    expect(result[0]?.replyCount).toBe(5);
+    expect(result[0]?.repostCount).toBe(12);
+    expect(result[0]?.likeCount).toBe(47);
+  });
+
+  it("preserves generators", () => {
+    const result = transformFeedItems(items);
+    expect(result[0]?.generators.length).toBeGreaterThan(0);
+    const names = result[0]?.generators.map((g) => g.name) ?? [];
     expect(names).toContain("two_tower");
   });
 
-  it("includes rank information", () => {
-    const items = buildFeedItems(doc);
-    const withRank = items.find((i) => i.rankPosition !== null);
+  it("preserves model scores", () => {
+    const result = transformFeedItems(items);
+    expect(result[0]?.modelScores.length).toBeGreaterThan(0);
+    expect(result[0]?.modelScores[0]).toHaveProperty("name");
+    expect(result[0]?.modelScores[0]).toHaveProperty("weight");
+    expect(result[0]?.modelScores[0]).toHaveProperty("score");
+  });
+
+  it("preserves rank fields", () => {
+    const result = transformFeedItems(items);
+    const withRank = result.find((i) => i.rankPosition !== null);
     expect(withRank).toBeDefined();
   });
 
-  it("maps model scores per URI", () => {
-    const items = buildFeedItems(doc);
-    expect(items[0]).toBeDefined();
-    const first = items[0];
-    if (first && first.modelScores.length > 0) {
-      expect(first.modelScores[0]).toHaveProperty("name");
-      expect(first.modelScores[0]).toHaveProperty("weight");
-      expect(first.modelScores[0]).toHaveProperty("score");
-    }
-  });
-
-  it("includes diversification when present", () => {
-    const items = buildFeedItems(doc);
-    const withDiv = items.find((i) => i.diversification !== null);
+  it("preserves diversification", () => {
+    const result = transformFeedItems(items);
+    const withDiv = result.find((i) => i.diversification !== null);
     expect(withDiv).toBeDefined();
     expect(withDiv?.diversification).toHaveProperty("relevance");
     expect(withDiv?.diversification).toHaveProperty("authorPenalty");
   });
 
-  it("builds Bluesky URLs", () => {
-    const items = buildFeedItems(doc);
-    for (const item of items) {
-      expect(item.postUrl).toMatch(/^https:\/\/bsky\.app\/profile\//);
-    }
-  });
-
-  it("merges hydrated data", () => {
-    const hydrated = new Map<string, {
-      text: string;
-      authorHandle: string;
-      displayName: string;
-      avatarUrl: string | null;
-      createdAt: string;
-      replyCount: number;
-      repostCount: number;
-      likeCount: number;
-      imageUrls: string[];
-      videoUrl: string | null;
-      linkCard: { title: string; description: string; imageUrl: string } | null;
-    }>();
-    hydrated.set("at://did:plc:author1/app.bsky.feed.post/post1", {
-      text: "Hydrated text",
-      authorHandle: "hydrated.user",
-      displayName: "Hydrated User",
-      avatarUrl: null,
-      createdAt: "2026-07-10T12:00:00Z",
-      replyCount: 5,
-      repostCount: 3,
-      likeCount: 42,
-      imageUrls: [],
-      videoUrl: null,
-      linkCard: null,
-    });
-    const items = buildFeedItems(doc, hydrated);
-    const found = items.find(
-      (i) => i.atUri === "at://did:plc:author1/app.bsky.feed.post/post1",
-    );
-    expect(found).toBeDefined();
-  });
-
-  it("handles empty modelScores", () => {
-    const emptyDoc: FeedDebugDocument = {
-      ...doc,
-      modelScores: [],
-      ranking: null,
-    };
-    const items = buildFeedItems(emptyDoc);
-    expect(items.length).toBeGreaterThan(0);
-    for (const item of items) {
-      expect(item.modelScores).toEqual([]);
-    }
-  });
-
-  it("handles missing metadata gracefully", () => {
-    const orphanDoc: FeedDebugDocument = {
-      ...doc,
-      finalOrder: ["at://did:plc:ghost/app.bsky.feed.post/ghost"],
-      generatorOutputs: [],
-      finalCandidates: [],
-      modelScores: [],
-      diversification: [],
-      orderAfterRank: [],
-      ranking: { rankings: [] },
-    };
-    const items = buildFeedItems(orphanDoc);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toBeDefined();
-    expect(items[0]?.author).toBe("unknown author");
-    expect(items[0]?.content).toBe("");
-    expect(items[0]?.generators).toEqual([]);
+  it("handles missing media gracefully", () => {
+    const noMedia: ApiFeedItem[] = [
+      {
+        atUri: "at://did/app.bsky.feed.post/1",
+        rank: null,
+        rankScore: null,
+        afterRankPosition: null,
+        author: { handle: null, displayName: null, avatarUrl: null },
+        createdAt: null,
+        content: null,
+        generators: [],
+        modelScores: [],
+        diversification: null,
+        media: null,
+        engagement: null,
+        postUrl: null,
+      },
+    ];
+    const result = transformFeedItems(noMedia);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.author).toBe("unknown author");
+    expect(result[0]?.content).toBe("");
+    expect(result[0]?.mediaLabels).toEqual([]);
+    expect(result[0]?.generators).toEqual([]);
+    expect(result[0]?.replyCount).toBe(0);
   });
 });

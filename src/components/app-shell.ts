@@ -440,7 +440,7 @@ export class AppShell extends MobxLitElement {
         <wa-callout variant="danger">Store not initialized</wa-callout>
       </div>`;
 
-    const { authStore, accountStore, uiStore } = store;
+    const { authStore, accountStore, feedStore } = store;
     const hash = window.location.hash.slice(1) || "/feed";
 
     if (this._currentRoute.startsWith("/auth/finish")) {
@@ -607,9 +607,10 @@ export class AppShell extends MobxLitElement {
           <aside class="right-sidebar">
             <div class="right-sidebar-inner">
               <right-sidebar
-                .activeFeed=${uiStore.selectedFeed}
-                @feed-select=${(e: CustomEvent<{ feed: string }>) => {
-                  uiStore.setSelectedFeed(e.detail.feed);
+                .feeds=${feedStore.feedList}
+                .activeRequestId=${feedStore.currentRequestId}
+                @feed-select=${(e: CustomEvent<{ requestId: string }>) => {
+                  void feedStore.loadFeedDetail(e.detail.requestId);
                 }}
               ></right-sidebar>
             </div>
@@ -651,7 +652,7 @@ export class AppShell extends MobxLitElement {
     }
 
     if (hash === "/feed" || hash === "") {
-      void store.feedStore.loadFeed();
+      void store.feedStore.loadFeedList();
     }
   }
 
