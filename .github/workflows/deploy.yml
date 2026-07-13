@@ -57,6 +57,7 @@ jobs:
 
       - name: Deploy Hosting (live channel)
         run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase hosting:channel:deploy live \
             --project greenearth-471522 \
             --non-interactive

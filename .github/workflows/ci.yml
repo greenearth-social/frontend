@@ -119,6 +119,7 @@ jobs:
 
       - name: Deploy Hosting (stage preview channel)
         run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.json
           firebase hosting:channel:deploy stage \
             --project greenearth-471522 \
             --non-interactive
