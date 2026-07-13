@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       server.middlewares.use("/oauth/callback", async (req, res) => {
         try {
           const targetUrl = `${FUNCTIONS_BASE}/oauthCallback${req.url!.replace(/^\/oauth\/callback/, "")}`;
-          const response = await fetch(targetUrl);
+          const response = await fetch(targetUrl, { redirect: "manual" });
           res.statusCode = response.status;
           const location = response.headers.get("location");
           if (location) {

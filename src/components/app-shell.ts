@@ -423,7 +423,6 @@ export class AppShell extends MobxLitElement {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("hashchange", this.#onHashChange);
-    window.addEventListener("click", this.#onGlobalClick);
     this.#updateRoute();
   }
 

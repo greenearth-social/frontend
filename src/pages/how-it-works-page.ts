@@ -90,7 +90,7 @@ export class HowItWorksPage extends LitElement {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem 3rem;
+      padding: 1.5rem 0.75rem 3rem;
       min-height: calc(100dvh - 60px);
     }
 
@@ -106,7 +106,7 @@ export class HowItWorksPage extends LitElement {
     .section {
       width: 100%;
       border-radius: 16px;
-      padding: 1.25rem 1rem 1rem;
+      padding: 1rem 0.75rem;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -133,7 +133,7 @@ export class HowItWorksPage extends LitElement {
     }
 
     .section-title {
-      font-size: 1rem;
+      font-size: 0.9375rem;
       font-weight: 700;
       color: var(--bluesky-text);
       margin: 0 0 0.25rem 0;
@@ -152,7 +152,7 @@ export class HowItWorksPage extends LitElement {
 
     .sources-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 1rem;
       width: 100%;
       justify-content: center;
       flex-wrap: wrap;
@@ -164,14 +164,14 @@ export class HowItWorksPage extends LitElement {
       align-items: center;
       gap: 0.5rem;
       flex: 1;
-      min-width: 120px;
-      max-width: 170px;
+      min-width: 90px;
+      max-width: 150px;
     }
 
     .node-box {
       width: 100%;
-      padding: 0.75rem 0.5rem;
-      border-radius: 12px;
+      padding: 0.625rem 0.375rem;
+      border-radius: 10px;
       text-align: center;
       cursor: pointer;
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
@@ -181,7 +181,7 @@ export class HowItWorksPage extends LitElement {
     }
 
     .node-box:hover {
-      transform: translateY(-4px) scale(1.03);
+      transform: translateY(-3px) scale(1.03);
       filter: brightness(1.15);
     }
 
@@ -190,7 +190,7 @@ export class HowItWorksPage extends LitElement {
     }
 
     .node-box.selected {
-      transform: translateY(-4px) scale(1.03);
+      transform: translateY(-3px) scale(1.03);
       filter: brightness(1.2);
     }
 
@@ -199,7 +199,7 @@ export class HowItWorksPage extends LitElement {
       box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 700;
-      font-size: 0.9375rem;
+      font-size: 0.8125rem;
       line-height: 1.3;
     }
 
@@ -208,7 +208,7 @@ export class HowItWorksPage extends LitElement {
       box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 700;
-      font-size: 0.9375rem;
+      font-size: 0.8125rem;
       line-height: 1.3;
     }
 
@@ -217,7 +217,7 @@ export class HowItWorksPage extends LitElement {
       box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-style: italic;
     }
 
@@ -226,7 +226,7 @@ export class HowItWorksPage extends LitElement {
       box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 600;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-style: italic;
     }
 
@@ -234,10 +234,10 @@ export class HowItWorksPage extends LitElement {
       background: rgba(34, 197, 94, 0.2);
       border: 1px solid rgba(34, 197, 94, 0.4);
       color: #6ee7a0;
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       font-weight: 600;
       font-style: italic;
-      padding: 0.25rem 0.75rem;
+      padding: 0.1875rem 0.625rem;
       border-radius: 9999px;
       cursor: pointer;
       transition: transform 0.15s ease, background 0.15s ease;
@@ -252,10 +252,10 @@ export class HowItWorksPage extends LitElement {
       background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
       box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       font-style: italic;
-      padding: 0.5rem 1.25rem;
+      padding: 0.4375rem 1rem;
       border-radius: 9999px;
       cursor: pointer;
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
@@ -280,10 +280,10 @@ export class HowItWorksPage extends LitElement {
       background: linear-gradient(145deg, #f59e0b 0%, #d97706 100%);
       box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-weight: 600;
       font-style: italic;
-      padding: 0.5rem 1rem;
+      padding: 0.4375rem 0.875rem;
       border-radius: 9999px;
       cursor: pointer;
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
@@ -308,14 +308,14 @@ export class HowItWorksPage extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 40px;
+      height: 36px;
       width: 100%;
       position: relative;
     }
 
     .arrow-connector svg {
-      width: 24px;
-      height: 40px;
+      width: 20px;
+      height: 36px;
     }
 
     .arrow-line {
@@ -330,7 +330,7 @@ export class HowItWorksPage extends LitElement {
 
     .signals-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 1.25rem;
       width: 100%;
       justify-content: center;
       flex-wrap: wrap;
@@ -342,12 +342,12 @@ export class HowItWorksPage extends LitElement {
       align-items: center;
       gap: 0.5rem;
       flex: 1;
-      min-width: 140px;
-      max-width: 200px;
+      min-width: 110px;
+      max-width: 180px;
     }
 
     .node-subtitle {
-      font-size: 0.6875rem;
+      font-size: 0.625rem;
       font-weight: 500;
       opacity: 0.85;
       margin-top: 0.125rem;
@@ -357,10 +357,10 @@ export class HowItWorksPage extends LitElement {
       background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
       box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-weight: 600;
       font-style: italic;
-      padding: 0.5rem 1rem;
+      padding: 0.4375rem 0.875rem;
       border-radius: 9999px;
       cursor: pointer;
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
@@ -389,45 +389,70 @@ export class HowItWorksPage extends LitElement {
       width: 100%;
     }
 
-    .detail-panel {
-      width: 100%;
-      max-width: 560px;
-      margin-top: 1.5rem;
-      border-radius: 16px;
-      padding: 1.25rem 1.5rem;
-      background: linear-gradient(135deg, rgba(30, 39, 50, 0.95) 0%, rgba(21, 32, 43, 0.98) 100%);
-      border: 1px solid var(--bluesky-border);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    .popup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      animation: fadeIn 0.2s ease;
     }
 
-    @keyframes slideUp {
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .popup-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .popup-card {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      background: linear-gradient(135deg, rgba(30, 39, 50, 0.98) 0%, rgba(21, 32, 43, 0.99) 100%);
+      border: 1px solid var(--bluesky-border);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes popIn {
       from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: scale(0.9) translateY(8px);
       }
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
       }
     }
 
-    .detail-title {
-      font-size: 1.0625rem;
+    .popup-title {
+      font-size: 1rem;
       font-weight: 700;
       margin: 0 0 0.5rem 0;
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
-    .detail-title.type-source { color: #60a5fa; }
-    .detail-title.type-signal { color: #c084fc; }
-    .detail-title.type-config { color: #4ade80; }
-    .detail-title.type-penalty { color: #fbbf24; }
+    .popup-title.type-source { color: #60a5fa; }
+    .popup-title.type-signal { color: #c084fc; }
+    .popup-title.type-config { color: #4ade80; }
+    .popup-title.type-penalty { color: #fbbf24; }
 
-    .detail-badge {
-      font-size: 0.6875rem;
+    .popup-badge {
+      font-size: 0.625rem;
       font-weight: 600;
       padding: 0.125rem 0.5rem;
       border-radius: 9999px;
@@ -440,14 +465,14 @@ export class HowItWorksPage extends LitElement {
     .badge-config { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
     .badge-penalty { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
-    .detail-description {
+    .popup-description {
       font-size: 0.875rem;
       color: var(--bluesky-text-secondary);
       line-height: 1.6;
       margin: 0;
     }
 
-    .detail-close {
+    .popup-close {
       position: absolute;
       top: 0.75rem;
       right: 0.75rem;
@@ -465,13 +490,108 @@ export class HowItWorksPage extends LitElement {
       transition: background 0.15s;
     }
 
-    .detail-close:hover {
+    .popup-close:hover {
       background: rgba(255, 255, 255, 0.2);
       color: var(--bluesky-text);
     }
 
-    .detail-panel {
-      position: relative;
+    @media (min-width: 480px) {
+      .page-content {
+        padding: 2rem 1rem 3rem;
+      }
+
+      .section {
+        padding: 1.25rem 1rem;
+      }
+
+      .section-title {
+        font-size: 1rem;
+      }
+
+      .sources-row {
+        gap: 1.25rem;
+      }
+
+      .source-column {
+        min-width: 110px;
+        max-width: 160px;
+      }
+
+      .node-box {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.875rem;
+      }
+
+      .node-box-source,
+      .node-box-signal {
+        font-size: 0.875rem;
+      }
+
+      .node-box-config,
+      .node-box-penalty {
+        font-size: 0.8125rem;
+      }
+
+      .config-pill {
+        font-size: 0.875rem;
+        padding: 0.5rem 1.25rem;
+      }
+
+      .penalty-pill,
+      .engaging-pill {
+        font-size: 0.8125rem;
+        padding: 0.5rem 1rem;
+      }
+
+      .signals-row {
+        gap: 1.5rem;
+      }
+
+      .signal-column {
+        min-width: 130px;
+        max-width: 200px;
+      }
+
+      .node-subtitle {
+        font-size: 0.6875rem;
+      }
+
+      .popup-card {
+        max-width: 420px;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .sources-row {
+        gap: 1.5rem;
+      }
+
+      .source-column {
+        min-width: 120px;
+        max-width: 170px;
+      }
+
+      .node-box {
+        padding: 0.875rem 0.5rem;
+      }
+
+      .node-box-source,
+      .node-box-signal {
+        font-size: 0.9375rem;
+      }
+
+      .signals-row {
+        gap: 2rem;
+      }
+
+      .signal-column {
+        min-width: 140px;
+        max-width: 200px;
+      }
+
+      .popup-card {
+        max-width: 460px;
+      }
     }
   `;
 
@@ -494,19 +614,22 @@ export class HowItWorksPage extends LitElement {
     `;
   }
 
-  #renderDetailPanel() {
+  #renderPopup() {
     if (!this._selectedNode) return html``;
     const node = DIAGRAM_NODES[this._selectedNode];
     if (!node) return html``;
 
     return html`
-      <div class="detail-panel">
-        <button class="detail-close" @click=${this.#closeDetail} aria-label="Close detail">&times;</button>
-        <h3 class="detail-title type-${node.type}">
-          ${node.label}
-          <span class="detail-badge badge-${node.type}">${node.type}</span>
-        </h3>
-        <p class="detail-description">${node.description}</p>
+      <div class="popup-overlay" @click=${this.#closeDetail}>
+        <div class="popup-backdrop"></div>
+        <div class="popup-card" @click=${(e: Event) => { e.stopPropagation(); }}>
+          <button class="popup-close" @click=${this.#closeDetail} aria-label="Close detail">&times;</button>
+          <h3 class="popup-title type-${node.type}">
+            ${node.label}
+            <span class="popup-badge badge-${node.type}">${node.type}</span>
+          </h3>
+          <p class="popup-description">${node.description}</p>
+        </div>
       </div>
     `;
   }
@@ -609,9 +732,9 @@ export class HowItWorksPage extends LitElement {
             </div>
           </div>
         </div>
-
-        ${this.#renderDetailPanel()}
       </div>
+
+      ${this.#renderPopup()}
     `;
   }
 }
