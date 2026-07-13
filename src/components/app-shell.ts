@@ -14,8 +14,8 @@ import "./right-sidebar";
 
 const NAV_ITEMS = [
   { icon: "activity", label: "Post Observability", route: "/feed" },
-  { icon: "controls", label: "Feed Controls", route: "/controls" },
   { icon: "info", label: "How It Works", route: "/how-it-works" },
+  { icon: "controls", label: "Feed Controls", route: "/controls" },
   { icon: "settings", label: "Settings", route: "/settings" },
 ];
 

@@ -18,6 +18,13 @@ export class FeedPage extends MobxLitElement {
     :host {
       display: block;
     }
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+    }
   `;
 
   render() {
@@ -171,7 +178,7 @@ export class FeedPage extends MobxLitElement {
           feedStore.isLoading
             ? html`
                 <div
-                  class="flex flex-col items-center justify-center py-16"
+                  class="loader-container"
                   style="color: var(--bluesky-text-secondary)"
                 >
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
