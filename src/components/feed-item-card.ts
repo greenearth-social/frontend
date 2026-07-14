@@ -194,6 +194,22 @@ export class FeedItemCard extends MobxLitElement {
       </div>
     `;
   }
+
+  private _loggedAtUri: string | null = null;
+
+  updated(_changedProperties: Map<string, unknown>) {
+    super.updated(_changedProperties);
+    if (this.item && this.item.atUri !== this._loggedAtUri) {
+      this._loggedAtUri = this.item.atUri;
+      console.groupCollapsed(
+        `[feed-item-card] ${this.item.author} — generators & model scores`
+      );
+      console.log("atUri:", this.item.atUri);
+      console.log("generators:", JSON.stringify(this.item.generators));
+      console.log("modelScores:", JSON.stringify(this.item.modelScores));
+      console.groupEnd();
+    }
+  }
 }
 
 declare global {

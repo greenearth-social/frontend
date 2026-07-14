@@ -124,7 +124,7 @@ export class RankScoresChart extends LitElement {
       dots.push({
         label: "final rank",
         score: finalScore,
-        color: "#fbbf24",
+        color: "#1083fe",
       });
     }
 

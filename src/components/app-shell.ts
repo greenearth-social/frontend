@@ -432,6 +432,21 @@ export class AppShell extends MobxLitElement {
     window.removeEventListener("click", this.#onGlobalClick);
   }
 
+  willUpdate(_changedProperties: Map<string, unknown>) {
+    super.willUpdate(_changedProperties);
+    const hash = window.location.hash.slice(1) || "/feed";
+    if (hash === "/feed" || hash === "") {
+      const store = getRootStore();
+      if (
+        store?.authStore.isSignedIn &&
+        store.feedStore.feedList.length === 0 &&
+        !store.feedStore.isLoading
+      ) {
+        void store.feedStore.loadFeedList();
+      }
+    }
+  }
+
   render() {
     const store = getRootStore();
     if (!store)

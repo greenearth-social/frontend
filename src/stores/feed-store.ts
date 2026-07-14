@@ -4,7 +4,6 @@ import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 3;
-const DEDUP_WINDOW_SECONDS = 120;
 
 export class FeedStore {
   root: RootStore;
@@ -85,29 +84,6 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
-  private _deduplicateFeeds(feeds: FeedSummary[]): FeedSummary[] {
-    if (feeds.length <= 1) return feeds;
-
-    const first = feeds[0];
-    if (!first) return feeds;
-
-    const result: FeedSummary[] = [first];
-    let lastKept = new Date(first.generatedAt).getTime();
-
-    for (let i = 1; i < feeds.length; i++) {
-      const feed = feeds[i];
-      if (!feed) continue;
-
-      const current = new Date(feed.generatedAt).getTime();
-      if (lastKept - current >= DEDUP_WINDOW_SECONDS * 1000) {
-        result.push(feed);
-        lastKept = current;
-      }
-    }
-
-    return result;
-  }
-
   async loadFeedList(): Promise<void> {
     if (this.isLoading) return;
 
@@ -116,7 +92,7 @@ export class FeedStore {
 
     try {
       const response = await this.root.services.feedApiService.listFeeds();
-      this.feedList = this._deduplicateFeeds(response.feeds);
+      this.feedList = response.feeds;
       if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
