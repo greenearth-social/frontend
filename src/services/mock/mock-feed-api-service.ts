@@ -18,7 +18,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "followed_users", score: 0.90 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.85 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.85 },
         { name: "perspective", weight: 0.4, score: 0.95 },
       ],
       diversification: { relevance: 0.91, score: 0.91, authorPenalty: 0.0, contentPenalty: 0.0 },
@@ -39,7 +39,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "followed_users", score: 0.78 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.64 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.64 },
         { name: "perspective", weight: 0.4, score: 0.60 },
       ],
       diversification: { relevance: 0.65, score: 0.65, authorPenalty: 0.0, contentPenalty: 0.0 },
@@ -59,7 +59,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "followed_users", score: 0.88 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.72 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.72 },
         { name: "perspective", weight: 0.4, score: 0.82 },
       ],
       diversification: { relevance: 0.78, score: 0.78, authorPenalty: 0.0, contentPenalty: 0.0 },
@@ -80,7 +80,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "followed_users", score: 0.65 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.45 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.45 },
         { name: "perspective", weight: 0.4, score: 0.55 },
       ],
       diversification: { relevance: 0.52, score: 0.52, authorPenalty: 0.0, contentPenalty: 0.0 },
@@ -100,7 +100,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "two_tower", score: 0.55 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.55 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.55 },
         { name: "perspective", weight: 0.4, score: 0.30 },
       ],
       diversification: { relevance: 0.48, score: 0.48, authorPenalty: 0.0, contentPenalty: 0.0 },
@@ -120,7 +120,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
         { name: "two_tower", score: 0.50 },
       ],
       modelScores: [
-        { name: "two_tower", weight: 0.6, score: 0.40 },
+        { name: "heavy_ranker", weight: 0.6, score: 0.40 },
         { name: "perspective", weight: 0.4, score: 0.25 },
       ],
       diversification: { relevance: 0.35, score: 0.35, authorPenalty: -0.15, contentPenalty: 0.0 },

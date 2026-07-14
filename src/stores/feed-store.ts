@@ -4,6 +4,7 @@ import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 3;
+const DEDUP_WINDOW_SECONDS = 120;
 
 export class FeedStore {
   root: RootStore;
@@ -19,6 +20,8 @@ export class FeedStore {
 
   feedList: FeedSummary[] = [];
   currentRequestId: string | null = null;
+
+  private _loadSeq: number = 0;
 
   constructor(root: RootStore) {
     this.root = root;
@@ -82,13 +85,38 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
+  private _deduplicateFeeds(feeds: FeedSummary[]): FeedSummary[] {
+    if (feeds.length <= 1) return feeds;
+
+    const first = feeds[0];
+    if (!first) return feeds;
+
+    const result: FeedSummary[] = [first];
+    let lastKept = new Date(first.generatedAt).getTime();
+
+    for (let i = 1; i < feeds.length; i++) {
+      const feed = feeds[i];
+      if (!feed) continue;
+
+      const current = new Date(feed.generatedAt).getTime();
+      if (lastKept - current >= DEDUP_WINDOW_SECONDS * 1000) {
+        result.push(feed);
+        lastKept = current;
+      }
+    }
+
+    return result;
+  }
+
   async loadFeedList(): Promise<void> {
+    if (this.isLoading) return;
+
     this.isLoading = true;
     this.error = null;
 
     try {
       const response = await this.root.services.feedApiService.listFeeds();
-      this.feedList = response.feeds;
+      this.feedList = this._deduplicateFeeds(response.feeds);
       if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
@@ -101,24 +129,31 @@ export class FeedStore {
   }
 
   async loadFeedDetail(requestId: string): Promise<void> {
-    this.currentRequestId = requestId;
+    const seq = ++this._loadSeq;
     this.isLoading = true;
     this.error = null;
 
     try {
       const response = await this.root.services.feedApiService.getFeedDetail(requestId);
+      if (seq !== this._loadSeq) return;
+
       this._allItems = transformFeedItems(response.items);
+      this.currentRequestId = requestId;
       this._currentPage = 1;
       this._updateVisibleItems();
       this.lastGeneratedAt = response.generatedAt;
     } catch (e) {
+      if (seq !== this._loadSeq) return;
+
       console.error("FeedStore.loadFeedDetail error:", e);
       this.error = e instanceof Error ? e.message : "Failed to load feed";
       this._allItems = [];
       this._currentPage = 1;
       this._updateVisibleItems();
     } finally {
-      this.isLoading = false;
+      if (seq === this._loadSeq) {
+        this.isLoading = false;
+      }
     }
   }
 }

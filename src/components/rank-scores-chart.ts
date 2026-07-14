@@ -107,10 +107,17 @@ export class RankScoresChart extends LitElement {
         ? i.rankScore
         : weightedRankScore(i.modelScores);
 
+    const MODEL_COLORS: Record<string, string> = {
+      heavy_ranker: "#fb923c",
+      perspective: "#a78bfa",
+      candidate_score: "#34d399",
+    };
+    const DEFAULT_MODEL_COLOR = "#38bdf8";
+
     const dots = i.modelScores.map((ms) => ({
       label: ms.name,
       score: ms.score,
-      color: ms.name === "two_tower" ? "#38bdf8" : "#c084fc",
+      color: MODEL_COLORS[ms.name] ?? DEFAULT_MODEL_COLOR,
     }));
 
     if (finalScore !== null) {

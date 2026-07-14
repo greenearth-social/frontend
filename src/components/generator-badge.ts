@@ -26,7 +26,8 @@ export class GeneratorBadge extends LitElement {
 
   render() {
     const style = GENERATOR_STYLES[this.name] ?? DEFAULT_STYLE;
-    const scoreText = this.score !== null ? ` ${(this.score * 100).toFixed(0)}%` : " --";
+    const clampedScore = this.score !== null ? Math.min(Math.max(this.score, 0), 1) : null;
+    const scoreText = clampedScore !== null ? ` ${(clampedScore * 100).toFixed(0)}%` : " --";
 
     return html`
       <span
