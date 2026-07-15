@@ -68,8 +68,8 @@ export const oauthCallback = onRequest(
     return;
   }
 
-  // 2. Validate iss matches
-  if (session.authServerIssuer !== iss) {
+  // 2. Validate iss matches known auth server
+  if (session.authServerIssuer !== iss || iss !== AUTH_SERVER) {
     res.status(400).send("Issuer mismatch");
     return;
   }

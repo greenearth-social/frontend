@@ -56,6 +56,7 @@ export async function createClientAssertion(
     .setAudience(authServerIssuer)
     .setJti(generateToken())
     .setIssuedAt(Math.floor(Date.now() / 1000))
+    .setExpirationTime(Math.floor(Date.now() / 1000) + 300)
     .sign(privateKey);
 }
 
@@ -76,6 +77,7 @@ export async function createDpopProof(
     htm: method,
     htu: url,
     iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 300,
   };
 
   if (nonce) payload.nonce = nonce;

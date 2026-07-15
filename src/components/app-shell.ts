@@ -417,6 +417,7 @@ export class AppShell extends MobxLitElement {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("hashchange", this.#onHashChange);
+    window.addEventListener("click", this.#onGlobalClick);
     this.#updateRoute();
   }
 
@@ -706,7 +707,7 @@ export class AppShell extends MobxLitElement {
 
     try {
       await store.authStore.signInWithCustomToken(token);
-      window.location.hash = returnUrl;
+      window.location.replace(window.location.origin + "/#" + returnUrl);
     } catch {
       window.location.hash = "/feed";
     }

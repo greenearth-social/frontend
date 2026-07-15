@@ -48,6 +48,14 @@ export class FeedPage extends MobxLitElement {
     }
   `;
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this._loadTimer) {
+      clearTimeout(this._loadTimer);
+      this._loadTimer = null;
+    }
+  }
+
   updated(changedProperties: Map<string, unknown>) {
     super.updated(changedProperties);
     const store = getRootStore();

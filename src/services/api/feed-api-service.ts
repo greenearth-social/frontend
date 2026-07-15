@@ -31,13 +31,10 @@ export class FeedApiService implements IFeedApiService {
     const token = await this.getAuthToken();
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (init?.headers) {
-      const extra = init.headers as Record<string, string>;
-      for (const key of Object.keys(extra)) {
-        const val = extra[key];
-        if (val !== undefined) {
-          headers[key] = val;
-        }
-      }
+      const extra = new Headers(init.headers);
+      extra.forEach((value, key) => {
+        headers[key] = value;
+      });
     }
     const res = await fetch(`${this.baseUrl}${path}`, {
       ...init,
