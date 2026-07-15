@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------------
-  # Deploy prod — auto after CI passes on main. Hosting (live) + functions + rules.
+  # Deploy prod — auto after CI passes on main, gated by environment approval.
+  # Hosting (live) + functions + rules.
   # -----------------------------------------------------------------------
   deploy-prod:
     if: github.event.workflow_run.conclusion == 'success'

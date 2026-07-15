@@ -600,7 +600,11 @@ export class AppShell extends MobxLitElement {
           </aside>
         ` : ""}
 
-        <main class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}">
+        <main
+          class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}"
+          @page-change=${this.#scrollToTop}
+          @per-page-change=${this.#scrollToTop}
+        >
           ${
             this._currentRoute === "/controls"
               ? html`<controls-page .onOpenMenu=${this.#openDrawer}></controls-page>`
@@ -672,6 +676,10 @@ export class AppShell extends MobxLitElement {
   #openDrawer = () => {
     this._drawerOpen = true;
     this.requestUpdate();
+  };
+
+  #scrollToTop = () => {
+    this.renderRoot.querySelector(".center-column")?.scrollTo(0, 0);
   };
 
   #closeDrawer = () => {
