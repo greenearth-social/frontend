@@ -644,6 +644,10 @@ export class AppShell extends MobxLitElement {
     this._currentRoute = hash;
     this.requestUpdate();
 
+    void this.updateComplete.then(() => {
+      this.renderRoot.querySelector(".center-column")?.scrollTo(0, 0);
+    });
+
     if (hash.startsWith("/auth/finish")) {
       void this.#handleAuthFinish();
       return;

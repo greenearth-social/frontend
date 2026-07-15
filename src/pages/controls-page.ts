@@ -57,6 +57,13 @@ export class ControlsPage extends LitElement {
       font-style: italic;
       color: var(--bluesky-text-secondary);
     }
+    .slider-placeholder {
+      background: var(--bluesky-bg-card);
+      border: 1px solid var(--bluesky-border);
+      border-radius: 9999px;
+      height: 48px;
+      margin-bottom: 1.5rem;
+    }
   `;
 
   firstUpdated() {
@@ -114,16 +121,21 @@ export class ControlsPage extends LitElement {
                 ${slider.title}
                 ${index > 0 ? html`<span class="coming-soon">Coming Soon!</span>` : ""}
               </div>
-              <lifecycle-slider
-                title=${slider.title}
-                leftLabel=${slider.leftLabel}
-                rightLabel=${slider.rightLabel}
-                value=${this.sliderValues[index]}
-                ?disabled=${index > 0}
-                @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                  this.#handleSliderChange(index, e.detail.value);
-                }}
-              ></lifecycle-slider>
+              ${this.isLoading
+                ? html`<div class="slider-placeholder"></div>`
+                : html`
+                    <lifecycle-slider
+                      title=${slider.title}
+                      leftLabel=${slider.leftLabel}
+                      rightLabel=${slider.rightLabel}
+                      value=${this.sliderValues[index]}
+                      ?disabled=${index > 0}
+                      @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                        this.#handleSliderChange(index, e.detail.value);
+                      }}
+                    ></lifecycle-slider>
+                  `
+              }
             </div>
           `,
         )}

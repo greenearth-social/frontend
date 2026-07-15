@@ -4,7 +4,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import "../components/feed-view";
 import "../components/feed-tabs";
@@ -13,6 +13,8 @@ import "../components/pagination-control";
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
+  @state() private _showEmptyInsteadOfLoading = false;
+  @state() private _loadTimer: ReturnType<typeof setTimeout> | null = null;
 
   static styles = css`
     :host {
@@ -24,6 +26,14 @@ export class FeedPage extends MobxLitElement {
       align-items: center;
       justify-content: center;
       min-height: 400px;
+    }
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: var(--bluesky-text-secondary);
     }
     .sticky-header-wrapper {
       position: sticky;
@@ -37,6 +47,30 @@ export class FeedPage extends MobxLitElement {
       border-bottom: 1px solid var(--bluesky-border);
     }
   `;
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated(changedProperties);
+    const store = getRootStore();
+    const isLoading = store?.feedStore.isLoading ?? false;
+
+    if (changedProperties.has("_showEmptyInsteadOfLoading") || changedProperties.has("_loadTimer")) {
+      return;
+    }
+
+    if (isLoading) {
+      if (!this._loadTimer) {
+        this._loadTimer = setTimeout(() => {
+          this._showEmptyInsteadOfLoading = true;
+        }, 1000);
+      }
+    } else {
+      if (this._loadTimer) {
+        clearTimeout(this._loadTimer);
+        this._loadTimer = null;
+      }
+      this._showEmptyInsteadOfLoading = false;
+    }
+  }
 
   render() {
     const store = getRootStore();
@@ -187,7 +221,7 @@ export class FeedPage extends MobxLitElement {
             : ""
         }
         ${
-          feedStore.isLoading
+          feedStore.isLoading && !this._showEmptyInsteadOfLoading
             ? html`
                 <div
                   class="loader-container"
@@ -197,28 +231,34 @@ export class FeedPage extends MobxLitElement {
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
               `
-            : html`
-                <feed-view
-                  .items=${feedStore.items}
-                  .selectedUri=${uiStore.selectedItemUri}
-                  @select-item=${(e: CustomEvent<{ uri: string }>) => {
-                  uiStore.toggleSelectedItem(e.detail.uri);
-                }}
-                ></feed-view>
+            : feedStore.isLoading && this._showEmptyInsteadOfLoading
+              ? html`
+                  <div class="empty-state">
+                    <p>No posts found</p>
+                  </div>
+                `
+              : html`
+                  <feed-view
+                    .items=${feedStore.items}
+                    .selectedUri=${uiStore.selectedItemUri}
+                    @select-item=${(e: CustomEvent<{ uri: string }>) => {
+                    uiStore.toggleSelectedItem(e.detail.uri);
+                  }}
+                  ></feed-view>
 
-                <pagination-control
-                  .currentPage=${feedStore.currentPage}
-                  .totalPages=${feedStore.totalPages}
-                  .totalItems=${feedStore.totalCount}
-                  .itemsPerPage=${feedStore.postsPerPage}
-                  @page-change=${(e: CustomEvent<{ page: number }>) => {
-                  feedStore.goToPage(e.detail.page);
-                }}
-                  @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
-                  feedStore.setPostsPerPage(e.detail.perPage);
-                }}
-                ></pagination-control>
-              `
+                  <pagination-control
+                    .currentPage=${feedStore.currentPage}
+                    .totalPages=${feedStore.totalPages}
+                    .totalItems=${feedStore.totalCount}
+                    .itemsPerPage=${feedStore.postsPerPage}
+                    @page-change=${(e: CustomEvent<{ page: number }>) => {
+                    feedStore.goToPage(e.detail.page);
+                  }}
+                    @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
+                    feedStore.setPostsPerPage(e.detail.perPage);
+                  }}
+                  ></pagination-control>
+                `
         }
       </div>
     `;

@@ -216,7 +216,9 @@ export class LifecycleSlider extends LitElement {
                   <img
                     class="stage-icon"
                     src=${stage.src}
-                    alt=${stage.name}
+                    alt=""
+                    width="26"
+                    height="26"
                   />
                 </button>
               `,
