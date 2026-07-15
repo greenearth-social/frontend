@@ -9,7 +9,7 @@ export interface FeedSummary {
 }
 
 export interface FeedListResponse {
-  feeds: FeedSummary[];
+  feeds: FeedSummary[] | null | undefined;
 }
 
 export interface ApiAuthorView {
@@ -52,7 +52,7 @@ export interface ApiFeedItem {
 export interface FeedDetailResponse {
   requestId: string;
   generatedAt: string;
-  items: ApiFeedItem[];
+  items: ApiFeedItem[] | null | undefined;
 }
 
 export interface FeedItemView {
@@ -93,8 +93,8 @@ export function scoreAxisPositionPct(score: number): number {
   return Math.min(100, Math.max(0, ((score + 1) / 2) * 100));
 }
 
-export function transformFeedItems(apiItems: ApiFeedItem[]): FeedItemView[] {
-  return apiItems.map((item, index) => ({
+export function transformFeedItems(apiItems: ApiFeedItem[] | null | undefined): FeedItemView[] {
+  return (apiItems ?? []).map((item, index) => ({
     atUri: item.atUri,
     postUrl: item.postUrl,
     finalPosition: index + 1,

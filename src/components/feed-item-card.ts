@@ -20,6 +20,8 @@ export class FeedItemCard extends MobxLitElement {
       border-radius: 0.75rem;
       padding: 0.75rem 1rem;
       transition: background 0.15s;
+      overflow: hidden;
+      max-width: 100%;
     }
     .card:hover {
       background: var(--bluesky-bg-hover);
@@ -29,6 +31,25 @@ export class FeedItemCard extends MobxLitElement {
       align-items: center;
       gap: 0.5rem;
       flex-wrap: wrap;
+    }
+    .author-info {
+      min-width: 120px;
+      flex: 1;
+    }
+    .display-name {
+      font-weight: 700;
+      font-size: 0.9375rem;
+      color: var(--bluesky-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .handle {
+      font-size: 0.8125rem;
+      color: var(--bluesky-text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .avatar {
       width: 40px;
@@ -50,31 +71,12 @@ export class FeedItemCard extends MobxLitElement {
       font-size: 1rem;
       flex-shrink: 0;
     }
-    .author-info {
-      min-width: 0;
-      flex: 1;
-    }
-    .display-name {
-      font-weight: 700;
-      font-size: 0.9375rem;
-      color: var(--bluesky-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .handle {
-      font-size: 0.8125rem;
-      color: var(--bluesky-text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
     .author-actions {
       display: flex;
       align-items: center;
       gap: 0.375rem;
-      flex-shrink: 0;
-      margin-left: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
     .content-badge {
       font-size: 0.75rem;
@@ -101,6 +103,7 @@ export class FeedItemCard extends MobxLitElement {
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .bluesky-btn:hover {
       background: rgba(16, 131, 254, 0.12);
@@ -125,7 +128,7 @@ export class FeedItemCard extends MobxLitElement {
     .generator-pills {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.375rem;
+      gap: 0.5rem;
       margin-top: 0.75rem;
     }
     .div-badge {

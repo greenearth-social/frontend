@@ -25,6 +25,17 @@ export class FeedPage extends MobxLitElement {
       justify-content: center;
       min-height: 400px;
     }
+    .sticky-header-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(21, 32, 43, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .header-section {
+      border-bottom: 1px solid var(--bluesky-border);
+    }
   `;
 
   render() {
@@ -104,63 +115,64 @@ export class FeedPage extends MobxLitElement {
 
     return html`
       <div>
-        <div style="width: 100%; padding-bottom: 0.5rem;"></div>
-
         <div
-          class="sticky top-0 z-30"
-          style="background: rgba(21, 32, 43, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--bluesky-border);"
+          class="sticky-header-wrapper"
         >
           <div
-            style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem 0.5rem 1.5rem;"
+            class="header-section"
           >
-            <button
-              class="hamburger-btn"
-              @click=${() => this.onOpenMenu?.()}
-              aria-label="Open navigation"
-              type="button"
-              style="display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9999px; border: none; background: transparent; color: var(--bluesky-text); cursor: pointer; flex-shrink: 0;"
+            <div
+              style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem 0.5rem 1rem;"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="width: 22px; height: 22px;"
+              <button
+                class="hamburger-btn"
+                @click=${() => this.onOpenMenu?.()}
+                aria-label="Open navigation"
+                type="button"
+                style="display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9999px; border: none; background: transparent; color: var(--bluesky-text); cursor: pointer; flex-shrink: 0;"
               >
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-            <div style="flex: 1; min-width: 0;">
-              <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0;">
-                Post Observability
-              </h1>
-              <span
-                style="color: #22c55e; cursor: pointer; display: block; font-family: 'Nunito', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif; font-weight: 700; font-size: 0.9375rem; line-height: 1.2;"
-                >Why am I seeing this?</span
-              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="width: 22px; height: 22px;"
+                >
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <div style="flex: 1; min-width: 0;">
+                <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0;">
+                  Post Observability
+                </h1>
+                <span
+                  style="color: #22c55e; cursor: pointer; display: block; font-family: 'Nunito', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif; font-weight: 700; font-size: 0.9375rem; line-height: 1.2;"
+                  >Why am I seeing this?</span
+                >
+              </div>
             </div>
-          </div>
-          <style>
-            @media (max-width: 1023px) {
-              .hamburger-btn {
-                display: flex !important;
+            <style>
+              @media (max-width: 1023px) {
+                .hamburger-btn {
+                  display: flex !important;
+                }
               }
-            }
-          </style>
-        </div>
+            </style>
+          </div>
 
-        <feed-tabs
-          .feeds=${feedStore.feedList}
-          .activeRequestId=${feedStore.currentRequestId}
-          @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
-          void feedStore.loadFeedDetail(e.detail.requestId);
-        }}
-        ></feed-tabs>
+          <feed-tabs
+            .feeds=${feedStore.feedList}
+            .activeRequestId=${feedStore.currentRequestId}
+            @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
+            void feedStore.loadFeedDetail(e.detail.requestId);
+          }}
+          ></feed-tabs>
+        </div>
 
         ${
           feedStore.error

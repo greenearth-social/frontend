@@ -14,7 +14,8 @@ export class FeedView extends MobxLitElement {
     }
     .feed-container {
       padding-bottom: 0.5rem;
-      overflow: visible;
+      overflow: hidden;
+      max-width: 100%;
     }
     .empty-state {
       display: flex;

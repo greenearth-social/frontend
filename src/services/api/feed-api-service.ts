@@ -15,10 +15,33 @@ export class FeedApiService implements IFeedApiService {
     return this._fetch<FeedDetailResponse>(`/api/feeds/${requestId}`);
   }
 
-  private async _fetch<T>(path: string): Promise<T> {
+  async getPreferences(): Promise<{ socialRadius: number }> {
+    return this._fetch<{ socialRadius: number }>("/api/feeds/preferences");
+  }
+
+  async putPreferences(socialRadius: number): Promise<{ socialRadius: number }> {
+    return this._fetch<{ socialRadius: number }>("/api/feeds/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ socialRadius }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  private async _fetch<T>(path: string, init?: RequestInit): Promise<T> {
     const token = await this.getAuthToken();
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (init?.headers) {
+      const extra = init.headers as Record<string, string>;
+      for (const key of Object.keys(extra)) {
+        const val = extra[key];
+        if (val !== undefined) {
+          headers[key] = val;
+        }
+      }
+    }
     const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      ...init,
+      headers,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "unknown error");

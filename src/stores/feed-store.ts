@@ -92,7 +92,7 @@ export class FeedStore {
 
     try {
       const response = await this.root.services.feedApiService.listFeeds();
-      this.feedList = response.feeds;
+      this.feedList = response.feeds ?? [];
       if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
@@ -113,7 +113,7 @@ export class FeedStore {
       const response = await this.root.services.feedApiService.getFeedDetail(requestId);
       if (seq !== this._loadSeq) return;
 
-      this._allItems = transformFeedItems(response.items);
+      this._allItems = transformFeedItems(response.items ?? []);
       this.currentRequestId = requestId;
       this._currentPage = 1;
       this._updateVisibleItems();

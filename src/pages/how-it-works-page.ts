@@ -86,6 +86,16 @@ export class HowItWorksPage extends LitElement {
       display: block;
     }
 
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(21, 32, 43, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bluesky-border);
+    }
+
     .page-content {
       display: flex;
       flex-direction: column;
@@ -112,6 +122,10 @@ export class HowItWorksPage extends LitElement {
       align-items: center;
       gap: 0.75rem;
       position: relative;
+      box-sizing: border-box;
+      margin-left: 0.75rem;
+      margin-right: 0.75rem;
+      width: calc(100% - 1.5rem);
     }
 
     .section-candidate {
@@ -152,20 +166,39 @@ export class HowItWorksPage extends LitElement {
 
     .sources-row {
       display: flex;
-      gap: 1rem;
+      flex-direction: column;
+      gap: 0.75rem;
       width: 100%;
-      justify-content: center;
-      flex-wrap: wrap;
+      align-items: center;
     }
 
-    .source-column {
+    .source-row {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
-      flex: 1;
-      min-width: 90px;
-      max-width: 150px;
+      gap: 0.75rem;
+    }
+
+    .source-row .node-box {
+      width: auto;
+      min-width: 100px;
+    }
+
+    .weight-pill {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #6ee7a0;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      font-style: italic;
+      padding: 0.1875rem 0.625rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .weight-pill:hover {
+      transform: scale(1.08);
+      background: rgba(34, 197, 94, 0.3);
     }
 
     .node-box {
@@ -178,6 +211,7 @@ export class HowItWorksPage extends LitElement {
       position: relative;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
     }
 
     .node-box:hover {
@@ -228,24 +262,6 @@ export class HowItWorksPage extends LitElement {
       font-weight: 600;
       font-size: 0.75rem;
       font-style: italic;
-    }
-
-    .weight-pill {
-      background: rgba(34, 197, 94, 0.2);
-      border: 1px solid rgba(34, 197, 94, 0.4);
-      color: #6ee7a0;
-      font-size: 0.6875rem;
-      font-weight: 600;
-      font-style: italic;
-      padding: 0.1875rem 0.625rem;
-      border-radius: 9999px;
-      cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease;
-    }
-
-    .weight-pill:hover {
-      transform: scale(1.08);
-      background: rgba(34, 197, 94, 0.3);
     }
 
     .config-pill {
@@ -330,7 +346,7 @@ export class HowItWorksPage extends LitElement {
 
     .signals-row {
       display: flex;
-      gap: 1.25rem;
+      gap: 1rem;
       width: 100%;
       justify-content: center;
       flex-wrap: wrap;
@@ -341,9 +357,10 @@ export class HowItWorksPage extends LitElement {
       flex-direction: column;
       align-items: center;
       gap: 0.5rem;
-      flex: 1;
-      min-width: 110px;
+      flex: 0 0 160px;
+      min-width: 120px;
       max-width: 180px;
+      box-sizing: border-box;
     }
 
     .node-subtitle {
@@ -436,14 +453,24 @@ export class HowItWorksPage extends LitElement {
       }
     }
 
+    .popup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
     .popup-title {
       font-size: 1rem;
       font-weight: 700;
-      margin: 0 0 0.5rem 0;
+      margin: 0;
       display: flex;
       align-items: center;
       gap: 0.5rem;
       flex-wrap: wrap;
+      flex: 1;
+      min-width: 0;
     }
 
     .popup-title.type-source { color: #60a5fa; }
@@ -458,6 +485,7 @@ export class HowItWorksPage extends LitElement {
       border-radius: 9999px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      flex-shrink: 0;
     }
 
     .badge-source { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
@@ -470,12 +498,12 @@ export class HowItWorksPage extends LitElement {
       color: var(--bluesky-text-secondary);
       line-height: 1.6;
       margin: 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     .popup-close {
-      position: absolute;
-      top: 0.75rem;
-      right: 0.75rem;
+      flex-shrink: 0;
       width: 28px;
       height: 28px;
       border-radius: 50%;
@@ -495,6 +523,58 @@ export class HowItWorksPage extends LitElement {
       color: var(--bluesky-text);
     }
 
+    @media (max-width: 399px) {
+      .section {
+        padding: 0.875rem 0.5rem;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+        width: calc(100% - 1rem);
+      }
+
+      .section-title {
+        font-size: 0.875rem;
+      }
+
+      .node-box {
+        padding: 0.5rem 0.375rem;
+        font-size: 0.75rem;
+      }
+
+      .node-box-source,
+      .node-box-signal {
+        font-size: 0.75rem;
+      }
+
+      .node-box-config,
+      .node-box-penalty {
+        font-size: 0.6875rem;
+      }
+
+      .config-pill {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+      }
+
+      .penalty-pill,
+      .engaging-pill {
+        font-size: 0.6875rem;
+        padding: 0.375rem 0.625rem;
+      }
+    }
+
+    @media (min-width: 400px) and (max-width: 479px) {
+      .signal-column {
+        min-width: 110px;
+        max-width: 160px;
+        flex: 0 0 140px;
+      }
+
+      .signal-column .node-box {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+    }
+
     @media (min-width: 480px) {
       .page-content {
         padding: 2rem 1rem 3rem;
@@ -502,6 +582,9 @@ export class HowItWorksPage extends LitElement {
 
       .section {
         padding: 1.25rem 1rem;
+        margin-left: 1rem;
+        margin-right: 1rem;
+        width: calc(100% - 2rem);
       }
 
       .section-title {
@@ -509,12 +592,32 @@ export class HowItWorksPage extends LitElement {
       }
 
       .sources-row {
+        flex-direction: row;
         gap: 1.25rem;
+        justify-content: center;
+        flex-wrap: wrap;
       }
 
-      .source-column {
+      .source-row {
+        flex-direction: column;
+        gap: 0.5rem;
+        flex: 1;
         min-width: 110px;
         max-width: 160px;
+      }
+
+      .source-row .node-box {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .weight-pill {
+        position: static;
+        transform: none;
+        writing-mode: horizontal-tb;
+        padding: 0.1875rem 0.625rem;
+        font-size: 0.6875rem;
+        align-self: center;
       }
 
       .node-box {
@@ -544,12 +647,18 @@ export class HowItWorksPage extends LitElement {
       }
 
       .signals-row {
-        gap: 1.5rem;
+        gap: 1rem;
       }
 
       .signal-column {
         min-width: 130px;
         max-width: 200px;
+        flex: 0 0 160px;
+      }
+
+      .signal-column .node-box {
+        padding-left: 1rem;
+        padding-right: 1rem;
       }
 
       .node-subtitle {
@@ -562,11 +671,17 @@ export class HowItWorksPage extends LitElement {
     }
 
     @media (min-width: 768px) {
+      .section {
+        margin-left: 1.25rem;
+        margin-right: 1.25rem;
+        width: calc(100% - 2.5rem);
+      }
+
       .sources-row {
         gap: 1.5rem;
       }
 
-      .source-column {
+      .source-row {
         min-width: 120px;
         max-width: 170px;
       }
@@ -581,12 +696,18 @@ export class HowItWorksPage extends LitElement {
       }
 
       .signals-row {
-        gap: 2rem;
+        gap: 1rem;
+      }
+
+      .signal-column .node-box {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
       }
 
       .signal-column {
         min-width: 140px;
         max-width: 200px;
+        flex: 0 0 180px;
       }
 
       .popup-card {
@@ -623,11 +744,13 @@ export class HowItWorksPage extends LitElement {
       <div class="popup-overlay" @click=${this.#closeDetail}>
         <div class="popup-backdrop"></div>
         <div class="popup-card" @click=${(e: Event) => { e.stopPropagation(); }}>
-          <button class="popup-close" @click=${this.#closeDetail} aria-label="Close detail">&times;</button>
-          <h3 class="popup-title type-${node.type}">
-            ${node.label}
-            <span class="popup-badge badge-${node.type}">${node.type}</span>
-          </h3>
+          <div class="popup-header">
+            <h3 class="popup-title type-${node.type}">
+              ${node.label}
+              <span class="popup-badge badge-${node.type}">${node.type}</span>
+            </h3>
+            <button class="popup-close" @click=${this.#closeDetail} aria-label="Close detail">&times;</button>
+          </div>
           <p class="popup-description">${node.description}</p>
         </div>
       </div>
@@ -636,7 +759,7 @@ export class HowItWorksPage extends LitElement {
 
   render() {
     return html`
-      <div class="sticky top-0 z-30" style="background: rgba(21, 32, 43, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--bluesky-border);">
+      <div class="sticky-header">
         <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem;">
           <button
             class="hamburger-btn"
@@ -667,21 +790,21 @@ export class HowItWorksPage extends LitElement {
               Time window
             </div>
             <div class="sources-row">
-              <div class="source-column">
+              <div class="source-row">
                 <div class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
                   @click=${() => { this.#handleNodeClick("following"); }}>
                   Following
                 </div>
                 <div class="weight-pill" @click=${() => { this.#handleNodeClick("following"); }}>weight</div>
               </div>
-              <div class="source-column">
+              <div class="source-row">
                 <div class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
                   @click=${() => { this.#handleNodeClick("authors_topics"); }}>
-                  Authors<br />and Topics
+                  Authors and Topics
                 </div>
                 <div class="weight-pill" @click=${() => { this.#handleNodeClick("authors_topics"); }}>weight</div>
               </div>
-              <div class="source-column">
+              <div class="source-row">
                 <div class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
                   @click=${() => { this.#handleNodeClick("popular"); }}>
                   Popular

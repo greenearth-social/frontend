@@ -9,4 +9,6 @@ export interface IAuthService {
 export interface IFeedApiService {
   listFeeds(): Promise<import("../models/feed-debug-snapshot").FeedListResponse>;
   getFeedDetail(requestId: string): Promise<import("../models/feed-debug-snapshot").FeedDetailResponse>;
+  getPreferences(): Promise<{ socialRadius: number }>;
+  putPreferences(socialRadius: number): Promise<{ socialRadius: number }>;
 }

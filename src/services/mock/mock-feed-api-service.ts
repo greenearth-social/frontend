@@ -143,4 +143,12 @@ export class MockFeedApiService implements IFeedApiService {
   getFeedDetail(_requestId: string): Promise<FeedDetailResponse> {
     return Promise.resolve(MOCK_FEED_DETAIL);
   }
+
+  getPreferences(): Promise<{ socialRadius: number }> {
+    return Promise.resolve({ socialRadius: 2 });
+  }
+
+  putPreferences(socialRadius: number): Promise<{ socialRadius: number }> {
+    return Promise.resolve({ socialRadius });
+  }
 }

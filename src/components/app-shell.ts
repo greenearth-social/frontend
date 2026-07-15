@@ -403,12 +403,6 @@ export class AppShell extends MobxLitElement {
       height: 20px;
     }
 
-    @media (max-width: 767px) {
-      .center-column {
-        padding-top: 0.5rem;
-      }
-    }
-
     /* ── Logged-out layout ── */
     .shell-container.logged-out {
       max-width: 100%;
@@ -617,7 +611,7 @@ export class AppShell extends MobxLitElement {
           }
         </main>
 
-        ${authStore.isSignedIn ? html`
+        ${authStore.isSignedIn && (this._currentRoute === "/feed" || this._currentRoute === "") ? html`
           <aside class="right-sidebar">
             <div class="right-sidebar-inner">
               <right-sidebar

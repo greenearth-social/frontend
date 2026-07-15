@@ -1,22 +1,76 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
+import { getRootStore } from "../main";
+import "../components/lifecycle-slider";
+
+interface SliderConfig {
+  title: string;
+  leftLabel: string;
+  rightLabel: string;
+}
+
+const SLIDERS: SliderConfig[] = [
+  { title: "Social Radius", leftLabel: "Friends", rightLabel: "Everyone" },
+  { title: "Politics", leftLabel: "Less", rightLabel: "Most" },
+  { title: "Freshness", leftLabel: "Hours", rightLabel: "Days" },
+  { title: "Purpose", leftLabel: "Engaging", rightLabel: "Constructive" },
+];
 
 @customElement("controls-page")
 export class ControlsPage extends LitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
+  @state() private sliderValues: number[] = [2, 0, 0, 0];
+  @state() private isLoading = true;
 
   static styles = css`
     :host {
       display: block;
     }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(21, 32, 43, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bluesky-border);
+    }
+    .controls-content {
+      padding: 1.5rem;
+    }
+    .slider-group {
+      margin-bottom: 0.5rem;
+    }
+    .slider-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--bluesky-text);
+      margin-bottom: 0.75rem;
+      padding-left: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .coming-soon {
+      font-size: 0.75rem;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--bluesky-text-secondary);
+    }
   `;
+
+  firstUpdated() {
+    const root = getRootStore();
+    if (!root) return;
+    void root.services.feedApiService.getPreferences().then(
+      (pref) => { this.sliderValues = [pref.socialRadius, 0, 0, 0]; },
+      () => {},
+    ).finally(() => { this.isLoading = false; });
+  }
 
   render() {
     return html`
-      <div
-        class="sticky top-0 z-30"
-        style="background: rgba(21, 32, 43, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--bluesky-border);"
-      >
+      <div class="sticky-header">
         <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem;">
           <button
             class="hamburger-btn"
@@ -52,10 +106,40 @@ export class ControlsPage extends LitElement {
           }
         </style>
       </div>
-      <div class="px-4 py-8 text-center" style="color: var(--bluesky-text-secondary)">
-        <p>Controls panel coming soon.</p>
+      <div class="controls-content">
+        ${SLIDERS.map(
+          (slider, index) => html`
+            <div class="slider-group">
+              <div class="slider-title">
+                ${slider.title}
+                ${index > 0 ? html`<span class="coming-soon">Coming Soon!</span>` : ""}
+              </div>
+              <lifecycle-slider
+                title=${slider.title}
+                leftLabel=${slider.leftLabel}
+                rightLabel=${slider.rightLabel}
+                value=${this.sliderValues[index]}
+                ?disabled=${index > 0}
+                @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                  this.#handleSliderChange(index, e.detail.value);
+                }}
+              ></lifecycle-slider>
+            </div>
+          `,
+        )}
       </div>
     `;
+  }
+
+  #handleSliderChange(index: number, value: number) {
+    const newValues = [...this.sliderValues];
+    newValues[index] = value;
+    this.sliderValues = newValues;
+
+    if (index === 0) {
+      const root = getRootStore();
+      root?.services.feedApiService.putPreferences(value).catch(console.warn);
+    }
   }
 }
 

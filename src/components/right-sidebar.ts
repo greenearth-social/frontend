@@ -57,7 +57,7 @@ export class RightSidebar extends LitElement {
       return html`
         <div style="padding: 0.5rem 0;">
           <div class="card">
-            <div class="card-header">Feeds</div>
+            <div class="card-header">Feed Snapshots</div>
             <div class="feed-item" style="cursor: default; color: var(--bluesky-text-secondary);">
               No recent feeds
             </div>

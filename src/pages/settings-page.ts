@@ -10,11 +10,20 @@ export class SettingsPage extends MobxLitElement {
     :host {
       display: block;
     }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(21, 32, 43, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bluesky-border);
+    }
   `;
 
   render() {
     return html`
-      <div class="sticky top-0 z-30" style="background: rgba(21, 32, 43, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--bluesky-border);">
+      <div class="sticky-header">
         <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem;">
           <button
             class="hamburger-btn"
