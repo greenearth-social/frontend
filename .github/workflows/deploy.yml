@@ -1,0 +1,72 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Deploy prod — auto after CI passes on main, gated by environment approval.
+  # Hosting (live) + functions + rules.
+  # -----------------------------------------------------------------------
+  deploy-prod:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci.yml
+          run_id: ${{ github.event.workflow_run.id }}
+          name: dist
+          path: dist/
+
+      - uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci.yml
+          run_id: ${{ github.event.workflow_run.id }}
+          name: functions-build
+          path: functions/
+
+      - name: Write prod database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
+
+      - name: Write functions .env from GitHub Variables
+        run: |
+          cat > functions/.env << 'ENVEOF'
+          APP_ORIGIN=${{ vars.APP_ORIGIN }}
+          BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
+          BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
+          ENVEOF
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Deploy Hosting (live channel)
+        run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
+          firebase hosting:channel:deploy live \
+            --project greenearth-471522 \
+            --non-interactive
+
+      - name: Deploy Functions + Firestore rules
+        run: |
+          firebase deploy \
+            --only functions,firestore:rules \
+            --project greenearth-471522 \
+            --non-interactive \
+            --force

@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # CI — lint, typecheck, unit tests, E2E, build.
+  # -----------------------------------------------------------------------
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install functions dependencies (needed for lint)
+        working-directory: functions
+        run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Debug env vars
+        env:
+          USE_MOCK: ${{ vars.VITE_USE_MOCK_SERVICES }}
+        run: |
+          echo "VITE_USE_MOCK_SERVICES length: ${#USE_MOCK}"
+          echo "VITE_USE_MOCK_SERVICES value: [$USE_MOCK]"
+
+      - name: Build frontend
+        env:
+          VITE_USE_MOCK_SERVICES: ${{ vars.VITE_USE_MOCK_SERVICES }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+        run: npm run build
+
+      - name: Build functions
+        working-directory: functions
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-build
+          path: |
+            functions/lib/
+            functions/package.json
+            functions/node_modules/
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Deploy stage — shows on PR page as "awaiting approval".
+  # Requires a "stage" environment with required reviewers in repo settings.
+  # -----------------------------------------------------------------------
+  deploy-stage:
+    needs: ci
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: stage
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Write stage database config
+        run: |
+          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Deploy Hosting (stage preview channel)
+        run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.json
+          firebase hosting:channel:deploy stage \
+            --project greenearth-471522 \
+            --non-interactive

@@ -1,0 +1,4 @@
+{
+  "_comment": "Runtime config for the frontend SPA. Fetched at startup via fetch('/config.json'). The firestoreDatabase value is the only field used. The CI pipeline swaps this value per environment (greenearth-stage for PR/stage deploys, greenearth-prod for production). This file is served as a static asset alongside the SPA bundle — it is NOT read by Firebase or Cloud Functions.",
+  "firestoreDatabase": "greenearth-stage"
+}
