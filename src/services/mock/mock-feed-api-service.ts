@@ -135,7 +135,13 @@ export class MockFeedApiService implements IFeedApiService {
   listFeeds(): Promise<FeedListResponse> {
     return Promise.resolve({
       feeds: [
-        { requestId: "abc123-def456-ghi789", generatedAt: new Date().toISOString(), feedName: "your-feed" },
+        {
+          requestId: "abc123-def456-ghi789",
+          generatedAt: new Date().toISOString(),
+          feedName: "your-feed",
+          appliedSocialRadius: 2,
+          generatorDiagnostics: [],
+        },
       ],
     });
   }

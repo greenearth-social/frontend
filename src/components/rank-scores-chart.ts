@@ -222,11 +222,10 @@ export class RankScoresChart extends LitElement {
     const engagingPct = Math.max(0, engagingScore) * 100;
     const constructivePct = Math.max(0, constructiveScore) * 100;
 
-    const rawScore = (engagingScore + constructiveScore) / 2;
     let divDelta = 0;
     let divDeltaStr = "\u2014";
     if (i.diversification) {
-      divDelta = i.diversification.score - rawScore;
+      divDelta = -(i.diversification.authorPenalty + i.diversification.contentPenalty);
       divDeltaStr =
         divDelta >= 0 ? `+${divDelta.toFixed(2)}` : divDelta.toFixed(2);
     }
@@ -314,13 +313,12 @@ export class RankScoresChart extends LitElement {
             <div class="div-popup">
               <div class="div-popup-title">Diversification Formula</div>
               <p>
-                The diversification score is the difference between the raw score
-                (currently 0.5 × Engaging + 0.5 × Constructive) and the calculated
-                score after diversification.
+                The diversification value is the priority adjustment caused by
+                same-author and similar-content penalties.
               </p>
               <p>
-                This can be positive or negative, indicating whether diversification
-                increased or decreased the final score.
+                Zero means no penalty. Negative values mean diversification reduced
+                this post's priority relative to its relevance score.
               </p>
             </div>
           `

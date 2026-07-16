@@ -6,6 +6,19 @@ export interface FeedSummary {
   requestId: string;
   generatedAt: string;
   feedName: string;
+  appliedSocialRadius: number | null;
+  generatorDiagnostics: GeneratorDiagnostic[];
+}
+
+export interface GeneratorDiagnostic {
+  name: string;
+  weight: number;
+  requestedCount: number;
+  returnedCount: number;
+  contributedCount: number;
+  status: string;
+  reason: string | null;
+  mode: string;
 }
 
 export interface FeedListResponse {

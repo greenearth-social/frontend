@@ -16,6 +16,17 @@ interface ApiFeedSummary {
   request_id: string;
   generated_at: string;
   feed_name: string;
+  applied_social_radius?: number | null;
+  generator_diagnostics?: Array<{
+    name: string;
+    weight: number;
+    requested_count: number;
+    returned_count: number;
+    contributed_count: number;
+    status: string;
+    reason: string | null;
+    mode: string;
+  }>;
 }
 
 interface ApiFeedListResponse {
@@ -139,6 +150,17 @@ export class FeedApiService implements IFeedApiService {
         requestId: feed.request_id,
         generatedAt: feed.generated_at,
         feedName: feed.feed_name,
+        appliedSocialRadius: feed.applied_social_radius ?? null,
+        generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
+          name: diagnostic.name,
+          weight: diagnostic.weight,
+          requestedCount: diagnostic.requested_count,
+          returnedCount: diagnostic.returned_count,
+          contributedCount: diagnostic.contributed_count,
+          status: diagnostic.status,
+          reason: diagnostic.reason,
+          mode: diagnostic.mode,
+        })),
       })),
     };
   }
