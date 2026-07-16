@@ -16,10 +16,10 @@ export class RootStore {
   constructor(services: ServiceProvider) {
     this.services = services;
 
+    this.preferencesStore = new PreferencesStore(this);
     this.authStore = new AuthStore(this);
     this.accountStore = new AccountStore(this);
     this.feedStore = new FeedStore(this);
     this.uiStore = new UIStore();
-    this.preferencesStore = new PreferencesStore(this);
   }
 }

@@ -73,6 +73,10 @@ interface ApiFeedDetailResponse {
   request_id: string;
   generated_at: string;
   items: ApiFeedItemResponse[];
+  stored_item_count?: number;
+  displayed_item_count?: number;
+  publicly_filtered_count?: number;
+  unavailable_count?: number;
 }
 
 function mapPreferences(prefs: ApiPreferences): Preferences {
@@ -171,6 +175,12 @@ export class FeedApiService implements IFeedApiService {
       requestId: response.request_id,
       generatedAt: response.generated_at,
       items: response.items.map(mapFeedItem),
+      filteringCounts: {
+        storedItemCount: response.stored_item_count ?? response.items.length,
+        displayedItemCount: response.displayed_item_count ?? response.items.length,
+        publiclyFilteredCount: response.publicly_filtered_count ?? 0,
+        unavailableCount: response.unavailable_count ?? 0,
+      },
     };
   }
 

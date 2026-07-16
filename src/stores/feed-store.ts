@@ -1,5 +1,9 @@
 import { makeAutoObservable } from "mobx";
-import type { FeedItemView, FeedSummary } from "../models/feed-debug-snapshot";
+import type {
+  FeedItemView,
+  FeedSummary,
+  FilteringCounts,
+} from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { RootStore } from "./root-store";
 
@@ -19,6 +23,7 @@ export class FeedStore {
 
   feedList: FeedSummary[] = [];
   currentRequestId: string | null = null;
+  filteringCountsByRequest: Record<string, FilteringCounts> = {};
 
   private _loadSeq: number = 0;
 
@@ -114,6 +119,7 @@ export class FeedStore {
       if (seq !== this._loadSeq) return;
 
       this._allItems = transformFeedItems(response.items ?? []);
+      this.filteringCountsByRequest[requestId] = response.filteringCounts;
       this.currentRequestId = requestId;
       this._currentPage = 1;
       this._updateVisibleItems();

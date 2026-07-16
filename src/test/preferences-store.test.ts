@@ -12,10 +12,32 @@ const defaults: Preferences = {
 
 function makeStore(putPreferences: (values: Preferences) => Promise<Preferences>) {
   const root = {
-    services: { feedApiService: { putPreferences } },
+    services: { feedApiService: { putPreferences, getPreferences: vi.fn() } },
   } as unknown as RootStore;
   return new PreferencesStore(root);
 }
+
+describe("PreferencesStore.load", () => {
+  it("shares one in-flight load and keeps the loaded values", async () => {
+    let resolveLoad: ((value: Preferences) => void) | undefined;
+    const getPreferences = vi.fn().mockReturnValue(
+      new Promise<Preferences>((resolve) => { resolveLoad = resolve; }),
+    );
+    const root = {
+      services: { feedApiService: { getPreferences, putPreferences: vi.fn() } },
+    } as unknown as RootStore;
+    const store = new PreferencesStore(root);
+
+    const first = store.load();
+    const second = store.load();
+    resolveLoad?.({ ...defaults, socialRadius: 4 });
+    await Promise.all([first, second]);
+
+    expect(getPreferences).toHaveBeenCalledTimes(1);
+    expect(store.hasLoaded).toBe(true);
+    expect(store.values.socialRadius).toBe(4);
+  });
+});
 
 describe("PreferencesStore.save", () => {
   it("uses the preferences returned by the API", async () => {

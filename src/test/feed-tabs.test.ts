@@ -20,6 +20,16 @@ function makeTabs() {
           reason: "no_recent_followed_posts",
           mode: "primary",
         },
+        {
+          name: "followed_users",
+          weight: 0.7,
+          requestedCount: 70,
+          returnedCount: 12,
+          contributedCount: 10,
+          status: "success",
+          reason: null,
+          mode: "direct_friends_7d",
+        },
       ],
     },
     {
@@ -48,6 +58,33 @@ describe("FeedTabs source breakdown", () => {
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Friends");
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
       "no_recent_followed_posts",
+    );
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
+      "Friends · 1–7 days",
+    );
+    element.remove();
+  });
+
+  it("shows filtering counts for a hydrated snapshot", async () => {
+    const element = makeTabs();
+    element.filteringCountsByRequest = {
+      "req-1": {
+        storedItemCount: 10,
+        displayedItemCount: 7,
+        publiclyFilteredCount: 2,
+        unavailableCount: 1,
+      },
+    };
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".breakdown-button")?.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
+      "Snapshot stored 10 posts",
+    );
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
+      "Public labels filtered 2",
     );
     element.remove();
   });

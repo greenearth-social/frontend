@@ -66,6 +66,14 @@ export interface FeedDetailResponse {
   requestId: string;
   generatedAt: string;
   items: ApiFeedItem[] | null | undefined;
+  filteringCounts: FilteringCounts;
+}
+
+export interface FilteringCounts {
+  storedItemCount: number;
+  displayedItemCount: number;
+  publiclyFilteredCount: number;
+  unavailableCount: number;
 }
 
 export interface FeedItemView {

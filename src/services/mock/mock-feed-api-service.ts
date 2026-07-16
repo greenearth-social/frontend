@@ -129,6 +129,12 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
       postUrl: "https://bsky.app/profile/did:plc:author1/post/post5",
     },
   ],
+  filteringCounts: {
+    storedItemCount: 6,
+    displayedItemCount: 6,
+    publiclyFilteredCount: 0,
+    unavailableCount: 0,
+  },
 };
 
 export class MockFeedApiService implements IFeedApiService {

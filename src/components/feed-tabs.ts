@@ -1,12 +1,13 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import type { FeedSummary } from "../models/feed-debug-snapshot";
+import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { relativeTime } from "../utils/relative-time";
 
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
+  @property({ type: Object }) filteringCountsByRequest: Record<string, FilteringCounts> = {};
   @state() private openBreakdownId: string | null = null;
 
   static styles = css`
@@ -138,6 +139,15 @@ export class FeedTabs extends LitElement {
       font-size: 0.75rem;
       margin-bottom: 0.75rem;
     }
+    .filter-summary {
+      margin: 0.75rem 0;
+      padding: 0.65rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.5rem;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -216,6 +226,7 @@ export class FeedTabs extends LitElement {
     const radius = feed.appliedSocialRadius === null
       ? "Unknown"
       : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
+    const filtering = this.filteringCountsByRequest[feed.requestId];
     return html`
       <dialog
         class="popover"
@@ -228,6 +239,17 @@ export class FeedTabs extends LitElement {
       >
         <div class="popover-title">Source breakdown</div>
         <div class="popover-subtitle">Applied social radius: ${radius}</div>
+        <div class="filter-summary">
+          ${filtering
+            ? html`
+                Snapshot stored ${filtering.storedItemCount} posts sent to Bluesky;
+                ${filtering.displayedItemCount} are displayed here.
+                Public labels filtered ${filtering.publiclyFilteredCount} and
+                ${filtering.unavailableCount} were unavailable.
+              `
+            : html`Select this snapshot to calculate its displayed and filtered counts.`}
+          This is a public-label approximation; private Bluesky moderation can hide additional posts.
+        </div>
         ${feed.generatorDiagnostics.length === 0
           ? html`<div class="popover-subtitle">Diagnostics are unavailable for this legacy snapshot.</div>`
           : html`
@@ -238,7 +260,12 @@ export class FeedTabs extends LitElement {
                 <tbody>
                   ${feed.generatorDiagnostics.map((diagnostic) => html`
                     <tr>
-                      <td>${diagnostic.name}</td>
+                      <td>
+                        ${diagnostic.name}
+                        ${diagnostic.mode !== "primary"
+                          ? html`<span class="reason">${this.#modeLabel(diagnostic.mode)}</span>`
+                          : ""}
+                      </td>
                       <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
                       <td>${diagnostic.requestedCount}</td>
                       <td>${diagnostic.returnedCount}</td>
@@ -285,10 +312,18 @@ export class FeedTabs extends LitElement {
       follow_lookup_failed: "Could not load followed accounts",
       no_followed_users: "No followed accounts found",
       no_recent_followed_posts: "No eligible recent posts from followed accounts",
+      no_older_followed_posts: "No eligible followed-account posts from the last seven days",
       post_tower_not_configured: "Two-tower model is not configured",
       generator_timeout: "Generator timed out",
       generator_error: "Generator failed",
     } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
+  }
+
+  #modeLabel(mode: string): string {
+    return ({
+      direct_friends_recent: "Friends · last 24 hours",
+      direct_friends_7d: "Friends · 1–7 days",
+    } as Record<string, string>)[mode] ?? mode.split("_").join(" ");
   }
 
   #onWindowClick = (event: MouseEvent) => {

@@ -12,7 +12,9 @@ export class PreferencesStore {
     purpose: 0.5,
   };
   isLoading = false;
+  hasLoaded = false;
   private saveVersion = 0;
+  private loadPromise: Promise<void> | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
@@ -20,14 +22,33 @@ export class PreferencesStore {
   }
 
   async load(): Promise<void> {
+    if (this.hasLoaded) return;
+    if (this.loadPromise) return this.loadPromise;
     this.isLoading = true;
-    try {
-      this.values = await this.root.services.feedApiService.getPreferences();
-    } catch (e) {
-      console.error("Failed to load preferences:", e);
-    } finally {
-      this.isLoading = false;
-    }
+    this.loadPromise = (async () => {
+      try {
+        this.values = await this.root.services.feedApiService.getPreferences();
+      } catch (e) {
+        console.error("Failed to load preferences:", e);
+      } finally {
+        this.isLoading = false;
+        this.hasLoaded = true;
+        this.loadPromise = null;
+      }
+    })();
+    return this.loadPromise;
+  }
+
+  reset(): void {
+    this.values = {
+      socialRadius: 2,
+      freshness: 2,
+      politics: 1.0,
+      purpose: 0.5,
+    };
+    this.isLoading = false;
+    this.hasLoaded = false;
+    this.loadPromise = null;
   }
 
   async save(values: Preferences): Promise<void> {
