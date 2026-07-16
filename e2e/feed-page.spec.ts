@@ -22,16 +22,16 @@ test.describe("Feed Page", () => {
   });
 
   test("shows feed title", async ({ page }) => {
-    await expect(page.locator("h1")).toContainText("Post Observability");
+    await expect(page.locator("h1")).toContainText("Why Am I Seeing This?");
   });
 
-  test("shows 3 feed cards (default per page)", async ({ page }) => {
-    await expect(page.locator("feed-item-card")).toHaveCount(3);
+  test("shows all feed cards (default per page is 10)", async ({ page }) => {
+    await expect(page.locator("feed-item-card")).toHaveCount(6);
   });
 
   test("shows Open in Bluesky link on first card", async ({ page }) => {
     const firstCard = page.locator("feed-item-card").first();
-    await expect(firstCard.locator("text=/Open in Bluesky/")).toBeVisible();
+    await expect(firstCard.locator(".bluesky-btn")).toBeVisible();
   });
 
   test("shows rank scores chart on first card", async ({ page }) => {
@@ -44,12 +44,8 @@ test.describe("Feed Page", () => {
     await expect(sidebar).toContainText("@Mock User");
   });
 
-  test("shows Post Observability header", async ({ page }) => {
-    await expect(page.locator("h1")).toHaveText("Post Observability");
-  });
-
-  test("shows Why am I seeing this subtitle", async ({ page }) => {
-    await expect(page.locator("text=/Why am I seeing this/")).toBeVisible();
+  test("shows Why Am I seeing this? header", async ({ page }) => {
+    await expect(page.locator("h1")).toHaveText("Why Am I Seeing This?");
   });
 
   test("shows feeds card in right sidebar", async ({ page }) => {

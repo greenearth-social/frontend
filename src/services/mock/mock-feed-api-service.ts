@@ -1,4 +1,4 @@
-import type { IFeedApiService } from "../types";
+import type { IFeedApiService, Preferences } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -144,11 +144,16 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(MOCK_FEED_DETAIL);
   }
 
-  getPreferences(): Promise<{ socialRadius: number }> {
-    return Promise.resolve({ socialRadius: 2 });
+  getPreferences(): Promise<Preferences> {
+    return Promise.resolve({
+      socialRadius: 2,
+      freshness: 2,
+      politics: 1.0,
+      purpose: 0.5,
+    });
   }
 
-  putPreferences(socialRadius: number): Promise<{ socialRadius: number }> {
-    return Promise.resolve({ socialRadius });
+  putPreferences(prefs: Preferences): Promise<Preferences> {
+    return Promise.resolve(prefs);
   }
 }

@@ -3,7 +3,7 @@ import type { FeedItemView, FeedSummary } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { RootStore } from "./root-store";
 
-const DEFAULT_POSTS_PER_PAGE = 3;
+const DEFAULT_POSTS_PER_PAGE = 10;
 
 export class FeedStore {
   root: RootStore;

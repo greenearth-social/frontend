@@ -9,6 +9,14 @@ const STAGES = [
   { name: "butterfly", src: "/assets/slider/butterfly-slider.png" },
 ];
 
+export type LifecycleStageLabels = [
+  string[],
+  string[],
+  string[],
+  string[],
+  string[],
+];
+
 @customElement("lifecycle-slider")
 export class LifecycleSlider extends LitElement {
   @property({ type: String }) title = "";
@@ -16,6 +24,7 @@ export class LifecycleSlider extends LitElement {
   @property({ type: String }) rightLabel = "";
   @property({ type: Number }) value = 0;
   @property({ type: Boolean }) disabled = false;
+  @property({ type: Array }) stageLabels: LifecycleStageLabels = [[], [], [], [], []];
   @state() private _thumbPercent = 0;
   @state() private _isDragging = false;
   @state() private _showPopup = false;
@@ -36,7 +45,6 @@ export class LifecycleSlider extends LitElement {
     }
     .slider-container.disabled {
       opacity: 0.4;
-      pointer-events: none;
     }
     .labels-track {
       display: grid;
@@ -114,6 +122,23 @@ export class LifecycleSlider extends LitElement {
     }
     .stage-btn.active:hover .stage-icon {
       filter: grayscale(0%) opacity(1);
+    }
+    .stage-values {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      padding: 0.5rem 0.75rem 0;
+    }
+    .stage-value {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 0;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      line-height: 1.25;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
     }
     .popup {
       position: absolute;
@@ -225,6 +250,17 @@ export class LifecycleSlider extends LitElement {
             )}
           </div>
         </div>
+        <div class="stage-values">
+          ${this.stageLabels.map(
+            (lines, index) => html`
+              <div class="stage-value">
+                ${index === this.value
+                  ? lines.map((line) => html`<span>${line}</span>`)
+                  : ""}
+              </div>
+            `,
+          )}
+        </div>
       </div>
     `;
   }
@@ -238,6 +274,7 @@ export class LifecycleSlider extends LitElement {
   }
 
   #onMouseDown = (e: MouseEvent) => {
+    if (this.disabled) return;
     this._trackRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     this._dragStartX = e.clientX;
     this._hasDragged = false;
@@ -268,6 +305,7 @@ export class LifecycleSlider extends LitElement {
   };
 
   #onTouchStart = (e: TouchEvent) => {
+    if (this.disabled) return;
     this._trackRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const touch = e.touches[0];
     if (touch) {
