@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import "../components/feed-tabs";
+import { FeedTabs } from "../components/feed-tabs";
 
 function makeTabs() {
   const element = document.createElement("feed-tabs");
@@ -45,8 +45,8 @@ describe("FeedTabs source breakdown", () => {
     await element.updateComplete;
 
     expect(changed).not.toHaveBeenCalled();
-    expect(element.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain("Friends");
-    expect(element.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain(
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Friends");
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
       "no_recent_followed_posts",
     );
     element.remove();
@@ -61,12 +61,29 @@ describe("FeedTabs source breakdown", () => {
     await element.updateComplete;
     buttons?.[1]?.click();
     await element.updateComplete;
-    expect(element.shadowRoot?.querySelectorAll('[role="dialog"]')).toHaveLength(1);
-    expect(element.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain("Balanced");
+    expect(element.shadowRoot?.querySelectorAll("dialog")).toHaveLength(1);
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Balanced");
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await element.updateComplete;
-    expect(element.shadowRoot?.querySelector('[role="dialog"]')).toBeNull();
+    expect(element.shadowRoot?.querySelector("dialog")).toBeNull();
+    element.remove();
+  });
+
+  it("uses the viewport top layer instead of tab-relative coordinates", async () => {
+    const element = makeTabs();
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".breakdown-button")?.click();
+    await element.updateComplete;
+
+    const dialog = element.shadowRoot?.querySelector<HTMLDialogElement>("dialog");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.style.left).toBe("");
+    expect(dialog?.style.top).toBe("");
+    expect(FeedTabs.styles.cssText).toContain("position: fixed");
+    expect(FeedTabs.styles.cssText).toContain("left: 50%");
+    expect(FeedTabs.styles.cssText).toContain("::backdrop");
     element.remove();
   });
 });

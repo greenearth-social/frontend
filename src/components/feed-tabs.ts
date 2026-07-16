@@ -108,9 +108,12 @@ export class FeedTabs extends LitElement {
     }
     .popover {
       position: fixed;
-      z-index: 1000;
+      top: clamp(1rem, 6vh, 4rem);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
       width: min(31rem, calc(100vw - 1.5rem));
-      max-height: min(28rem, calc(100vh - 2rem));
+      max-height: calc(100dvh - clamp(2rem, 12vh, 8rem));
       overflow: auto;
       padding: 0.9rem;
       border: 1px solid var(--bluesky-border);
@@ -118,6 +121,12 @@ export class FeedTabs extends LitElement {
       background: rgb(21, 32, 43);
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
+      margin: 0;
+    }
+    .popover::backdrop {
+      background: rgba(0, 0, 0, 0.58);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
     }
     .popover-title {
       font-size: 0.875rem;
@@ -208,7 +217,15 @@ export class FeedTabs extends LitElement {
       ? "Unknown"
       : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
     return html`
-      <div class="popover" role="dialog" aria-label="Source breakdown" tabindex="-1">
+      <dialog
+        class="popover"
+        aria-label="Source breakdown"
+        @click=${(event: MouseEvent) => { this.#dismissFromBackdrop(event); }}
+        @cancel=${(event: Event) => {
+          event.preventDefault();
+          this.openBreakdownId = null;
+        }}
+      >
         <div class="popover-title">Source breakdown</div>
         <div class="popover-subtitle">Applied social radius: ${radius}</div>
         ${feed.generatorDiagnostics.length === 0
@@ -235,22 +252,32 @@ export class FeedTabs extends LitElement {
                 </tbody>
               </table>
             `}
-      </div>
+      </dialog>
     `;
   }
 
-  #toggleBreakdown(requestId: string, anchor: HTMLElement) {
+  #toggleBreakdown(requestId: string, _anchor: HTMLElement) {
     this.openBreakdownId = this.openBreakdownId === requestId ? null : requestId;
     void this.updateComplete.then(() => {
-      const popover = this.renderRoot.querySelector<HTMLElement>(".popover");
+      const popover = this.renderRoot.querySelector<HTMLDialogElement>(".popover");
       if (!popover || this.openBreakdownId === null) return;
-      const rect = anchor.getBoundingClientRect();
-      const left = Math.min(Math.max(12, rect.left), window.innerWidth - popover.offsetWidth - 12);
-      const top = Math.min(rect.bottom + 8, window.innerHeight - popover.offsetHeight - 12);
-      popover.style.left = `${String(left)}px`;
-      popover.style.top = `${String(Math.max(12, top))}px`;
+      if (typeof popover.showModal === "function") {
+        popover.showModal();
+      } else {
+        popover.setAttribute("open", "");
+      }
       popover.focus();
     });
+  }
+
+  #dismissFromBackdrop(event: MouseEvent) {
+    const dialog = event.currentTarget as HTMLDialogElement;
+    const rect = dialog.getBoundingClientRect();
+    const inside = event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom;
+    if (!inside) this.openBreakdownId = null;
   }
 
   #reasonLabel(reason: string): string {
