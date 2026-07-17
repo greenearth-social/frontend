@@ -56,17 +56,11 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Deploy Hosting (live channel)
+      - name: Deploy Hosting + Functions + Firestore rules
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
-          firebase hosting:channel:deploy live \
-            --project greenearth-471522 \
-            --non-interactive
-
-      - name: Deploy Functions + Firestore rules
-        run: |
           firebase deploy \
-            --only functions,firestore:rules \
+            --only hosting,functions,firestore:rules \
             --project greenearth-471522 \
             --non-interactive \
             --force
