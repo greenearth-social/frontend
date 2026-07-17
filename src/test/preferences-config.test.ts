@@ -8,16 +8,28 @@ import {
 
 describe("preference presets", () => {
   it("derives social labels from configured generator weights", () => {
-    const center = SOCIAL_RADIUS_PRESETS[2];
+    const friends = SOCIAL_RADIUS_PRESETS[0];
+    const defaultPreset = SOCIAL_RADIUS_PRESETS[3];
 
-    expect(center?.weights).toEqual(
+    expect(friends?.weights).toEqual([
+      { name: "followed_users", weight: 1 },
+      { name: "two_tower", weight: 0 },
+      { name: "popularity", weight: 0 },
+    ]);
+    expect(friends?.displayLines).toEqual(["F:1.00", "E:0.00"]);
+
+    expect(defaultPreset?.weights).toEqual(
       expect.arrayContaining([
         { name: "followed_users", weight: 0.4 },
         { name: "two_tower", weight: 0.3 },
         { name: "popularity", weight: 0.3 },
       ]),
     );
-    expect(center?.displayLines).toEqual(["F:0.40", "E:0.60"]);
+    expect(defaultPreset?.displayLines).toEqual(["F:0.40", "E:0.60"]);
+
+    expect(SOCIAL_RADIUS_PRESETS.map((preset) => preset.weights[0]?.weight)).toEqual([
+      1, 0.8, 0.6, 0.4, 0.2,
+    ]);
 
     for (const preset of SOCIAL_RADIUS_PRESETS) {
       const authorTopic = preset.weights.find(({ name }) => name === "two_tower")?.weight;

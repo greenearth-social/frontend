@@ -231,7 +231,7 @@ export class FeedTabs extends LitElement {
   #renderPopover() {
     const feed = this.feeds.find((item) => item.requestId === this.openBreakdownId);
     if (!feed) return html``;
-    const radiusLabels = ["Friends", "Closer", "Balanced", "Broader", "Everyone"];
+    const radiusLabels = ["Friends", "Very close", "Closer", "Balanced", "Everyone"];
     const radius = feed.appliedSocialRadius === null
       ? "Unknown"
       : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);

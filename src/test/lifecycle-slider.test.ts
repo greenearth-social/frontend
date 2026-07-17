@@ -41,4 +41,28 @@ describe("LifecycleSlider", () => {
     expect(onChange).not.toHaveBeenCalled();
     el.remove();
   });
+
+  it("previews another stage's values on hover", async () => {
+    const el = document.createElement("lifecycle-slider");
+    el.value = 2;
+    el.stageLabels = [
+      ["F:1.00", "E:0.00"],
+      ["F:0.50", "E:0.50"],
+      ["F:0.40", "E:0.60"],
+      ["F:0.30", "E:0.70"],
+      ["F:0.20", "E:0.80"],
+    ];
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    el.shadowRoot?.querySelectorAll<HTMLElement>(".stage-btn")[0]
+      ?.dispatchEvent(new MouseEvent("mouseenter"));
+    await el.updateComplete;
+
+    const values = el.shadowRoot?.querySelectorAll(".stage-value");
+    expect(values?.[0]?.textContent).toContain("F:1.00");
+    expect(values?.[0]?.textContent).toContain("E:0.00");
+    expect(values?.[2]?.textContent.trim()).toBe("");
+    el.remove();
+  });
 });

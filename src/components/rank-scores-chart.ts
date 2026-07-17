@@ -26,12 +26,13 @@ export class RankScoresChart extends LitElement {
       display: grid;
       grid-template-columns: auto 1fr auto auto;
       gap: 1rem;
-      align-items: start;
+      align-items: stretch;
     }
     .section {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      height: 100%;
     }
     .col-header {
       font-size: 0.625rem;
@@ -60,6 +61,7 @@ export class RankScoresChart extends LitElement {
       gap: 0.25rem;
       align-items: stretch;
       justify-content: center;
+      flex: 1;
     }
     .rankers-content {
       display: flex;
@@ -108,17 +110,13 @@ export class RankScoresChart extends LitElement {
       justify-content: center;
       gap: 0.375rem;
       position: relative;
+      flex: 1;
     }
     .div-value {
-      font-size: 0.875rem;
-      font-weight: 700;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
       white-space: nowrap;
-    }
-    .div-positive {
-      color: #22c55e;
-    }
-    .div-negative {
-      color: #f4212e;
     }
     .div-popup {
       position: fixed;
@@ -154,6 +152,7 @@ export class RankScoresChart extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 0.375rem;
+      flex: 1;
     }
     .score-value {
       font-size: 1.375rem;
@@ -208,10 +207,9 @@ export class RankScoresChart extends LitElement {
     if (!this.item) return html``;
 
     const i = this.item;
-    const finalScore =
-      i.rankScore !== null
-        ? i.rankScore
-        : weightedRankScore(i.modelScores);
+    const finalScore = i.diversification?.score
+      ?? i.rankScore
+      ?? weightedRankScore(i.modelScores);
 
     const engaging = i.modelScores.find((m) => m.name === "heavy_ranker");
     const constructive = i.modelScores.find((m) => m.name === "perspective");
@@ -291,7 +289,7 @@ export class RankScoresChart extends LitElement {
             </div>
             <div class="div-content">
               <div
-                class="div-value ${divDelta >= 0 ? "div-positive" : "div-negative"}"
+                class="div-value"
               >
                 ${divDeltaStr}
               </div>

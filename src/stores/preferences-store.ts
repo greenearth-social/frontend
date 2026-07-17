@@ -6,7 +6,7 @@ import { SOCIAL_RADIUS_PRESETS, FRESHNESS_PRESETS } from "../constants/preferenc
 export class PreferencesStore {
   root: RootStore;
   values: Preferences = {
-    socialRadius: 2,
+    socialRadius: 3,
     freshness: 2,
     politics: 1.0,
     purpose: 0.5,
@@ -41,7 +41,7 @@ export class PreferencesStore {
 
   reset(): void {
     this.values = {
-      socialRadius: 2,
+      socialRadius: 3,
       freshness: 2,
       politics: 1.0,
       purpose: 0.5,

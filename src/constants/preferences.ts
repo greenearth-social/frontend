@@ -10,24 +10,24 @@ export interface LifecyclePreset<T> {
 
 const SOCIAL_RADIUS_WEIGHTS: GeneratorSpec[][] = [
   [
-    { name: "followed_users", weight: 0.70 },
-    { name: "two_tower", weight: 0.15 },
-    { name: "popularity", weight: 0.15 },
+    { name: "followed_users", weight: 1.00 },
+    { name: "two_tower", weight: 0.00 },
+    { name: "popularity", weight: 0.00 },
   ],
   [
-    { name: "followed_users", weight: 0.50 },
-    { name: "two_tower", weight: 0.25 },
-    { name: "popularity", weight: 0.25 },
+    { name: "followed_users", weight: 0.80 },
+    { name: "two_tower", weight: 0.10 },
+    { name: "popularity", weight: 0.10 },
+  ],
+  [
+    { name: "followed_users", weight: 0.60 },
+    { name: "two_tower", weight: 0.20 },
+    { name: "popularity", weight: 0.20 },
   ],
   [
     { name: "followed_users", weight: 0.40 },
     { name: "two_tower", weight: 0.30 },
     { name: "popularity", weight: 0.30 },
-  ],
-  [
-    { name: "followed_users", weight: 0.30 },
-    { name: "two_tower", weight: 0.35 },
-    { name: "popularity", weight: 0.35 },
   ],
   [
     { name: "followed_users", weight: 0.20 },

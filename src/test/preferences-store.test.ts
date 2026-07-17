@@ -4,7 +4,7 @@ import type { RootStore } from "../stores/root-store";
 import { PreferencesStore } from "../stores/preferences-store";
 
 const defaults: Preferences = {
-  socialRadius: 2,
+  socialRadius: 3,
   freshness: 2,
   politics: 1,
   purpose: 0.5,

@@ -170,7 +170,7 @@ export class ControlsPage extends LitElement {
   render() {
     const root = getRootStore();
     const prefs = root?.preferencesStore.values ?? {
-      socialRadius: 2,
+      socialRadius: 3,
       freshness: 2,
       politics: 1.0,
       purpose: 0.5,

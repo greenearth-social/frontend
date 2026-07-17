@@ -36,7 +36,7 @@ function makeTabs() {
       requestId: "req-2",
       generatedAt: "2026-07-16T11:00:00Z",
       feedName: "your-feed",
-      appliedSocialRadius: 2,
+      appliedSocialRadius: 3,
       generatorDiagnostics: [],
     },
   ];

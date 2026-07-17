@@ -28,6 +28,7 @@ export class LifecycleSlider extends LitElement {
   @state() private _thumbPercent = 0;
   @state() private _isDragging = false;
   @state() private _showPopup = false;
+  @state() private _previewStage: number | null = null;
   @state() private _popupTimer: ReturnType<typeof setTimeout> | null = null;
   private _initialized = false;
 
@@ -140,6 +141,9 @@ export class LifecycleSlider extends LitElement {
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
+    .stage-value.preview {
+      color: var(--bluesky-text);
+    }
     .popup {
       position: absolute;
       bottom: calc(100% + 0.5rem);
@@ -237,6 +241,10 @@ export class LifecycleSlider extends LitElement {
                   aria-label="${stage.name}"
                   type="button"
                   ?disabled=${this.disabled}
+                  @mouseenter=${() => { this._previewStage = index; }}
+                  @mouseleave=${() => { this._previewStage = null; }}
+                  @focus=${() => { this._previewStage = index; }}
+                  @blur=${() => { this._previewStage = null; }}
                 >
                   <img
                     class="stage-icon"
@@ -253,8 +261,8 @@ export class LifecycleSlider extends LitElement {
         <div class="stage-values">
           ${this.stageLabels.map(
             (lines, index) => html`
-              <div class="stage-value">
-                ${index === this.value
+              <div class="stage-value ${index === this._previewStage ? "preview" : ""}">
+                ${index === (this._previewStage ?? this.value)
                   ? lines.map((line) => html`<span>${line}</span>`)
                   : ""}
               </div>
