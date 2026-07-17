@@ -113,7 +113,8 @@ export class FeedTabs extends LitElement {
       left: 50%;
       transform: translateX(-50%);
       z-index: 10000;
-      width: min(31rem, calc(100vw - 1.5rem));
+      width: min(31rem, calc(100vw - 2rem));
+      box-sizing: border-box;
       max-height: calc(100dvh - clamp(2rem, 12vh, 8rem));
       overflow: auto;
       padding: 0.9rem;
@@ -123,6 +124,14 @@ export class FeedTabs extends LitElement {
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
       margin: 0;
+    }
+    @media (max-width: 480px) {
+      .popover {
+        top: max(1rem, env(safe-area-inset-top));
+        width: calc(100vw - 2rem);
+        max-height: calc(100dvh - 2rem - env(safe-area-inset-top));
+        padding: 1rem;
+      }
     }
     .popover::backdrop {
       background: rgba(0, 0, 0, 0.58);

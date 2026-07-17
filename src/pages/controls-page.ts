@@ -133,10 +133,18 @@ export class ControlsPage extends LitElement {
       font-size: 0.875rem;
       line-height: 1.5;
       color: var(--bluesky-text);
-      width: 320px;
-      max-width: 90vw;
+      width: min(320px, calc(100vw - 2rem));
+      max-height: calc(100dvh - 2rem);
+      box-sizing: border-box;
+      overflow-y: auto;
       z-index: 101;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    @media (max-width: 480px) {
+      .info-popup {
+        width: calc(100vw - 2rem);
+        max-height: calc(100dvh - 2rem - env(safe-area-inset-top));
+      }
     }
     .info-popup-title {
       font-weight: 700;

@@ -17,7 +17,6 @@ export class DiscreteSlider extends LitElement {
     }
     .slider-container.disabled {
       opacity: 0.4;
-      pointer-events: none;
     }
     .labels-track {
       display: flex;
@@ -75,17 +74,26 @@ export class DiscreteSlider extends LitElement {
       position: relative;
       z-index: 2;
     }
-    .step-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--bluesky-border);
+    .step-icon {
+      width: 18px;
+      height: 18px;
+      fill: var(--bluesky-text-secondary);
+      opacity: 0.45;
       transition: all 0.15s ease;
+      pointer-events: none;
     }
-    .step-btn.active .step-dot {
-      background: var(--bluesky-brand);
-      width: 10px;
-      height: 10px;
+    .step-btn:hover .step-icon {
+      fill: #91bd3f;
+      opacity: 0.85;
+    }
+    .step-btn.active .step-icon {
+      width: 22px;
+      height: 22px;
+      fill: #b4dc54;
+      opacity: 1;
+    }
+    .step-btn:disabled {
+      cursor: default;
     }
   `;
 
@@ -126,7 +134,14 @@ export class DiscreteSlider extends LitElement {
                   ?disabled=${this.disabled}
                   @click=${() => { this._handleClick(index); }}
                 >
-                  <div class="step-dot"></div>
+                  <svg
+                    class="step-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 640 640"
+                    aria-hidden="true"
+                  >
+                    <path d="M320 64C461.4 64 576 178.6 576 320C576 461.4 461.4 576 320 576C178.6 576 64 461.4 64 320C64 178.6 178.6 64 320 64zM296 184L296 320C296 328 300 335.5 306.7 340L402.7 404C413.7 411.4 428.6 408.4 436 397.3C443.4 386.2 440.4 371.4 429.3 364L344 307.2L344 184C344 170.7 333.3 160 320 160C306.7 160 296 170.7 296 184z"></path>
+                  </svg>
                 </button>
               `
             )}

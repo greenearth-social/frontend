@@ -35,16 +35,6 @@ export class FeedPage extends MobxLitElement {
       min-height: 400px;
       color: var(--bluesky-text-secondary);
     }
-    .transparency-note {
-      margin: 0.75rem 1rem;
-      padding: 0.7rem 0.8rem;
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.6rem;
-      color: var(--bluesky-text-secondary);
-      background: var(--bluesky-bg-card);
-      font-size: 0.78rem;
-      line-height: 1.45;
-    }
     .sticky-header-wrapper {
       position: sticky;
       top: 0;
@@ -98,10 +88,6 @@ export class FeedPage extends MobxLitElement {
       </div>`;
 
     const { feedStore, uiStore, accountStore, authStore } = store;
-    const filteringCounts = feedStore.currentRequestId
-      ? feedStore.filteringCountsByRequest[feedStore.currentRequestId]
-      : undefined;
-
     if (!authStore.isSignedIn || !accountStore.activeAccount) {
       return html`
         <div class="logged-out-page">
@@ -225,17 +211,6 @@ export class FeedPage extends MobxLitElement {
           }}
           ></feed-tabs>
         </div>
-
-        ${filteringCounts
-          ? html`
-              <div class="transparency-note">
-                Showing ${filteringCounts.displayedItemCount} of
-                ${filteringCounts.storedItemCount} posts sent to Bluesky.
-                ${filteringCounts.publiclyFilteredCount} hidden by public moderation labels and
-                ${filteringCounts.unavailableCount} unavailable. Private Bluesky moderation may hide more.
-              </div>
-            `
-          : ""}
 
         ${
           feedStore.error
