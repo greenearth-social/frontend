@@ -243,7 +243,7 @@ export class RankScoresChart extends LitElement {
             <div class="col-header">Source</div>
             <div class="source-content">
               ${i.generators.map(
-                (g) => html`<generator-badge name=${g.name} .score=${g.score}></generator-badge>`,
+                (g) => html`<generator-badge name=${g.name}></generator-badge>`,
               )}
             </div>
           </div>

@@ -11,13 +11,12 @@ describe("GeneratorBadge", () => {
     document.body.removeChild(el);
   });
 
-  it("displays score when provided", async () => {
+  it("does not display a percentage", async () => {
     const el = document.createElement("generator-badge");
     el.name = "followed_users";
-    el.score = 0.85;
     document.body.appendChild(el);
     await el.updateComplete;
-    expect(el.shadowRoot?.textContent).toContain("85%");
+    expect(el.shadowRoot?.textContent).not.toContain("%");
     document.body.removeChild(el);
   });
 });
