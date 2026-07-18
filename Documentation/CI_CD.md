@@ -130,6 +130,27 @@ All values go at **repo scope** (Settings → Secrets and variables → Actions)
 
 The workflow explicitly sets `VITE_USE_FIREBASE_EMULATORS=false` for production builds.
 
+#### Deployment service-account IAM
+
+The service account identified by the `client_email` field in
+`FIREBASE_SERVICE_ACCOUNT` needs deployment permissions in addition to its
+Firebase Admin SDK runtime roles. Ask a project IAM administrator to grant:
+
+- Project-level `roles/serviceusage.serviceUsageViewer` so the Firebase CLI can
+  verify required APIs.
+- Project-level `roles/serviceusage.apiKeysViewer` for Firebase Hosting CLI
+  deployment.
+- Project-level `roles/firebasehosting.admin` for live and preview Hosting
+  releases.
+- Project-level `roles/cloudfunctions.admin` for Cloud Functions v2 deployment.
+- Project-level `roles/firebaserules.admin` for Firestore Rules deployment.
+- `roles/iam.serviceAccountUser` on the Functions runtime service account
+  `21637448064-compute@developer.gserviceaccount.com`.
+
+Do not grant project Owner or Editor solely to make CI deployment work. The
+workflow prints the authenticated deployment identity and verifies required API
+visibility before invoking Firebase, so a missing IAM grant fails early.
+
 ### 4. Protect production deploys with an environment
 
 GitHub repo → **Settings → Environments** → **New environment**

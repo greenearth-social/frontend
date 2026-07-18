@@ -65,6 +65,26 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Verify production deployer and required APIs
+        run: |
+          deployer="$(node -e 'const fs = require("fs"); const value = JSON.parse(fs.readFileSync(process.env.GOOGLE_GHA_CREDS_PATH, "utf8")); process.stdout.write(value.client_email || "unknown")')"
+          echo "Deployment identity: $deployer"
+          for service in \
+            firestore.googleapis.com \
+            firebaserules.googleapis.com \
+            cloudfunctions.googleapis.com \
+            run.googleapis.com \
+            cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com \
+            secretmanager.googleapis.com \
+            firebasehosting.googleapis.com
+          do
+            state="$(gcloud services describe "$service" \
+              --project greenearth-471522 \
+              --format='value(state)')"
+            test "$state" = "ENABLED"
+          done
+
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
