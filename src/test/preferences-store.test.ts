@@ -37,6 +37,29 @@ describe("PreferencesStore.load", () => {
     expect(store.hasLoaded).toBe(true);
     expect(store.values.socialRadius).toBe(4);
   });
+
+  it("ignores a load that finishes after the account changes", async () => {
+    let resolveFirst: ((value: Preferences) => void) | undefined;
+    const firstRequest = new Promise<Preferences>((resolve) => { resolveFirst = resolve; });
+    const getPreferences = vi
+      .fn()
+      .mockReturnValueOnce(firstRequest)
+      .mockResolvedValueOnce({ ...defaults, socialRadius: 1 });
+    const root = {
+      services: { feedApiService: { getPreferences, putPreferences: vi.fn() } },
+    } as unknown as RootStore;
+    const store = new PreferencesStore(root);
+
+    store.activateAccount("account-a");
+    store.activateAccount("account-b");
+    await store.load();
+    resolveFirst?.({ ...defaults, socialRadius: 4 });
+    await firstRequest;
+    await Promise.resolve();
+
+    expect(store.values.socialRadius).toBe(1);
+    expect(getPreferences).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("PreferencesStore.save", () => {
@@ -78,5 +101,18 @@ describe("PreferencesStore.save", () => {
 
     expect(store.values.socialRadius).toBe(4);
     consoleError.mockRestore();
+  });
+
+  it("does not apply a save response after sign-out", async () => {
+    let resolveSave: ((value: Preferences) => void) | undefined;
+    const request = new Promise<Preferences>((resolve) => { resolveSave = resolve; });
+    const store = makeStore(vi.fn().mockReturnValue(request));
+
+    const save = store.save({ ...defaults, socialRadius: 4 });
+    store.reset();
+    resolveSave?.({ ...defaults, socialRadius: 4 });
+    await save;
+
+    expect(store.values).toEqual(defaults);
   });
 });

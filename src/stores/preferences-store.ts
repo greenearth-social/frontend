@@ -15,31 +15,53 @@ export class PreferencesStore {
   hasLoaded = false;
   private saveVersion = 0;
   private loadPromise: Promise<void> | null = null;
+  private accountGeneration = 0;
+  private accountId: string | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
     makeAutoObservable(this, { root: false });
   }
 
+  activateAccount(accountId: string): void {
+    if (this.accountId !== accountId) {
+      this.reset();
+      this.accountId = accountId;
+    }
+    void this.load();
+  }
+
   async load(): Promise<void> {
     if (this.hasLoaded) return;
     if (this.loadPromise) return this.loadPromise;
+    const generation = this.accountGeneration;
     this.isLoading = true;
-    this.loadPromise = (async () => {
+    const promise = (async () => {
       try {
-        this.values = await this.root.services.feedApiService.getPreferences();
+        const loadedValues = await this.root.services.feedApiService.getPreferences();
+        if (generation === this.accountGeneration) {
+          this.values = loadedValues;
+        }
       } catch (e) {
         console.error("Failed to load preferences:", e);
       } finally {
-        this.isLoading = false;
-        this.hasLoaded = true;
-        this.loadPromise = null;
+        if (generation === this.accountGeneration) {
+          this.isLoading = false;
+          this.hasLoaded = true;
+        }
+        if (generation === this.accountGeneration) {
+          this.loadPromise = null;
+        }
       }
     })();
-    return this.loadPromise;
+    this.loadPromise = promise;
+    return promise;
   }
 
   reset(): void {
+    this.accountGeneration++;
+    this.saveVersion++;
+    this.accountId = null;
     this.values = {
       socialRadius: 3,
       freshness: 2,
@@ -54,14 +76,15 @@ export class PreferencesStore {
   async save(values: Preferences): Promise<void> {
     const previousValues = this.values;
     const version = ++this.saveVersion;
+    const generation = this.accountGeneration;
     this.values = values;
     try {
       const savedValues = await this.root.services.feedApiService.putPreferences(values);
-      if (version === this.saveVersion) {
+      if (generation === this.accountGeneration && version === this.saveVersion) {
         this.values = savedValues;
       }
     } catch (e) {
-      if (version === this.saveVersion) {
+      if (generation === this.accountGeneration && version === this.saveVersion) {
         this.values = previousValues;
       }
       console.error("Failed to save preferences:", e);

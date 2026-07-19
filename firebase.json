@@ -33,9 +33,16 @@
       }
     ]
   },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
+  "firestore": [
+    {
+      "database": "greenearth-stage",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "greenearth-prod",
+      "rules": "firestore.rules"
+    }
+  ],
   "functions": {
     "source": "functions"
   },

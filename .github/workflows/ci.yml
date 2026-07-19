@@ -123,6 +123,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
+      - name: Deploy Firestore rules (stage database)
+        run: |
+          firebase deploy \
+            --only firestore:greenearth-stage \
+            --project greenearth-471522 \
+            --non-interactive
+
       - name: Deploy Hosting (stage preview channel)
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.json

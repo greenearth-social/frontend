@@ -14,7 +14,7 @@ permissions:
 jobs:
   # -----------------------------------------------------------------------
   # Deploy prod — auto after CI passes on main, gated by environment approval.
-  # Hosting (live) + functions + rules.
+  # Hosting (live) + functions + rules. Firebase skips unchanged functions.
   # -----------------------------------------------------------------------
   deploy-prod:
     if: github.event.workflow_run.conclusion == 'success'
@@ -24,6 +24,8 @@ jobs:
       EXPECTED_APP_ORIGIN: https://greenearth-471522.web.app
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: dawidd6/action-download-artifact@v6
         with:
@@ -91,7 +93,7 @@ jobs:
       - name: Deploy Functions + Firestore rules
         run: |
           firebase deploy \
-            --only functions,firestore:rules \
+            --only functions,firestore:greenearth-prod \
             --project greenearth-471522 \
             --non-interactive \
             --force
