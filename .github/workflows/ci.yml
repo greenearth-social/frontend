@@ -133,19 +133,30 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Deploy Hosting (stage preview channel)
+        id: hosting
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.stage.json
           firebase --config firebase.stage.json hosting:channel:deploy stage \
             --project greenearth-471522 \
             --non-interactive
+          STAGE_URL=$(firebase hosting:channel:list --project greenearth-471522 --json 2>/dev/null \
+            | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          channels = data.get('channels', data.get('result', {}).get('channels', []))
+          print(next(c['url'] for c in channels if c.get('channelId') == 'stage'))
+          ")
+          echo "url=$STAGE_URL" >> $GITHUB_OUTPUT
+          echo "Stage URL: $STAGE_URL"
 
       - name: Deploy stage Cloud Functions
         env:
           BLUESKY_OAUTH_CLIENT_KID_STAGE: ${{ vars.BLUESKY_OAUTH_CLIENT_KID_STAGE }}
           BLUESKY_OAUTH_PUBLIC_JWKS_STAGE: ${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS_STAGE }}
+          STAGE_URL: ${{ steps.hosting.outputs.url }}
         run: |
           {
-            echo "APP_ORIGIN=https://greenearth-471522--stage.web.app"
+            echo "APP_ORIGIN=$STAGE_URL"
             echo "BLUESKY_OAUTH_CLIENT_KID=$BLUESKY_OAUTH_CLIENT_KID_STAGE"
             echo "BLUESKY_OAUTH_PUBLIC_JWKS=$BLUESKY_OAUTH_PUBLIC_JWKS_STAGE"
           } > functions/.env
