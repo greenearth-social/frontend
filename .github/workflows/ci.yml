@@ -109,7 +109,16 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Debug active service account
-        run: gcloud auth list
+        run: |
+          python3 -c "
+          import json, os
+          path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+          with open(path) as f:
+              data = json.load(f)
+          print('type:', data.get('type', 'N/A'))
+          print('client_email:', data.get('client_email', 'N/A'))
+          print('service_account:', data.get('service_account', 'N/A'))
+          "
 
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
