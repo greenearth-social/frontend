@@ -140,7 +140,7 @@ jobs:
             --project greenearth-471522 \
             --non-interactive 2>&1)
           echo "$DEPLOY_OUTPUT"
-          STAGE_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[\w-]+\.web\.app')
+          STAGE_URL=$(echo "$DEPLOY_OUTPUT" | grep "Channel URL" | grep -oP 'https://\S+\.web\.app')
           echo "url=$STAGE_URL" >> $GITHUB_OUTPUT
           echo "Stage URL: $STAGE_URL"
 
