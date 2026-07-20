@@ -27,9 +27,7 @@ interface OAuthSessionState {
   redirectUri: string;
 }
 
-export const oauthCallback = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
-  async (req: Request, res: Response) => {
+export async function oauthCallbackHandler(req: Request, res: Response): Promise<void> {
   try {
   const appOrigin = process.env.APP_ORIGIN;
   const kid = process.env.BLUESKY_OAUTH_CLIENT_KID;
@@ -246,4 +244,9 @@ export const oauthCallback = onRequest(
     console.error("oauthCallback error:", message, err);
     res.status(500).send(`OAuth callback failed: ${message}`);
   }
-});
+}
+
+export const oauthCallback = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  oauthCallbackHandler
+);

@@ -114,9 +114,28 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: functions-build
+
       - name: Deploy Hosting (stage preview channel)
         run: |
-          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.json
-          firebase hosting:channel:deploy stage \
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.stage.json
+          firebase --config firebase.stage.json hosting:channel:deploy stage \
+            --project greenearth-471522 \
+            --non-interactive
+
+      - name: Deploy stage Cloud Functions
+        run: |
+          firebase --config firebase.stage.json deploy \
+            --only functions:authBlueskyStage,functions:oauthCallbackStage,functions:oauthClientMetadataStage,functions:oauthJwksStage \
+            --set-env-vars "APP_ORIGIN=https://greenearth-471522--stage.web.app,BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID_STAGE }}" \
+            --project greenearth-471522 \
+            --non-interactive
+
+      - name: Deploy Firestore rules to stage database
+        run: |
+          firebase --config firebase.stage.json deploy \
+            --only firestore \
             --project greenearth-471522 \
             --non-interactive
