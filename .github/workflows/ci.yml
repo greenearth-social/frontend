@@ -126,10 +126,17 @@ jobs:
             --non-interactive
 
       - name: Deploy stage Cloud Functions
+        env:
+          BLUESKY_OAUTH_CLIENT_KID_STAGE: ${{ vars.BLUESKY_OAUTH_CLIENT_KID_STAGE }}
+          BLUESKY_OAUTH_PUBLIC_JWKS_STAGE: ${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS_STAGE }}
         run: |
+          {
+            echo "APP_ORIGIN=https://greenearth-471522--stage.web.app"
+            echo "BLUESKY_OAUTH_CLIENT_KID=$BLUESKY_OAUTH_CLIENT_KID_STAGE"
+            echo "BLUESKY_OAUTH_PUBLIC_JWKS=$BLUESKY_OAUTH_PUBLIC_JWKS_STAGE"
+          } > functions/.env
           firebase --config firebase.stage.json deploy \
             --only functions:authBlueskyStage,functions:oauthCallbackStage,functions:oauthClientMetadataStage,functions:oauthJwksStage \
-            --set-env-vars "APP_ORIGIN=https://greenearth-471522--stage.web.app,BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID_STAGE }}" \
             --project greenearth-471522 \
             --non-interactive
 
