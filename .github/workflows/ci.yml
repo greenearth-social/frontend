@@ -136,16 +136,11 @@ jobs:
         id: hosting
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-stage/' firebase.stage.json
-          firebase --config firebase.stage.json hosting:channel:deploy stage \
+          DEPLOY_OUTPUT=$(firebase --config firebase.stage.json hosting:channel:deploy stage \
             --project greenearth-471522 \
-            --non-interactive
-          STAGE_URL=$(firebase hosting:channel:list --project greenearth-471522 --json 2>/dev/null \
-            | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          channels = data.get('channels', data.get('result', {}).get('channels', []))
-          print(next(c['url'] for c in channels if c.get('channelId') == 'stage'))
-          ")
+            --non-interactive 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          STAGE_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[\w-]+\.web\.app')
           echo "url=$STAGE_URL" >> $GITHUB_OUTPUT
           echo "Stage URL: $STAGE_URL"
 
