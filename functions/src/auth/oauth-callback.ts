@@ -193,7 +193,8 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
   let firebaseToken: string;
   try {
     firebaseToken = await auth.createCustomToken(did);
-  } catch {
+  } catch (err: unknown) {
+    console.error("createCustomToken failed:", err);
     res.status(502).send("Failed to create Firebase custom token");
     return;
   }
