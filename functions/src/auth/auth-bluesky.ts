@@ -167,6 +167,11 @@ export const authBluesky = onRequest(
   authBlueskyHandler
 );
 
+export const authBlueskyStage = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  authBlueskyHandler
+);
+
 async function sendPar(
   url: string,
   body: URLSearchParams,

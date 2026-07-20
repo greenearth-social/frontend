@@ -250,3 +250,8 @@ export const oauthCallback = onRequest(
   { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
   oauthCallbackHandler
 );
+
+export const oauthCallbackStage = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  oauthCallbackHandler
+);

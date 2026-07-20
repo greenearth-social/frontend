@@ -1,7 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import type { Request, Response } from "express";
 
-export const oauthClientMetadata = onRequest((_req: Request, res: Response) => {
+function oauthClientMetadataHandler(_req: Request, res: Response): void {
   const appOrigin = process.env.APP_ORIGIN;
 
   if (!appOrigin) {
@@ -24,4 +24,7 @@ export const oauthClientMetadata = onRequest((_req: Request, res: Response) => {
     token_endpoint_auth_signing_alg: "ES256",
     jwks_uri: `${appOrigin}/.well-known/jwks.json`,
   });
-});
+}
+
+export const oauthClientMetadata = onRequest(oauthClientMetadataHandler);
+export const oauthClientMetadataStage = onRequest(oauthClientMetadataHandler);
