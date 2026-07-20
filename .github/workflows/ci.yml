@@ -108,6 +108,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Debug active service account
+        run: gcloud auth list
+
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
