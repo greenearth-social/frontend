@@ -14,7 +14,7 @@ permissions:
 jobs:
   # -----------------------------------------------------------------------
   # Deploy prod — auto after CI passes on main, gated by environment approval.
-  # Hosting (live) + functions + rules.
+  # Hosting (live) + prod functions only + rules.
   # -----------------------------------------------------------------------
   deploy-prod:
     if: github.event.workflow_run.conclusion == 'success'
@@ -35,19 +35,27 @@ jobs:
           workflow: ci.yml
           run_id: ${{ github.event.workflow_run.id }}
           name: functions-build
-          path: functions/
+          path: functions/lib/
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci --omit=dev
 
       - name: Write prod database config
         run: |
           printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
 
-      - name: Write functions .env from GitHub Variables
+      - name: Write prod functions .env
+        env:
+          APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+          BLUESKY_OAUTH_CLIENT_KID: ${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
+          BLUESKY_OAUTH_PUBLIC_JWKS: ${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
         run: |
-          cat > functions/.env << 'ENVEOF'
-          APP_ORIGIN=${{ vars.APP_ORIGIN }}
-          BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
-          BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
-          ENVEOF
+          {
+            echo "APP_ORIGIN=$APP_ORIGIN"
+            echo "BLUESKY_OAUTH_CLIENT_KID=$BLUESKY_OAUTH_CLIENT_KID"
+            echo "BLUESKY_OAUTH_PUBLIC_JWKS=$BLUESKY_OAUTH_PUBLIC_JWKS"
+          } > functions/.env
 
       - uses: google-github-actions/auth@v2
         with:
@@ -56,11 +64,11 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Deploy Hosting + Functions + Firestore rules
+      - name: Deploy Hosting + prod Functions + Firestore rules
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase deploy \
-            --only hosting,functions,firestore:rules \
+            --only hosting,functions:authBluesky,functions:oauthCallback,functions:oauthClientMetadata,functions:oauthJwks,firestore:rules \
             --project greenearth-471522 \
             --non-interactive \
             --force
