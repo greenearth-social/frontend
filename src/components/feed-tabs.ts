@@ -1,12 +1,14 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
-import type { FeedSummary } from "../models/feed-debug-snapshot";
+import { customElement, property, state } from "lit/decorators.js";
+import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { relativeTime } from "../utils/relative-time";
 
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
+  @property({ type: Object }) filteringCountsByRequest: Record<string, FilteringCounts> = {};
+  @state() private openBreakdownId: string | null = null;
 
   static styles = css`
     :host {
@@ -63,6 +65,9 @@ export class FeedTabs extends LitElement {
       transition: color 0.15s;
       white-space: nowrap;
       position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
     }
     .tab:hover {
       background: var(--bluesky-bg-hover);
@@ -83,7 +88,112 @@ export class FeedTabs extends LitElement {
       border-radius: 9999px;
       background: var(--bluesky-brand);
     }
+    .breakdown-button {
+      display: inline-grid;
+      place-items: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      padding: 0;
+      border: 0;
+      border-radius: 9999px;
+      color: var(--bluesky-text-secondary);
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+    }
+    .breakdown-button:hover,
+    .breakdown-button:focus-visible {
+      color: var(--bluesky-text);
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    .popover {
+      position: fixed;
+      top: clamp(1rem, 6vh, 4rem);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      width: min(31rem, calc(100vw - 2rem));
+      box-sizing: border-box;
+      max-height: calc(100dvh - clamp(2rem, 12vh, 8rem));
+      overflow: auto;
+      padding: 0.9rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.75rem;
+      background: rgb(21, 32, 43);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+      color: var(--bluesky-text);
+      margin: 0;
+    }
+    @media (max-width: 480px) {
+      .popover {
+        top: max(1rem, env(safe-area-inset-top));
+        width: calc(100vw - 2rem);
+        max-height: calc(100dvh - 2rem - env(safe-area-inset-top));
+        padding: 1rem;
+      }
+    }
+    .popover::backdrop {
+      background: rgba(0, 0, 0, 0.58);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+    .popover-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+    .popover-subtitle {
+      color: var(--bluesky-text-secondary);
+      font-size: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .filter-summary {
+      margin: 0.75rem 0;
+      padding: 0.65rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.5rem;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+    th, td {
+      padding: 0.4rem 0.35rem;
+      text-align: right;
+      border-top: 1px solid var(--bluesky-border);
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child {
+      text-align: left;
+    }
+    .status-problem {
+      color: #fbbf24;
+    }
+    .reason {
+      display: block;
+      color: var(--bluesky-text-secondary);
+      white-space: normal;
+      font-size: 0.67rem;
+      margin-top: 0.12rem;
+    }
   `;
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("click", this.#onWindowClick);
+    window.addEventListener("keydown", this.#onWindowKeydown);
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener("click", this.#onWindowClick);
+    window.removeEventListener("keydown", this.#onWindowKeydown);
+    super.disconnectedCallback();
+  }
 
   render() {
     if (this.feeds.length === 0) return html``;
@@ -98,15 +208,142 @@ export class FeedTabs extends LitElement {
                   class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
                   @click=${() => { this.#selectTab(f.requestId); }}
                 >
-                  ${index === 0 ? "Latest" : relativeTime(f.generatedAt)}
+                  <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
+                  <button
+                    class="breakdown-button"
+                    aria-label="Source breakdown for ${index === 0 ? "latest feed" : relativeTime(f.generatedAt)}"
+                    aria-expanded=${this.openBreakdownId === f.requestId ? "true" : "false"}
+                    @click=${(event: MouseEvent) => {
+                      event.stopPropagation();
+                      this.#toggleBreakdown(f.requestId, event.currentTarget as HTMLElement);
+                    }}
+                  >ⓘ</button>
                 </div>
               `,
             )}
           </div>
         </div>
       </div>
+      ${this.#renderPopover()}
     `;
   }
+
+  #renderPopover() {
+    const feed = this.feeds.find((item) => item.requestId === this.openBreakdownId);
+    if (!feed) return html``;
+    const radiusLabels = ["Friends", "Very close", "Closer", "Balanced", "Everyone"];
+    const radius = feed.appliedSocialRadius === null
+      ? "Unknown"
+      : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
+    const filtering = this.filteringCountsByRequest[feed.requestId];
+    return html`
+      <dialog
+        class="popover"
+        aria-label="Source breakdown"
+        @click=${(event: MouseEvent) => { this.#dismissFromBackdrop(event); }}
+        @cancel=${(event: Event) => {
+          event.preventDefault();
+          this.openBreakdownId = null;
+        }}
+      >
+        <div class="popover-title">Source breakdown</div>
+        <div class="popover-subtitle">Applied social radius: ${radius}</div>
+        <div class="filter-summary">
+          ${filtering
+            ? html`
+                Snapshot stored ${filtering.storedItemCount} posts sent to Bluesky;
+                ${filtering.displayedItemCount} are displayed here.
+                Public labels filtered ${filtering.publiclyFilteredCount} and
+                ${filtering.unavailableCount} were unavailable.
+              `
+            : html`Select this snapshot to calculate its displayed and filtered counts.`}
+          This is a public-label approximation; private Bluesky moderation can hide additional posts.
+        </div>
+        ${feed.generatorDiagnostics.length === 0
+          ? html`<div class="popover-subtitle">Diagnostics are unavailable for this legacy snapshot.</div>`
+          : html`
+              <table>
+                <thead>
+                  <tr><th>Source</th><th>Weight</th><th>Asked</th><th>Returned</th><th>Shown</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  ${feed.generatorDiagnostics.map((diagnostic) => html`
+                    <tr>
+                      <td>
+                        ${diagnostic.name}
+                        ${diagnostic.mode !== "primary"
+                          ? html`<span class="reason">${this.#modeLabel(diagnostic.mode)}</span>`
+                          : ""}
+                      </td>
+                      <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
+                      <td>${diagnostic.requestedCount}</td>
+                      <td>${diagnostic.returnedCount}</td>
+                      <td>${diagnostic.contributedCount}</td>
+                      <td>
+                        <span class=${diagnostic.status === "success" ? "" : "status-problem"}>${diagnostic.status}</span>
+                        ${diagnostic.reason ? html`<span class="reason">${this.#reasonLabel(diagnostic.reason)} (${diagnostic.reason})</span>` : ""}
+                      </td>
+                    </tr>
+                  `)}
+                </tbody>
+              </table>
+            `}
+      </dialog>
+    `;
+  }
+
+  #toggleBreakdown(requestId: string, _anchor: HTMLElement) {
+    this.openBreakdownId = this.openBreakdownId === requestId ? null : requestId;
+    void this.updateComplete.then(() => {
+      const popover = this.renderRoot.querySelector<HTMLDialogElement>(".popover");
+      if (!popover || this.openBreakdownId === null) return;
+      if (typeof popover.showModal === "function") {
+        popover.showModal();
+      } else {
+        popover.setAttribute("open", "");
+      }
+      popover.focus();
+    });
+  }
+
+  #dismissFromBackdrop(event: MouseEvent) {
+    const dialog = event.currentTarget as HTMLDialogElement;
+    const rect = dialog.getBoundingClientRect();
+    const inside = event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom;
+    if (!inside) this.openBreakdownId = null;
+  }
+
+  #reasonLabel(reason: string): string {
+    return ({
+      follow_lookup_failed: "Could not load followed accounts",
+      no_followed_users: "No followed accounts found",
+      no_recent_followed_posts: "No eligible recent posts from followed accounts",
+      no_older_followed_posts: "No eligible followed-account posts from the last seven days",
+      post_tower_not_configured: "Two-tower model is not configured",
+      generator_timeout: "Generator timed out",
+      generator_error: "Generator failed",
+    } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
+  }
+
+  #modeLabel(mode: string): string {
+    return ({
+      direct_friends_recent: "Friends · last 24 hours",
+      direct_friends_7d: "Friends · 1–7 days",
+    } as Record<string, string>)[mode] ?? mode.split("_").join(" ");
+  }
+
+  #onWindowClick = (event: MouseEvent) => {
+    if (this.openBreakdownId && !event.composedPath().includes(this)) {
+      this.openBreakdownId = null;
+    }
+  };
+
+  #onWindowKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") this.openBreakdownId = null;
+  };
 
   #selectTab(requestId: string) {
     this.dispatchEvent(

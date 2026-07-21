@@ -15,7 +15,6 @@ const DEFAULT_STYLE = { bg: "rgba(113, 118, 123, 0.15)", color: "#71767b", borde
 @customElement("generator-badge")
 export class GeneratorBadge extends LitElement {
   @property({ type: String }) name = "";
-  @property({ type: Number }) score: number | null = null;
 
   static styles = css`
     :host {
@@ -26,8 +25,6 @@ export class GeneratorBadge extends LitElement {
 
   render() {
     const style = GENERATOR_STYLES[this.name] ?? DEFAULT_STYLE;
-    const clampedScore = this.score !== null ? Math.min(Math.max(this.score, 0), 1) : null;
-    const scoreText = clampedScore !== null ? ` ${(clampedScore * 100).toFixed(0)}%` : " --";
 
     return html`
       <span
@@ -42,7 +39,7 @@ export class GeneratorBadge extends LitElement {
           white-space: nowrap;
         "
       >
-        ${this.name}${scoreText}
+        ${this.name}
       </span>
     `;
   }

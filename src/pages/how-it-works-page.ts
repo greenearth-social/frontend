@@ -1,5 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { getRootStore } from "../main";
+import { FRESHNESS_PRESETS } from "../constants/preferences";
 
 interface DiagramNode {
   id: string;
@@ -21,8 +23,7 @@ const DIAGRAM_NODES: Record<string, DiagramNode> = {
     id: "following",
     label: "Following",
     type: "source",
-    description:
-      "Posts from accounts you follow. Weighted to balance familiarity with discovery.",
+    description: "Posts from accounts you follow. Weighted to balance familiarity with discovery.",
   },
   authors_topics: {
     id: "authors_topics",
@@ -35,8 +36,7 @@ const DIAGRAM_NODES: Record<string, DiagramNode> = {
     id: "popular",
     label: "Popular",
     type: "source",
-    description:
-      "Trending posts across the network that are gaining rapid engagement.",
+    description: "Trending posts across the network that are gaining rapid engagement.",
   },
   predict_like: {
     id: "predict_like",
@@ -51,7 +51,7 @@ const DIAGRAM_NODES: Record<string, DiagramNode> = {
     subtitle: "(Perspective API)",
     type: "signal",
     description:
-      "Uses Google's Perspective API to score how constructive and healthy a post's content is.",
+      "Uses Google's Perspective Bridging API to score how constructive and healthy a post's content is.",
   },
   engaging_constructive: {
     id: "engaging_constructive",
@@ -129,21 +129,39 @@ export class HowItWorksPage extends LitElement {
     }
 
     .section-candidate {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba(59, 130, 246, 0.12) 0%,
+        rgba(99, 102, 241, 0.08) 100%
+      );
       border: 1px solid rgba(99, 102, 241, 0.25);
-      box-shadow: 0 4px 24px rgba(99, 102, 241, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      box-shadow:
+        0 4px 24px rgba(99, 102, 241, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .section-signals {
-      background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba(168, 85, 247, 0.12) 0%,
+        rgba(139, 92, 246, 0.08) 100%
+      );
       border: 1px solid rgba(168, 85, 247, 0.25);
-      box-shadow: 0 4px 24px rgba(168, 85, 247, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      box-shadow:
+        0 4px 24px rgba(168, 85, 247, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .section-diversification {
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba(34, 197, 94, 0.12) 0%,
+        rgba(16, 185, 129, 0.08) 100%
+      );
       border: 1px solid rgba(34, 197, 94, 0.25);
-      box-shadow: 0 4px 24px rgba(34, 197, 94, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      box-shadow:
+        0 4px 24px rgba(34, 197, 94, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .section-title {
@@ -193,7 +211,9 @@ export class HowItWorksPage extends LitElement {
       padding: 0.1875rem 0.625rem;
       border-radius: 9999px;
       cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease;
+      transition:
+        transform 0.15s ease,
+        background 0.15s ease;
     }
 
     .weight-pill:hover {
@@ -207,7 +227,10 @@ export class HowItWorksPage extends LitElement {
       border-radius: 10px;
       text-align: center;
       cursor: pointer;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+      transition:
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
       position: relative;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -230,7 +253,10 @@ export class HowItWorksPage extends LitElement {
 
     .node-box-source {
       background: linear-gradient(145deg, #3b82f6 0%, #2563eb 100%);
-      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 4px 16px rgba(59, 130, 246, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 700;
       font-size: 0.8125rem;
@@ -239,7 +265,10 @@ export class HowItWorksPage extends LitElement {
 
     .node-box-signal {
       background: linear-gradient(145deg, #a855f7 0%, #7c3aed 100%);
-      box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 4px 16px rgba(168, 85, 247, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 700;
       font-size: 0.8125rem;
@@ -248,7 +277,10 @@ export class HowItWorksPage extends LitElement {
 
     .node-box-config {
       background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
-      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 4px 16px rgba(34, 197, 94, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 600;
       font-size: 0.75rem;
@@ -257,7 +289,10 @@ export class HowItWorksPage extends LitElement {
 
     .node-box-penalty {
       background: linear-gradient(145deg, #f59e0b 0%, #d97706 100%);
-      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 4px 16px rgba(245, 158, 11, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-weight: 600;
       font-size: 0.75rem;
@@ -266,7 +301,9 @@ export class HowItWorksPage extends LitElement {
 
     .config-pill {
       background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
-      box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 3px 12px rgba(34, 197, 94, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-size: 0.8125rem;
       font-weight: 600;
@@ -274,13 +311,18 @@ export class HowItWorksPage extends LitElement {
       padding: 0.4375rem 1rem;
       border-radius: 9999px;
       cursor: pointer;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+      transition:
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
     }
 
     .config-pill:hover {
       transform: translateY(-3px) scale(1.05);
       filter: brightness(1.15);
-      box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 6px 20px rgba(34, 197, 94, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
     }
 
     .config-pill:active {
@@ -294,7 +336,9 @@ export class HowItWorksPage extends LitElement {
 
     .penalty-pill {
       background: linear-gradient(145deg, #f59e0b 0%, #d97706 100%);
-      box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 3px 12px rgba(245, 158, 11, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-size: 0.75rem;
       font-weight: 600;
@@ -302,13 +346,18 @@ export class HowItWorksPage extends LitElement {
       padding: 0.4375rem 0.875rem;
       border-radius: 9999px;
       cursor: pointer;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+      transition:
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
     }
 
     .penalty-pill:hover {
       transform: translateY(-3px) scale(1.05);
       filter: brightness(1.15);
-      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 6px 20px rgba(245, 158, 11, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
     }
 
     .penalty-pill:active {
@@ -372,7 +421,9 @@ export class HowItWorksPage extends LitElement {
 
     .engaging-pill {
       background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
-      box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 3px 12px rgba(34, 197, 94, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
       color: #fff;
       font-size: 0.75rem;
       font-weight: 600;
@@ -380,13 +431,18 @@ export class HowItWorksPage extends LitElement {
       padding: 0.4375rem 0.875rem;
       border-radius: 9999px;
       cursor: pointer;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+      transition:
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
     }
 
     .engaging-pill:hover {
       transform: translateY(-3px) scale(1.05);
       filter: brightness(1.15);
-      box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 6px 20px rgba(34, 197, 94, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
     }
 
     .engaging-pill:active {
@@ -418,8 +474,12 @@ export class HowItWorksPage extends LitElement {
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
     }
 
     .popup-backdrop {
@@ -438,7 +498,9 @@ export class HowItWorksPage extends LitElement {
       padding: 1.25rem 1.5rem;
       background: linear-gradient(135deg, rgba(30, 39, 50, 0.98) 0%, rgba(21, 32, 43, 0.99) 100%);
       border: 1px solid var(--bluesky-border);
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow:
+        0 16px 48px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
       animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
@@ -473,10 +535,18 @@ export class HowItWorksPage extends LitElement {
       min-width: 0;
     }
 
-    .popup-title.type-source { color: #60a5fa; }
-    .popup-title.type-signal { color: #c084fc; }
-    .popup-title.type-config { color: #4ade80; }
-    .popup-title.type-penalty { color: #fbbf24; }
+    .popup-title.type-source {
+      color: #60a5fa;
+    }
+    .popup-title.type-signal {
+      color: #c084fc;
+    }
+    .popup-title.type-config {
+      color: #4ade80;
+    }
+    .popup-title.type-penalty {
+      color: #fbbf24;
+    }
 
     .popup-badge {
       font-size: 0.625rem;
@@ -488,10 +558,22 @@ export class HowItWorksPage extends LitElement {
       flex-shrink: 0;
     }
 
-    .badge-source { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-    .badge-signal { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
-    .badge-config { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .badge-penalty { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-source {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+    }
+    .badge-signal {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+    }
+    .badge-config {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+    }
+    .badge-penalty {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
 
     .popup-description {
       font-size: 0.875rem;
@@ -500,6 +582,15 @@ export class HowItWorksPage extends LitElement {
       margin: 0;
       overflow-wrap: break-word;
       word-break: break-word;
+    }
+
+    .popup-value {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      color: var(--bluesky-text);
     }
 
     .popup-close {
@@ -740,24 +831,76 @@ export class HowItWorksPage extends LitElement {
     const node = DIAGRAM_NODES[this._selectedNode];
     if (!node) return html``;
 
+    const root = getRootStore();
+    const prefs = root?.preferencesStore.values;
+
+    let valueDisplay = html``;
+
+    if (node.id === "time_window" && prefs) {
+      const freshness = FRESHNESS_PRESETS[prefs.freshness];
+      valueDisplay = html`
+        <div class="popup-value"><strong>Current:</strong> ${freshness?.label ?? "24h"}</div>
+      `;
+    } else if (node.id === "following" && prefs) {
+      const weights = root.preferencesStore.socialRadiusWeights;
+      const followingWeight = weights.find((w) => w.name === "followed_users")?.weight ?? 0;
+      valueDisplay = html`
+        <div class="popup-value"><strong>Weight:</strong> ${followingWeight.toFixed(2)}</div>
+      `;
+    } else if (node.id === "authors_topics" && prefs) {
+      const weights = root.preferencesStore.socialRadiusWeights;
+      const twoTowerWeight = weights.find((w) => w.name === "two_tower")?.weight ?? 0;
+      valueDisplay = html`
+        <div class="popup-value"><strong>Weight:</strong> ${twoTowerWeight.toFixed(2)}</div>
+      `;
+    } else if (node.id === "popular" && prefs) {
+      const weights = root.preferencesStore.socialRadiusWeights;
+      const popularWeight = weights.find((w) => w.name === "popularity")?.weight ?? 0;
+      valueDisplay = html`
+        <div class="popup-value"><strong>Weight:</strong> ${popularWeight.toFixed(2)}</div>
+      `;
+    } else if (node.id === "engaging_constructive" && prefs) {
+      valueDisplay = html`
+        <div class="popup-value">
+          <strong>Engaging:</strong> ${(1 - prefs.purpose).toFixed(2)},
+          <strong>Constructive:</strong> ${prefs.purpose.toFixed(2)}
+        </div>
+      `;
+    }
+
     return html`
       <div class="popup-overlay" @click=${this.#closeDetail}>
         <div class="popup-backdrop"></div>
-        <div class="popup-card" @click=${(e: Event) => { e.stopPropagation(); }}>
+        <div
+          class="popup-card"
+          @click=${(e: Event) => {
+          e.stopPropagation();
+        }}
+        >
           <div class="popup-header">
             <h3 class="popup-title type-${node.type}">
               ${node.label}
               <span class="popup-badge badge-${node.type}">${node.type}</span>
             </h3>
-            <button class="popup-close" @click=${this.#closeDetail} aria-label="Close detail">&times;</button>
+            <button class="popup-close" @click=${this.#closeDetail} aria-label="Close detail">
+              &times;
+            </button>
           </div>
           <p class="popup-description">${node.description}</p>
+          ${valueDisplay}
         </div>
       </div>
     `;
   }
 
   render() {
+    const root = getRootStore();
+    const weights = root?.preferencesStore.socialRadiusWeights ?? [];
+
+    const followingWeight = weights.find((w) => w.name === "followed_users")?.weight ?? 0;
+    const twoTowerWeight = weights.find((w) => w.name === "two_tower")?.weight ?? 0;
+    const popularWeight = weights.find((w) => w.name === "popularity")?.weight ?? 0;
+
     return html`
       <div class="sticky-header">
         <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem;">
@@ -768,15 +911,30 @@ export class HowItWorksPage extends LitElement {
             type="button"
             style="display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9999px; border: none; background: transparent; color: var(--bluesky-text); cursor: pointer; flex-shrink: 0;"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px;">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="width: 22px; height: 22px;"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0; flex: 1;">How It Works</h1>
+          <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0; flex: 1;">
+            How It Works
+          </h1>
         </div>
         <style>
-           @media (max-width: 1023px) {
-            .hamburger-btn { display: flex !important; }
+          @media (max-width: 1023px) {
+            .hamburger-btn {
+              display: flex !important;
+            }
           }
         </style>
       </div>
@@ -785,31 +943,68 @@ export class HowItWorksPage extends LitElement {
         <div class="diagram-wrapper">
           <div class="section section-candidate">
             <h2 class="section-title">Candidate Sources</h2>
-            <div class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
-              @click=${() => { this.#handleNodeClick("time_window"); }}>
+            <div
+              class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
+              @click=${() => {
+                this.#handleNodeClick("time_window");
+              }}
+            >
               Time window
             </div>
             <div class="sources-row">
               <div class="source-row">
-                <div class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
-                  @click=${() => { this.#handleNodeClick("following"); }}>
+                <div
+                  class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
+                  @click=${() => {
+                    this.#handleNodeClick("following");
+                  }}
+                >
                   Following
                 </div>
-                <div class="weight-pill" @click=${() => { this.#handleNodeClick("following"); }}>weight</div>
+                <div
+                  class="weight-pill"
+                  @click=${() => {
+                  this.#handleNodeClick("following");
+                }}
+                >
+                  ${followingWeight.toFixed(2)}
+                </div>
               </div>
               <div class="source-row">
-                <div class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
-                  @click=${() => { this.#handleNodeClick("authors_topics"); }}>
+                <div
+                  class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
+                  @click=${() => {
+                    this.#handleNodeClick("authors_topics");
+                  }}
+                >
                   Authors and Topics
                 </div>
-                <div class="weight-pill" @click=${() => { this.#handleNodeClick("authors_topics"); }}>weight</div>
+                <div
+                  class="weight-pill"
+                  @click=${() => {
+                  this.#handleNodeClick("authors_topics");
+                }}
+                >
+                  ${twoTowerWeight.toFixed(2)}
+                </div>
               </div>
               <div class="source-row">
-                <div class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
-                  @click=${() => { this.#handleNodeClick("popular"); }}>
+                <div
+                  class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
+                  @click=${() => {
+                    this.#handleNodeClick("popular");
+                  }}
+                >
                   Popular
                 </div>
-                <div class="weight-pill" @click=${() => { this.#handleNodeClick("popular"); }}>weight</div>
+                <div
+                  class="weight-pill"
+                  @click=${() => {
+                  this.#handleNodeClick("popular");
+                }}
+                >
+                  ${popularWeight.toFixed(2)}
+                </div>
               </div>
             </div>
           </div>
@@ -820,21 +1015,33 @@ export class HowItWorksPage extends LitElement {
             <h2 class="section-title">Signals</h2>
             <div class="signals-row">
               <div class="signal-column">
-                <div class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
-                  @click=${() => { this.#handleNodeClick("predict_like"); }}>
+                <div
+                  class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
+                  @click=${() => {
+                    this.#handleNodeClick("predict_like");
+                  }}
+                >
                   Predict<br />p(like)
                 </div>
               </div>
               <div class="signal-column">
-                <div class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
-                  @click=${() => { this.#handleNodeClick("constructiveness"); }}>
+                <div
+                  class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
+                  @click=${() => {
+                    this.#handleNodeClick("constructiveness");
+                  }}
+                >
                   Constructiveness
                   <div class="node-subtitle">(Perspective API)</div>
                 </div>
               </div>
             </div>
-            <div class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
-              @click=${() => { this.#handleNodeClick("engaging_constructive"); }}>
+            <div
+              class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
+              @click=${() => {
+                this.#handleNodeClick("engaging_constructive");
+              }}
+            >
               Engaging vs. Constructive
             </div>
           </div>
@@ -844,12 +1051,20 @@ export class HowItWorksPage extends LitElement {
           <div class="section section-diversification">
             <h2 class="section-title">Diversification</h2>
             <div class="penalties-row">
-              <div class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
-                @click=${() => { this.#handleNodeClick("repeated_author"); }}>
+              <div
+                class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
+                @click=${() => {
+                  this.#handleNodeClick("repeated_author");
+                }}
+              >
                 Repeated author penalty
               </div>
-              <div class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
-                @click=${() => { this.#handleNodeClick("repeated_topic"); }}>
+              <div
+                class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
+                @click=${() => {
+                  this.#handleNodeClick("repeated_topic");
+                }}
+              >
                 Repeated topic penalty
               </div>
             </div>

@@ -88,7 +88,6 @@ export class FeedPage extends MobxLitElement {
       </div>`;
 
     const { feedStore, uiStore, accountStore, authStore } = store;
-
     if (!authStore.isSignedIn || !accountStore.activeAccount) {
       return html`
         <div class="logged-out-page">
@@ -190,12 +189,8 @@ export class FeedPage extends MobxLitElement {
               </button>
               <div style="flex: 1; min-width: 0;">
                 <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0;">
-                  Post Observability
+                  Why Am I Seeing This?
                 </h1>
-                <span
-                  style="color: #22c55e; cursor: pointer; display: block; font-family: 'Nunito', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif; font-weight: 700; font-size: 0.9375rem; line-height: 1.2;"
-                  >Why am I seeing this?</span
-                >
               </div>
             </div>
             <style>
@@ -210,6 +205,7 @@ export class FeedPage extends MobxLitElement {
           <feed-tabs
             .feeds=${feedStore.feedList}
             .activeRequestId=${feedStore.currentRequestId}
+            .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
             void feedStore.loadFeedDetail(e.detail.requestId);
           }}

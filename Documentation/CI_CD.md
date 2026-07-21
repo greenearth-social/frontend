@@ -2,7 +2,7 @@
 
 ## Architecture
 
-One SPA bundle, two environments. The same compiled JavaScript is deployed to both stage and prod. Only the Firestore database name changes via a static `config.json` served alongside the bundle.
+One SPA bundle, two environments. Pull requests can deploy the bundle to a stage preview channel. A successful CI run on `main` starts the approval-gated production deployment. Only the Firestore database name changes via a static `config.json` served alongside the bundle.
 
 ```
 Git push to main
@@ -48,6 +48,7 @@ Git push to main
 | Value | Location | How it gets to production |
 |-------|----------|---------------------------|
 | `BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` | Google Cloud Secret Manager | Set ONCE via CLI. Bound to functions via `{ secrets: [...] }` in code |
+| `OAUTH_STATE_ENCRYPTION_KEY` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key. Bound to OAuth functions in code |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | GitHub Variable | CI writes to `functions/.env` before deploy. Deployed with functions |
 | `APP_ORIGIN` | GitHub Variable | CI writes to `functions/.env` before deploy |
 | `BLUESKY_OAUTH_CLIENT_KID` | GitHub Variable | CI writes to `functions/.env` before deploy |
@@ -66,7 +67,7 @@ Firebase Functions v2 requires secrets declared in code (`{ secrets: ["NAME"] }`
 ```typescript
 // auth-bluesky.ts — the { secrets: [...] } option binds the secret
 export const authBluesky = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY"] },
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
   async (req, res) => { /* ... */ }
 );
 ```
@@ -96,6 +97,16 @@ firebase functions:secrets:set BLUESKY_OAUTH_CLIENT_PRIVATE_KEY
 # Paste the contents of functions/keys/private-key.json when prompted
 ```
 
+Store a separate encryption key for OAuth state:
+
+```sh
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+firebase functions:secrets:set OAUTH_STATE_ENCRYPTION_KEY
+# Paste the generated 64-character hexadecimal value when prompted
+```
+
+If both secrets already exist and the deployed public JWKS matches the configured private key, do not regenerate them for a routine deployment. Treat changing the private key and public JWKS as one coordinated rotation.
+
 ### 3. Add GitHub Secrets and Variables
 
 All values go at **repo scope** (Settings → Secrets and variables → Actions). No environment-scoped variables needed — stage and prod share the same Firebase project, Cloud Functions, and OAuth metadata.
@@ -113,6 +124,34 @@ All values go at **repo scope** (Settings → Secrets and variables → Actions)
 | `APP_ORIGIN` | `https://greenearth-471522.web.app` (your Firebase Hosting URL, no trailing slash) |
 | `BLUESKY_OAUTH_CLIENT_KID` | `key-1` |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | Contents of `functions/keys/public-jwks.json` (the JSON object including the `{"keys":[...]}` wrapper) |
+| `VITE_USE_MOCK_SERVICES` | `false` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `greenearth-471522.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | `greenearth-471522` |
+
+The workflow explicitly sets `VITE_USE_FIREBASE_EMULATORS=false` for production builds.
+
+#### Deployment service-account IAM
+
+The service account identified by the `client_email` field in
+`FIREBASE_SERVICE_ACCOUNT` needs deployment permissions in addition to its
+Firebase Admin SDK runtime roles. Ask a project IAM administrator to grant:
+
+- Project-level `roles/serviceusage.serviceUsageViewer` so the Firebase CLI can
+  verify required APIs.
+- Project-level `roles/serviceusage.apiKeysViewer` for Firebase Hosting CLI
+  deployment.
+- Project-level `roles/firebasehosting.admin` for live and preview Hosting
+  releases.
+- Project-level `roles/cloudfunctions.admin` for Cloud Functions v2 deployment.
+- Project-level `roles/firebaserules.admin` for Firestore Rules deployment.
+- `roles/iam.serviceAccountUser` on the Functions runtime service account
+  `21637448064-compute@developer.gserviceaccount.com`.
+- `roles/iam.serviceAccountUser` on the Cloud Build service account
+  `21637448064@cloudbuild.gserviceaccount.com`.
+
+Do not grant project Owner or Editor solely to make CI deployment work. The
+workflow prints the authenticated deployment identity and verifies required API
+visibility before invoking Firebase, so a missing IAM grant fails early.
 
 ### 4. Protect production deploys with an environment
 
@@ -129,7 +168,7 @@ GitHub repo → **Settings → Environments** → **New environment**
 git add . && git commit -m "CI/CD setup" && git push
 ```
 
-The `ci` job runs first. On push to `main`, `deploy-stage` runs automatically. `deploy-prod` waits for manual approval in the GitHub Actions UI.
+The `ci` job runs first. Pull requests can deploy the stage preview after approval of the `stage` environment. On push to `main`, the separate Deploy workflow starts after CI succeeds and waits for approval of the `production` environment.
 
 ## Pipeline stages
 
@@ -151,7 +190,7 @@ ci:
     - upload dist/ + functions/ artifacts
 ```
 
-### Deploy stage (push to main only)
+### Deploy stage (pull requests only)
 
 ```yaml
 deploy-stage:
@@ -160,9 +199,9 @@ deploy-stage:
   steps:
     - download artifacts from ci
     - write dist/config.json → greenearth-stage
-    - write functions/.env → APP_ORIGIN, KID, JWKS from GitHub Variables
-    - firebase deploy → preview channel "stage"
-    - firebase deploy → firestore rules + functions (if changed)
+    - deploy Firestore rules only to greenearth-stage
+    - deploy Hosting → preview channel "stage"
+    - hosting preview only; shared OAuth Functions are not redeployed by the stage job
 ```
 
 Preview channels get a unique URL like `https://greenearth-471522--stage-abc123.web.app`. Good for pre-prod testing.
@@ -175,13 +214,19 @@ deploy-prod:
   runs-on: ubuntu-latest
   environment: production         # ← triggers approval workflow
   steps:
+    - checkout the exact successful CI commit
     - download artifacts from ci
     - write dist/config.json → greenearth-prod
     - write functions/.env → APP_ORIGIN, KID, JWKS from GitHub Variables
-    - firebase deploy → live channel
+    - validate production configuration
+    - deploy functions + Firestore rules only to greenearth-prod
+    - deploy the Firebase Hosting live channel
 ```
 
-Only the `dist/config.json` database name differs from stage. The bundle, functions, and rules are identical.
+The same rules source is configured independently for both named databases.
+Stage deployments target only `greenearth-stage`; production deployments target
+only `greenearth-prod`. Firebase checks function source and configuration hashes
+and skips unchanged functions rather than creating unnecessary revisions.
 
 ## Rotating the OAuth key pair
 
@@ -214,7 +259,7 @@ If CI is unavailable or you need an emergency deploy from your machine:
 npm run build
 cd functions && npm run build && cd ..
 
-# Set the right database
+# Example: prepare a stage Hosting build
 printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
 
 # Set function vars (needed only if not already set)
@@ -223,8 +268,12 @@ export BLUESKY_OAUTH_CLIENT_KID=key-1
 # BLUESKY_OAUTH_CLIENT_PRIVATE_KEY must exist in Secret Manager (already set)
 # If BLUESKY_OAUTH_PUBLIC_JWKS was set via firebase functions:secrets:set, it's persisted
 
-# Deploy
-firebase deploy --only hosting,functions,firestore:rules
+# Deploy stage rules and a Hosting preview separately
+firebase deploy --only firestore:greenearth-stage
+firebase hosting:channel:deploy stage
+
+# Production uses firestore:greenearth-prod and the live Hosting channel. Do
+# not run those commands without an explicit production approval.
 ```
 
 ## Troubleshooting

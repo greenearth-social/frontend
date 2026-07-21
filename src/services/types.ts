@@ -6,9 +6,16 @@ export interface IAuthService {
   getIdToken(): Promise<string>;
 }
 
+export interface Preferences {
+  socialRadius: number;  // 0-4
+  freshness: number;     // 0-5
+  politics: number;      // 0.5-1.5
+  purpose: number;       // 0.2-0.8
+}
+
 export interface IFeedApiService {
   listFeeds(): Promise<import("../models/feed-debug-snapshot").FeedListResponse>;
   getFeedDetail(requestId: string): Promise<import("../models/feed-debug-snapshot").FeedDetailResponse>;
-  getPreferences(): Promise<{ socialRadius: number }>;
-  putPreferences(socialRadius: number): Promise<{ socialRadius: number }>;
+  getPreferences(): Promise<Preferences>;
+  putPreferences(prefs: Preferences): Promise<Preferences>;
 }

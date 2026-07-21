@@ -14,14 +14,18 @@ permissions:
 jobs:
   # -----------------------------------------------------------------------
   # Deploy prod — auto after CI passes on main, gated by environment approval.
-  # Hosting (live) + functions + rules.
+  # Hosting (live) + functions + rules. Firebase skips unchanged functions.
   # -----------------------------------------------------------------------
   deploy-prod:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
+    env:
+      EXPECTED_APP_ORIGIN: https://greenearth-471522.web.app
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: dawidd6/action-download-artifact@v6
         with:
@@ -42,25 +46,61 @@ jobs:
           printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
 
       - name: Write functions .env from GitHub Variables
+        env:
+          APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+          BLUESKY_OAUTH_CLIENT_KID: ${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
+          BLUESKY_OAUTH_PUBLIC_JWKS: ${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          cat > functions/.env << 'ENVEOF'
-          APP_ORIGIN=${{ vars.APP_ORIGIN }}
-          BLUESKY_OAUTH_CLIENT_KID=${{ vars.BLUESKY_OAUTH_CLIENT_KID }}
-          BLUESKY_OAUTH_PUBLIC_JWKS=${{ vars.BLUESKY_OAUTH_PUBLIC_JWKS }}
-          ENVEOF
+          test "$APP_ORIGIN" = "$EXPECTED_APP_ORIGIN"
+          test -n "$BLUESKY_OAUTH_CLIENT_KID"
+          test -n "$BLUESKY_OAUTH_PUBLIC_JWKS"
+          test -n "$FIREBASE_SERVICE_ACCOUNT"
+          node -e 'const value = JSON.parse(process.env.BLUESKY_OAUTH_PUBLIC_JWKS); if (!Array.isArray(value.keys) || value.keys.length === 0) process.exit(1)'
+          printf 'APP_ORIGIN=%s\nBLUESKY_OAUTH_CLIENT_KID=%s\nBLUESKY_OAUTH_PUBLIC_JWKS=%s\n' \
+            "$APP_ORIGIN" \
+            "$BLUESKY_OAUTH_CLIENT_KID" \
+            "$BLUESKY_OAUTH_PUBLIC_JWKS" \
+            > functions/.env
 
       - uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Verify production deployer and required APIs
+        run: |
+          deployer="$(node -e 'const fs = require("fs"); const value = JSON.parse(fs.readFileSync(process.env.GOOGLE_GHA_CREDS_PATH, "utf8")); process.stdout.write(value.client_email || "unknown")')"
+          echo "Deployment identity: $deployer"
+          for service in \
+            firestore.googleapis.com \
+            firebaserules.googleapis.com \
+            cloudfunctions.googleapis.com \
+            run.googleapis.com \
+            cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com \
+            secretmanager.googleapis.com \
+            firebasehosting.googleapis.com
+          do
+            state="$(gcloud services describe "$service" \
+              --project greenearth-471522 \
+              --format='value(state)')"
+            test "$state" = "ENABLED"
+          done
+
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Deploy Hosting + Functions + Firestore rules
+      - name: Deploy Functions + Firestore rules
         run: |
-          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase deploy \
-            --only hosting,functions,firestore:rules \
+            --only functions,firestore:greenearth-prod \
             --project greenearth-471522 \
             --non-interactive \
             --force
+
+      - name: Deploy Hosting (live channel)
+        run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
+          firebase hosting:channel:deploy live \
+            --project greenearth-471522 \
+            --non-interactive

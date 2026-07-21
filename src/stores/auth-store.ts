@@ -11,6 +11,11 @@ export class AuthStore {
     makeAutoObservable(this, { root: false });
     this.root.services.authService.onAuthStateChanged((user) => {
       this.currentUser = user;
+      if (user) {
+        this.root.preferencesStore.activateAccount(user.uid);
+      } else {
+        this.root.preferencesStore.reset();
+      }
     });
   }
 
