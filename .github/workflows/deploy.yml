@@ -85,10 +85,14 @@ jobs:
             secretmanager.googleapis.com \
             firebasehosting.googleapis.com
           do
-            state="$(gcloud services describe "$service" \
-              --project greenearth-471522 \
-              --format='value(state)')"
-            test "$state" = "ENABLED"
+            if ! gcloud services list \
+                --project greenearth-471522 \
+                --enabled \
+                --filter="config.name=$service" \
+                --format='value(config.name)' | grep -q "^$service$"; then
+              echo "Required API not enabled: $service" >&2
+              exit 1
+            fi
           done
 
       - name: Install Firebase CLI
@@ -96,6 +100,7 @@ jobs:
 
       - name: Deploy Hosting + prod Functions + Firestore rules
         run: |
+          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase deploy \
             --only hosting,functions:authBluesky,functions:oauthCallback,functions:oauthClientMetadata,functions:oauthJwks,firestore:rules \
             --project greenearth-471522 \
@@ -104,7 +109,6 @@ jobs:
 
       - name: Deploy Hosting (live channel)
         run: |
-          sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase hosting:channel:deploy live \
             --project greenearth-471522 \
             --non-interactive
