@@ -106,9 +106,3 @@ jobs:
             --project greenearth-471522 \
             --non-interactive \
             --force
-
-      - name: Deploy Hosting (live channel)
-        run: |
-          firebase hosting:channel:deploy live \
-            --project greenearth-471522 \
-            --non-interactive
