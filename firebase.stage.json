@@ -23,7 +23,7 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "__CLOUD_RUN_SERVICE__",
+          "serviceId": "greenearth-api-stage",
           "region": "us-east1"
         }
       },
