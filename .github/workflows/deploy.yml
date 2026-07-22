@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      EXPECTED_APP_ORIGIN: https://greenearth-471522.web.app
+      EXPECTED_APP_ORIGIN: https://app.greenearth.social
     steps:
       - uses: actions/checkout@v4
         with:
