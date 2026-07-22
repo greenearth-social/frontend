@@ -14,7 +14,7 @@ permissions:
 jobs:
   # -----------------------------------------------------------------------
   # Deploy prod — auto after CI passes on main, gated by environment approval.
-  # Hosting (live) + functions + rules. Firebase skips unchanged functions.
+  # Hosting (live) + prod functions only + rules.
   # -----------------------------------------------------------------------
   deploy-prod:
     if: github.event.workflow_run.conclusion == 'success'
@@ -39,7 +39,11 @@ jobs:
           workflow: ci.yml
           run_id: ${{ github.event.workflow_run.id }}
           name: functions-build
-          path: functions/
+          path: functions/lib/
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci --omit=dev
 
       - name: Write prod database config
         run: |
@@ -90,10 +94,10 @@ jobs:
       - name: Install Firebase CLI
         run: npm i -g firebase-tools
 
-      - name: Deploy Functions + Firestore rules
+      - name: Deploy Hosting + prod Functions + Firestore rules
         run: |
           firebase deploy \
-            --only functions,firestore:greenearth-prod \
+            --only hosting,functions:authBluesky,functions:oauthCallback,functions:oauthClientMetadata,functions:oauthJwks,firestore:rules \
             --project greenearth-471522 \
             --non-interactive \
             --force

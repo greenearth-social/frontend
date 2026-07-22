@@ -14,9 +14,7 @@ import {
 
 const AUTH_SERVER = "https://bsky.social";
 
-export const authBluesky = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
-  async (req: Request, res: Response) => {
+export async function authBlueskyHandler(req: Request, res: Response): Promise<void> {
   try {
   const appOrigin = process.env.APP_ORIGIN;
   const kid = process.env.BLUESKY_OAUTH_CLIENT_KID;
@@ -162,7 +160,17 @@ export const authBluesky = onRequest(
     console.error("authBluesky error:", message, err);
     res.status(500).send(`OAuth start failed: ${message}`);
   }
-});
+}
+
+export const authBluesky = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  authBlueskyHandler
+);
+
+export const authBlueskyStage = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  authBlueskyHandler
+);
 
 async function sendPar(
   url: string,

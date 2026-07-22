@@ -10,7 +10,7 @@ async function loadJwksJson(): Promise<string> {
   return readFile("./keys/public-jwks.json", "utf-8");
 }
 
-export const oauthJwks = onRequest(async (_req: Request, res: Response) => {
+async function oauthJwksHandler(_req: Request, res: Response): Promise<void> {
   res.set("Content-Type", "application/json");
 
   if (!cachedJwks) {
@@ -24,4 +24,7 @@ export const oauthJwks = onRequest(async (_req: Request, res: Response) => {
   }
 
   res.json(cachedJwks);
-});
+}
+
+export const oauthJwks = onRequest(oauthJwksHandler);
+export const oauthJwksStage = onRequest(oauthJwksHandler);

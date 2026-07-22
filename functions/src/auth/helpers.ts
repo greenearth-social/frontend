@@ -159,7 +159,8 @@ export async function decryptState<T = Record<string, unknown>>(
 let cachedClientKey: CryptoKey | null = null;
 
 async function loadKeyJson(): Promise<string> {
-  const envVar = process.env.BLUESKY_OAUTH_CLIENT_PRIVATE_KEY;
+  const envVar = process.env.BLUESKY_OAUTH_CLIENT_PRIVATE_KEY
+    ?? process.env.BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE;
   if (envVar) return envVar;
   return readFile("./keys/private-key.json", "utf-8");
 }

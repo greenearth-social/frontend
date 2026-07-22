@@ -1,0 +1,42 @@
+{
+  "hosting": {
+    "site": "greenearth-471522",
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/.well-known/oauth-client-metadata",
+        "function": "oauthClientMetadataStage"
+      },
+      {
+        "source": "/.well-known/jwks.json",
+        "function": "oauthJwksStage"
+      },
+      {
+        "source": "/auth/bluesky",
+        "function": "authBlueskyStage"
+      },
+      {
+        "source": "/oauth/callback",
+        "function": "oauthCallbackStage"
+      },
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "__CLOUD_RUN_SERVICE__",
+          "region": "us-east1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "firestore": [
+    { "database": "greenearth-stage", "rules": "firestore.rules" }
+  ],
+  "functions": {
+    "source": "functions"
+  }
+}
