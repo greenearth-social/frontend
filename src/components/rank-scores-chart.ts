@@ -1,11 +1,19 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
-import { weightedRankScore, scoreAxisPositionPct } from "../models/feed-debug-snapshot";
+import { weightedRankScore } from "../models/feed-debug-snapshot";
+import { styleMap } from "lit/directives/style-map.js";
+import "./generator-badge";
+
+const RANKER_COLORS: Record<string, string> = {
+  Engaging: "#fb923c",
+  Constructive: "#a78bfa",
+};
 
 @customElement("rank-scores-chart")
 export class RankScoresChart extends LitElement {
   @property({ type: Object }) item: FeedItemView | null = null;
+  @state() private _showDivPopup = false;
 
   static styles = css`
     :host {
@@ -14,166 +22,305 @@ export class RankScoresChart extends LitElement {
     .chart-container {
       padding: 0.25rem 0;
     }
-    .chart-header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-bottom: 0.75rem;
+    .ranking-grid {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 1rem;
+      align-items: stretch;
     }
-    .chart-title {
-      font-size: 0.6875rem;
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      height: 100%;
+    }
+    .col-header {
+      font-size: 0.625rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--bluesky-text-secondary);
+      padding-bottom: 0.375rem;
+      border-bottom: 1px solid var(--bluesky-border);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
     }
-    .chart-score {
+    .info-icon {
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: var(--bluesky-text-secondary);
+      transition: color 0.15s;
+    }
+    .info-icon:hover {
+      color: var(--bluesky-brand);
+    }
+    .source-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      align-items: stretch;
+      justify-content: center;
+      flex: 1;
+    }
+    .rankers-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .ranker-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .ranker-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
+      white-space: nowrap;
+    }
+    .ranker-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ranker-bar-outer {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      border: 1px solid;
+      overflow: hidden;
+      min-width: 50px;
+    }
+    .ranker-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+    .ranker-value {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
+      min-width: 2.75em;
+      text-align: right;
+    }
+    .div-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      position: relative;
+      flex: 1;
+    }
+    .div-value {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
+      white-space: nowrap;
+    }
+    .div-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--bluesky-bg-card);
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--bluesky-text);
+      width: 280px;
+      z-index: 101;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .div-popup-title {
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--bluesky-text);
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+    }
+    .score-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      flex: 1;
+    }
+    .score-value {
       font-size: 1.375rem;
       font-weight: 800;
       color: var(--bluesky-text);
+      white-space: nowrap;
     }
-    .axis-area {
-      position: relative;
-      height: 28px;
-      margin-bottom: 1.25rem;
-    }
-    .axis-line {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: var(--bluesky-border);
-      transform: translateY(-50%);
-    }
-    .axis-tick {
-      position: absolute;
-      top: 50%;
-      width: 1px;
-      height: 8px;
-      background: var(--bluesky-text-secondary);
-      transform: translateY(-50%);
-    }
-    .axis-label {
-      position: absolute;
-      top: 100%;
-      font-size: 0.625rem;
-      color: var(--bluesky-text-secondary);
-      transform: translateX(-50%);
-      margin-top: 2px;
-    }
-    .dot {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 2px solid var(--bluesky-bg-card);
-      box-shadow: 0 0 0 1px var(--bluesky-border);
-    }
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 1rem;
-      font-size: 0.75rem;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-    }
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .legend-label {
-      color: var(--bluesky-text-secondary);
-    }
-    .legend-value {
-      font-weight: 600;
-      color: var(--bluesky-text);
+    @media (max-width: 600px) {
+      .ranking-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .section {
+        flex: 1 1 120px;
+        min-width: 120px;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 0.5rem;
+      }
     }
   `;
+
+  private _toggleDivPopup() {
+    this._showDivPopup = !this._showDivPopup;
+  }
+
+  private _closeDivPopup() {
+    this._showDivPopup = false;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("click", this._handleOutsideClick);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("click", this._handleOutsideClick);
+  }
+
+  private _handleOutsideClick = (e: Event) => {
+    if (this._showDivPopup) {
+      const path = e.composedPath();
+      if (!path.includes(this)) {
+        this._closeDivPopup();
+      }
+    }
+  };
 
   render() {
     if (!this.item) return html``;
 
     const i = this.item;
-    const finalScore =
-      i.rankScore !== null
-        ? i.rankScore
-        : weightedRankScore(i.modelScores);
+    const finalScore = i.diversification?.score
+      ?? i.rankScore
+      ?? weightedRankScore(i.modelScores);
 
-    const MODEL_COLORS: Record<string, string> = {
-      heavy_ranker: "#fb923c",
-      perspective: "#a78bfa",
-      candidate_score: "#34d399",
-    };
-    const DEFAULT_MODEL_COLOR = "#38bdf8";
+    const engaging = i.modelScores.find((m) => m.name === "heavy_ranker");
+    const constructive = i.modelScores.find((m) => m.name === "perspective");
 
-    const dots = i.modelScores.map((ms) => ({
-      label: ms.name,
-      score: ms.score,
-      color: MODEL_COLORS[ms.name] ?? DEFAULT_MODEL_COLOR,
-    }));
+    const engagingScore = engaging?.score ?? 0;
+    const constructiveScore = constructive?.score ?? 0;
 
-    if (finalScore !== null) {
-      dots.push({
-        label: "final rank",
-        score: finalScore,
-        color: "#1083fe",
-      });
+    const engagingPct = Math.max(0, engagingScore) * 100;
+    const constructivePct = Math.max(0, constructiveScore) * 100;
+
+    let divDelta = 0;
+    let divDeltaStr = "\u2014";
+    if (i.diversification) {
+      divDelta = -(i.diversification.authorPenalty + i.diversification.contentPenalty);
+      divDeltaStr =
+        divDelta >= 0 ? `+${divDelta.toFixed(2)}` : divDelta.toFixed(2);
     }
 
-    const ticks = [
-      { pos: 0, label: "-1" },
-      { pos: 50, label: "0" },
-      { pos: 100, label: "1" },
+    const rankerRows = [
+      { label: "Engaging", score: engagingScore, pct: engagingPct },
+      { label: "Constructive", score: constructiveScore, pct: constructivePct },
     ];
 
     return html`
+      ${this._showDivPopup
+        ? html`<div class="backdrop" @click=${() => { this._closeDivPopup(); }}></div>`
+        : ""}
       <div class="chart-container">
-        <div class="chart-header">
-          <span class="chart-title">Rank Scores</span>
-          ${finalScore !== null
-            ? html`<span class="chart-score">${finalScore.toFixed(2)}</span>`
-            : ""}
-        </div>
+        <div class="ranking-grid">
+          <div class="section">
+            <div class="col-header">Source</div>
+            <div class="source-content">
+              ${i.generators.map(
+                (g) => html`<generator-badge name=${g.name}></generator-badge>`,
+              )}
+            </div>
+          </div>
 
-        <div class="axis-area">
-          <div class="axis-line"></div>
-          ${ticks.map(
-            (t) => html`
-              <div class="axis-tick" style="left: ${t.pos}%"></div>
-              <span class="axis-label" style="left: ${t.pos}%">${t.label}</span>
-            `,
-          )}
-          ${dots.map(
-            (dot) => html`
+          <div class="section">
+            <div class="col-header">Rankers</div>
+            <div class="rankers-content">
+              ${rankerRows.map((rr) => {
+                const color = RANKER_COLORS[rr.label] ?? "#71767b";
+                return html`
+                  <div class="ranker-item">
+                    <span class="ranker-label">${rr.label}</span>
+                    <div class="ranker-bar-row">
+                      <div
+                        class="ranker-bar-outer"
+                        style=${styleMap({ borderColor: color })}
+                      >
+                        <div
+                          class="ranker-bar-fill"
+                          style=${styleMap({
+                            width: `${String(rr.pct)}%`,
+                            backgroundColor: color,
+                          })}
+                        ></div>
+                      </div>
+                      <span class="ranker-value">${rr.score.toFixed(2)}</span>
+                    </div>
+                  </div>
+                `;
+              })}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="col-header">
+              Diversification
+              <wa-icon
+                name="info-circle"
+                library="app"
+                class="info-icon"
+                @click=${(e: Event) => { e.stopPropagation(); this._toggleDivPopup(); }}
+              ></wa-icon>
+            </div>
+            <div class="div-content">
               <div
-                class="dot"
-                style="left: ${scoreAxisPositionPct(dot.score)}%; background-color: ${dot.color};"
-                title="${dot.label}: ${dot.score.toFixed(3)}"
-              ></div>
-            `,
-          )}
-        </div>
-
-        <div class="legend">
-          ${dots.map(
-            (dot) => html`
-              <div class="legend-item">
-                <div class="legend-dot" style="background-color: ${dot.color};"></div>
-                <span class="legend-label">${dot.label}</span>
-                <span class="legend-value">${dot.score.toFixed(2)}</span>
+                class="div-value"
+              >
+                ${divDeltaStr}
               </div>
-            `,
-          )}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="col-header">Score</div>
+            <div class="score-content">
+              <div class="score-value">
+                ${finalScore !== null ? finalScore.toFixed(2) : "\u2014"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+      ${this._showDivPopup
+        ? html`
+            <div class="div-popup">
+              <div class="div-popup-title">Diversification Formula</div>
+              <p>
+                The diversification value is the priority adjustment caused by
+                same-author and similar-content penalties.
+              </p>
+              <p>
+                Zero means no penalty. Negative values mean diversification reduced
+                this post's priority relative to its relevance score.
+              </p>
+            </div>
+          `
+        : ""}
     `;
   }
 }

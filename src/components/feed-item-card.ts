@@ -2,7 +2,6 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
-import "./generator-badge";
 import "./rank-scores-chart";
 
 @customElement("feed-item-card")
@@ -20,7 +19,6 @@ export class FeedItemCard extends MobxLitElement {
       border-radius: 0.75rem;
       padding: 0.75rem 1rem;
       transition: background 0.15s;
-      overflow: hidden;
       max-width: 100%;
     }
     .card:hover {
@@ -91,18 +89,17 @@ export class FeedItemCard extends MobxLitElement {
     .bluesky-btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.375rem;
-      padding: 0.3125rem 0.75rem;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
       border-radius: 9999px;
-      font-size: 0.8125rem;
-      font-weight: 600;
+      font-size: 1rem;
       color: var(--bluesky-brand);
       background: transparent;
       border: 1.5px solid var(--bluesky-brand);
       cursor: pointer;
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
-      white-space: nowrap;
       flex-shrink: 0;
     }
     .bluesky-btn:hover {
@@ -124,20 +121,6 @@ export class FeedItemCard extends MobxLitElement {
       margin-top: 0.75rem;
       padding-top: 0.75rem;
       border-top: 1px solid var(--bluesky-border);
-    }
-    .generator-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-    }
-    .div-badge {
-      font-size: 0.75rem;
-      padding: 0.1875rem 0.5rem;
-      border-radius: 9999px;
-      background: rgba(244, 33, 46, 0.1);
-      color: #f4212e;
-      border: 1px solid rgba(244, 33, 46, 0.3);
     }
   `;
 
@@ -170,10 +153,10 @@ export class FeedItemCard extends MobxLitElement {
                     target="_blank"
                     rel="noopener noreferrer"
                     class="bluesky-btn"
+                    title="Open in Bluesky"
                     @click=${(e: Event) => { e.stopPropagation(); }}
                   >
-                    <wa-icon name="external-link" library="app"></wa-icon>
-                    Open in Bluesky
+                    <wa-icon name="bluesky" library="app"></wa-icon>
                   </a>
                 `
               : ""}
@@ -184,15 +167,6 @@ export class FeedItemCard extends MobxLitElement {
 
         <div class="chart-section">
           <rank-scores-chart .item=${this.item}></rank-scores-chart>
-        </div>
-
-        <div class="generator-pills">
-          ${i.generators.map(
-            (g) => html`<generator-badge name=${g.name} .score=${g.score}></generator-badge>`,
-          )}
-          ${i.diversification && i.diversification.authorPenalty > 0
-            ? html`<span class="div-badge">div penalty ${i.diversification.authorPenalty.toFixed(2)}</span>`
-            : ""}
         </div>
       </div>
     `;

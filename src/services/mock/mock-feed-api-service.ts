@@ -1,4 +1,4 @@
-import type { IFeedApiService } from "../types";
+import type { IFeedApiService, Preferences } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -129,13 +129,25 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
       postUrl: "https://bsky.app/profile/did:plc:author1/post/post5",
     },
   ],
+  filteringCounts: {
+    storedItemCount: 6,
+    displayedItemCount: 6,
+    publiclyFilteredCount: 0,
+    unavailableCount: 0,
+  },
 };
 
 export class MockFeedApiService implements IFeedApiService {
   listFeeds(): Promise<FeedListResponse> {
     return Promise.resolve({
       feeds: [
-        { requestId: "abc123-def456-ghi789", generatedAt: new Date().toISOString(), feedName: "your-feed" },
+        {
+          requestId: "abc123-def456-ghi789",
+          generatedAt: new Date().toISOString(),
+          feedName: "your-feed",
+          appliedSocialRadius: 2,
+          generatorDiagnostics: [],
+        },
       ],
     });
   }
@@ -144,11 +156,16 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(MOCK_FEED_DETAIL);
   }
 
-  getPreferences(): Promise<{ socialRadius: number }> {
-    return Promise.resolve({ socialRadius: 2 });
+  getPreferences(): Promise<Preferences> {
+    return Promise.resolve({
+      socialRadius: 3,
+      freshness: 2,
+      politics: 1.0,
+      purpose: 0.5,
+    });
   }
 
-  putPreferences(socialRadius: number): Promise<{ socialRadius: number }> {
-    return Promise.resolve({ socialRadius });
+  putPreferences(prefs: Preferences): Promise<Preferences> {
+    return Promise.resolve(prefs);
   }
 }

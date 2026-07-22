@@ -6,7 +6,7 @@ export class PaginationControl extends LitElement {
   @property({ type: Number }) currentPage = 1;
   @property({ type: Number }) totalPages = 1;
   @property({ type: Number }) totalItems = 0;
-  @property({ type: Number }) itemsPerPage = 3;
+  @property({ type: Number }) itemsPerPage = 10;
   @property({ type: Array }) perPageOptions: number[] = [3, 5, 10, 20];
 
   static styles = css`
