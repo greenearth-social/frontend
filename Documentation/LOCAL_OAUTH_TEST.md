@@ -116,6 +116,10 @@ Use the generated `https://*.ngrok-free.app` URL as `APP_ORIGIN`.
 
 Run this **before** starting the Vite dev server:
 
+```sh
+npm run emulators
+```
+
 This starts:
 - Auth emulator at `http://127.0.0.1:9099`
 - Firestore emulator at `127.0.0.1:8080`
@@ -171,7 +175,7 @@ The frontend will call `signInWithCustomToken(token)` and redirect to `#/feed`.
 | Tunnel URL shows feed landing page instead of JSON/metadata | Functions emulator not running or Vite process started before emulators | Start emulators first, then restart Vite |
 | Vite rejects tunnel requests (403/blocked) | `VITE_ALLOWED_HOSTS` missing tunnel domain | Add tunnel hostname to `VITE_ALLOWED_HOSTS` in `.env.local` and restart Vite |
 | Bluesky shows "client_id could not be fetched" | Metadata URL is not publicly reachable or returns wrong content type | Check tunnel is up and `APP_ORIGIN` matches the tunnel URL exactly |
-| `/.well-known/oauth-client-metadata` 404 | `firebase.json` rewrite not active or Functions emulator not running | Restart `firebase emulators:start --only auth,firestore,functions` |
+| `/.well-known/oauth-client-metadata` 404 | `firebase.json` rewrite not active or Functions emulator not running | Restart `npm run emulators` from the frontend repository |
 | `/.well-known/oauth-client-metadata` returns "APP_ORIGIN not configured" | Missing env in functions | Verify `functions/.env` has `APP_ORIGIN` set |
 | `jwks_uri` fetch fails | JWKS endpoint returns error or wrong content type | Verify `BLUESKY_OAUTH_PUBLIC_JWKS` is set and valid JSON |
 | Callback says "Invalid or expired state" | Pending state TTL expired or Firestore emulator cleared | Retry within 10 minutes; check emulator has the doc |

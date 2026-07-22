@@ -33,6 +33,14 @@ VITE_USE_MOCK_SERVICES=false VITE_USE_FIREBASE_EMULATORS=true npm run dev
 
 See `Documentation/LOCAL_OAUTH_TEST.md` for full instructions.
 
+### Firebase emulators
+
+This repository is the canonical owner of all Firebase configuration. Start all
+configured emulators here with `npm run emulators`, or start only Firestore for
+API development with `npm run emulators:firestore`. Both frontend and API local
+clients use the `greenearth-471522` emulator project namespace; an emulator host
+setting keeps this traffic local rather than sending it to production.
+
 ## Architecture
 
 ```
@@ -131,6 +139,10 @@ The Bluesky dark theme variables are defined in `src/styles/index.css` and inclu
 
 ## Firestore Security Rules
 
+Rules, composite indexes, TTL policies, emulator settings, Functions, and
+Hosting configuration are all deployed from this repository. API deployments
+do not modify Firebase state.
+
 Path-based read-only access. Each user can only read their own documents:
 
 ```
@@ -166,6 +178,8 @@ npm run lint         # eslint . --ext .ts
 npm run format       # prettier --write "src/**/*.ts"
 npm run test:unit    # vitest run (happy-dom)
 npm run test:e2e     # playwright test (Chromium)
+npm run emulators    # Auth + Firestore + Functions emulators
+npm run emulators:firestore # Firestore only, including for API development
 ```
 
 CI pipeline runs: `lint` → `typecheck` → `test:unit` → `test:e2e` → `build`

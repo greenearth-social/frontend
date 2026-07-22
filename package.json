@@ -7,6 +7,8 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "emulators": "firebase emulators:start",
+    "emulators:firestore": "firebase emulators:start --only firestore",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",

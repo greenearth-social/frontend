@@ -38,8 +38,10 @@ Git push to main
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
 | `public/config.json` | Default (dev) runtime config. Swapped per environment during deploy |
 | `functions/.env` | Function env vars. Generated during deploy from GitHub Variables |
-| `firebase.json` | Hosting rewrites, emulator ports, function source directory |
+| `firebase.json` / `firebase.stage.json` | Hosting rewrites, named Firestore databases, emulator ports, function source directory |
 | `firestore.rules` | Path-based read-only security rules |
+| `firestore.indexes.json` | Canonical composite indexes for both named databases |
+| `scripts/deploy-firestore.sh` | Deploys rules, indexes, and TTL policies for one environment |
 
 ## Configuration reference
 
@@ -144,6 +146,8 @@ Firebase Admin SDK runtime roles. Ask a project IAM administrator to grant:
   releases.
 - Project-level `roles/cloudfunctions.admin` for Cloud Functions v2 deployment.
 - Project-level `roles/firebaserules.admin` for Firestore Rules deployment.
+- Project-level `roles/datastore.indexAdmin` for Firestore composite-index and
+  TTL-policy deployment.
 - `roles/iam.serviceAccountUser` on the Functions runtime service account
   `21637448064-compute@developer.gserviceaccount.com`.
 - `roles/iam.serviceAccountUser` on the Cloud Build service account
@@ -152,6 +156,11 @@ Firebase Admin SDK runtime roles. Ask a project IAM administrator to grant:
 Do not grant project Owner or Editor solely to make CI deployment work. The
 workflow prints the authenticated deployment identity and verifies required API
 visibility before invoking Firebase, so a missing IAM grant fails early.
+
+For the existing Green Earth project, run `./scripts/gcp_setup.sh` once from the
+API repository after this deployment change is checked out and before triggering
+the frontend deployment. The setup remains the owner of service-account/IAM
+provisioning and grants `roles/datastore.indexAdmin` project-wide.
 
 ### 4. Protect production deploys with an environment
 
@@ -199,9 +208,9 @@ deploy-stage:
   steps:
     - download artifacts from ci
     - write dist/config.json → greenearth-stage
-    - deploy Firestore rules only to greenearth-stage
+    - deploy Firestore rules, indexes, and TTL policies to greenearth-stage
     - deploy Hosting → preview channel "stage"
-    - hosting preview only; shared OAuth Functions are not redeployed by the stage job
+    - deploy stage OAuth Functions
 ```
 
 Preview channels get a unique URL like `https://greenearth-471522--stage-abc123.web.app`. Good for pre-prod testing.
@@ -219,14 +228,21 @@ deploy-prod:
     - write dist/config.json → greenearth-prod
     - write functions/.env → APP_ORIGIN, KID, JWKS from GitHub Variables
     - validate production configuration
-    - deploy functions + Firestore rules only to greenearth-prod
+    - deploy Firestore rules, indexes, and TTL policies to greenearth-prod
+    - deploy functions
     - deploy the Firebase Hosting live channel
 ```
 
-The same rules source is configured independently for both named databases.
+The same rules and indexes are configured independently for both named databases.
 Stage deployments target only `greenearth-stage`; production deployments target
-only `greenearth-prod`. Firebase checks function source and configuration hashes
+only `greenearth-prod`. The shared deployment helper also idempotently enables
+`expires_at` TTL on `feed_cache`, `seen_posts`, `discarded_posts`, `feed_debug`,
+and `feed_snapshots`. Firebase checks function source and configuration hashes
 and skips unchanged functions rather than creating unnecessary revisions.
+
+This repository is the sole source of truth for Firebase rules, indexes, TTL
+policies, emulators, Functions, and Hosting. API deployments do not mutate this
+configuration.
 
 ## Rotating the OAuth key pair
 
@@ -268,11 +284,11 @@ export BLUESKY_OAUTH_CLIENT_KID=key-1
 # BLUESKY_OAUTH_CLIENT_PRIVATE_KEY must exist in Secret Manager (already set)
 # If BLUESKY_OAUTH_PUBLIC_JWKS was set via firebase functions:secrets:set, it's persisted
 
-# Deploy stage rules and a Hosting preview separately
-firebase deploy --only firestore:greenearth-stage
+# Deploy stage Firestore configuration and a Hosting preview separately
+./scripts/deploy-firestore.sh stage
 firebase hosting:channel:deploy stage
 
-# Production uses firestore:greenearth-prod and the live Hosting channel. Do
+# Production uses ./scripts/deploy-firestore.sh prod and the live Hosting channel. Do
 # not run those commands without an explicit production approval.
 ```
 
