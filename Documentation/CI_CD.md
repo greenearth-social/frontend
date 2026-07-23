@@ -302,4 +302,4 @@ firebase hosting:channel:deploy stage
 | OAuth fails: "client_id could not be fetched" | `APP_ORIGIN` doesn't match deployed URL | Verify the variable matches `https://<project>.web.app` |
 | OAuth fails: "Invalid client assertion" | Private key out of sync | Re-run `firebase functions:secrets:set BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` |
 | Stage deploys but prod doesn't | `production` environment not approved | Go to Actions → pending deploy → Review deployments → Approve |
-| Bundle rebuilds on every deploy | CI artifacts expired (>1 day) | CI auto-rebuilds; artifacts keep for 1 day |
+| Deploy cannot download `dist` or `functions-build` | The approval-gated deployment outlived artifact retention | Artifacts are retained for 7 days; rerun the full CI workflow to recreate artifacts for an already-expired run |

@@ -81,13 +81,13 @@ jobs:
         with:
           name: dist
           path: dist/
-          retention-days: 1
+          retention-days: 7
 
       - uses: actions/upload-artifact@v4
         with:
           name: functions-build
           path: functions/lib/
-          retention-days: 1
+          retention-days: 7
 
   # -----------------------------------------------------------------------
   # Deploy stage — shows on PR page as "awaiting approval".
