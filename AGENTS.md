@@ -10,6 +10,8 @@ npm run lint         # eslint . --ext .ts
 npm run format       # prettier --write "src/**/*.ts"
 npm run test:unit    # vitest run
 npm run test:e2e     # playwright test
+npm run emulators    # Auth + Firestore + Functions emulators
+npm run emulators:firestore # Firestore emulator for API development
 ```
 
 CI order: `lint` → `typecheck` → `test:unit` → `test:e2e` → `build`.
@@ -121,6 +123,8 @@ Frontend `app-shell` handles `#/auth/finish` by calling `signInWithCustomToken` 
 ## Firestore security rules
 
 Located at `firestore.rules`. Path-based only — no `resource.data` inspection.
+This repository is the sole owner of Firebase rules, indexes, TTL policies,
+emulator configuration, Functions, Hosting, and their deployment.
 
 ```javascript
 function userDocId(did) {
