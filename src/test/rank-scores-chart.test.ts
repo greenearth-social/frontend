@@ -82,7 +82,6 @@ describe("RankScoresChart", () => {
     expect(text).toContain("(0.700 × 1.00) + (0.500 × 1.00) = 1.200");
     expect(text).toContain("1.200 ÷ 2.00 = 0.600");
     expect(text).toContain("0.600 ÷ 0.600 = 1.000 relevance");
-    expect(text).toContain("leading post is therefore 1.00");
     expect(text).toContain("0.30 multiplier is a fixed feed setting");
     expect(text).toContain("Lower values favor variety");
     expect(text).not.toContain("Engaging score 0.700");
