@@ -51,6 +51,25 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
   });
 
+  it("stays open when triggered by the header button outside the tabs", async () => {
+    const element = makeTabs();
+    const externalButton = document.createElement("button");
+    externalButton.addEventListener("click", (event) => {
+      element.showActiveBreakdown(event);
+    });
+    document.body.appendChild(externalButton);
+    await element.updateComplete;
+
+    externalButton.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
+      "followed_users",
+    );
+    externalButton.remove();
+    element.remove();
+  });
+
   it("shows filtering counts for a hydrated snapshot", async () => {
     const element = makeTabs();
     element.filteringCountsByRequest = {

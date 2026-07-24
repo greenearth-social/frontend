@@ -246,8 +246,8 @@ export class FeedPage extends MobxLitElement {
                 aria-label="View source breakdown"
                 title="Source breakdown"
                 ?disabled=${feedStore.currentRequestId === null}
-                @click=${() => {
-                  this.#showSourceBreakdown();
+                @click=${(event: MouseEvent) => {
+                  this.#showSourceBreakdown(event);
                 }}
               >
                 <wa-icon name="source-breakdown" library="app"></wa-icon>
@@ -331,8 +331,8 @@ export class FeedPage extends MobxLitElement {
     window.location.href = authPath;
   }
 
-  #showSourceBreakdown() {
-    this.renderRoot.querySelector<FeedTabs>("feed-tabs")?.showActiveBreakdown();
+  #showSourceBreakdown(event: MouseEvent) {
+    this.renderRoot.querySelector<FeedTabs>("feed-tabs")?.showActiveBreakdown(event);
   }
 }
 

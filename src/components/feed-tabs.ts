@@ -261,7 +261,8 @@ export class FeedTabs extends LitElement {
     `;
   }
 
-  showActiveBreakdown(): void {
+  showActiveBreakdown(triggerEvent?: Event): void {
+    triggerEvent?.stopPropagation();
     if (this.activeRequestId === null) return;
     this.#toggleBreakdown(this.activeRequestId);
   }
