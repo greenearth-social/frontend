@@ -11,14 +11,19 @@ import {
   getClientPrivateKey,
   encryptState,
 } from "./helpers.js";
-
-const AUTH_SERVER = "https://bsky.social";
+import {
+  assertSafePublicUrl,
+  BLUESKY_AUTH_SERVER,
+  discoverIdentity,
+  fetchAuthServerMetadata,
+} from "./auth-discovery.js";
 
 export async function authBlueskyHandler(req: Request, res: Response): Promise<void> {
   try {
   const appOrigin = process.env.APP_ORIGIN;
   const kid = process.env.BLUESKY_OAUTH_CLIENT_KID;
   const returnUrl = (req.query.return_url as string) || "/";
+  const rawHandle = req.query.handle as string | undefined;
 
   if (!appOrigin) {
     res.status(500).send("APP_ORIGIN not configured");
@@ -29,6 +34,10 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
     res.status(500).send("BLUESKY_OAUTH_CLIENT_KID not configured");
     return;
   }
+  const identity = rawHandle ? await discoverIdentity(rawHandle) : undefined;
+  const authServer = identity?.issuer ?? BLUESKY_AUTH_SERVER;
+  const discoveredMetadata =
+    identity?.authServerMetadata ?? (await fetchAuthServerMetadata(authServer));
 
   // 1. PKCE
   const codeVerifier = generateToken(48);
@@ -44,26 +53,14 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
   const redirectUri = `${appOrigin}/oauth/callback`;
   const clientAssertion = await createClientAssertion(
     clientId,
-    AUTH_SERVER,
+    authServer,
     clientKey,
     kid,
   );
 
-  // 4. Discover auth server metadata
-  let authServerMeta: Record<string, string>;
-  try {
-    const metaRes = await fetch(
-      `${AUTH_SERVER}/.well-known/oauth-authorization-server`,
-    );
-    if (!metaRes.ok) {
-      res.status(502).send("Failed to fetch auth server metadata");
-      return;
-    }
-    authServerMeta = (await metaRes.json()) as Record<string, string>;
-  } catch {
-    res.status(502).send("Failed to fetch auth server metadata");
-    return;
-  }
+  // 4. Identity, PDS, and authorization-server metadata were discovered and
+  // validated before creating any OAuth session material.
+  const authServerMeta = discoveredMetadata;
 
   const parEndpoint = authServerMeta["pushed_authorization_request_endpoint"];
   const authEndpoint = authServerMeta["authorization_endpoint"];
@@ -76,7 +73,10 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
   // 5. Encrypt session state into OAuth state parameter (AEAD)
   const state = await encryptState({
     codeVerifier,
-    authServerIssuer: AUTH_SERVER,
+    authServerIssuer: authServer,
+    expectedDid: identity?.did,
+    handle: identity?.handle,
+    pds: identity?.pds,
     dpopPrivateJwk: JSON.stringify(
       await exportPrivateJwk(dpopKeyPair.privateKey),
     ),
@@ -98,8 +98,11 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
       "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
     client_assertion: clientAssertion,
   });
+  if (identity) {
+    parBody.set("login_hint", identity.handle);
+  }
 
-  const parUrl = new URL(parEndpoint);
+  const parUrl = new URL(await assertSafePublicUrl(parEndpoint));
   let dpopNonce: string | undefined;
   let parRes: globalThis.Response = await sendPar(
     parUrl.origin + parUrl.pathname,
@@ -153,7 +156,11 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
   const redirectUrl =
     `${authEndpoint}?client_id=${encodeURIComponent(clientId)}` +
     `&request_uri=${encodeURIComponent(requestUri)}`;
-  res.redirect(redirectUrl);
+  if (req.get("accept")?.includes("application/json")) {
+    res.json({ redirectUrl });
+  } else {
+    res.redirect(redirectUrl);
+  }
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

@@ -9,8 +9,12 @@ import {
   getClientPrivateKey,
   decryptState,
 } from "./helpers.js";
-
-const AUTH_SERVER = "https://bsky.social";
+import {
+  assertOAuthIdentityMatch,
+  assertSafePublicUrl,
+  discoverAuthorizationServerForDid,
+  fetchAuthServerMetadata,
+} from "./auth-discovery.js";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -21,6 +25,9 @@ const auth = getAuth();
 interface OAuthSessionState {
   codeVerifier: string;
   authServerIssuer: string;
+  expectedDid?: string;
+  handle?: string;
+  pds?: string;
   dpopPrivateJwk: string;
   dpopPublicJwk: string;
   returnUrl: string;
@@ -66,8 +73,8 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
     return;
   }
 
-  // 2. Validate iss matches known auth server
-  if (session.authServerIssuer !== iss || iss !== AUTH_SERVER) {
+  // 2. Validate the callback issuer against the issuer bound at OAuth start.
+  if (session.authServerIssuer !== iss) {
     res.status(400).send("Issuer mismatch");
     return;
   }
@@ -75,14 +82,7 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
   // 3. Discover auth server token endpoint
   let authServerMeta: Record<string, string>;
   try {
-    const metaRes = await fetch(
-      `${AUTH_SERVER}/.well-known/oauth-authorization-server`,
-    );
-    if (!metaRes.ok) {
-      res.status(502).send("Failed to fetch auth server metadata");
-      return;
-    }
-    authServerMeta = (await metaRes.json()) as Record<string, string>;
+    authServerMeta = await fetchAuthServerMetadata(session.authServerIssuer) as unknown as Record<string, string>;
   } catch {
     res.status(502).send("Failed to fetch auth server metadata");
     return;
@@ -103,7 +103,7 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
   const dpopPublicJwk = JSON.parse(session.dpopPublicJwk) as JsonWebKey;
   const dpopPrivateKey = (await importJWK(dpopPrivateJwk, "ES256")) as CryptoKey;
 
-  const tokenUrl = new URL(tokenEndpoint);
+  const tokenUrl = new URL(await assertSafePublicUrl(tokenEndpoint));
   const tokenUrlString = tokenUrl.origin + tokenUrl.pathname;
   const dpopProof = await createDpopProof(
     "POST",
@@ -114,7 +114,7 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
 
   const clientAssertion = await createClientAssertion(
     clientId,
-    AUTH_SERVER,
+    session.authServerIssuer,
     clientKey,
     kid,
   );
@@ -187,6 +187,31 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
   if (!did) {
     res.status(502).send("Token response missing sub (DID)");
     return;
+  }
+  if (session.expectedDid) {
+    try {
+      assertOAuthIdentityMatch(session.authServerIssuer, iss, session.expectedDid, did);
+    } catch (identityError: unknown) {
+      const message =
+        identityError instanceof Error ? identityError.message : "OAuth identity mismatch";
+      res.status(400).send(message);
+      return;
+    }
+  } else {
+    try {
+      const authenticatedIdentity = await discoverAuthorizationServerForDid(did);
+      if (authenticatedIdentity.issuer !== session.authServerIssuer) {
+        res.status(400).send("Authorization server is not authoritative for this account");
+        return;
+      }
+    } catch (identityError: unknown) {
+      const message =
+        identityError instanceof Error
+          ? identityError.message
+          : "Could not verify the authenticated account";
+      res.status(400).send(message);
+      return;
+    }
   }
 
   // 5. Mint Firebase custom token

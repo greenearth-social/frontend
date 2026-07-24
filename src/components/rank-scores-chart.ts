@@ -10,6 +10,8 @@ const RANKER_COLORS: Record<string, string> = {
   Constructive: "#a78bfa",
 };
 
+const MMR_RELEVANCE_WEIGHT = 0.3;
+
 @customElement("rank-scores-chart")
 export class RankScoresChart extends LitElement {
   @property({ type: Object }) item: FeedItemView | null = null;
@@ -245,7 +247,7 @@ export class RankScoresChart extends LitElement {
       .div-popup,
       .score-popup {
         width: calc(100vw - 1rem);
-        max-height: calc(100dvh - 1rem);
+        max-height: calc(100dvh - 3rem);
         padding: 0.625rem;
       }
       .score-formula {
@@ -294,11 +296,12 @@ export class RankScoresChart extends LitElement {
     if (!this.item) return html``;
 
     const i = this.item;
-    const finalScore = i.diversification
-      ? 0.3 * i.diversification.relevance -
+    const relevanceScore = i.rankScore ?? weightedRankScore(i.modelScores);
+    const selectionScore = i.diversification
+      ? MMR_RELEVANCE_WEIGHT * i.diversification.relevance -
         i.diversification.authorPenalty -
         i.diversification.contentPenalty
-      : (i.rankScore ?? weightedRankScore(i.modelScores));
+      : relevanceScore;
 
     const engaging = i.modelScores.find((m) => m.name === "heavy_ranker");
     const constructive = i.modelScores.find((m) => m.name === "perspective");
@@ -403,7 +406,7 @@ export class RankScoresChart extends LitElement {
             </div>
             <div class="score-content">
               <div class="score-value">
-                ${finalScore !== null ? finalScore.toFixed(2) : "\u2014"}
+                ${selectionScore !== null ? selectionScore.toFixed(2) : "\u2014"}
               </div>
             </div>
           </div>
@@ -443,31 +446,28 @@ export class RankScoresChart extends LitElement {
             `
           : ""
       }
-      ${this._showScorePopup ? this.#renderScorePopup(i, finalScore) : ""}
+      ${this._showScorePopup ? this.#renderScorePopup(i, selectionScore) : ""}
     `;
   }
 
-  #renderScorePopup(i: FeedItemView, finalScore: number | null) {
+  #renderScorePopup(i: FeedItemView, selectionScore: number | null) {
     const totalWeight = i.modelScores.reduce((sum, model) => sum + model.weight, 0);
     const weightedTotal = i.modelScores.reduce((sum, model) => sum + model.score * model.weight, 0);
+    const weightedParts = i.modelScores
+      .map((model) => `(${model.score.toFixed(3)} × ${model.weight.toFixed(2)})`)
+      .join(" + ");
 
     if (i.diversification) {
-      const relevanceWeight = 0.3;
       const relevance = i.diversification.relevance;
-      const relevanceContribution = relevanceWeight * relevance;
-      const authorPenalty = i.diversification.authorPenalty;
-      const contentPenalty = i.diversification.contentPenalty;
-      const diversificationReduction = authorPenalty + contentPenalty;
-      const score = relevanceContribution - diversificationReduction;
+      const diversificationReduction =
+        i.diversification.authorPenalty + i.diversification.contentPenalty;
       const combinedRankerScore = totalWeight > 0 ? weightedTotal / totalWeight : i.rankScore;
       const batchLeaderScore =
         combinedRankerScore !== null && relevance > 0 ? combinedRankerScore / relevance : null;
-      const weightedParts = i.modelScores
-        .map((model) => `(${model.score.toFixed(3)} × ${model.weight.toFixed(2)})`)
-        .join(" + ");
+
       return html`
         <div class="score-popup" role="dialog" aria-modal="true" aria-label="Score formula">
-          <div class="score-popup-title">How this score was calculated</div>
+          <div class="score-popup-title">How this selection score was calculated</div>
           <p>
             Ranker scores are multiplied by their influence, added, and divided by the total
             influence.
@@ -483,7 +483,7 @@ export class RankScoresChart extends LitElement {
                 `
               : ""
           }
-          <p>Relevance is this combined score divided by the batch's highest combined score.</p>
+          <p>The combined score is normalized against the strongest post in this batch.</p>
           ${
             combinedRankerScore !== null && batchLeaderScore !== null
               ? html`
@@ -495,35 +495,50 @@ export class RankScoresChart extends LitElement {
               : ""
           }
           <p>
-            The 0.30 multiplier is a fixed feed setting. Lower values favor variety; higher values
-            favor relevance.
+            Maximum Marginal Relevance (MMR) then balances relevance against the author and
+            similar-content penalties in effect at this position.
           </p>
           <div class="score-formula">
-            (${relevanceWeight.toFixed(2)} × ${relevance.toFixed(3)}) −
-            ${diversificationReduction.toFixed(3)} = ${score.toFixed(3)}
+            (${MMR_RELEVANCE_WEIGHT.toFixed(2)} × ${relevance.toFixed(3)}) −
+            ${diversificationReduction.toFixed(3)} = ${selectionScore?.toFixed(3) ?? "—"}
           </div>
+          <p>
+            This is the score that caused this post to be selected at this position. Because the
+            penalties change after every pick, selection scores across positions do not have to
+            decrease.
+          </p>
         </div>
       `;
     }
 
+    const relevanceScore = selectionScore;
     return html`
       <div class="score-popup" role="dialog" aria-modal="true" aria-label="Score formula">
-        <div class="score-popup-title">How this score was calculated</div>
+        <div class="score-popup-title">How this relevance score was calculated</div>
         ${
           i.modelScores.length > 0 && totalWeight > 0
             ? html`
                 <p>
-                  The Engaging and Constructive rankers score this post. Their weighted average
-                  produces the score shown here: each score is multiplied by its configured
-                  influence, the results are added, then divided by the total influence.
+                  Ranker scores are multiplied by their influence, added, and divided by the total
+                  influence. This produces the post's relevance score before diversification.
                 </p>
                 <div class="score-formula">
+                  ${weightedParts} = ${weightedTotal.toFixed(3)}<br />
                   ${weightedTotal.toFixed(3)} ÷ ${totalWeight.toFixed(2)} =
-                  ${finalScore?.toFixed(3) ?? "—"}
+                  ${relevanceScore?.toFixed(3) ?? "—"}
                 </div>
-                <div class="formula-values">${this.#formulaRow("Final score", finalScore)}</div>
+                <div class="formula-values">
+                  ${this.#formulaRow("Relevance score", relevanceScore)}
+                </div>
               `
-            : html` <p>No ranking formula was recorded for this legacy snapshot.</p> `
+            : relevanceScore !== null
+              ? html`
+                  <p>This is the post's recorded relevance score before diversification.</p>
+                  <div class="formula-values">
+                    ${this.#formulaRow("Relevance score", relevanceScore)}
+                  </div>
+                `
+              : html`<p>No ranking formula was recorded for this legacy snapshot.</p>`
         }
       </div>
     `;

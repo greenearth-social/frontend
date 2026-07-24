@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import path from "path";
+import { rewriteFunctionRequestPath } from "./src/utils/function-proxy";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -12,7 +13,8 @@ export default defineConfig(({ mode }) => {
   const functionProxy = (functionName: string) => ({
     target: "http://127.0.0.1:5001",
     changeOrigin: true,
-    rewrite: () => `/${PROJECT_ID}/us-central1/${functionName}`,
+    rewrite: (requestPath: string) =>
+      rewriteFunctionRequestPath(PROJECT_ID, functionName, requestPath),
   });
 
   const callbackMiddleware = (): Plugin => ({
