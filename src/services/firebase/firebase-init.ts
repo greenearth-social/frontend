@@ -22,8 +22,21 @@ const auth = getAuth(app);
 
 const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 
+// These connections are made by the browser, not the dev server, so they name
+// host ports. They are overridable because the shared dev environment can run
+// several independent instances side by side, each with its own emulator suite
+// on its own ports (api#283); hardcoding them would point every instance's
+// page at whichever one happens to own 8080/9099. The defaults are the
+// standard emulator ports, so a single-instance setup needs no configuration.
+const emulatorHost = import.meta.env.VITE_FIREBASE_EMULATOR_HOST || "127.0.0.1";
+// Auth takes a URL and Firestore takes host/port separately, hence the types.
+const authPort = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT || "9099";
+const firestorePort = Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8080;
+
 if (useEmulators) {
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectAuthEmulator(auth, `http://${emulatorHost}:${authPort}`, {
+    disableWarnings: true,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -39,7 +52,7 @@ let _dbName = "";
 if (useEmulators) {
   _db = getFirestore(app);
   _dbName = "(default)";
-  connectFirestoreEmulator(_db, "127.0.0.1", 8080);
+  connectFirestoreEmulator(_db, emulatorHost, firestorePort);
 }
 
 export function initFirestore(databaseId: string): Firestore {
