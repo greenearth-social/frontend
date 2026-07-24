@@ -27,7 +27,7 @@ const HELP_CONTENT: Record<ControlHelp, {
   freshness: {
     title: "Freshness",
     paragraphs: [
-      { text: "Controls the maximum age of posts considered for your feed, from 6 hours through 7 days." },
+      { text: "Controls the maximum candidate-post age for every feed source simultaneously, from 6 hours through 7 days." },
     ],
   },
   politics: {
@@ -171,7 +171,7 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     const prefs = root?.preferencesStore.values ?? {
       socialRadius: 3,
-      freshness: 2,
+      freshness: 5,
       politics: 1.0,
       purpose: 0.5,
     };
@@ -238,10 +238,9 @@ export class ControlsPage extends LitElement {
               `}
         </div>
 
-        <div class="slider-group disabled-control">
+        <div class="slider-group">
           <div class="slider-title">
             <span>Freshness</span>
-            <span class="coming-soon">Coming Soon!</span>
             ${this.#helpButton("freshness", "Freshness")}
           </div>
           ${this.isLoading
@@ -250,7 +249,6 @@ export class ControlsPage extends LitElement {
                 <discrete-slider
                   .options=${FRESHNESS_PRESETS.map((p) => p.label)}
                   value=${prefs.freshness}
-                  disabled
                   @slider-change=${(e: CustomEvent<{ value: number }>) => {
                     this.#handleFreshnessChange(e.detail.value);
                   }}

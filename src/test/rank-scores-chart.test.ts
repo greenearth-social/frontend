@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import "../components/rank-scores-chart";
+import { RankScoresChart } from "../components/rank-scores-chart";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 
 function item(): FeedItemView {
@@ -37,6 +37,21 @@ function item(): FeedItemView {
 }
 
 describe("RankScoresChart", () => {
+  it("keeps sources vertical on desktop and lays them out horizontally on mobile", () => {
+    const styles = RankScoresChart.styles.cssText;
+
+    expect(styles).toMatch(/\.source-content\s*\{[^}]*flex-direction:\s*column/s);
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*flex-direction:\s*row/s,
+    );
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*align-content:\s*center/s,
+    );
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*justify-content:\s*center/s,
+    );
+  });
+
   it("uses the post-diversification selection score as the final score", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = item();

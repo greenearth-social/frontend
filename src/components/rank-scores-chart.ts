@@ -169,9 +169,17 @@ export class RankScoresChart extends LitElement {
       .section {
         flex: 1 1 120px;
         min-width: 120px;
+        height: auto;
         padding: 0.75rem;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 0.5rem;
+      }
+      .source-content {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        align-content: center;
+        justify-content: center;
       }
     }
   `;

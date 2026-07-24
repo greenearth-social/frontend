@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ControlsPage } from "../pages/controls-page";
 
 describe("ControlsPage", () => {
-  it("uses lifecycle sliders for weighted controls and keeps coming-soon controls disabled", async () => {
+  it("enables freshness while keeping future weighted controls disabled", async () => {
     const el = document.createElement("controls-page");
     document.body.appendChild(el);
     await el.updateComplete;
@@ -14,6 +14,10 @@ describe("ControlsPage", () => {
     expect(sliders?.[0]?.disabled).toBe(false);
     expect(sliders?.[1]?.disabled).toBe(true);
     expect(sliders?.[2]?.disabled).toBe(true);
+    const freshness = el.shadowRoot?.querySelector("discrete-slider");
+    expect(freshness?.disabled).toBe(false);
+    expect(freshness?.options).toEqual(["6h", "12h", "24h", "48h", "72h", "7d"]);
+    expect(el.shadowRoot?.textContent).not.toContain("FreshnessComing Soon");
     el.remove();
   });
 

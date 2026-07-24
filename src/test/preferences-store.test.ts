@@ -5,7 +5,7 @@ import { PreferencesStore } from "../stores/preferences-store";
 
 const defaults: Preferences = {
   socialRadius: 3,
-  freshness: 2,
+  freshness: 5,
   politics: 1,
   purpose: 0.5,
 };

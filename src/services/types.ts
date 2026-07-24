@@ -8,7 +8,7 @@ export interface IAuthService {
 
 export interface Preferences {
   socialRadius: number;  // 0-4
-  freshness: number;     // 0-5
+  freshness: number;     // 0-5; default 5 (7 days)
   politics: number;      // 0.5-1.5
   purpose: number;       // 0.2-0.8
 }

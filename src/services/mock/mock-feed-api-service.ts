@@ -159,7 +159,7 @@ export class MockFeedApiService implements IFeedApiService {
   getPreferences(): Promise<Preferences> {
     return Promise.resolve({
       socialRadius: 3,
-      freshness: 2,
+      freshness: 5,
       politics: 1.0,
       purpose: 0.5,
     });
