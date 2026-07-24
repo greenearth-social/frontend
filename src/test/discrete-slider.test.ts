@@ -14,15 +14,11 @@ describe("DiscreteSlider icon states", () => {
     const styles = DiscreteSlider.styles.cssText;
 
     expect(styles).toMatch(/\.step-icon-image\s*\{[^}]*grayscale\(100%\)/s);
-    expect(styles).toMatch(
-      /\.step-btn\.active \.step-icon-image\s*\{[^}]*grayscale\(0%\)/s,
-    );
+    expect(styles).toMatch(/\.step-btn\.active \.step-icon-image\s*\{[^}]*grayscale\(0%\)/s);
     expect(styles).toMatch(/\.thumb\s*\{[^}]*height: 3px/s);
-    expect(styles).toMatch(
-      /\.thumb\s*\{[^}]*background: var\(--bluesky-brand\)/s,
-    );
+    expect(styles).toMatch(/\.thumb\s*\{[^}]*background: var\(--bluesky-brand\)/s);
     expect(styles).toMatch(/\.thumb\s*\{[^}]*rgba\(16, 131, 254, 0\.55\)/s);
-    expect(styles).toMatch(/@media \(max-width: 600px\)[\s\S]*width: 24px/);
+    expect(styles).toMatch(/@media \(max-width: 600px\)[\s\S]*width: 20px/);
     expect(styles).toMatch(/\.slider-wrapper\s*\{[^}]*overflow: hidden/s);
     expect(styles).not.toContain("overflow-x: auto");
     expect(styles).toMatch(/\.step-btn\s*\{[^}]*min-width: 0/s);
@@ -35,21 +31,16 @@ describe("DiscreteSlider icon states", () => {
     await element.updateComplete;
 
     const labels = Array.from(element.shadowRoot?.querySelectorAll(".label") ?? []);
-    expect(labels.map((label) => label.textContent.trim())).toEqual([
-      "6h",
-      "",
-      "",
-      "",
-      "",
-      "7d",
-    ]);
+    expect(labels.map((label) => label.textContent.trim())).toEqual(["6h", "", "", "", "", "7d"]);
 
-    element.shadowRoot?.querySelectorAll<HTMLElement>(".step-btn")[2]
+    element.shadowRoot
+      ?.querySelectorAll<HTMLElement>(".step-btn")[2]
       ?.dispatchEvent(new MouseEvent("mouseenter"));
     await element.updateComplete;
     expect(element.shadowRoot?.querySelectorAll(".step-value")[2]?.textContent).toContain("24h");
 
-    element.shadowRoot?.querySelectorAll<HTMLElement>(".step-btn")[0]
+    element.shadowRoot
+      ?.querySelectorAll<HTMLElement>(".step-btn")[0]
       ?.dispatchEvent(new MouseEvent("mouseenter"));
     await element.updateComplete;
     expect(element.shadowRoot?.querySelectorAll(".step-value")[0]?.textContent).toContain("6h");
@@ -65,8 +56,7 @@ describe("DiscreteSlider icon states", () => {
     expect(
       wrapper && endpointLabels
         ? Boolean(
-            wrapper.compareDocumentPosition(endpointLabels)
-              & Node.DOCUMENT_POSITION_FOLLOWING,
+            wrapper.compareDocumentPosition(endpointLabels) & Node.DOCUMENT_POSITION_FOLLOWING,
           )
         : false,
     ).toBe(true);
@@ -88,15 +78,11 @@ describe("DiscreteSlider icon states", () => {
     track.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 10 }));
     window.dispatchEvent(new MouseEvent("mousemove", { clientX: 350 }));
     window.dispatchEvent(new MouseEvent("mouseup", { clientX: 350 }));
-    expect(onChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ detail: { value: 3 } }),
-    );
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ detail: { value: 3 } }));
 
     track.dispatchEvent(touchEvent("touchstart", 550));
     window.dispatchEvent(touchEvent("touchend", 550));
-    expect(onChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ detail: { value: 5 } }),
-    );
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ detail: { value: 5 } }));
     element.remove();
   });
 
@@ -117,9 +103,7 @@ describe("DiscreteSlider icon states", () => {
     window.dispatchEvent(touchEvent("touchmove", 250));
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelectorAll(".step-value")[2]?.textContent).toContain(
-      "24h",
-    );
+    expect(element.shadowRoot?.querySelectorAll(".step-value")[2]?.textContent).toContain("24h");
     window.dispatchEvent(touchEvent("touchend", 250));
     expect(onChange).not.toHaveBeenCalled();
     expect(element.value).toBe(0);

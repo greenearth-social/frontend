@@ -483,10 +483,7 @@ export class RankScoresChart extends LitElement {
                 `
               : ""
           }
-          <p>
-            Relevance is this combined score divided by the batch's highest combined score. The
-            leading post is therefore 1.00.
-          </p>
+          <p>Relevance is this combined score divided by the batch's highest combined score.</p>
           ${
             combinedRankerScore !== null && batchLeaderScore !== null
               ? html`

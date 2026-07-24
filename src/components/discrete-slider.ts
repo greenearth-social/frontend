@@ -85,8 +85,8 @@ export class DiscreteSlider extends LitElement {
       z-index: 2;
     }
     .step-icon {
-      width: 30px;
-      height: 30px;
+      width: 26px;
+      height: 26px;
       opacity: 0.5;
       transition: all 0.15s ease;
       pointer-events: none;
@@ -107,8 +107,8 @@ export class DiscreteSlider extends LitElement {
       opacity: 0.85;
     }
     .step-btn.active .step-icon {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       opacity: 1;
     }
     .step-btn.active .step-icon-svg {
@@ -142,12 +142,12 @@ export class DiscreteSlider extends LitElement {
         padding-inline: 0.375rem;
       }
       .step-icon {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
       .step-btn.active .step-icon {
-        width: 27px;
-        height: 27px;
+        width: 23px;
+        height: 23px;
       }
       .thumb {
         width: 20px;
@@ -222,9 +222,7 @@ export class DiscreteSlider extends LitElement {
         >
           ${this.options.map(
             (option, index) => html`
-              <div class="step-value">
-                ${index === this._previewIndex ? option : ""}
-              </div>
+              <div class="step-value">${index === this._previewIndex ? option : ""}</div>
             `,
           )}
         </div>
@@ -245,34 +243,48 @@ export class DiscreteSlider extends LitElement {
                   type="button"
                   aria-label=${option}
                   ?disabled=${this.disabled}
-                  @click=${() => { this._handleClick(index); }}
-                  @mouseenter=${() => { this._previewIndex = index; }}
-                  @mouseleave=${() => { this._previewIndex = null; }}
-                  @focus=${() => { this._previewIndex = index; }}
-                  @blur=${() => { this._previewIndex = null; }}
+                  @click=${() => {
+                    this._handleClick(index);
+                  }}
+                  @mouseenter=${() => {
+                    this._previewIndex = index;
+                  }}
+                  @mouseleave=${() => {
+                    this._previewIndex = null;
+                  }}
+                  @focus=${() => {
+                    this._previewIndex = index;
+                  }}
+                  @blur=${() => {
+                    this._previewIndex = null;
+                  }}
                 >
-                  ${this.iconSources[index]
-                    ? html`
-                        <img
-                          class="step-icon step-icon-image"
-                          src=${this.iconSources[index]}
-                          alt=""
-                          width="18"
-                          height="18"
-                        />
-                      `
-                    : html`
-                        <svg
-                          class="step-icon step-icon-svg"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 640 640"
-                          aria-hidden="true"
-                        >
-                          <path d="M320 64C461.4 64 576 178.6 576 320C576 461.4 461.4 576 320 576C178.6 576 64 461.4 64 320C64 178.6 178.6 64 320 64zM296 184L296 320C296 328 300 335.5 306.7 340L402.7 404C413.7 411.4 428.6 408.4 436 397.3C443.4 386.2 440.4 371.4 429.3 364L344 307.2L344 184C344 170.7 333.3 160 320 160C306.7 160 296 170.7 296 184z"></path>
-                        </svg>
-                      `}
+                  ${
+                    this.iconSources[index]
+                      ? html`
+                          <img
+                            class="step-icon step-icon-image"
+                            src=${this.iconSources[index]}
+                            alt=""
+                            width="18"
+                            height="18"
+                          />
+                        `
+                      : html`
+                          <svg
+                            class="step-icon step-icon-svg"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 640 640"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M320 64C461.4 64 576 178.6 576 320C576 461.4 461.4 576 320 576C178.6 576 64 461.4 64 320C64 178.6 178.6 64 320 64zM296 184L296 320C296 328 300 335.5 306.7 340L402.7 404C413.7 411.4 428.6 408.4 436 397.3C443.4 386.2 440.4 371.4 429.3 364L344 307.2L344 184C344 170.7 333.3 160 320 160C306.7 160 296 170.7 296 184z"
+                            ></path>
+                          </svg>
+                        `
+                  }
                 </button>
-              `
+              `,
             )}
           </div>
         </div>
@@ -361,10 +373,7 @@ export class DiscreteSlider extends LitElement {
   #updateFromX(clientX: number): void {
     if (!this._trackRect) return;
     const offset = clientX - this._trackRect.left;
-    this._thumbPercent = Math.max(
-      0,
-      Math.min(100, (offset / this._trackRect.width) * 100),
-    );
+    this._thumbPercent = Math.max(0, Math.min(100, (offset / this._trackRect.width) * 100));
   }
 
   #selectFromX(clientX: number): void {
