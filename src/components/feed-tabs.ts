@@ -88,25 +88,6 @@ export class FeedTabs extends LitElement {
       border-radius: 9999px;
       background: var(--bluesky-brand);
     }
-    .breakdown-button {
-      display: inline-grid;
-      place-items: center;
-      width: 1.35rem;
-      height: 1.35rem;
-      padding: 0;
-      border: 0;
-      border-radius: 9999px;
-      color: var(--bluesky-text-secondary);
-      background: transparent;
-      cursor: pointer;
-      font: inherit;
-    }
-    .breakdown-button:hover,
-    .breakdown-button:focus-visible {
-      color: var(--bluesky-text);
-      background: rgba(255, 255, 255, 0.1);
-      outline: none;
-    }
     .popover {
       position: fixed;
       top: clamp(1rem, 6vh, 4rem);
@@ -209,15 +190,6 @@ export class FeedTabs extends LitElement {
                   @click=${() => { this.#selectTab(f.requestId); }}
                 >
                   <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
-                  <button
-                    class="breakdown-button"
-                    aria-label="Source breakdown for ${index === 0 ? "latest feed" : relativeTime(f.generatedAt)}"
-                    aria-expanded=${this.openBreakdownId === f.requestId ? "true" : "false"}
-                    @click=${(event: MouseEvent) => {
-                      event.stopPropagation();
-                      this.#toggleBreakdown(f.requestId, event.currentTarget as HTMLElement);
-                    }}
-                  >ⓘ</button>
                 </div>
               `,
             )}
@@ -271,9 +243,6 @@ export class FeedTabs extends LitElement {
                     <tr>
                       <td>
                         ${diagnostic.name}
-                        ${diagnostic.mode !== "primary"
-                          ? html`<span class="reason">${this.#modeLabel(diagnostic.mode)}</span>`
-                          : ""}
                       </td>
                       <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
                       <td>${diagnostic.requestedCount}</td>
@@ -292,7 +261,13 @@ export class FeedTabs extends LitElement {
     `;
   }
 
-  #toggleBreakdown(requestId: string, _anchor: HTMLElement) {
+  showActiveBreakdown(triggerEvent?: Event): void {
+    triggerEvent?.stopPropagation();
+    if (this.activeRequestId === null) return;
+    this.#toggleBreakdown(this.activeRequestId);
+  }
+
+  #toggleBreakdown(requestId: string) {
     this.openBreakdownId = this.openBreakdownId === requestId ? null : requestId;
     void this.updateComplete.then(() => {
       const popover = this.renderRoot.querySelector<HTMLDialogElement>(".popover");
@@ -321,18 +296,10 @@ export class FeedTabs extends LitElement {
       follow_lookup_failed: "Could not load followed accounts",
       no_followed_users: "No followed accounts found",
       no_recent_followed_posts: "No eligible recent posts from followed accounts",
-      no_older_followed_posts: "No eligible followed-account posts from the last seven days",
       post_tower_not_configured: "Two-tower model is not configured",
       generator_timeout: "Generator timed out",
       generator_error: "Generator failed",
     } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
-  }
-
-  #modeLabel(mode: string): string {
-    return ({
-      direct_friends_recent: "Friends · last 24 hours",
-      direct_friends_7d: "Friends · 1–7 days",
-    } as Record<string, string>)[mode] ?? mode.split("_").join(" ");
   }
 
   #onWindowClick = (event: MouseEvent) => {

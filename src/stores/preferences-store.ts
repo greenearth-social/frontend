@@ -7,7 +7,7 @@ export class PreferencesStore {
   root: RootStore;
   values: Preferences = {
     socialRadius: 3,
-    freshness: 2,
+    freshness: 5,
     politics: 1.0,
     purpose: 0.5,
   };
@@ -64,7 +64,7 @@ export class PreferencesStore {
     this.accountId = null;
     this.values = {
       socialRadius: 3,
-      freshness: 2,
+      freshness: 5,
       politics: 1.0,
       purpose: 0.5,
     };
@@ -96,7 +96,7 @@ export class PreferencesStore {
   }
 
   get freshnessLabel() {
-    return FRESHNESS_PRESETS[this.values.freshness]?.label ?? "24h";
+    return FRESHNESS_PRESETS[this.values.freshness]?.label ?? "7d";
   }
 
   get engagingWeight() {

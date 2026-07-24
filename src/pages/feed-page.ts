@@ -9,6 +9,7 @@ import { getRootStore } from "../main";
 import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
+import type { FeedTabs } from "../components/feed-tabs";
 
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
@@ -46,6 +47,55 @@ export class FeedPage extends MobxLitElement {
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);
     }
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem 0.5rem;
+    }
+    .source-breakdown-button {
+      display: inline-grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      min-height: 2.5rem;
+      padding: 0;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 9999px;
+      color: var(--bluesky-text);
+      background: rgba(255, 255, 255, 0.04);
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .source-breakdown-button wa-icon {
+      font-size: 1.25rem;
+    }
+    .source-breakdown-button:hover,
+    .source-breakdown-button:focus-visible {
+      border-color: var(--bluesky-brand);
+      background: rgba(16, 131, 254, 0.12);
+      outline: none;
+    }
+    .source-breakdown-button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    @media (max-width: 480px) {
+      .header-row {
+        gap: 0.5rem;
+        padding-inline: 0.75rem;
+      }
+      .source-breakdown-button {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-height: 2.5rem;
+      }
+    }
   `;
 
   disconnectedCallback(): void {
@@ -61,7 +111,10 @@ export class FeedPage extends MobxLitElement {
     const store = getRootStore();
     const isLoading = store?.feedStore.isLoading ?? false;
 
-    if (changedProperties.has("_showEmptyInsteadOfLoading") || changedProperties.has("_loadTimer")) {
+    if (
+      changedProperties.has("_showEmptyInsteadOfLoading") ||
+      changedProperties.has("_loadTimer")
+    ) {
       return;
     }
 
@@ -94,7 +147,7 @@ export class FeedPage extends MobxLitElement {
           <div class="logged-out-content">
             <img src="/assets/caterpillar.png" alt="GreenEarth" class="logged-out-logo" />
             <h1 class="logged-out-title">GreenEarth</h1>
-            <p class="logged-out-subtitle">Sign In to view Feed Data</p>
+            <p class="logged-out-subtitle">Sign In to view Feed Controls and Transparency</p>
             <button class="logged-out-btn" @click=${this.#signIn}>Sign in with Bluesky</button>
           </div>
         </div>
@@ -105,7 +158,8 @@ export class FeedPage extends MobxLitElement {
             justify-content: center;
             min-height: 100dvh;
             width: 100%;
-            padding-top: 15vh;
+            box-sizing: border-box;
+            padding: 15vh 1rem 0;
           }
           .logged-out-content {
             display: flex;
@@ -156,15 +210,9 @@ export class FeedPage extends MobxLitElement {
 
     return html`
       <div>
-        <div
-          class="sticky-header-wrapper"
-        >
-          <div
-            class="header-section"
-          >
-            <div
-              style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem 0.5rem 1rem;"
-            >
+        <div class="sticky-header-wrapper">
+          <div class="header-section">
+            <div class="header-row">
               <button
                 class="hamburger-btn"
                 @click=${() => this.onOpenMenu?.()}
@@ -192,6 +240,18 @@ export class FeedPage extends MobxLitElement {
                   Why Am I Seeing This?
                 </h1>
               </div>
+              <button
+                class="source-breakdown-button"
+                type="button"
+                aria-label="View source breakdown"
+                title="Source breakdown"
+                ?disabled=${feedStore.currentRequestId === null}
+                @click=${(event: MouseEvent) => {
+                  this.#showSourceBreakdown(event);
+                }}
+              >
+                <wa-icon name="source-breakdown" library="app"></wa-icon>
+              </button>
             </div>
             <style>
               @media (max-width: 1023px) {
@@ -207,8 +267,8 @@ export class FeedPage extends MobxLitElement {
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
-            void feedStore.loadFeedDetail(e.detail.requestId);
-          }}
+              void feedStore.loadFeedDetail(e.detail.requestId);
+            }}
           ></feed-tabs>
         </div>
 
@@ -227,10 +287,7 @@ export class FeedPage extends MobxLitElement {
         ${
           feedStore.isLoading && !this._showEmptyInsteadOfLoading
             ? html`
-                <div
-                  class="loader-container"
-                  style="color: var(--bluesky-text-secondary)"
-                >
+                <div class="loader-container" style="color: var(--bluesky-text-secondary)">
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
@@ -246,8 +303,8 @@ export class FeedPage extends MobxLitElement {
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
-                    uiStore.toggleSelectedItem(e.detail.uri);
-                  }}
+                      uiStore.toggleSelectedItem(e.detail.uri);
+                    }}
                   ></feed-view>
 
                   <pagination-control
@@ -256,11 +313,11 @@ export class FeedPage extends MobxLitElement {
                     .totalItems=${feedStore.totalCount}
                     .itemsPerPage=${feedStore.postsPerPage}
                     @page-change=${(e: CustomEvent<{ page: number }>) => {
-                    feedStore.goToPage(e.detail.page);
-                  }}
+                      feedStore.goToPage(e.detail.page);
+                    }}
                     @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
-                    feedStore.setPostsPerPage(e.detail.perPage);
-                  }}
+                      feedStore.setPostsPerPage(e.detail.perPage);
+                    }}
                   ></pagination-control>
                 `
         }
@@ -272,6 +329,10 @@ export class FeedPage extends MobxLitElement {
     const returnUrl = window.location.hash.slice(1) || "/feed";
     const authPath = `/auth/bluesky?return_url=${encodeURIComponent(returnUrl)}`;
     window.location.href = authPath;
+  }
+
+  #showSourceBreakdown(event: MouseEvent) {
+    this.renderRoot.querySelector<FeedTabs>("feed-tabs")?.showActiveBreakdown(event);
   }
 }
 
