@@ -223,6 +223,11 @@ export class RankScoresChart extends LitElement {
       color: var(--bluesky-text);
       white-space: nowrap;
     }
+    @media (min-width: 601px) {
+      .col-header {
+        min-height: 1.25rem;
+      }
+    }
     @media (max-width: 600px) {
       .ranking-grid {
         display: flex;
