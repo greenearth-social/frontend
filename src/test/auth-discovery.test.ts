@@ -1,15 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const dns = vi.hoisted(() => ({
-  lookup: vi.fn(),
   resolveTxt: vi.fn(),
 }));
 
 vi.mock("node:dns/promises", () => ({ ...dns, default: dns }));
 
+const safeHttp = vi.hoisted(() => ({
+  request: vi.fn(),
+}));
+
+vi.mock("../../functions/src/auth/safe-http", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../functions/src/auth/safe-http")>();
+  return {
+    ...actual,
+    publicHttpsRequest: safeHttp.request,
+  };
+});
+
 import {
   assertOAuthIdentityMatch,
-  assertSafePublicUrl,
   discoverIdentity,
   hardenedFetchJson,
   normalizeHandle,
@@ -19,11 +29,12 @@ import {
 
 const did = "did:plc:abc123";
 
-function json(value: unknown): Response {
-  return new Response(JSON.stringify(value), {
+function json(value: unknown, contentType = "application/json") {
+  return {
     status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+    headers: { "content-type": contentType },
+    body: Buffer.from(JSON.stringify(value)),
+  };
 }
 
 function authMetadata(issuer: string) {
@@ -46,15 +57,8 @@ function authMetadata(issuer: string) {
 }
 
 function mockDiscovery(pds: string, issuer: string): void {
-  dns.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
   dns.resolveTxt.mockResolvedValue([["did=", did]]);
-  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
+  safeHttp.request.mockImplementation((url: string) => {
     if (url === `https://plc.directory/${did}`) {
       return Promise.resolve(
         json({
@@ -77,8 +81,8 @@ function mockDiscovery(pds: string, issuer: string): void {
 describe("AT Protocol OAuth discovery", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    dns.lookup.mockReset();
     dns.resolveTxt.mockReset();
+    safeHttp.request.mockReset();
   });
 
   it("normalizes a user-entered handle", () => {
@@ -86,12 +90,8 @@ describe("AT Protocol OAuth discovery", () => {
   });
 
   it("accepts standards-based JSON media types used by DID documents", async () => {
-    dns.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ id: did }), {
-        status: 200,
-        headers: { "Content-Type": "application/did+ld+json; charset=utf-8" },
-      }),
+    safeHttp.request.mockResolvedValue(
+      json({ id: did }, "application/did+ld+json; charset=utf-8"),
     );
 
     await expect(hardenedFetchJson("https://plc.directory/example")).resolves.toEqual({
@@ -100,15 +100,8 @@ describe("AT Protocol OAuth discovery", () => {
   });
 
   it("falls back to the public AppView when handle well-known resolution is unavailable", async () => {
-    dns.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
     dns.resolveTxt.mockRejectedValue(new Error("no TXT record"));
-    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
+    safeHttp.request.mockImplementation((url: string) => {
       if (url.startsWith("https://alice.example.com/")) {
         return Promise.reject(new Error("TLS unavailable"));
       }
@@ -151,22 +144,22 @@ describe("AT Protocol OAuth discovery", () => {
   });
 
   it("resolves did:web documents from their well-known location", async () => {
-    dns.lookup.mockResolvedValue([{ address: "8.8.4.4", family: 4 }]);
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(json({ id: "did:web:identity.example.com" }));
+    safeHttp.request.mockResolvedValue(json({ id: "did:web:identity.example.com" }));
 
     await resolveDid("did:web:identity.example.com");
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("https://identity.example.com/.well-known/did.json"),
-      expect.objectContaining({ redirect: "manual" }),
+    expect(safeHttp.request).toHaveBeenCalledWith(
+      "https://identity.example.com/.well-known/did.json",
+      expect.objectContaining({
+        timeoutMs: 10_000,
+        maxResponseBytes: 256 * 1024,
+      }),
     );
   });
 
   it("rejects a DID document that does not claim the requested handle", async () => {
     mockDiscovery("https://pds.example.com", "https://pds.example.com");
-    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+    safeHttp.request.mockResolvedValueOnce(
       json({
         id: did,
         alsoKnownAs: ["at://mallory.example.com"],
@@ -176,16 +169,6 @@ describe("AT Protocol OAuth discovery", () => {
 
     await expect(discoverIdentity("alice.example.com")).rejects.toThrow(
       "does not claim this handle",
-    );
-  });
-
-  it("rejects private and local server targets", async () => {
-    dns.lookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
-    await expect(assertSafePublicUrl("https://internal.example.com/oauth/par")).rejects.toThrow(
-      "private or reserved",
-    );
-    await expect(assertSafePublicUrl("http://localhost/oauth/par")).rejects.toThrow(
-      "public HTTPS",
     );
   });
 

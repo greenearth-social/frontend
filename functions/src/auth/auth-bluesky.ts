@@ -12,11 +12,18 @@ import {
   encryptState,
 } from "./helpers.js";
 import {
-  assertSafePublicUrl,
   BLUESKY_AUTH_SERVER,
   discoverIdentity,
   fetchAuthServerMetadata,
 } from "./auth-discovery.js";
+import {
+  publicHttpsRequest,
+  responseHeader,
+  type PublicHttpsResponse,
+} from "./safe-http.js";
+
+const OAUTH_REQUEST_TIMEOUT_MS = 10_000;
+const OAUTH_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 export async function authBlueskyHandler(req: Request, res: Response): Promise<void> {
   try {
@@ -102,10 +109,11 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
     parBody.set("login_hint", identity.handle);
   }
 
-  const parUrl = new URL(await assertSafePublicUrl(parEndpoint));
+  const parUrl = new URL(parEndpoint);
+  const parUrlString = `${parUrl.origin}${parUrl.pathname}`;
   let dpopNonce: string | undefined;
-  let parRes: globalThis.Response = await sendPar(
-    parUrl.origin + parUrl.pathname,
+  let parRes = await sendPar(
+    parUrlString,
     parBody,
     dpopKeyPair.privateKey,
     dpopPublicJwk,
@@ -114,13 +122,13 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
 
   // Handle DPoP nonce error (can be 400 or 401)
   let errorBody = "";
-  if (!parRes.ok && !dpopNonce) {
-    errorBody = await parRes.text().catch(() => "");
-    const nonce = parRes.headers.get("dpop-nonce");
+  if ((parRes.status < 200 || parRes.status >= 300) && !dpopNonce) {
+    errorBody = parRes.body.toString("utf8");
+    const nonce = responseHeader(parRes.headers, "dpop-nonce");
     if (nonce && errorBody.includes("use_dpop_nonce")) {
       dpopNonce = nonce;
       parRes = await sendPar(
-        parUrl.origin + parUrl.pathname,
+        parUrlString,
         parBody,
         dpopKeyPair.privateKey,
         dpopPublicJwk,
@@ -130,9 +138,9 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
     }
   }
 
-  if (!parRes.ok) {
+  if (parRes.status < 200 || parRes.status >= 300) {
     if (!errorBody) {
-      errorBody = await parRes.text().catch(() => "");
+      errorBody = parRes.body.toString("utf8");
     }
     res.status(502).send(`PAR failed: ${String(parRes.status)} ${errorBody}`);
     return;
@@ -140,7 +148,7 @@ export async function authBlueskyHandler(req: Request, res: Response): Promise<v
 
   let parData: { request_uri?: string };
   try {
-    parData = (await parRes.json()) as { request_uri?: string };
+    parData = JSON.parse(parRes.body.toString("utf8")) as { request_uri?: string };
   } catch {
     res.status(502).send("PAR response invalid");
     return;
@@ -185,7 +193,7 @@ async function sendPar(
   dpopPrivateKey: CryptoKey,
   dpopPublicJwk: JsonWebKey,
   nonce?: string,
-): Promise<globalThis.Response> {
+): Promise<PublicHttpsResponse> {
   const dpopProof = await createDpopProof(
     "POST",
     url,
@@ -193,12 +201,14 @@ async function sendPar(
     dpopPublicJwk,
     nonce,
   );
-  return fetch(url, {
+  return publicHttpsRequest(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       DPoP: dpopProof,
     },
     body,
+    timeoutMs: OAUTH_REQUEST_TIMEOUT_MS,
+    maxResponseBytes: OAUTH_RESPONSE_LIMIT_BYTES,
   });
 }

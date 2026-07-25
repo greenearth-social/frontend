@@ -11,10 +11,13 @@ import {
 } from "./helpers.js";
 import {
   assertOAuthIdentityMatch,
-  assertSafePublicUrl,
   discoverAuthorizationServerForDid,
   fetchAuthServerMetadata,
 } from "./auth-discovery.js";
+import { publicHttpsRequest, responseHeader } from "./safe-http.js";
+
+const OAUTH_REQUEST_TIMEOUT_MS = 10_000;
+const OAUTH_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 if (getApps().length === 0) {
   initializeApp();
@@ -103,8 +106,8 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
   const dpopPublicJwk = JSON.parse(session.dpopPublicJwk) as JsonWebKey;
   const dpopPrivateKey = (await importJWK(dpopPrivateJwk, "ES256")) as CryptoKey;
 
-  const tokenUrl = new URL(await assertSafePublicUrl(tokenEndpoint));
-  const tokenUrlString = tokenUrl.origin + tokenUrl.pathname;
+  const tokenUrl = new URL(tokenEndpoint);
+  const tokenUrlString = `${tokenUrl.origin}${tokenUrl.pathname}`;
   const dpopProof = await createDpopProof(
     "POST",
     tokenUrlString,
@@ -130,20 +133,22 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
     client_assertion: clientAssertion,
   });
 
-  let tokenRes = await fetch(tokenUrlString, {
+  let tokenRes = await publicHttpsRequest(tokenUrlString, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       DPoP: dpopProof,
     },
     body: tokenBody,
+    timeoutMs: OAUTH_REQUEST_TIMEOUT_MS,
+    maxResponseBytes: OAUTH_RESPONSE_LIMIT_BYTES,
   });
 
   // Retry with new DPoP nonce if needed (can be 400 or 401)
   let errorBody = "";
-  if (!tokenRes.ok) {
-    errorBody = await tokenRes.text().catch(() => "");
-    const newNonce = tokenRes.headers.get("dpop-nonce");
+  if (tokenRes.status < 200 || tokenRes.status >= 300) {
+    errorBody = tokenRes.body.toString("utf8");
+    const newNonce = responseHeader(tokenRes.headers, "dpop-nonce");
     if (newNonce && errorBody.includes("use_dpop_nonce")) {
       const retryDpopProof = await createDpopProof(
         "POST",
@@ -152,21 +157,23 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
         dpopPublicJwk,
         newNonce,
       );
-      tokenRes = await fetch(tokenUrlString, {
+      tokenRes = await publicHttpsRequest(tokenUrlString, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           DPoP: retryDpopProof,
         },
         body: tokenBody,
+        timeoutMs: OAUTH_REQUEST_TIMEOUT_MS,
+        maxResponseBytes: OAUTH_RESPONSE_LIMIT_BYTES,
       });
       errorBody = "";
     }
   }
 
-  if (!tokenRes.ok) {
+  if (tokenRes.status < 200 || tokenRes.status >= 300) {
     if (!errorBody) {
-      errorBody = await tokenRes.text().catch(() => "");
+      errorBody = tokenRes.body.toString("utf8");
     }
     res.status(502).send(`Token exchange failed: ${String(tokenRes.status)} ${errorBody}`);
     return;
@@ -174,7 +181,7 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
 
   let tokenData: { access_token?: string; sub?: string };
   try {
-    tokenData = (await tokenRes.json()) as {
+    tokenData = JSON.parse(tokenRes.body.toString("utf8")) as {
       access_token?: string;
       sub?: string;
     };

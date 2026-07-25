@@ -1,5 +1,9 @@
-import { isIP } from "node:net";
-import { lookup, resolveTxt } from "node:dns/promises";
+import { resolveTxt } from "node:dns/promises";
+import {
+  parsePublicHttpsUrl,
+  publicHttpsRequest,
+  responseHeader,
+} from "./safe-http.js";
 
 const HANDLE_RE =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -53,95 +57,13 @@ export function isValidHandle(value: string): boolean {
   return HANDLE_RE.test(value);
 }
 
-function isPrivateIp(address: string): boolean {
-  if (isIP(address) === 4) {
-    const octets = address.split(".").map(Number);
-    const [a = 0, b = 0, c = 0] = octets;
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
-      (a === 192 && b === 168) ||
-      (a === 198 && (b === 18 || b === 19)) ||
-      (a === 198 && b === 51 && c === 100) ||
-      (a === 203 && b === 0 && c === 113) ||
-      a >= 224
-    );
-  }
-
-  if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    return (
-      normalized === "::" ||
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      /^fe[89ab]/.test(normalized) ||
-      normalized.startsWith("ff") ||
-      normalized.startsWith("2001:db8:") ||
-      normalized.startsWith("::ffff:127.") ||
-      normalized.startsWith("::ffff:10.") ||
-      normalized.startsWith("::ffff:192.168.")
-    );
-  }
-
-  return true;
-}
-
-function parsePublicHttpsUrl(value: string, originOnly = false): URL {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error("Discovered an invalid server URL");
-  }
-
-  if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.hostname === "localhost" ||
-    url.hostname.endsWith(".localhost") ||
-    url.hostname.endsWith(".local") ||
-    isIP(url.hostname) !== 0 ||
-    (originOnly && (url.pathname !== "/" || url.search || url.hash))
-  ) {
-    throw new Error("Discovered server URL is not a public HTTPS origin");
-  }
-  return url;
-}
-
-async function assertPublicHostname(hostname: string): Promise<void> {
-  let addresses: Array<{ address: string }>;
-  try {
-    addresses = await lookup(hostname, { all: true, verbatim: true });
-  } catch {
-    throw new Error("Could not resolve the account server");
-  }
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateIp(address))) {
-    throw new Error("Account server resolved to a private or reserved address");
-  }
-}
-
-export async function assertSafePublicUrl(urlValue: string): Promise<string> {
-  const url = parsePublicHttpsUrl(urlValue);
-  await assertPublicHostname(url.hostname);
-  return url.origin + url.pathname;
-}
-
 export async function hardenedFetchJson<T>(urlValue: string): Promise<T> {
   const url = parsePublicHttpsUrl(urlValue);
-  await assertPublicHostname(url.hostname);
-
-  let response: Response;
+  let response;
   try {
-    response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    response = await publicHttpsRequest(url.href, {
+      timeoutMs: FETCH_TIMEOUT_MS,
+      maxResponseBytes: MAX_RESPONSE_BYTES,
       headers: { Accept: "application/json" },
     });
   } catch {
@@ -150,22 +72,12 @@ export async function hardenedFetchJson<T>(urlValue: string): Promise<T> {
   if (response.status !== 200) {
     throw new Error(`Account server returned HTTP ${String(response.status)}`);
   }
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  const contentType = responseHeader(response.headers, "content-type")?.toLowerCase() ?? "";
   const mediaType = contentType.split(";", 1)[0]?.trim() ?? "";
   if (mediaType !== "application/json" && !mediaType.endsWith("+json")) {
     throw new Error("Account server returned a non-JSON response");
   }
-  if (response.type === "opaqueredirect") {
-    throw new Error("Account server redirects are not allowed");
-  }
-  const contentLength = Number(response.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_RESPONSE_BYTES) {
-    throw new Error("Account server response was too large");
-  }
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > MAX_RESPONSE_BYTES) {
-    throw new Error("Account server response was too large");
-  }
+  const text = response.body.toString("utf8");
   try {
     return JSON.parse(text) as T;
   } catch {
@@ -175,12 +87,11 @@ export async function hardenedFetchJson<T>(urlValue: string): Promise<T> {
 
 async function hardenedFetchText(urlValue: string): Promise<string> {
   const url = parsePublicHttpsUrl(urlValue);
-  await assertPublicHostname(url.hostname);
-  let response: Response;
+  let response;
   try {
-    response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    response = await publicHttpsRequest(url.href, {
+      timeoutMs: FETCH_TIMEOUT_MS,
+      maxResponseBytes: 1024,
       headers: { Accept: "text/plain" },
     });
   } catch {
@@ -189,11 +100,7 @@ async function hardenedFetchText(urlValue: string): Promise<string> {
   if (response.status !== 200) {
     throw new Error(`Account server returned HTTP ${String(response.status)}`);
   }
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > 1024) {
-    throw new Error("Handle resolution response was too large");
-  }
-  return text.trim();
+  return response.body.toString("utf8").trim();
 }
 
 export async function resolveHandle(handle: string): Promise<string> {
