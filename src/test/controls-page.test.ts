@@ -1,7 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../main", () => ({
+  getRootStore: () => null,
+}));
+
 import { ControlsPage } from "../pages/controls-page";
 
 describe("ControlsPage", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.useRealTimers();
+  });
+
   it("enables freshness while keeping future weighted controls disabled", async () => {
     const el = document.createElement("controls-page");
     document.body.appendChild(el);
@@ -86,6 +96,5 @@ describe("ControlsPage", () => {
       /\.refresh-popup\s*\{[^}]*top: 0\.25rem[^}]*left: 50%/s,
     );
     el.remove();
-    vi.useRealTimers();
   });
 });
