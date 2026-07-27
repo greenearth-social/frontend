@@ -9,12 +9,17 @@ import { getRootStore } from "../main";
 import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
+import type { FeedTabs } from "../components/feed-tabs";
 
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @state() private _showEmptyInsteadOfLoading = false;
   @state() private _loadTimer: ReturnType<typeof setTimeout> | null = null;
+  @state() private _handle = "";
+  @state() private _showCustomPds = false;
+  @state() private _signInPending = false;
+  @state() private _signInError = "";
 
   static styles = css`
     :host {
@@ -46,6 +51,55 @@ export class FeedPage extends MobxLitElement {
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);
     }
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem 0.5rem;
+    }
+    .source-breakdown-button {
+      display: inline-grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      min-height: 2.5rem;
+      padding: 0;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 9999px;
+      color: var(--bluesky-text);
+      background: rgba(255, 255, 255, 0.04);
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .source-breakdown-button wa-icon {
+      font-size: 1.25rem;
+    }
+    .source-breakdown-button:hover,
+    .source-breakdown-button:focus-visible {
+      border-color: var(--bluesky-brand);
+      background: rgba(16, 131, 254, 0.12);
+      outline: none;
+    }
+    .source-breakdown-button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    @media (max-width: 480px) {
+      .header-row {
+        gap: 0.5rem;
+        padding-inline: 0.75rem;
+      }
+      .source-breakdown-button {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-height: 2.5rem;
+      }
+    }
   `;
 
   disconnectedCallback(): void {
@@ -61,7 +115,10 @@ export class FeedPage extends MobxLitElement {
     const store = getRootStore();
     const isLoading = store?.feedStore.isLoading ?? false;
 
-    if (changedProperties.has("_showEmptyInsteadOfLoading") || changedProperties.has("_loadTimer")) {
+    if (
+      changedProperties.has("_showEmptyInsteadOfLoading") ||
+      changedProperties.has("_loadTimer")
+    ) {
       return;
     }
 
@@ -94,8 +151,71 @@ export class FeedPage extends MobxLitElement {
           <div class="logged-out-content">
             <img src="/assets/caterpillar.png" alt="GreenEarth" class="logged-out-logo" />
             <h1 class="logged-out-title">GreenEarth</h1>
-            <p class="logged-out-subtitle">Sign In to view Feed Data</p>
-            <button class="logged-out-btn" @click=${this.#signIn}>Sign in with Bluesky</button>
+            <p class="logged-out-subtitle">Sign in to view Feed Controls and Transparency</p>
+            <button
+              class="logged-out-btn bluesky-sign-in"
+              type="button"
+              ?disabled=${this._signInPending}
+              @click=${() => {
+                void this.#startSignIn();
+              }}
+            >
+              ${this._signInPending ? "Starting sign in..." : "Sign in with Bluesky"}
+            </button>
+            ${
+              this._signInError
+                ? html`<p id="sign-in-error" class="sign-in-error" role="alert">
+                    ${this._signInError}
+                  </p>`
+                : ""
+            }
+            <div class="sign-in-divider"><span>or</span></div>
+            <button
+              class="custom-pds-toggle"
+              type="button"
+              aria-expanded=${String(this._showCustomPds)}
+              aria-controls="custom-pds-form"
+              ?disabled=${this._signInPending}
+              @click=${() => {
+                this._showCustomPds = !this._showCustomPds;
+                this._signInError = "";
+              }}
+            >
+              ${this._showCustomPds ? "Hide custom PDS sign in" : "Sign in with a custom PDS"}
+            </button>
+            ${
+              this._showCustomPds
+                ? html`
+                  <form id="custom-pds-form" class="sign-in-form" @submit=${this.#signIn}>
+                    <label class="handle-label" for="account-handle">Account handle</label>
+                    <input
+                      id="account-handle"
+                      class="handle-input"
+                      name="handle"
+                      type="text"
+                      inputmode="url"
+                      autocomplete="username"
+                      autocapitalize="none"
+                      spellcheck="false"
+                      placeholder="alice.example.com"
+                      .value=${this._handle}
+                      ?disabled=${this._signInPending}
+                      aria-describedby="handle-help sign-in-error"
+                      @input=${(event: InputEvent) => {
+                        this._handle = (event.currentTarget as HTMLInputElement).value;
+                        this._signInError = "";
+                      }}
+                    />
+                    <p id="handle-help" class="handle-help">
+                      Enter the full handle for your custom-PDS account.
+                    </p>
+                    <button class="logged-out-btn" type="submit" ?disabled=${this._signInPending}>
+                      Continue with handle
+                    </button>
+                  </form>
+                `
+                : ""
+            }
           </div>
         </div>
         <style>
@@ -105,7 +225,8 @@ export class FeedPage extends MobxLitElement {
             justify-content: center;
             min-height: 100dvh;
             width: 100%;
-            padding-top: 15vh;
+            box-sizing: border-box;
+            padding: max(1rem, 4dvh) 1rem 1.5rem;
           }
           .logged-out-content {
             display: flex;
@@ -116,21 +237,21 @@ export class FeedPage extends MobxLitElement {
             width: 100%;
           }
           .logged-out-logo {
-            width: 260px;
+            width: min(44vw, 150px);
             height: auto;
-            margin-bottom: -1rem;
+            margin-bottom: -0.5rem;
           }
           .logged-out-title {
-            font-size: 3rem;
+            font-size: clamp(2rem, 10vw, 2.5rem);
             font-weight: 700;
             color: var(--bluesky-text);
             margin: 0 0 0.1rem 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           }
           .logged-out-subtitle {
-            font-size: 1.125rem;
+            font-size: 1rem;
             color: var(--bluesky-text-secondary);
-            margin: 0 0 1rem 0;
+            margin: 0 0 0.875rem 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           }
           .logged-out-btn {
@@ -150,21 +271,147 @@ export class FeedPage extends MobxLitElement {
           .logged-out-btn:hover {
             background: var(--bluesky-brand-hover);
           }
+          .logged-out-btn:disabled {
+            cursor: wait;
+            opacity: 0.7;
+          }
+          .sign-in-form {
+            width: 100%;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            text-align: left;
+            margin-top: 0.875rem;
+          }
+          .bluesky-sign-in {
+            margin-top: 0.125rem;
+          }
+          .sign-in-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            max-width: 320px;
+            margin: 0.75rem 0 0.625rem;
+            color: var(--bluesky-text-secondary);
+            font-size: 0.75rem;
+          }
+          .sign-in-divider::before,
+          .sign-in-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--bluesky-border);
+          }
+          .sign-in-divider span {
+            white-space: nowrap;
+          }
+          .custom-pds-toggle {
+            border: 0;
+            padding: 0.375rem 0.5rem;
+            background: transparent;
+            color: var(--bluesky-brand);
+            font: inherit;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 0.2rem;
+            cursor: pointer;
+          }
+          .custom-pds-toggle:disabled {
+            cursor: wait;
+            opacity: 0.7;
+          }
+          .handle-label {
+            color: var(--bluesky-text);
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0 0 0.375rem;
+          }
+          .handle-input {
+            box-sizing: border-box;
+            width: 100%;
+            border: 1px solid var(--bluesky-border);
+            border-radius: 0.75rem;
+            padding: 0.75rem 0.875rem;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--bluesky-text);
+            font: inherit;
+          }
+          .handle-input:focus {
+            border-color: var(--bluesky-brand);
+            outline: 2px solid color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
+          }
+          .handle-help,
+          .sign-in-error {
+            margin: 0.375rem 0 0.875rem;
+            font-size: 0.8125rem;
+            line-height: 1.35;
+          }
+          .handle-help {
+            color: var(--bluesky-text-secondary);
+          }
+          .sign-in-error {
+            width: 100%;
+            max-width: 320px;
+            box-sizing: border-box;
+            color: #ffb4ab;
+            text-align: center;
+            margin-bottom: 0;
+          }
+          @media (max-height: 560px), (max-width: 360px) {
+            .logged-out-page {
+              padding-top: 0.5rem;
+            }
+            .logged-out-logo {
+              width: 96px;
+              margin-bottom: -0.375rem;
+            }
+            .logged-out-title {
+              font-size: 1.75rem;
+            }
+            .logged-out-subtitle {
+              font-size: 0.875rem;
+              margin-bottom: 0.625rem;
+            }
+            .logged-out-btn {
+              padding-block: 0.6875rem;
+            }
+            .sign-in-divider {
+              margin-block: 0.5rem 0.375rem;
+            }
+            .sign-in-form {
+              margin-top: 0.5rem;
+            }
+            .handle-help {
+              margin-bottom: 0.625rem;
+            }
+          }
+          @media (min-width: 600px) and (min-height: 720px) {
+            .logged-out-page {
+              padding-top: 10dvh;
+            }
+            .logged-out-logo {
+              width: 220px;
+              margin-bottom: -0.875rem;
+            }
+            .logged-out-title {
+              font-size: 3rem;
+            }
+            .logged-out-subtitle {
+              font-size: 1.125rem;
+            }
+          }
         </style>
       `;
     }
 
     return html`
       <div>
-        <div
-          class="sticky-header-wrapper"
-        >
-          <div
-            class="header-section"
-          >
-            <div
-              style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem 0.5rem 1rem;"
-            >
+        <div class="sticky-header-wrapper">
+          <div class="header-section">
+            <div class="header-row">
               <button
                 class="hamburger-btn"
                 @click=${() => this.onOpenMenu?.()}
@@ -192,6 +439,18 @@ export class FeedPage extends MobxLitElement {
                   Why Am I Seeing This?
                 </h1>
               </div>
+              <button
+                class="source-breakdown-button"
+                type="button"
+                aria-label="View source breakdown"
+                title="Source breakdown"
+                ?disabled=${feedStore.currentRequestId === null}
+                @click=${(event: MouseEvent) => {
+                  this.#showSourceBreakdown(event);
+                }}
+              >
+                <wa-icon name="source-breakdown" library="app"></wa-icon>
+              </button>
             </div>
             <style>
               @media (max-width: 1023px) {
@@ -207,8 +466,8 @@ export class FeedPage extends MobxLitElement {
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
-            void feedStore.loadFeedDetail(e.detail.requestId);
-          }}
+              void feedStore.loadFeedDetail(e.detail.requestId);
+            }}
           ></feed-tabs>
         </div>
 
@@ -227,10 +486,7 @@ export class FeedPage extends MobxLitElement {
         ${
           feedStore.isLoading && !this._showEmptyInsteadOfLoading
             ? html`
-                <div
-                  class="loader-container"
-                  style="color: var(--bluesky-text-secondary)"
-                >
+                <div class="loader-container" style="color: var(--bluesky-text-secondary)">
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
@@ -246,8 +502,8 @@ export class FeedPage extends MobxLitElement {
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
-                    uiStore.toggleSelectedItem(e.detail.uri);
-                  }}
+                      uiStore.toggleSelectedItem(e.detail.uri);
+                    }}
                   ></feed-view>
 
                   <pagination-control
@@ -256,11 +512,11 @@ export class FeedPage extends MobxLitElement {
                     .totalItems=${feedStore.totalCount}
                     .itemsPerPage=${feedStore.postsPerPage}
                     @page-change=${(e: CustomEvent<{ page: number }>) => {
-                    feedStore.goToPage(e.detail.page);
-                  }}
+                      feedStore.goToPage(e.detail.page);
+                    }}
                     @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
-                    feedStore.setPostsPerPage(e.detail.perPage);
-                  }}
+                      feedStore.setPostsPerPage(e.detail.perPage);
+                    }}
                   ></pagination-control>
                 `
         }
@@ -268,10 +524,53 @@ export class FeedPage extends MobxLitElement {
     `;
   }
 
-  #signIn() {
+  async #signIn(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (this._signInPending) return;
+
+    const handle = this._handle.trim().replace(/^@/, "").toLowerCase();
+    const validHandle =
+      /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(
+        handle,
+      );
+    if (!validHandle) {
+      this._signInError = "Enter a valid handle, such as alice.bsky.social.";
+      return;
+    }
+
+    this._handle = handle;
+    await this.#startSignIn(handle);
+  }
+
+  async #startSignIn(handle?: string): Promise<void> {
+    if (this._signInPending) return;
+    this._signInPending = true;
+    this._signInError = "";
     const returnUrl = window.location.hash.slice(1) || "/feed";
-    const authPath = `/auth/bluesky?return_url=${encodeURIComponent(returnUrl)}`;
-    window.location.href = authPath;
+    const params = new URLSearchParams({ return_url: returnUrl });
+    if (handle) params.set("handle", handle);
+    try {
+      const response = await fetch(`/auth/bluesky?${params.toString()}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        const message = (await response.text()).trim();
+        throw new Error(message || "Could not start sign in");
+      }
+      const data = (await response.json()) as { redirectUrl?: string };
+      if (!data.redirectUrl) throw new Error("The account server did not provide a sign-in URL");
+      window.location.assign(data.redirectUrl);
+    } catch (error: unknown) {
+      this._signInError =
+        error instanceof Error
+          ? error.message
+          : "Could not find that account. Check the handle and try again.";
+      this._signInPending = false;
+    }
+  }
+
+  #showSourceBreakdown(event: MouseEvent) {
+    this.renderRoot.querySelector<FeedTabs>("feed-tabs")?.showActiveBreakdown(event);
   }
 }
 

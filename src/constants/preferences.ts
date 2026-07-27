@@ -55,12 +55,12 @@ export const SOCIAL_RADIUS_PRESETS: Array<LifecyclePreset<number> & {
 }));
 
 export const FRESHNESS_PRESETS = [
-  { label: "6h", hours: 6 },
-  { label: "12h", hours: 12 },
-  { label: "24h", hours: 24 },
-  { label: "48h", hours: 48 },
-  { label: "72h", hours: 72 },
-  { label: "7d", hours: 168 },
+  { label: "6h", hours: 6, iconSrc: "/assets/freshness_slider/6hr.png" },
+  { label: "12h", hours: 12, iconSrc: "/assets/freshness_slider/12hr.png" },
+  { label: "24h", hours: 24, iconSrc: "/assets/freshness_slider/24hr.png" },
+  { label: "48h", hours: 48, iconSrc: "/assets/freshness_slider/2d.png" },
+  { label: "72h", hours: 72, iconSrc: "/assets/freshness_slider/3d.png" },
+  { label: "7d", hours: 168, iconSrc: "/assets/freshness_slider/7d.png" },
 ];
 
 export const POLITICS_PRESETS: LifecyclePreset<number>[] = [

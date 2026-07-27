@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import "../components/rank-scores-chart";
+import { RankScoresChart } from "../components/rank-scores-chart";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
+
+function normalizedText(element: Element | null | undefined): string {
+  return element?.textContent.replace(/\s+/g, " ").trim() ?? "";
+}
 
 function item(): FeedItemView {
   return {
@@ -26,7 +30,7 @@ function item(): FeedItemView {
     ],
     diversification: {
       relevance: 1,
-      score: 0.3,
+      score: 0.15,
       authorPenalty: 0.1,
       contentPenalty: 0.05,
     },
@@ -37,14 +41,138 @@ function item(): FeedItemView {
 }
 
 describe("RankScoresChart", () => {
-  it("uses the post-diversification selection score as the final score", async () => {
+  it("keeps sources vertical on desktop and lays them out horizontally on mobile", () => {
+    const styles = RankScoresChart.styles.cssText;
+
+    expect(styles).toMatch(/\.source-content\s*\{[^}]*flex-direction:\s*column/s);
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*flex-direction:\s*row/s,
+    );
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*align-content:\s*center/s,
+    );
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*justify-content:\s*center/s,
+    );
+  });
+
+  it("leaves a tappable backdrop above and below popups on small screens", () => {
+    const styles = RankScoresChart.styles.cssText;
+
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*600px\)[\s\S]*\.(?:div-popup|score-popup)[\s\S]*max-height:\s*calc\(100dvh\s*-\s*3rem\)/s,
+    );
+  });
+
+  it("uses the recorded Maximum Marginal Relevance selection score", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = item();
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.30");
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.15");
     expect(element.shadowRoot?.querySelector(".div-value")?.textContent.trim()).toBe("-0.15");
+    element.remove();
+  });
+
+  it("explains the selection formula and Maximum Marginal Relevance ordering", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    await element.updateComplete;
+
+    const popup = element.shadowRoot?.querySelector(".score-popup");
+    const text = normalizedText(popup);
+    expect(text).toContain("(0.700 × 1.00) + (0.500 × 1.00) = 1.200");
+    expect(text).toContain("1.200 ÷ 2.00 = 0.600");
+    expect(text).toContain("0.600 ÷ 0.600 = 1.000 relevance");
+    expect(text).toContain("Maximum Marginal Relevance (MMR)");
+    expect(text).toContain("(0.30 × 1.000) − 0.150 = 0.150");
+    expect(text).toContain("score that caused this post to be selected at this position");
+    expect(text).toContain("selection scores across positions do not have to decrease");
+    expect(text).not.toContain("Engaging score 0.700");
+    expect(text).not.toContain("Constructive score 0.500");
+    expect(text).not.toContain("Author repetition");
+    expect(text).not.toContain("Similar posts");
+    element.remove();
+  });
+
+  it("shows the penalty values used in the diversification adjustment", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLElement>(".info-icon")?.click();
+    await element.updateComplete;
+
+    const popup = element.shadowRoot?.querySelector(".div-popup");
+    const text = normalizedText(popup);
+    expect(text).toContain("− (0.100 + 0.050) = -0.150");
+    expect(text).toContain("Repeated-author penalty 0.100");
+    expect(text).toContain("Similar-content penalty 0.050");
+    expect(text).toContain("Diversification adjustment -0.150");
+    element.remove();
+  });
+
+  it("derives the selection score from relevance and penalties", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: 0.89,
+      modelScores: [
+        { name: "heavy_ranker", weight: 0.5, score: 0.95 },
+        { name: "perspective", weight: 0.5, score: 0.83 },
+      ],
+      diversification: {
+        relevance: 0.91,
+        score: 0.91,
+        authorPenalty: 0,
+        contentPenalty: 0,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.27");
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("(0.950 × 0.50) + (0.830 × 0.50) = 0.890");
+    expect(text).toContain("0.890 ÷ 1.00 = 0.890");
+    expect(text).toContain("(0.30 × 0.910) − 0.000 = 0.273");
+    element.remove();
+  });
+
+  it("falls back to the weighted model score without diversification or rankScore", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = { ...item(), rankScore: null, diversification: null };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.60");
+    element.remove();
+  });
+
+  it("explains the weighted ranker formula when diversification is absent", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = { ...item(), diversification: null };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    await element.updateComplete;
+
+    const popup = element.shadowRoot?.querySelector(".score-popup");
+    const text = normalizedText(popup);
+    expect(text).toContain("1.200 ÷ 2.00 = 0.600");
+    expect(text).not.toContain("Engaging: 0.700");
+    expect(text).not.toContain("Constructive: 0.500");
     element.remove();
   });
 });

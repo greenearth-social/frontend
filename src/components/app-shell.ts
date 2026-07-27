@@ -410,6 +410,22 @@ export class AppShell extends MobxLitElement {
       border-left: none;
       border-right: none;
     }
+    .auth-progress {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 100dvh;
+      text-align: center;
+    }
+    .auth-progress wa-spinner {
+      font-size: 2rem;
+    }
+    .auth-progress p {
+      margin: 0.75rem 0 0;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.875rem;
+    }
   `;
 
   connectedCallback(): void {
@@ -452,10 +468,10 @@ export class AppShell extends MobxLitElement {
 
     if (this._currentRoute.startsWith("/auth/finish")) {
       return html`
-        <div class="flex items-center justify-center flex-1 min-h-screen">
-          <div class="text-center">
-            <wa-spinner style="font-size: 2rem"></wa-spinner>
-            <p class="text-sm text-[var(--bluesky-text-secondary)] mt-3">Completing sign in...</p>
+        <div class="auth-progress">
+          <div>
+            <wa-spinner></wa-spinner>
+            <p>Completing sign in...</p>
           </div>
         </div>
       `;
@@ -691,7 +707,11 @@ export class AppShell extends MobxLitElement {
 
   #handleLogout = async () => {
     this._showLogoutMenu = false;
+    this._drawerOpen = false;
     this._justSignedOut = true;
+    this.requestUpdate();
+    await this.updateComplete;
+
     const store = getRootStore();
     if (store) {
       await store.authStore.signOut();

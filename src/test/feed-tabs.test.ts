@@ -3,6 +3,7 @@ import { FeedTabs } from "../components/feed-tabs";
 
 function makeTabs() {
   const element = document.createElement("feed-tabs");
+  element.activeRequestId = "req-1";
   element.feeds = [
     {
       requestId: "req-1",
@@ -14,21 +15,11 @@ function makeTabs() {
           name: "followed_users",
           weight: 0.7,
           requestedCount: 70,
-          returnedCount: 0,
-          contributedCount: 0,
-          status: "empty",
-          reason: "no_recent_followed_posts",
-          mode: "primary",
-        },
-        {
-          name: "followed_users",
-          weight: 0.7,
-          requestedCount: 70,
           returnedCount: 12,
           contributedCount: 10,
           status: "success",
           reason: null,
-          mode: "direct_friends_7d",
+          mode: "primary",
         },
       ],
     },
@@ -51,17 +42,31 @@ describe("FeedTabs source breakdown", () => {
     element.addEventListener("tab-change", changed);
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".breakdown-button")?.click();
+    element.showActiveBreakdown();
     await element.updateComplete;
 
     expect(changed).not.toHaveBeenCalled();
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Friends");
+    expect(element.shadowRoot?.querySelectorAll(".breakdown-button")).toHaveLength(0);
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("followed_users");
+    element.remove();
+  });
+
+  it("stays open when triggered by the header button outside the tabs", async () => {
+    const element = makeTabs();
+    const externalButton = document.createElement("button");
+    externalButton.addEventListener("click", (event) => {
+      element.showActiveBreakdown(event);
+    });
+    document.body.appendChild(externalButton);
+    await element.updateComplete;
+
+    externalButton.click();
+    await element.updateComplete;
+
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
-      "no_recent_followed_posts",
+      "followed_users",
     );
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
-      "Friends · 1–7 days",
-    );
+    externalButton.remove();
     element.remove();
   });
 
@@ -77,7 +82,7 @@ describe("FeedTabs source breakdown", () => {
     };
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".breakdown-button")?.click();
+    element.showActiveBreakdown();
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
@@ -92,11 +97,11 @@ describe("FeedTabs source breakdown", () => {
   it("keeps only one breakdown open and closes it with Escape", async () => {
     const element = makeTabs();
     await element.updateComplete;
-    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".breakdown-button");
-
-    buttons?.[0]?.click();
+    element.showActiveBreakdown();
     await element.updateComplete;
-    buttons?.[1]?.click();
+    element.activeRequestId = "req-2";
+    await element.updateComplete;
+    element.showActiveBreakdown();
     await element.updateComplete;
     expect(element.shadowRoot?.querySelectorAll("dialog")).toHaveLength(1);
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Balanced");
@@ -111,7 +116,7 @@ describe("FeedTabs source breakdown", () => {
     const element = makeTabs();
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".breakdown-button")?.click();
+    element.showActiveBreakdown();
     await element.updateComplete;
 
     const dialog = element.shadowRoot?.querySelector<HTMLDialogElement>("dialog");

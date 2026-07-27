@@ -20,7 +20,7 @@ The `vite.config.ts` proxy rules forward the OAuth and metadata paths to the Fun
 
 ## What you need
 
-- A Bluesky account
+- A Bluesky-hosted account and, when testing federation, an account on a custom PDS
 - Node.js 20+
 - Firebase CLI (`npm install -g firebase-tools`)
 - Tailscale Funnel or ngrok for a public HTTPS URL
@@ -148,19 +148,33 @@ Both should return valid JSON with HTTP 200 and `Content-Type: application/json`
 
 ## 7. Trigger the OAuth flow
 
-Visit:
+Open the app through the tunnel. For a Bluesky-hosted account, select **Sign in
+with Bluesky**; no handle is required. For an account on a custom PDS, enter the
+full handle under **or use a custom PDS** and select **Continue with handle**.
+The Functions emulator resolves custom handles to their DID, discovers the PDS
+and authorization server, and redirects the browser to that server.
+
+For a direct smoke test of the start endpoint, visit:
 
 ```text
 https://<your-tunnel>/auth/bluesky?return_url=/feed
+https://<your-tunnel>/auth/bluesky?handle=<custom-pds-handle>&return_url=/feed
 ```
 
-You should be redirected to Bluesky, see a consent screen, and then be redirected back to:
+You should be redirected to the authorization domain for that account's PDS,
+see its consent screen, and then be redirected back to:
 
 ```text
 https://<your-tunnel>/#/auth/finish?token=...&return_url=/feed
 ```
 
 The frontend will call `signInWithCustomToken(token)` and redirect to `#/feed`.
+
+Repeat this step with:
+
+1. A `*.bsky.social` handle, which should use Bluesky's authorization server.
+2. A handle hosted by a custom PDS, which should use the authorization server
+   declared by that PDS rather than `bsky.social`.
 
 ## 8. Verify no prod data was touched
 
@@ -175,6 +189,9 @@ The frontend will call `signInWithCustomToken(token)` and redirect to `#/feed`.
 | Tunnel URL shows feed landing page instead of JSON/metadata | Functions emulator not running or Vite process started before emulators | Start emulators first, then restart Vite |
 | Vite rejects tunnel requests (403/blocked) | `VITE_ALLOWED_HOSTS` missing tunnel domain | Add tunnel hostname to `VITE_ALLOWED_HOSTS` in `.env.local` and restart Vite |
 | Bluesky shows "client_id could not be fetched" | Metadata URL is not publicly reachable or returns wrong content type | Check tunnel is up and `APP_ORIGIN` matches the tunnel URL exactly |
+| The app says the handle cannot be resolved | The handle has no valid `_atproto` TXT record or `/.well-known/atproto-did` response | Repair the handle-to-DID mapping and confirm the DID document claims the same handle |
+| The app says the DID document does not declare a PDS | The DID document lacks an `#atproto_pds` service | Add the account's current PDS service to its DID document |
+| The app rejects an authorization server URL | PDS OAuth metadata points to a non-HTTPS, local/private, redirected, or malformed endpoint | Publish standards-compliant protected-resource and authorization-server metadata on public HTTPS origins |
 | `/.well-known/oauth-client-metadata` 404 | `firebase.json` rewrite not active or Functions emulator not running | Restart `npm run emulators` from the frontend repository |
 | `/.well-known/oauth-client-metadata` returns "APP_ORIGIN not configured" | Missing env in functions | Verify `functions/.env` has `APP_ORIGIN` set |
 | `jwks_uri` fetch fails | JWKS endpoint returns error or wrong content type | Verify `BLUESKY_OAUTH_PUBLIC_JWKS` is set and valid JSON |

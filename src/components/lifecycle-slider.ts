@@ -27,10 +27,8 @@ export class LifecycleSlider extends LitElement {
   @property({ type: Array }) stageLabels: LifecycleStageLabels = [[], [], [], [], []];
   @state() private _thumbPercent = 0;
   @state() private _isDragging = false;
-  @state() private _showPopup = false;
   @state() private _previewStage: number | null = null;
-  @state() private _popupTimer: ReturnType<typeof setTimeout> | null = null;
-  private _initialized = false;
+  @state() private _touchPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _trackRect: DOMRect | null = null;
   private _dragStartX = 0;
@@ -50,8 +48,7 @@ export class LifecycleSlider extends LitElement {
     .labels-track {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      padding: 0 0.75rem;
-      margin-bottom: 0.25rem;
+      padding: 0.5rem 0.75rem 0;
     }
     .label-left,
     .label-right {
@@ -127,7 +124,7 @@ export class LifecycleSlider extends LitElement {
     .stage-values {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      padding: 0.5rem 0.75rem 0;
+      padding: 0 0.75rem 0.5rem;
     }
     .stage-value {
       display: flex;
@@ -143,39 +140,6 @@ export class LifecycleSlider extends LitElement {
     }
     .stage-value.preview {
       color: var(--bluesky-text);
-    }
-    .popup {
-      position: absolute;
-      bottom: calc(100% + 0.5rem);
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-      pointer-events: none;
-    }
-    .popup-card {
-      background: linear-gradient(135deg, rgba(30, 39, 50, 0.98) 0%, rgba(21, 32, 43, 0.99) 100%);
-      border: 1px solid var(--bluesky-border);
-      border-radius: 12px;
-      padding: 0.75rem 1rem;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
-      white-space: nowrap;
-    }
-    .popup-message {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--bluesky-brand);
-      margin: 0;
-    }
-    @keyframes popIn {
-      from {
-        opacity: 0;
-        transform: translateX(-50%) scale(0.9) translateY(4px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) scale(1) translateY(0);
-      }
     }
   `;
 
@@ -194,6 +158,7 @@ export class LifecycleSlider extends LitElement {
     window.removeEventListener("mouseup", this.#onMouseUp);
     window.removeEventListener("touchmove", this.#onTouchMove);
     window.removeEventListener("touchend", this.#onTouchEnd);
+    if (this._touchPreviewTimer) clearTimeout(this._touchPreviewTimer);
   }
 
   updated(changedProperties: Map<string, unknown>) {
@@ -202,10 +167,6 @@ export class LifecycleSlider extends LitElement {
       const oldValue = changedProperties.get("value") as number;
       if (oldValue !== this.value) {
         this._thumbPercent = this.#stageCenterPercent(this.value);
-        if (this._initialized) {
-          this.#showPopup();
-        }
-        this._initialized = true;
       }
     }
   }
@@ -213,19 +174,16 @@ export class LifecycleSlider extends LitElement {
   render() {
     return html`
       <div class="slider-container ${this.disabled ? "disabled" : ""}">
-        ${this._showPopup ? html`
-          <div class="popup">
-            <div class="popup-card">
-              <p class="popup-message">Refresh your BlueSky Feed to see updates!</p>
-            </div>
-          </div>
-        ` : ""}
-        <div class="labels-track">
-          <span class="label-left">${this.leftLabel}</span>
-          <div></div>
-          <div></div>
-          <div></div>
-          <span class="label-right">${this.rightLabel}</span>
+        <div class="stage-values">
+          ${this.stageLabels.map(
+            (lines, index) => html`
+              <div class="stage-value ${index === this._previewStage ? "preview" : ""}">
+                ${index === (this._previewStage ?? this.value)
+                  ? lines.map((line) => html`<span>${line}</span>`)
+                  : ""}
+              </div>
+            `,
+          )}
         </div>
         <div class="slider-wrapper">
           <div
@@ -258,27 +216,15 @@ export class LifecycleSlider extends LitElement {
             )}
           </div>
         </div>
-        <div class="stage-values">
-          ${this.stageLabels.map(
-            (lines, index) => html`
-              <div class="stage-value ${index === this._previewStage ? "preview" : ""}">
-                ${index === (this._previewStage ?? this.value)
-                  ? lines.map((line) => html`<span>${line}</span>`)
-                  : ""}
-              </div>
-            `,
-          )}
+        <div class="labels-track">
+          <span class="label-left">${this.leftLabel}</span>
+          <div></div>
+          <div></div>
+          <div></div>
+          <span class="label-right">${this.rightLabel}</span>
         </div>
       </div>
     `;
-  }
-
-  #showPopup() {
-    this._showPopup = true;
-    if (this._popupTimer) clearTimeout(this._popupTimer);
-    this._popupTimer = setTimeout(() => {
-      this._showPopup = false;
-    }, 3000);
   }
 
   #onMouseDown = (e: MouseEvent) => {
@@ -313,13 +259,13 @@ export class LifecycleSlider extends LitElement {
   };
 
   #onTouchStart = (e: TouchEvent) => {
-    if (this.disabled) return;
     this._trackRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const touch = e.touches[0];
     if (touch) {
       this._dragStartX = touch.clientX;
       this._hasDragged = false;
       this._isDragging = false;
+      this.#showTouchPreview(this.#stageIndexFromX(touch.clientX));
     }
   };
 
@@ -330,17 +276,20 @@ export class LifecycleSlider extends LitElement {
     const dx = Math.abs(touch.clientX - this._dragStartX);
     if (dx > 3) {
       this._hasDragged = true;
-      this._isDragging = true;
       e.preventDefault();
-      this.#updateFromX(touch.clientX);
+      this.#showTouchPreview(this.#stageIndexFromX(touch.clientX));
     }
   };
 
   #onTouchEnd = () => {
     if (!this._trackRect) return;
     if (this._hasDragged) {
-      this._isDragging = false;
-      this.#snapToNearest();
+      this.#showTouchPreview(this._previewStage ?? this.value);
+    } else if (this.disabled) {
+      this.#showTouchPreview(this._previewStage ?? this.value);
+    } else {
+      this.#animateToX(this._dragStartX);
+      this.#showTouchPreview(this.value);
     }
     this._trackRect = null;
     this._isDragging = false;
@@ -377,10 +326,20 @@ export class LifecycleSlider extends LitElement {
     return ((index + 0.5) / n) * 100;
   }
 
-  #snapToNearest() {
+  #stageIndexFromX(clientX: number): number {
+    if (!this._trackRect) return this.value;
+    const offset = clientX - this._trackRect.left;
+    const percent = Math.max(0, Math.min(100, (offset / this._trackRect.width) * 100));
+    return this.#stageIndexFromPercent(percent);
+  }
+
+  #stageIndexFromPercent(percent: number): number {
     const n = STAGES.length;
-    const index = Math.floor((this._thumbPercent / 100) * n);
-    const clampedIndex = Math.max(0, Math.min(n - 1, index));
+    return Math.max(0, Math.min(n - 1, Math.floor((percent / 100) * n)));
+  }
+
+  #snapToNearest() {
+    const clampedIndex = this.#stageIndexFromPercent(this._thumbPercent);
     this.value = clampedIndex;
     this._thumbPercent = this.#stageCenterPercent(clampedIndex);
     this.dispatchEvent(
@@ -390,6 +349,14 @@ export class LifecycleSlider extends LitElement {
         detail: { value: clampedIndex },
       }),
     );
+  }
+
+  #showTouchPreview(index: number): void {
+    this._previewStage = index;
+    if (this._touchPreviewTimer) clearTimeout(this._touchPreviewTimer);
+    this._touchPreviewTimer = setTimeout(() => {
+      this._previewStage = null;
+    }, 1500);
   }
 }
 

@@ -12,6 +12,12 @@ const GENERATOR_STYLES: Record<string, { bg: string; color: string; border: stri
 
 const DEFAULT_STYLE = { bg: "rgba(113, 118, 123, 0.15)", color: "#71767b", border: "rgba(113, 118, 123, 0.4)" };
 
+const GENERATOR_LABELS: Record<string, string> = {
+  two_tower: "Author/Topic",
+  followed_users: "Followed",
+  popularity: "Popular",
+};
+
 @customElement("generator-badge")
 export class GeneratorBadge extends LitElement {
   @property({ type: String }) name = "";
@@ -39,7 +45,7 @@ export class GeneratorBadge extends LitElement {
           white-space: nowrap;
         "
       >
-        ${this.name}
+        ${GENERATOR_LABELS[this.name] ?? this.name}
       </span>
     `;
   }

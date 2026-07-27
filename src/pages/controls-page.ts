@@ -27,7 +27,7 @@ const HELP_CONTENT: Record<ControlHelp, {
   freshness: {
     title: "Freshness",
     paragraphs: [
-      { text: "Controls the maximum age of posts considered for your feed, from 6 hours through 7 days." },
+      { text: "Controls the maximum candidate-post age for every feed source simultaneously, from 6 hours through 7 days." },
     ],
   },
   politics: {
@@ -52,6 +52,8 @@ export class ControlsPage extends LitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @state() private isLoading = true;
   @state() private activeHelp: ControlHelp | null = null;
+  @state() private showRefreshPopup = false;
+  private refreshPopupTimer: ReturnType<typeof setTimeout> | null = null;
 
   static styles = css`
     :host {
@@ -68,6 +70,7 @@ export class ControlsPage extends LitElement {
     }
     .controls-content {
       padding: 1.5rem;
+      position: relative;
     }
     .slider-group {
       margin-bottom: 2rem;
@@ -154,7 +157,51 @@ export class ControlsPage extends LitElement {
     .info-popup p {
       margin: 0.5rem 0 0;
     }
+    .refresh-popup {
+      position: absolute;
+      top: 0.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    .refresh-popup-card {
+      background: linear-gradient(
+        135deg,
+        rgba(30, 39, 50, 0.98) 0%,
+        rgba(21, 32, 43, 0.99) 100%
+      );
+      border: 1px solid var(--bluesky-border);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+      white-space: nowrap;
+    }
+    .refresh-popup-message {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--bluesky-brand);
+      margin: 0;
+    }
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.9) translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1) translateY(0);
+      }
+    }
   `;
+
+  disconnectedCallback(): void {
+    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
+    super.disconnectedCallback();
+  }
 
   firstUpdated() {
     const root = getRootStore();
@@ -171,7 +218,7 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     const prefs = root?.preferencesStore.values ?? {
       socialRadius: 3,
-      freshness: 2,
+      freshness: 5,
       politics: 1.0,
       purpose: 0.5,
     };
@@ -217,6 +264,17 @@ export class ControlsPage extends LitElement {
         </style>
       </div>
       <div class="controls-content">
+        ${this.showRefreshPopup
+          ? html`
+              <div class="refresh-popup" role="status" aria-live="polite">
+                <div class="refresh-popup-card">
+                  <p class="refresh-popup-message">
+                    Refresh your BlueSky Feed to see updates!
+                  </p>
+                </div>
+              </div>
+            `
+          : ""}
         <div class="slider-group">
           <div class="slider-title">
             <span>Social Radius</span>
@@ -238,10 +296,9 @@ export class ControlsPage extends LitElement {
               `}
         </div>
 
-        <div class="slider-group disabled-control">
+        <div class="slider-group">
           <div class="slider-title">
             <span>Freshness</span>
-            <span class="coming-soon">Coming Soon!</span>
             ${this.#helpButton("freshness", "Freshness")}
           </div>
           ${this.isLoading
@@ -249,8 +306,8 @@ export class ControlsPage extends LitElement {
             : html`
                 <discrete-slider
                   .options=${FRESHNESS_PRESETS.map((p) => p.label)}
+                  .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
                   value=${prefs.freshness}
-                  disabled
                   @slider-change=${(e: CustomEvent<{ value: number }>) => {
                     this.#handleFreshnessChange(e.detail.value);
                   }}
@@ -338,6 +395,7 @@ export class ControlsPage extends LitElement {
   }
 
   #handleSocialRadiusChange(value: number) {
+    this.#showRefreshPopup();
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, socialRadius: value };
@@ -345,6 +403,7 @@ export class ControlsPage extends LitElement {
   }
 
   #handleFreshnessChange(value: number) {
+    this.#showRefreshPopup();
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, freshness: value };
@@ -363,6 +422,14 @@ export class ControlsPage extends LitElement {
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, purpose: value };
     void root.preferencesStore.save(newPrefs);
+  }
+
+  #showRefreshPopup(): void {
+    this.showRefreshPopup = true;
+    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
+    this.refreshPopupTimer = setTimeout(() => {
+      this.showRefreshPopup = false;
+    }, 3000);
   }
 }
 

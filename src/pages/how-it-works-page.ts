@@ -839,7 +839,7 @@ export class HowItWorksPage extends LitElement {
     if (node.id === "time_window" && prefs) {
       const freshness = FRESHNESS_PRESETS[prefs.freshness];
       valueDisplay = html`
-        <div class="popup-value"><strong>Current:</strong> ${freshness?.label ?? "24h"}</div>
+        <div class="popup-value"><strong>Current:</strong> ${freshness?.label ?? "7d"}</div>
       `;
     } else if (node.id === "following" && prefs) {
       const weights = root.preferencesStore.socialRadiusWeights;
