@@ -16,11 +16,6 @@ vi.mock("../main", () => ({
 import "../pages/feed-page";
 
 describe("FeedPage sign in", () => {
-  async function openCustomPdsForm(element: HTMLElement & { updateComplete: Promise<boolean> }) {
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".custom-pds-toggle")?.click();
-    await element.updateComplete;
-  }
-
   beforeEach(() => {
     window.location.hash = "#/controls";
   });
@@ -30,51 +25,23 @@ describe("FeedPage sign in", () => {
     document.body.replaceChildren();
   });
 
-  it("keeps both sign-in choices obvious while collapsing the custom-PDS form", async () => {
+  it("shows one handle-first sign-in form for every account provider", async () => {
     const element = document.createElement("feed-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector(".bluesky-sign-in")?.textContent).toContain(
-      "Sign in with Bluesky",
-    );
-    expect(element.shadowRoot?.querySelector(".custom-pds-toggle")?.textContent).toContain(
-      "Sign in with a custom PDS",
-    );
-    expect(element.shadowRoot?.querySelector("#account-handle")).toBeNull();
-
-    await openCustomPdsForm(element);
+    expect(element.shadowRoot?.querySelectorAll("form")).toHaveLength(1);
+    expect(element.shadowRoot?.querySelector(".bluesky-sign-in")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".custom-pds-toggle")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".sign-in-divider")).toBeNull();
     expect(element.shadowRoot?.querySelector("label")?.textContent).toContain("Account handle");
-    expect(element.shadowRoot?.querySelector<HTMLInputElement>("#account-handle")?.placeholder).toBe(
-      "alice.example.com",
-    );
-  });
-
-  it("uses a compact logo and spacing on tiny screens", async () => {
-    const element = document.createElement("feed-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    const styles = element.shadowRoot?.textContent ?? "";
-    expect(styles).toContain("@media (max-height: 560px), (max-width: 360px)");
-    expect(styles).toContain("width: 96px");
-  });
-
-  it("starts Bluesky sign-in without requiring a handle", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        new Response(JSON.stringify({ redirectUrl: "https://bsky.social/oauth/authorize" })),
-      );
-    const element = document.createElement("feed-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".bluesky-sign-in")?.click();
-    await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledOnce();
-    });
-
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/auth/bluesky?return_url=%2Fcontrols");
+    expect(
+      element.shadowRoot?.querySelector<HTMLInputElement>("#account-handle")?.placeholder,
+    ).toBe("alice.bsky.social");
+    expect(element.shadowRoot?.querySelector("#handle-help")).toBeNull();
+    expect(
+      element.shadowRoot?.querySelector<HTMLButtonElement>("button[type=submit]")?.textContent,
+    ).toContain("Continue");
   });
 
   it("normalizes the handle and preserves the return route", async () => {
@@ -86,7 +53,6 @@ describe("FeedPage sign in", () => {
     const element = document.createElement("feed-page");
     document.body.appendChild(element);
     await element.updateComplete;
-    await openCustomPdsForm(element);
     const input = element.shadowRoot?.querySelector<HTMLInputElement>("#account-handle");
     const form = element.shadowRoot?.querySelector<HTMLFormElement>("form");
     if (!input || !form) throw new Error("Sign-in form did not render");
@@ -104,16 +70,15 @@ describe("FeedPage sign in", () => {
     expect(requestedUrl.pathname).toBe("/auth/bluesky");
     expect(requestedUrl.searchParams.get("handle")).toBe("alice.example.com");
     expect(requestedUrl.searchParams.get("return_url")).toBe("/controls");
-    expect(element.shadowRoot?.querySelector<HTMLButtonElement>("button[type=submit]")?.disabled).toBe(
-      true,
-    );
+    expect(
+      element.shadowRoot?.querySelector<HTMLButtonElement>("button[type=submit]")?.disabled,
+    ).toBe(true);
   });
 
   it("shows validation and OAuth startup errors", async () => {
     const element = document.createElement("feed-page");
     document.body.appendChild(element);
     await element.updateComplete;
-    await openCustomPdsForm(element);
     const input = element.shadowRoot?.querySelector<HTMLInputElement>("#account-handle");
     const form = element.shadowRoot?.querySelector<HTMLFormElement>("form");
     if (!input || !form) throw new Error("Sign-in form did not render");
@@ -124,7 +89,17 @@ describe("FeedPage sign in", () => {
       "Enter a valid handle",
     );
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("Handle could not be resolved", { status: 400 }));
+    input.value = "https://pds.example.com";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+      "Enter a valid handle",
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Handle could not be resolved", { status: 400 }),
+    );
     input.value = "alice.example.com";
     input.dispatchEvent(new InputEvent("input", { bubbles: true }));
     form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
@@ -133,5 +108,19 @@ describe("FeedPage sign in", () => {
         "Handle could not be resolved",
       );
     });
+
+    input.value = "bob.bsky.social";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector("[role=alert]")).toBeNull();
+  });
+
+  it("uses a compact logo and spacing on tiny screens", async () => {
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    const styles = element.shadowRoot?.textContent ?? "";
+    expect(styles).toContain("@media (max-height: 560px), (max-width: 360px)");
+    expect(styles).toContain("width: 96px");
   });
 });
