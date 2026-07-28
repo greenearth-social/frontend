@@ -5,6 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
+import { ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
@@ -122,6 +123,12 @@ export class FeedStore {
 
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
+
+      const firstPublic = this.feedList.find((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName));
+      if (firstPublic) {
+        this.root.uiStore.setSelectedAlgorithm(firstPublic.feedName as AlgorithmId);
+      }
+
       if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
