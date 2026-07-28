@@ -5,6 +5,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
+import { ALGORITHM_IDS, ALGORITHMS, type AlgorithmId } from "../constants/algorithms";
 import "../pages/feed-page";
 import "../pages/controls-page";
 import "../pages/how-it-works-page";
@@ -88,6 +89,51 @@ export class AppShell extends MobxLitElement {
       width: 100%;
       height: auto;
       display: block;
+    }
+
+    /* ── Algorithm selector ── */
+    .algo-selector {
+      width: 100%;
+      padding: 0.75rem 0.5rem 0.5rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--bluesky-border);
+      flex-shrink: 0;
+    }
+    @media (min-width: 1024px) {
+      .algo-selector {
+        padding: 0.75rem 1rem 0.5rem 1rem;
+      }
+    }
+
+    .algo-btn {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.625rem 0.75rem;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: var(--bluesky-text);
+      text-decoration: none;
+      font-size: 1.0625rem;
+      cursor: pointer;
+      transition: background-color 0.15s;
+      width: 100%;
+      text-align: left;
+    }
+    .algo-btn:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .algo-btn.active {
+      background: var(--bluesky-brand);
+      color: #fff;
+      font-weight: 700;
+    }
+    .algo-btn wa-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
     }
 
     .sidebar-nav-wrapper {
@@ -463,7 +509,7 @@ export class AppShell extends MobxLitElement {
         <wa-callout variant="danger">Store not initialized</wa-callout>
       </div>`;
 
-    const { authStore, accountStore, feedStore } = store;
+    const { authStore, accountStore, feedStore, uiStore } = store;
     const hash = window.location.hash.slice(1) || "/feed";
 
     if (this._currentRoute.startsWith("/auth/finish")) {
@@ -484,6 +530,24 @@ export class AppShell extends MobxLitElement {
     const showDisplayName = authorName && authorName !== authorHandle;
 
     const sidebarContent = html`
+      <div class="algo-selector">
+        ${ALGORITHM_IDS.map((id) => {
+          const algo = ALGORITHMS[id];
+          const isActive = uiStore.selectedAlgorithm === id;
+          return html`
+            <button
+              class="algo-btn ${isActive ? "active" : ""}"
+              @click=${() => { this.#selectAlgorithm(id); }}
+              aria-label=${algo.label}
+              aria-pressed=${isActive}
+              type="button"
+            >
+              <wa-icon name=${algo.icon} library="app"></wa-icon>
+              <span class="nav-label">${algo.label}</span>
+            </button>
+          `;
+        })}
+      </div>
       <div class="sidebar-nav-wrapper">
         <nav class="flex-1 flex flex-col gap-1 mt-0.5">
           ${NAV_ITEMS.map((item) => {
@@ -581,9 +645,6 @@ export class AppShell extends MobxLitElement {
 
       <aside class="drawer ${this._drawerOpen ? "open" : ""}">
         <div class="drawer-header">
-          <div class="sidebar-logo" style="width: auto; border-bottom: none; flex: 1;">
-            <img src="/assets/greenearth-logo.png" alt="GreenEarth" />
-          </div>
           <button class="drawer-close" @click=${this.#closeDrawer} aria-label="Close navigation">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -606,9 +667,6 @@ export class AppShell extends MobxLitElement {
         ${authStore.isSignedIn ? html`
           <aside class="left-sidebar left-sidebar-desktop hidden lg:flex">
             <div class="left-sidebar-inner">
-              <div class="sidebar-logo">
-                <img src="/assets/greenearth-logo.png" alt="GreenEarth" />
-              </div>
               ${sidebarContent}
             </div>
           </aside>
@@ -697,6 +755,17 @@ export class AppShell extends MobxLitElement {
   #closeDrawer = () => {
     this._drawerOpen = false;
     this.requestUpdate();
+  };
+
+  #selectAlgorithm = (id: AlgorithmId) => {
+    const store = getRootStore();
+    if (!store) return;
+    store.uiStore.setSelectedAlgorithm(id);
+    const match = store.feedStore.feedList.find((f) => f.feedName === id);
+    if (match) {
+      void store.feedStore.loadFeedDetail(match.requestId);
+    }
+    this.#closeDrawer();
   };
 
   #toggleLogoutMenu = (e: Event) => {
