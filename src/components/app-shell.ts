@@ -679,7 +679,10 @@ export class AppShell extends MobxLitElement {
         >
           ${
             this._currentRoute === "/controls"
-              ? html`<controls-page .onOpenMenu=${this.#openDrawer}></controls-page>`
+              ? html`<controls-page
+                    .onOpenMenu=${this.#openDrawer}
+                    .selectedAlgorithm=${store.uiStore.selectedAlgorithm ?? "your-feed"}
+                  ></controls-page>`
               : this._currentRoute === "/how-it-works"
                 ? html`<how-it-works-page
                     .onOpenMenu=${this.#openDrawer}
