@@ -181,4 +181,43 @@ describe("AppShell algorithm selector", () => {
     expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
     expect(testState.rootStore.feedStore.loadFeedDetail).toHaveBeenCalledWith("r2");
   });
+
+  it("selects the most recent feed when multiple feeds have the same feedName", async () => {
+    // Simulate a scenario where the same feed was run twice.
+    // The most recent run should be first (index 0).
+    testState.rootStore.feedStore.feedList = [
+      {
+        requestId: "r1-recent",
+        generatedAt: new Date().toISOString(),
+        feedName: "your-feed",
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+      {
+        requestId: "r1-old",
+        generatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+        feedName: "your-feed",
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    testState.rootStore.uiStore.selectedAlgorithm = "best-of-friends";
+    testState.rootStore.uiStore.setSelectedAlgorithm.mockReset();
+    testState.rootStore.feedStore.loadFeedDetail.mockReset();
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    // click the "your-feed" algorithm button (labeled "GreenEarth")
+    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".left-sidebar-desktop .algo-btn");
+    const yourFeedBtn = Array.from(buttons ?? []).find(
+      (b) => b.getAttribute("aria-label") === "GreenEarth",
+    );
+    yourFeedBtn?.click();
+    await element.updateComplete;
+
+    // Should load the most recent one (r1-recent, which is at index 0)
+    expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(testState.rootStore.feedStore.loadFeedDetail).toHaveBeenCalledWith("r1-recent");
+  });
 });
