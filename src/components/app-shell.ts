@@ -692,6 +692,8 @@ export class AppShell extends MobxLitElement {
               <right-sidebar
                 .feeds=${feedStore.feedList}
                 .activeRequestId=${feedStore.currentRequestId}
+                .selectedAlgorithm=${uiStore.selectedAlgorithm}
+                .blueskyUrl=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].blueskyUrl : ""}
                 @feed-select=${(e: CustomEvent<{ requestId: string }>) => {
                   void feedStore.loadFeedDetail(e.detail.requestId);
                 }}
