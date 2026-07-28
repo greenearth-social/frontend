@@ -1,12 +1,15 @@
 import { makeAutoObservable } from "mobx";
+import type { AlgorithmId } from "../constants/algorithms";
 
 export class UIStore {
   selectedItemUri: string | null;
   selectedFeed: string;
+  selectedAlgorithm: AlgorithmId | null;
 
   constructor() {
     this.selectedItemUri = null;
     this.selectedFeed = "latest";
+    this.selectedAlgorithm = null;
     makeAutoObservable(this);
   }
 
@@ -20,5 +23,9 @@ export class UIStore {
 
   setSelectedFeed(feed: string): void {
     this.selectedFeed = feed;
+  }
+
+  setSelectedAlgorithm(id: AlgorithmId): void {
+    this.selectedAlgorithm = id;
   }
 }
