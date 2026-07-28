@@ -769,7 +769,11 @@ export class AppShell extends MobxLitElement {
     const store = getRootStore();
     if (!store) return;
     store.uiStore.setSelectedAlgorithm(id);
-    const match = store.feedStore.feedList.find((f) => f.feedName === id);
+    const matches = store.feedStore.feedList.filter((f) => f.feedName === id);
+    const match = matches.reduce<(typeof matches)[0] | undefined>(
+      (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+      undefined,
+    );
     if (match) {
       void store.feedStore.loadFeedDetail(match.requestId);
     }

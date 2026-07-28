@@ -59,6 +59,18 @@ describe("RightSidebar", () => {
     expect(el.shadowRoot?.querySelector(".stale-notice")).toBeTruthy();
   });
 
+  it("shows no-data card when algorithm is null and feeds are empty", async () => {
+    const el = document.createElement("right-sidebar") as RightSidebar;
+    el.feeds = [];
+    // selectedAlgorithm defaults to null, blueskyUrl defaults to ""
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector(".stale-notice")).toBeFalsy();
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("No recent feeds");
+  });
+
   it("shows feed list when at least one feed is within 24h", async () => {
     const el = document.createElement("right-sidebar") as RightSidebar;
     el.feeds = [makeFeed("your-feed", 1), makeFeed("your-feed", 30)];

@@ -95,7 +95,9 @@ export class RightSidebar extends LitElement {
       (f) => now - new Date(f.generatedAt).getTime() < TWENTY_FOUR_HOURS_MS,
     );
 
-    if (!hasRecent) {
+    // Only show stale notice when an algorithm is selected (blueskyUrl is set)
+    // and no recent feed exists. Fall through to the empty-list card otherwise.
+    if (!hasRecent && this.blueskyUrl) {
       return html`
         <div style="padding: 0.5rem 0;">
           <div class="card">
@@ -112,6 +114,19 @@ export class RightSidebar extends LitElement {
               >
                 Open in Bluesky
               </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      return html`
+        <div style="padding: 0.5rem 0;">
+          <div class="card">
+            <div class="card-header">Feed Snapshots</div>
+            <div class="feed-item" style="cursor: default; color: var(--bluesky-text-secondary);">
+              No recent feeds
             </div>
           </div>
         </div>
