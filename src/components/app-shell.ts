@@ -448,7 +448,7 @@ export class AppShell extends MobxLitElement {
       const store = getRootStore();
       if (
         store?.authStore.isSignedIn &&
-        store.feedStore.feedList.length === 0 &&
+        store.feedStore.feedListLoadState === "idle" &&
         !store.feedStore.isLoading
       ) {
         void store.feedStore.loadFeedList();

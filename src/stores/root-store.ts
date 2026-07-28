@@ -17,9 +17,9 @@ export class RootStore {
     this.services = services;
 
     this.preferencesStore = new PreferencesStore(this);
-    this.authStore = new AuthStore(this);
-    this.accountStore = new AccountStore(this);
     this.feedStore = new FeedStore(this);
     this.uiStore = new UIStore();
+    this.authStore = new AuthStore(this);
+    this.accountStore = new AccountStore(this);
   }
 }

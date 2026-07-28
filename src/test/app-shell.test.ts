@@ -14,6 +14,8 @@ const testState = vi.hoisted(() => ({
     },
     feedStore: {
       feedList: [],
+      items: [],
+      feedListLoadState: "loading",
       isLoading: true,
       error: null,
       currentRequestId: null,
@@ -42,6 +44,9 @@ describe("AppShell authentication UI", () => {
     window.location.hash = "/feed";
     testState.rootStore.authStore.isSignedIn = true;
     testState.rootStore.authStore.signOut.mockReset();
+    testState.rootStore.feedStore.feedListLoadState = "loading";
+    testState.rootStore.feedStore.isLoading = true;
+    testState.rootStore.feedStore.loadFeedList.mockReset();
   });
 
   it("centers the completing-sign-in state without relying on global utility styles", async () => {
@@ -84,5 +89,22 @@ describe("AppShell authentication UI", () => {
     await vi.waitFor(() => {
       expect(testState.rootStore.authStore.signOut).toHaveBeenCalledOnce();
     });
+  });
+
+  it("does not reload a successfully loaded empty feed list on later updates", async () => {
+    testState.rootStore.feedStore.feedListLoadState = "idle";
+    testState.rootStore.feedStore.isLoading = false;
+    testState.rootStore.feedStore.loadFeedList.mockImplementation(() => {
+      testState.rootStore.feedStore.feedListLoadState = "loaded";
+      return Promise.resolve();
+    });
+    const element = document.createElement("app-shell");
+
+    document.body.appendChild(element);
+    await element.updateComplete;
+    element.requestUpdate();
+    await element.updateComplete;
+
+    expect(testState.rootStore.feedStore.loadFeedList).toHaveBeenCalledOnce();
   });
 });
