@@ -41,6 +41,30 @@ function item(): FeedItemView {
 }
 
 describe("RankScoresChart", () => {
+  it.each(["heavy_ranker", "heavy_ranker_empty_history"])(
+    "shows %s as the Engaging ranker",
+    async (rankerName) => {
+      const element = document.createElement("rank-scores-chart");
+      element.item = {
+        ...item(),
+        modelScores: [
+          { name: rankerName, weight: 1, score: 0.7 },
+          { name: "perspective", weight: 1, score: 0.5 },
+        ],
+      };
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      const rows = [...(element.shadowRoot?.querySelectorAll(".ranker-item") ?? [])];
+      const engagingRow = rows.find((row) =>
+        row.querySelector(".ranker-label")?.textContent.includes("Engaging"),
+      );
+      expect(engagingRow?.querySelector(".ranker-value")?.textContent.trim()).toBe("0.70");
+      expect(engagingRow?.querySelector<HTMLElement>(".ranker-bar-fill")?.style.width).toBe("70%");
+      element.remove();
+    },
+  );
+
   it("keeps sources vertical on desktop and lays them out horizontally on mobile", () => {
     const styles = RankScoresChart.styles.cssText;
 
