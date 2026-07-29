@@ -33,9 +33,13 @@ async function init() {
       try {
         const res = await fetch("/config.json");
         if (res.ok) {
-          const config = (await res.json()) as { firestoreDatabase?: string };
+          const config = (await res.json()) as { firestoreDatabase?: string; blueskyUrls?: Record<string, string> };
           if (config.firestoreDatabase) {
             initFirestore(config.firestoreDatabase);
+          }
+          if (config.blueskyUrls) {
+            const { runtimeConfig } = await import("./config");
+            Object.assign(runtimeConfig.blueskyUrls, config.blueskyUrls);
           }
         }
       } catch {

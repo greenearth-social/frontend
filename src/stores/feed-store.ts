@@ -5,6 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
+import { ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
@@ -93,6 +94,15 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
+  clearFeedDetail(): void {
+    this._loadSeq++;
+    this._allItems = [];
+    this._currentPage = 1;
+    this.items = [];
+    this.currentRequestId = null;
+    this.error = null;
+  }
+
   reset(): void {
     this._feedListLoadSeq++;
     this._loadSeq++;
@@ -122,7 +132,15 @@ export class FeedStore {
 
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
-      if (this.feedList.length > 0 && this.feedList[0]) {
+
+      const firstPublic = this.feedList.find((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName));
+      if (firstPublic) {
+        this.root.uiStore.setSelectedAlgorithm(firstPublic.feedName as AlgorithmId);
+        const latestForAlgo = this.feedList
+          .filter((f) => f.feedName === firstPublic.feedName)
+          .reduce((best, f) => (f.generatedAt > best.generatedAt ? f : best));
+        await this.loadFeedDetail(latestForAlgo.requestId);
+      } else if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
     } catch (e) {
