@@ -1,3 +1,5 @@
+import { runtimeConfig } from "../config";
+
 export type AlgorithmId = "your-feed" | "best-of-friends" | "random";
 
 export interface AlgorithmConfig {
@@ -9,17 +11,17 @@ export interface AlgorithmConfig {
 export const ALGORITHMS: Record<AlgorithmId, AlgorithmConfig> = {
   "your-feed": {
     label: "GreenEarth",
-    blueskyUrl: "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/a0-yf",
+    get blueskyUrl() { return runtimeConfig.blueskyUrls["your-feed"]; },
     icon: "algo-greenearth",
   },
   "best-of-friends": {
     label: "Best of Friends",
-    blueskyUrl: "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/fd-bof",
+    get blueskyUrl() { return runtimeConfig.blueskyUrls["best-of-friends"]; },
     icon: "algo-best-of-friends",
   },
   random: {
     label: "Random",
-    blueskyUrl: "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/67-r",
+    get blueskyUrl() { return runtimeConfig.blueskyUrls["random"]; },
     icon: "algo-random",
   },
 };
