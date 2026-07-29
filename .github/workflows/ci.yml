@@ -109,9 +109,8 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Write stage database config
-        run: |
-          printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
+      - name: Write stage config
+        run: cp public/config.stage.json dist/config.json
 
       - uses: google-github-actions/auth@v2
         with:
