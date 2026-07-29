@@ -1,17 +1,12 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedSummary } from "../models/feed-debug-snapshot";
-import type { AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
-
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 @customElement("right-sidebar")
 export class RightSidebar extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
-  @property({ type: String }) selectedAlgorithm: AlgorithmId | null = null;
-  @property({ type: String }) blueskyUrl: string = "";
 
   static styles = css`
     :host { display: block; }
@@ -55,72 +50,10 @@ export class RightSidebar extends LitElement {
     .feed-item.active wa-icon {
       color: var(--bluesky-brand);
     }
-    .stale-notice {
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    .stale-text {
-      font-size: 0.875rem;
-      color: var(--bluesky-text-secondary);
-      line-height: 1.5;
-    }
-    .open-in-bluesky {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0.5rem 1rem;
-      border-radius: 9999px;
-      border: 1px solid var(--bluesky-brand);
-      color: var(--bluesky-brand);
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: background 0.15s;
-      align-self: flex-start;
-    }
-    .open-in-bluesky:hover {
-      background: rgba(32, 139, 254, 0.1);
-    }
   `;
 
   render() {
-    const filtered = this.selectedAlgorithm
-      ? this.feeds.filter((f) => f.feedName === this.selectedAlgorithm)
-      : this.feeds;
-
-    const now = Date.now();
-    const hasRecent = filtered.some(
-      (f) => now - new Date(f.generatedAt).getTime() < TWENTY_FOUR_HOURS_MS,
-    );
-
-    // Only show stale notice when an algorithm is selected (blueskyUrl is set)
-    // and no recent feed exists. Fall through to the empty-list card otherwise.
-    if (!hasRecent && this.blueskyUrl) {
-      return html`
-        <div style="padding: 0.5rem 0;">
-          <div class="card">
-            <div class="card-header">Feed Snapshots</div>
-            <div class="stale-notice">
-              <p class="stale-text">
-                You have not refreshed this feed within the last 24 hours.
-              </p>
-              <a
-                class="open-in-bluesky"
-                href=${this.blueskyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open in Bluesky
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    if (filtered.length === 0) {
+    if (this.feeds.length === 0) {
       return html`
         <div style="padding: 0.5rem 0;">
           <div class="card">
@@ -136,8 +69,8 @@ export class RightSidebar extends LitElement {
     return html`
       <div style="padding: 0.5rem 0;">
         <div class="card">
-          <div class="card-header">Feed Snapshots</div>
-          ${filtered.map(
+          <div class="card-header">Feeds</div>
+          ${this.feeds.map(
             (f, index) => html`
               <div
                 class="feed-item ${f.requestId === this.activeRequestId ? "active" : ""}"

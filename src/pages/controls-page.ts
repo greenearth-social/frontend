@@ -9,7 +9,6 @@ import {
   PURPOSE_PRESETS,
   SOCIAL_RADIUS_PRESETS,
 } from "../constants/preferences";
-import type { AlgorithmId } from "../constants/algorithms";
 
 type ControlHelp = "social-radius" | "freshness" | "politics" | "purpose";
 
@@ -51,7 +50,6 @@ const HELP_CONTENT: Record<ControlHelp, {
 @customElement("controls-page")
 export class ControlsPage extends LitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
-  @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
   @state() private isLoading = true;
   @state() private activeHelp: ControlHelp | null = null;
   @state() private showRefreshPopup = false;
@@ -277,115 +275,87 @@ export class ControlsPage extends LitElement {
               </div>
             `
           : ""}
+        <div class="slider-group">
+          <div class="slider-title">
+            <span>Social Radius</span>
+            ${this.#helpButton("social-radius", "Social Radius")}
+          </div>
+          ${this.isLoading
+            ? html`<div class="slider-placeholder"></div>`
+            : html`
+                <lifecycle-slider
+                  title="Social Radius"
+                  leftLabel="Friends"
+                  rightLabel="Everyone"
+                  value=${prefs.socialRadius}
+                  .stageLabels=${SOCIAL_RADIUS_PRESETS.map((preset) => preset.displayLines)}
+                  @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                    this.#handleSocialRadiusChange(e.detail.value);
+                  }}
+                ></lifecycle-slider>
+              `}
+        </div>
 
-        ${this.selectedAlgorithm !== "random"
-          ? html`
-              ${this.selectedAlgorithm === "your-feed"
-                ? html`
-                    <div class="slider-group">
-                      <div class="slider-title">
-                        <span>Social Radius</span>
-                        ${this.#helpButton("social-radius", "Social Radius")}
-                      </div>
-                      ${this.isLoading
-                        ? html`<div class="slider-placeholder"></div>`
-                        : html`
-                            <lifecycle-slider
-                              title="Social Radius"
-                              leftLabel="Friends"
-                              rightLabel="Everyone"
-                              value=${prefs.socialRadius}
-                              .stageLabels=${SOCIAL_RADIUS_PRESETS.map((preset) => preset.displayLines)}
-                              @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                                this.#handleSocialRadiusChange(e.detail.value);
-                              }}
-                            ></lifecycle-slider>
-                          `}
-                    </div>
-                  `
-                : ""}
+        <div class="slider-group">
+          <div class="slider-title">
+            <span>Freshness</span>
+            ${this.#helpButton("freshness", "Freshness")}
+          </div>
+          ${this.isLoading
+            ? html`<div class="slider-placeholder"></div>`
+            : html`
+                <discrete-slider
+                  .options=${FRESHNESS_PRESETS.map((p) => p.label)}
+                  .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
+                  value=${prefs.freshness}
+                  @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                    this.#handleFreshnessChange(e.detail.value);
+                  }}
+                ></discrete-slider>
+              `}
+        </div>
 
-              <div class="slider-group">
-                <div class="slider-title">
-                  <span>Freshness</span>
-                  ${this.#helpButton("freshness", "Freshness")}
-                </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <discrete-slider
-                        .options=${FRESHNESS_PRESETS.map((p) => p.label)}
-                        .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
-                        value=${prefs.freshness}
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                          this.#handleFreshnessChange(e.detail.value);
-                        }}
-                      ></discrete-slider>
-                    `}
-              </div>
+        <div class="slider-group disabled-control">
+          <div class="slider-title">
+            <span>Politics</span>
+            <span class="coming-soon">Coming Soon!</span>
+            ${this.#helpButton("politics", "Politics")}
+          </div>
+          ${this.isLoading
+            ? html`<div class="slider-placeholder"></div>`
+            : html`
+                <lifecycle-slider
+                  value=${2}
+                  .stageLabels=${POLITICS_PRESETS.map((preset) => preset.displayLines)}
+                  disabled
+                  @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                    const preset = POLITICS_PRESETS[e.detail.value];
+                    if (preset) this.#handlePoliticsChange(preset.value);
+                  }}
+                ></lifecycle-slider>
+              `}
+        </div>
 
-              <div class="slider-group disabled-control">
-                <div class="slider-title">
-                  <span>Politics</span>
-                  <span class="coming-soon">Coming Soon!</span>
-                  ${this.#helpButton("politics", "Politics")}
-                </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <lifecycle-slider
-                        value=${2}
-                        .stageLabels=${POLITICS_PRESETS.map((preset) => preset.displayLines)}
-                        disabled
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                          const preset = POLITICS_PRESETS[e.detail.value];
-                          if (preset) this.#handlePoliticsChange(preset.value);
-                        }}
-                      ></lifecycle-slider>
-                    `}
-              </div>
-
-              <div class="slider-group disabled-control">
-                <div class="slider-title">
-                  <span>Purpose</span>
-                  <span class="coming-soon">Coming Soon!</span>
-                  ${this.#helpButton("purpose", "Purpose")}
-                </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <lifecycle-slider
-                        value=${2}
-                        .stageLabels=${PURPOSE_PRESETS.map((preset) => preset.displayLines)}
-                        disabled
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                          const preset = PURPOSE_PRESETS[e.detail.value];
-                          if (preset) this.#handlePurposeChange(preset.value);
-                        }}
-                      ></lifecycle-slider>
-                    `}
-              </div>
-            `
-          : html`
-              <div class="slider-group">
-                <div class="slider-title">
-                  <span>Freshness</span>
-                  ${this.#helpButton("freshness", "Freshness")}
-                </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <discrete-slider
-                        .options=${FRESHNESS_PRESETS.map((p) => p.label)}
-                        .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
-                        value=${prefs.freshness}
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
-                          this.#handleFreshnessChange(e.detail.value);
-                        }}
-                      ></discrete-slider>
-                    `}
-              </div>
-            `}
+        <div class="slider-group disabled-control">
+          <div class="slider-title">
+            <span>Purpose</span>
+            <span class="coming-soon">Coming Soon!</span>
+            ${this.#helpButton("purpose", "Purpose")}
+          </div>
+          ${this.isLoading
+            ? html`<div class="slider-placeholder"></div>`
+            : html`
+                <lifecycle-slider
+                  value=${2}
+                  .stageLabels=${PURPOSE_PRESETS.map((preset) => preset.displayLines)}
+                  disabled
+                  @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                    const preset = PURPOSE_PRESETS[e.detail.value];
+                    if (preset) this.#handlePurposeChange(preset.value);
+                  }}
+                ></lifecycle-slider>
+              `}
+        </div>
       </div>
 
       ${this.activeHelp

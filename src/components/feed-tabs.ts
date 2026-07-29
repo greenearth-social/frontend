@@ -3,19 +3,11 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { relativeTime } from "../utils/relative-time";
 
-const ALGO_PNG: Record<string, string> = {
-  "your-feed": "/assets/algo-greenearth.png",
-  "best-of-friends": "/assets/algo-best-of-friends.png",
-  "random": "/assets/algo-random.png",
-};
-
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
   @property({ type: Object }) filteringCountsByRequest: Record<string, FilteringCounts> = {};
-  @property({ type: String }) selectedAlgorithm: string | null = null;
-  @property({ type: String }) algorithmLabel: string = "";
   @state() private openBreakdownId: string | null = null;
 
   static styles = css`
@@ -23,43 +15,14 @@ export class FeedTabs extends LitElement {
       display: block;
     }
     .tabs-container {
-      display: flex;
-      align-items: stretch;
+      position: relative;
       background: rgba(21, 32, 43, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
     }
-    .algo-indicator {
-      display: none;
-      flex-shrink: 0;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0 0.75rem;
-      border-right: 1px solid var(--bluesky-border);
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--bluesky-text);
-      white-space: nowrap;
-    }
-    .algo-indicator img {
-      width: 1.125rem;
-      height: 1.125rem;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    @media (max-width: 1023px) {
-      .algo-indicator {
-        display: flex;
-      }
-    }
-    .tabs-scroll-area {
-      flex: 1;
-      min-width: 0;
-      position: relative;
-    }
-    .tabs-scroll-area::before,
-    .tabs-scroll-area::after {
+    .tabs-container::before,
+    .tabs-container::after {
       content: "";
       position: absolute;
       top: 0;
@@ -68,12 +31,12 @@ export class FeedTabs extends LitElement {
       z-index: 2;
       pointer-events: none;
     }
-    .tabs-scroll-area::before {
+    .tabs-container::before {
       left: 0;
       width: 1.5rem;
       background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
     }
-    .tabs-scroll-area::after {
+    .tabs-container::after {
       right: 0;
       background: linear-gradient(to left, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
     }
@@ -105,16 +68,6 @@ export class FeedTabs extends LitElement {
       display: flex;
       align-items: center;
       gap: 0.35rem;
-    }
-    .tab-algo-icon {
-      width: 0.875rem;
-      height: 0.875rem;
-      object-fit: contain;
-      flex-shrink: 0;
-      opacity: 0.6;
-    }
-    .tab.active .tab-algo-icon {
-      opacity: 1;
     }
     .tab:hover {
       background: var(--bluesky-bg-hover);
@@ -226,34 +179,20 @@ export class FeedTabs extends LitElement {
   render() {
     if (this.feeds.length === 0) return html``;
 
-    const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
-
     return html`
       <div class="tabs-container">
-        ${pngSrc ? html`
-          <div class="algo-indicator">
-            <img src=${pngSrc} alt=${this.algorithmLabel} />
-            <span>${this.algorithmLabel}</span>
-          </div>
-        ` : ""}
-        <div class="tabs-scroll-area">
-          <div class="tabs-wrapper">
-            <div class="tabs">
-              ${this.feeds.map(
-                (f, index) => {
-                  const iconSrc = ALGO_PNG[f.feedName] ?? "";
-                  return html`
-                    <div
-                      class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
-                      @click=${() => { this.#selectTab(f.requestId); }}
-                    >
-                      ${iconSrc ? html`<img class="tab-algo-icon" src=${iconSrc} alt="" />` : ""}
-                      <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
-                    </div>
-                  `;
-                },
-              )}
-            </div>
+        <div class="tabs-wrapper">
+          <div class="tabs">
+            ${this.feeds.map(
+              (f, index) => html`
+                <div
+                  class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
+                  @click=${() => { this.#selectTab(f.requestId); }}
+                >
+                  <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
+                </div>
+              `,
+            )}
           </div>
         </div>
       </div>
