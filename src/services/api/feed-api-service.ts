@@ -16,6 +16,7 @@ interface ApiFeedSummary {
   request_id: string;
   generated_at: string;
   feed_name: string;
+  api_release_sha?: string | null;
   applied_social_radius?: number | null;
   generator_diagnostics?: Array<{
     name: string;
@@ -72,6 +73,7 @@ interface ApiFeedItemResponse {
 interface ApiFeedDetailResponse {
   request_id: string;
   generated_at: string;
+  api_release_sha?: string | null;
   items: ApiFeedItemResponse[];
   stored_item_count?: number;
   displayed_item_count?: number;
@@ -154,6 +156,7 @@ export class FeedApiService implements IFeedApiService {
         requestId: feed.request_id,
         generatedAt: feed.generated_at,
         feedName: feed.feed_name,
+        apiReleaseSha: feed.api_release_sha ?? null,
         appliedSocialRadius: feed.applied_social_radius ?? null,
         generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
           name: diagnostic.name,
@@ -174,6 +177,7 @@ export class FeedApiService implements IFeedApiService {
     return {
       requestId: response.request_id,
       generatedAt: response.generated_at,
+      apiReleaseSha: response.api_release_sha ?? null,
       items: response.items.map(mapFeedItem),
       filteringCounts: {
         storedItemCount: response.stored_item_count ?? response.items.length,

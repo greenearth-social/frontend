@@ -12,9 +12,13 @@ export class AuthStore {
     this.root.services.authService.onAuthStateChanged((user) => {
       this.currentUser = user;
       if (user) {
+        this.root.feedStore.activateAccount(user.uid);
         this.root.preferencesStore.activateAccount(user.uid);
+        this.root.services.feedbackService.identify(user.uid);
       } else {
+        this.root.feedStore.reset();
         this.root.preferencesStore.reset();
+        this.root.services.feedbackService.reset();
       }
     });
   }

@@ -18,6 +18,8 @@ User-facing SPA for **Post Observability** — a Bluesky feed debugger that visu
 
 ## Quick Start
 
+### Standalone mock frontend
+
 ```sh
 npm install
 npm run dev        # starts Vite dev server on port 3000 (mock services by default)
@@ -25,13 +27,27 @@ npm run dev        # starts Vite dev server on port 3000 (mock services by defau
 
 Mock services are enabled when `VITE_USE_MOCK_SERVICES=true` (the default). This gives you a fully functional UI with hardcoded feed data — no Firebase or backend required.
 
-To run against real Firebase, the API backend, and BlueSky OAuth locally:
+### Full local stack
 
 ```sh
-VITE_USE_MOCK_SERVICES=false VITE_USE_FIREBASE_EMULATORS=true npm run dev
+cd ../internal-tools/devenv
+./devctl bootstrap
 ```
 
-See `Documentation/LOCAL_OAUTH_TEST.md` for full instructions.
+The shared development environment runs the frontend against the local API,
+Firebase Auth and Firestore emulators, seeded Bluesky data, and the real
+inference service without requiring credentials. It disables frontend mock
+services, supplies the emulator configuration, and keeps Vite hot reload
+enabled.
+
+After bootstrap, run `./devctl login`, open the printed local sign-in URL, run
+`./devctl feed`, and reload the frontend to see a feed snapshot. The UI's
+handle-based sign-in is also backed by the credential-free local auth shim.
+
+See the [local development environment guide](Documentation/LOCAL_DEV_ENVIRONMENT.md)
+for setup, frontend test commands, and troubleshooting. Developers working
+specifically on the real Bluesky OAuth flow should use the
+[local OAuth testing guide](Documentation/LOCAL_OAUTH_TEST.md).
 
 ### Firebase emulators
 
@@ -78,6 +94,7 @@ Hash-based SPA routing handled entirely in `app-shell.ts`:
 | `#/feed`                  | Feed Page     | Default. Post observability feed with tabs + pagination |
 | `#/controls`              | Controls Page | Social Radius slider + future controls                  |
 | `#/how-it-works`          | How It Works  | Interactive algorithm diagram                           |
+| `#/feedback`              | Feedback      | Custom PostHog-backed feedback form                     |
 | `#/settings`              | Settings      | Placeholder                                             |
 | `#/auth/finish?token=...` | (inline)      | OAuth callback handler                                  |
 
@@ -195,5 +212,6 @@ CI pipeline runs: `lint` → `typecheck` → `test:unit` → `test:e2e` → `bui
 ## Further Reading
 
 - `AGENTS.md` — Development conventions, service tables, component patterns
-- `Documentation/CI_CD.md` — CI/CD pipeline, environment strategy, deployment
-- `Documentation/LOCAL_OAUTH_TEST.md` — Step-by-step local OAuth E2E test guide
+- [Local development environment](Documentation/LOCAL_DEV_ENVIRONMENT.md) — Credential-free full-stack frontend development with `devctl`
+- [Local OAuth testing](Documentation/LOCAL_OAUTH_TEST.md) — Real Bluesky OAuth testing with a public callback origin and client keys
+- [CI/CD](Documentation/CI_CD.md) — Pipeline, environment strategy, and deployment

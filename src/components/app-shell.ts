@@ -8,6 +8,7 @@ import { getRootStore } from "../main";
 import "../pages/feed-page";
 import "../pages/controls-page";
 import "../pages/how-it-works-page";
+import "../pages/feedback-page";
 import "../pages/not-found-page";
 import "./right-sidebar";
 
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { icon: "activity", label: "Why Am I Seeing This?", route: "/feed" },
   { icon: "info", label: "How It Works", route: "/how-it-works" },
   { icon: "controls", label: "Feed Controls", route: "/controls" },
+  { icon: "chat", label: "Feedback", route: "/feedback" },
 ];
 
 @customElement("app-shell")
@@ -624,6 +626,8 @@ export class AppShell extends MobxLitElement {
               ? html`<controls-page .onOpenMenu=${this.#openDrawer}></controls-page>`
               : this._currentRoute === "/how-it-works"
                 ? html`<how-it-works-page .onOpenMenu=${this.#openDrawer}></how-it-works-page>`
+                : this._currentRoute === "/feedback"
+                  ? html`<feedback-page .onOpenMenu=${this.#openDrawer}></feedback-page>`
                 : html`<feed-page .onOpenMenu=${this.#openDrawer}></feed-page>`
           }
         </main>

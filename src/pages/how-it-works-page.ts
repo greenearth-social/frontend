@@ -2,6 +2,7 @@ import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
+import "../components/feedback-form";
 
 interface DiagramNode {
   id: string;
@@ -111,6 +112,12 @@ export class HowItWorksPage extends LitElement {
       gap: 0;
       width: 100%;
       max-width: 560px;
+    }
+
+    feedback-form {
+      width: 100%;
+      max-width: 560px;
+      margin-top: 1.5rem;
     }
 
     .section {
@@ -1070,6 +1077,11 @@ export class HowItWorksPage extends LitElement {
             </div>
           </div>
         </div>
+        <feedback-form
+          surface="howItWorks"
+          prompt="Still have questions? Please ask!"
+          placeholder="Ask your question"
+        ></feedback-form>
       </div>
 
       ${this.#renderPopup()}

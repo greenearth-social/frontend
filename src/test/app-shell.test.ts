@@ -27,6 +27,10 @@ const testState = vi.hoisted(() => ({
     uiStore: {
       selectedItemUri: null,
     },
+    feedbackStore: {
+      mode: "test",
+      unavailableReason: null,
+    },
   },
 }));
 
@@ -84,5 +88,25 @@ describe("AppShell authentication UI", () => {
     await vi.waitFor(() => {
       expect(testState.rootStore.authStore.signOut).toHaveBeenCalledOnce();
     });
+  });
+
+  it("routes signed-in users to the Feedback page from the shared navigation", async () => {
+    window.location.hash = "/feedback";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(
+      Array.from(element.shadowRoot?.querySelectorAll(".nav-label") ?? []).map(
+        (label) => label.textContent,
+      ),
+    ).toContain("Feedback");
+    const page = element.shadowRoot?.querySelector("feedback-page");
+    await page?.updateComplete;
+    const form = page?.shadowRoot?.querySelector("feedback-form");
+
+    expect(form?.prompt).toBe(
+      "We'd love to know what you think of GreenEarth",
+    );
   });
 });

@@ -4,6 +4,8 @@ import { setBasePath } from "@awesome.me/webawesome";
 import "./components/icon-library";
 import { RootStore } from "./stores/root-store";
 import type { ServiceProvider } from "./services/service-provider";
+import { loadRuntimeConfig } from "./config/runtime-config";
+import { createFeedbackService } from "./services/feedback/feedback-service";
 
 setBasePath("/");
 
@@ -16,6 +18,8 @@ export function getRootStore(): RootStore | null {
 }
 
 async function init() {
+  const runtimeConfig = await loadRuntimeConfig();
+  const feedbackService = await createFeedbackService(runtimeConfig);
   let services: ServiceProvider;
 
   if (useMock) {
@@ -25,22 +29,13 @@ async function init() {
     services = {
       authService: new MockAuthService(),
       feedApiService: new MockFeedApiService(),
+      feedbackService,
     };
   } else {
     const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
     const { initFirestore } = await import("./services/firebase/firebase-init");
-    if (!useEmulators) {
-      try {
-        const res = await fetch("/config.json");
-        if (res.ok) {
-          const config = (await res.json()) as { firestoreDatabase?: string };
-          if (config.firestoreDatabase) {
-            initFirestore(config.firestoreDatabase);
-          }
-        }
-      } catch {
-        // Fall back to default database
-      }
+    if (!useEmulators && runtimeConfig.firestoreDatabase) {
+      initFirestore(runtimeConfig.firestoreDatabase);
     }
 
     const { FirebaseAuthService } = await import(
@@ -57,6 +52,7 @@ async function init() {
     services = {
       authService,
       feedApiService: new FeedApiService(apiBaseUrl, () => authService.getIdToken()),
+      feedbackService,
     };
   }
 

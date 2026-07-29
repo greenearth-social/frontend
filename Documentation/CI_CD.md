@@ -61,6 +61,8 @@ Git push to main
 | `VITE_FIREBASE_APP_ID` | `.env.local` (local) / build-time | Baked into the JS bundle at build time |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `.env.local` (local) / build-time | Baked into the JS bundle at build time |
 | Firestore database name | `dist/config.json` | Swapped by CI before deploy (`greenearth-stage` / `greenearth-prod`) |
+| Frontend release SHA | `dist/config.json` | Written from the exact GitHub commit being deployed |
+| PostHog project token, host, and survey/question IDs | Production GitHub Variables | Written to production `dist/config.json`; stage remains in no-network test mode |
 
 ### Why the private key goes to Secret Manager
 
@@ -129,6 +131,14 @@ All values go at **repo scope** (Settings → Secrets and variables → Actions)
 | `VITE_USE_MOCK_SERVICES` | `false` |
 | `VITE_FIREBASE_AUTH_DOMAIN` | `greenearth-471522.firebaseapp.com` |
 | `VITE_FIREBASE_PROJECT_ID` | `greenearth-471522` |
+| `POSTHOG_PROJECT_KEY` | Public project token for the same PostHog project used by the production API |
+| `POSTHOG_HOST` | `https://us.i.posthog.com` |
+| `POSTHOG_FEEDBACK_SURVEY_ID` | PostHog API survey UUID for the Feedback page |
+| `POSTHOG_FEEDBACK_QUESTION_ID` | Open-text question UUID for the Feedback page survey |
+| `POSTHOG_CONTROLS_SURVEY_ID` | PostHog API survey UUID for Feed Controls |
+| `POSTHOG_CONTROLS_QUESTION_ID` | Open-text question UUID for the Feed Controls survey |
+| `POSTHOG_HOW_IT_WORKS_SURVEY_ID` | PostHog API survey UUID for How It Works |
+| `POSTHOG_HOW_IT_WORKS_QUESTION_ID` | Open-text question UUID for the How It Works survey |
 
 The workflow explicitly sets `VITE_USE_FIREBASE_EMULATORS=false` for production builds.
 

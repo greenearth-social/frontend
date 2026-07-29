@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import "../components/lifecycle-slider";
 import "../components/discrete-slider";
+import "../components/feedback-form";
 import {
   FRESHNESS_PRESETS,
   POLITICS_PRESETS,
@@ -356,6 +357,11 @@ export class ControlsPage extends LitElement {
                 ></lifecycle-slider>
               `}
         </div>
+        <feedback-form
+          surface="controls"
+          prompt="Did you want to change something else? Tell us!"
+          placeholder="Tell us what you'd like to change"
+        ></feedback-form>
       </div>
 
       ${this.activeHelp

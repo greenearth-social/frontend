@@ -6,6 +6,7 @@ export interface FeedSummary {
   requestId: string;
   generatedAt: string;
   feedName: string;
+  apiReleaseSha: string | null;
   appliedSocialRadius: number | null;
   generatorDiagnostics: GeneratorDiagnostic[];
 }
@@ -65,6 +66,7 @@ export interface ApiFeedItem {
 export interface FeedDetailResponse {
   requestId: string;
   generatedAt: string;
+  apiReleaseSha: string | null;
   items: ApiFeedItem[] | null | undefined;
   filteringCounts: FilteringCounts;
 }

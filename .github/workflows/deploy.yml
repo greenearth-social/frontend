@@ -46,8 +46,26 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Write prod database config
+        env:
+          FRONTEND_RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          POSTHOG_PROJECT_KEY: ${{ vars.POSTHOG_PROJECT_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_FEEDBACK_SURVEY_ID: ${{ vars.POSTHOG_FEEDBACK_SURVEY_ID }}
+          POSTHOG_FEEDBACK_QUESTION_ID: ${{ vars.POSTHOG_FEEDBACK_QUESTION_ID }}
+          POSTHOG_CONTROLS_SURVEY_ID: ${{ vars.POSTHOG_CONTROLS_SURVEY_ID }}
+          POSTHOG_CONTROLS_QUESTION_ID: ${{ vars.POSTHOG_CONTROLS_QUESTION_ID }}
+          POSTHOG_HOW_IT_WORKS_SURVEY_ID: ${{ vars.POSTHOG_HOW_IT_WORKS_SURVEY_ID }}
+          POSTHOG_HOW_IT_WORKS_QUESTION_ID: ${{ vars.POSTHOG_HOW_IT_WORKS_QUESTION_ID }}
         run: |
-          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
+          test -n "$POSTHOG_PROJECT_KEY"
+          test -n "$POSTHOG_HOST"
+          test -n "$POSTHOG_FEEDBACK_SURVEY_ID"
+          test -n "$POSTHOG_FEEDBACK_QUESTION_ID"
+          test -n "$POSTHOG_CONTROLS_SURVEY_ID"
+          test -n "$POSTHOG_CONTROLS_QUESTION_ID"
+          test -n "$POSTHOG_HOW_IT_WORKS_SURVEY_ID"
+          test -n "$POSTHOG_HOW_IT_WORKS_QUESTION_ID"
+          node -e 'const fs = require("fs"); const env = process.env; const config = { environment: "production", firestoreDatabase: "greenearth-prod", frontendReleaseSha: env.FRONTEND_RELEASE_SHA, feedback: { mode: "posthog", projectKey: env.POSTHOG_PROJECT_KEY, host: env.POSTHOG_HOST, surveys: { general: { surveyId: env.POSTHOG_FEEDBACK_SURVEY_ID, questionId: env.POSTHOG_FEEDBACK_QUESTION_ID }, controls: { surveyId: env.POSTHOG_CONTROLS_SURVEY_ID, questionId: env.POSTHOG_CONTROLS_QUESTION_ID }, howItWorks: { surveyId: env.POSTHOG_HOW_IT_WORKS_SURVEY_ID, questionId: env.POSTHOG_HOW_IT_WORKS_QUESTION_ID } } } }; fs.writeFileSync("dist/config.json", JSON.stringify(config, null, 2) + "\n")'
 
       - name: Write functions .env from GitHub Variables
         env:

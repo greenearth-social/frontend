@@ -4,6 +4,7 @@ import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-deb
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
   requestId: "abc123-def456-ghi789",
   generatedAt: "2026-07-07T12:00:00Z",
+  apiReleaseSha: "preview-api-sha",
   items: [
     {
       atUri: "at://did:plc:author1/app.bsky.feed.post/post1",
@@ -215,6 +216,7 @@ export class MockFeedApiService implements IFeedApiService {
           requestId: "abc123-def456-ghi789",
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
+          apiReleaseSha: "preview-api-sha",
           appliedSocialRadius: 2,
           generatorDiagnostics: [],
         },
