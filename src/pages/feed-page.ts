@@ -89,6 +89,15 @@ export class FeedPage extends MobxLitElement {
       opacity: 0.5;
       cursor: default;
     }
+    .header-title {
+      font-size: clamp(0.9375rem, 3.5vw, 1.25rem);
+      font-weight: 700;
+      color: var(--bluesky-text);
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     @media (max-width: 480px) {
       .header-row {
         gap: 0.5rem;
@@ -353,9 +362,7 @@ export class FeedPage extends MobxLitElement {
                 </svg>
               </button>
               <div style="flex: 1; min-width: 0;">
-                <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0;">
-                  Why Am I Seeing This?
-                </h1>
+                <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
               <button
                 class="source-breakdown-button"
