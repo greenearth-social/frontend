@@ -6,6 +6,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
+import { ALGORITHMS } from "../constants/algorithms";
 import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
@@ -418,6 +419,8 @@ export class FeedPage extends MobxLitElement {
                   <feed-view
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
+                    .blueskyUrl=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].blueskyUrl : ""}
+                    .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}
