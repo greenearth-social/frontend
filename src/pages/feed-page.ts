@@ -388,7 +388,6 @@ export class FeedPage extends MobxLitElement {
 
           <feed-tabs
             .feeds=${[...feedStore.feedList]
-              .filter((f) => !uiStore.selectedAlgorithm || f.feedName === uiStore.selectedAlgorithm)
               .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
