@@ -6,8 +6,8 @@ export interface BlueskyUrls {
 
 export const runtimeConfig = {
   blueskyUrls: {
-    "your-feed": "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/a0-yf",
-    "best-of-friends": "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/fd-bof",
-    random: "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/67-r",
+    "your-feed": "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed",
+    "best-of-friends": "https://bsky.app/profile/greenearth-social.bsky.social/feed/best-of-friends",
+    random: "https://bsky.app/profile/greenearth-social.bsky.social/feed/random",
   } as BlueskyUrls,
 };
