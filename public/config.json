@@ -2,8 +2,8 @@
   "_comment": "Runtime config for the frontend SPA. Fetched at startup via fetch('/config.json'). The CI pipeline swaps this file per environment before deploying the same bundle. Fields: firestoreDatabase (required), blueskyUrls (optional — omit to use the prod defaults hardcoded in src/config.ts).",
   "firestoreDatabase": "greenearth-stage",
   "blueskyUrls": {
-    "your-feed": "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/a0-yf",
-    "best-of-friends": "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/fd-bof",
-    "random": "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/67-r"
+    "your-feed": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/a0-yf",
+    "best-of-friends": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/fd-bof",
+    "random": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/67-r"
   }
 }
