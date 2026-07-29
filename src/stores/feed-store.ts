@@ -136,9 +136,11 @@ export class FeedStore {
       const firstPublic = this.feedList.find((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName));
       if (firstPublic) {
         this.root.uiStore.setSelectedAlgorithm(firstPublic.feedName as AlgorithmId);
-      }
-
-      if (this.feedList.length > 0 && this.feedList[0]) {
+        const latestForAlgo = this.feedList
+          .filter((f) => f.feedName === firstPublic.feedName)
+          .reduce((best, f) => (f.generatedAt > best.generatedAt ? f : best));
+        await this.loadFeedDetail(latestForAlgo.requestId);
+      } else if (this.feedList.length > 0 && this.feedList[0]) {
         await this.loadFeedDetail(this.feedList[0].requestId);
       }
     } catch (e) {

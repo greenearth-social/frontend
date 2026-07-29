@@ -790,7 +790,6 @@ export class AppShell extends MobxLitElement {
     const store = getRootStore();
     if (!store) return;
     const { feedStore, uiStore } = store;
-    if (feedStore.items.length > 0) return;
     const algoId = uiStore.selectedAlgorithm;
     const algoMatches = algoId
       ? feedStore.feedList.filter((f) => f.feedName === algoId)
