@@ -390,6 +390,8 @@ export class FeedPage extends MobxLitElement {
             .feeds=${feedStore.feedList}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
+            .selectedAlgorithm=${uiStore.selectedAlgorithm}
+            .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
               void feedStore.loadFeedDetail(e.detail.requestId);
             }}

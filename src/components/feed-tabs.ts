@@ -3,11 +3,19 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { relativeTime } from "../utils/relative-time";
 
+const ALGO_PNG: Record<string, string> = {
+  "your-feed": "/assets/algo-greenearth.png",
+  "best-of-friends": "/assets/algo-best-of-friends.png",
+  "random": "/assets/algo-random.png",
+};
+
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
   @property({ type: Object }) filteringCountsByRequest: Record<string, FilteringCounts> = {};
+  @property({ type: String }) selectedAlgorithm: string | null = null;
+  @property({ type: String }) algorithmLabel: string = "";
   @state() private openBreakdownId: string | null = null;
 
   static styles = css`
@@ -35,6 +43,41 @@ export class FeedTabs extends LitElement {
       left: 0;
       width: 1.5rem;
       background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
+    }
+    .algo-indicator {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 3;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0 0.75rem;
+      background: rgba(21, 32, 43, 0.97);
+      border-right: 1px solid var(--bluesky-border);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .algo-indicator img {
+      width: 1.125rem;
+      height: 1.125rem;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    @media (max-width: 1023px) {
+      .algo-indicator {
+        display: flex;
+      }
+      .tabs-container::before {
+        display: none;
+      }
+      .tabs {
+        padding-left: 8.5rem;
+      }
     }
     .tabs-container::after {
       right: 0;
@@ -179,8 +222,16 @@ export class FeedTabs extends LitElement {
   render() {
     if (this.feeds.length === 0) return html``;
 
+    const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
+
     return html`
       <div class="tabs-container">
+        ${pngSrc ? html`
+          <div class="algo-indicator">
+            <img src=${pngSrc} alt=${this.algorithmLabel} />
+            <span>${this.algorithmLabel}</span>
+          </div>
+        ` : ""}
         <div class="tabs-wrapper">
           <div class="tabs">
             ${this.feeds.map(
