@@ -776,6 +776,8 @@ export class AppShell extends MobxLitElement {
     );
     if (match) {
       void store.feedStore.loadFeedDetail(match.requestId);
+    } else {
+      store.feedStore.clearFeedDetail();
     }
     this.#closeDrawer();
   };

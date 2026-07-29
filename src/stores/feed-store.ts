@@ -94,6 +94,15 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
+  clearFeedDetail(): void {
+    this._loadSeq++;
+    this._allItems = [];
+    this._currentPage = 1;
+    this.items = [];
+    this.currentRequestId = null;
+    this.error = null;
+  }
+
   reset(): void {
     this._feedListLoadSeq++;
     this._loadSeq++;
