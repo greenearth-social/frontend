@@ -53,7 +53,9 @@ const ALGO_PNG_ICONS: Record<string, string> = {
 registerIconLibrary("app", {
   resolver: (name: string) => {
     if (name in ALGO_PNG_ICONS) {
-      return ALGO_PNG_ICONS[name];
+      const png = ALGO_PNG_ICONS[name];
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100"><image href="${png}" width="100" height="100" preserveAspectRatio="xMidYMid meet"/></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
     const svg = ICONS[name];
     if (svg) {
