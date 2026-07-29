@@ -15,7 +15,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmConfig> = {
   "best-of-friends": {
     label: "Best of Friends",
     blueskyUrl: "https://bsky.app/profile/did:plc:wrmpulygwvuhjn2c3jbalgqj/feed/fd-bof",
-    icon: "algo-friends",
+    icon: "algo-best-of-friends",
   },
   random: {
     label: "Random",
