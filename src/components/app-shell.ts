@@ -556,7 +556,7 @@ export class AppShell extends MobxLitElement {
               <a
                 href="#${item.route}"
                 class="nav-link ${isActive ? "active" : ""}"
-                @click=${this.#closeDrawer}
+                @click=${item.route === "/feed" ? this.#onFeedNavClick : this.#closeDrawer}
               >
                 <wa-icon name=${item.icon} library="app"></wa-icon>
                 <span class="nav-label">${item.label}</span>
@@ -779,7 +779,33 @@ export class AppShell extends MobxLitElement {
     } else {
       store.feedStore.clearFeedDetail();
     }
+    if (this._currentRoute !== "/feed") {
+      window.location.hash = "/feed";
+    }
     this.#closeDrawer();
+  };
+
+  #onFeedNavClick = () => {
+    this.#closeDrawer();
+    const store = getRootStore();
+    if (!store) return;
+    const { feedStore, uiStore } = store;
+    if (feedStore.items.length > 0) return;
+    const algoId = uiStore.selectedAlgorithm;
+    const algoMatches = algoId
+      ? feedStore.feedList.filter((f) => f.feedName === algoId)
+      : feedStore.feedList;
+    const candidates = algoMatches.length > 0 ? algoMatches : feedStore.feedList;
+    const latest = candidates.reduce<(typeof candidates)[0] | undefined>(
+      (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+      undefined,
+    );
+    if (latest) {
+      if (algoId && latest.feedName !== algoId) {
+        uiStore.setSelectedAlgorithm(latest.feedName as AlgorithmId);
+      }
+      void feedStore.loadFeedDetail(latest.requestId);
+    }
   };
 
   #toggleLogoutMenu = (e: Event) => {
