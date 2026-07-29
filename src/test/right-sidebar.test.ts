@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { FeedSummary } from "../models/feed-debug-snapshot";
-import { RightSidebar } from "../components/right-sidebar";
+import "../components/right-sidebar";
 
 function makeFeed(feedName: string, hoursAgo: number): FeedSummary {
   const d = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
   return {
-    requestId: `req-${hoursAgo}`,
+    requestId: `req-${String(hoursAgo)}`,
     generatedAt: d.toISOString(),
     feedName,
     appliedSocialRadius: null,
@@ -19,7 +19,7 @@ describe("RightSidebar", () => {
   });
 
   it("shows only feeds matching selectedAlgorithm", async () => {
-    const el = document.createElement("right-sidebar") as RightSidebar;
+    const el = document.createElement("right-sidebar");
     el.feeds = [makeFeed("your-feed", 1), makeFeed("best-of-friends", 2)];
     el.selectedAlgorithm = "your-feed";
     el.activeRequestId = null;
@@ -32,7 +32,7 @@ describe("RightSidebar", () => {
   });
 
   it("shows stale notice when no feeds for algorithm within 24h", async () => {
-    const el = document.createElement("right-sidebar") as RightSidebar;
+    const el = document.createElement("right-sidebar");
     el.feeds = [makeFeed("your-feed", 25)];
     el.selectedAlgorithm = "your-feed";
     el.activeRequestId = null;
@@ -44,11 +44,11 @@ describe("RightSidebar", () => {
     expect(notice).toBeTruthy();
     const link = el.shadowRoot?.querySelector<HTMLAnchorElement>(".open-in-bluesky");
     expect(link?.href).toContain("bsky.app");
-    expect(link?.textContent?.trim()).toBe("Open in Bluesky");
+    expect((link?.textContent ?? "").trim()).toBe("Open in Bluesky");
   });
 
   it("shows stale notice when feed list for algorithm is empty", async () => {
-    const el = document.createElement("right-sidebar") as RightSidebar;
+    const el = document.createElement("right-sidebar");
     el.feeds = [makeFeed("best-of-friends", 1)];
     el.selectedAlgorithm = "your-feed";
     el.activeRequestId = null;
@@ -60,7 +60,7 @@ describe("RightSidebar", () => {
   });
 
   it("shows no-data card when algorithm is null and feeds are empty", async () => {
-    const el = document.createElement("right-sidebar") as RightSidebar;
+    const el = document.createElement("right-sidebar");
     el.feeds = [];
     // selectedAlgorithm defaults to null, blueskyUrl defaults to ""
     document.body.appendChild(el);
@@ -72,7 +72,7 @@ describe("RightSidebar", () => {
   });
 
   it("shows feed list when at least one feed is within 24h", async () => {
-    const el = document.createElement("right-sidebar") as RightSidebar;
+    const el = document.createElement("right-sidebar");
     el.feeds = [makeFeed("your-feed", 1), makeFeed("your-feed", 30)];
     el.selectedAlgorithm = "your-feed";
     el.activeRequestId = null;

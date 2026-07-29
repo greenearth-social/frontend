@@ -44,7 +44,7 @@ const testState = vi.hoisted(() => ({
     },
     uiStore: {
       selectedItemUri: null,
-      selectedAlgorithm: "your-feed" as "your-feed" | "best-of-friends" | "random",
+      selectedAlgorithm: "your-feed" satisfies "your-feed" | "best-of-friends" | "random",
       setSelectedAlgorithm: vi.fn(),
     },
   },

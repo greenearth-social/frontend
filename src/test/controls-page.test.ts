@@ -14,36 +14,36 @@ describe("ControlsPage", () => {
 
   describe("algorithm-specific sliders", () => {
     it("shows Social Radius only for your-feed", async () => {
-      const el = document.createElement("controls-page") as ControlsPage;
+      const el = document.createElement("controls-page");
       el.selectedAlgorithm = "your-feed";
       document.body.appendChild(el);
       await el.updateComplete;
 
       const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((el) => el.textContent?.trim());
+        .map((node) => node.textContent.trim());
       expect(titles).toContain("Social Radius");
     });
 
     it("hides Social Radius for best-of-friends", async () => {
-      const el = document.createElement("controls-page") as ControlsPage;
+      const el = document.createElement("controls-page");
       el.selectedAlgorithm = "best-of-friends";
       document.body.appendChild(el);
       await el.updateComplete;
 
       const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((el) => el.textContent?.trim());
+        .map((node) => node.textContent.trim());
       expect(titles).not.toContain("Social Radius");
       expect(titles).toContain("Freshness");
     });
 
     it("shows only Freshness for random", async () => {
-      const el = document.createElement("controls-page") as ControlsPage;
+      const el = document.createElement("controls-page");
       el.selectedAlgorithm = "random";
       document.body.appendChild(el);
       await el.updateComplete;
 
       const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((el) => el.textContent?.trim());
+        .map((node) => node.textContent.trim());
       expect(titles).toEqual(["Freshness"]);
     });
   });
