@@ -23,44 +23,24 @@ export class FeedTabs extends LitElement {
       display: block;
     }
     .tabs-container {
-      position: relative;
+      display: flex;
+      align-items: stretch;
       background: rgba(21, 32, 43, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
     }
-    .tabs-container::before,
-    .tabs-container::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 3rem;
-      z-index: 2;
-      pointer-events: none;
-    }
-    .tabs-container::before {
-      left: 0;
-      width: 1.5rem;
-      background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
-    }
     .algo-indicator {
       display: none;
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 3;
+      flex-shrink: 0;
       align-items: center;
       gap: 0.375rem;
       padding: 0 0.75rem;
-      background: rgba(21, 32, 43, 0.97);
       border-right: 1px solid var(--bluesky-border);
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--bluesky-text);
       white-space: nowrap;
-      pointer-events: none;
     }
     .algo-indicator img {
       width: 1.125rem;
@@ -72,14 +52,28 @@ export class FeedTabs extends LitElement {
       .algo-indicator {
         display: flex;
       }
-      .tabs-container::before {
-        display: none;
-      }
-      .tabs {
-        padding-left: 8.5rem;
-      }
     }
-    .tabs-container::after {
+    .tabs-scroll-area {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+    .tabs-scroll-area::before,
+    .tabs-scroll-area::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3rem;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .tabs-scroll-area::before {
+      left: 0;
+      width: 1.5rem;
+      background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
+    }
+    .tabs-scroll-area::after {
       right: 0;
       background: linear-gradient(to left, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
     }
@@ -232,18 +226,20 @@ export class FeedTabs extends LitElement {
             <span>${this.algorithmLabel}</span>
           </div>
         ` : ""}
-        <div class="tabs-wrapper">
-          <div class="tabs">
-            ${this.feeds.map(
-              (f, index) => html`
-                <div
-                  class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
-                  @click=${() => { this.#selectTab(f.requestId); }}
-                >
-                  <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
-                </div>
-              `,
-            )}
+        <div class="tabs-scroll-area">
+          <div class="tabs-wrapper">
+            <div class="tabs">
+              ${this.feeds.map(
+                (f, index) => html`
+                  <div
+                    class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
+                    @click=${() => { this.#selectTab(f.requestId); }}
+                  >
+                    <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
+                  </div>
+                `,
+              )}
+            </div>
           </div>
         </div>
       </div>
