@@ -5,7 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import { ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
+import { ALGORITHM_FEED_NAME_SET } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
