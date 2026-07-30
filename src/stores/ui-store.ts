@@ -9,7 +9,7 @@ export class UIStore {
   constructor() {
     this.selectedItemUri = null;
     this.selectedFeed = "latest";
-    this.selectedAlgorithm = "your-feed";
+    this.selectedAlgorithm = null;
     makeAutoObservable(this);
   }
 
