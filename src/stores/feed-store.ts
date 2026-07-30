@@ -142,8 +142,7 @@ export class FeedStore {
             (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
             undefined,
           );
-        const toLoad = latestPublic ?? this.feedList[0];
-        if (toLoad) await this.loadFeedDetail(toLoad.requestId);
+        if (latestPublic) await this.loadFeedDetail(latestPublic.requestId);
       } else {
         // Specific algo selected: load its most recent snapshot, or leave empty
         const latestForAlgo = this.feedList

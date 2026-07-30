@@ -435,7 +435,7 @@ export class FeedPage extends MobxLitElement {
                   <feed-view
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
-                    .blueskyUrl=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].blueskyUrl : ""}
+                    .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);

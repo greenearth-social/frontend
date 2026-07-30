@@ -23,3 +23,5 @@ firebase-debug.log
 functions/lib/
 functions/keys/
 functions/serviceAccountKey.json
+
+.claude/
