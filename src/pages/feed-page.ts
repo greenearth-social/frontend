@@ -6,7 +6,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
-import { ALGORITHMS } from "../constants/algorithms";
+import { ALGORITHMS, ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
 import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
@@ -394,6 +394,12 @@ export class FeedPage extends MobxLitElement {
             .selectedAlgorithm=${uiStore.selectedAlgorithm}
             .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
+              const feed = feedStore.feedList.find(f => f.requestId === e.detail.requestId);
+              if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
+                uiStore.setSelectedAlgorithm(feed.feedName as AlgorithmId);
+              } else {
+                uiStore.clearSelectedAlgorithm();
+              }
               void feedStore.loadFeedDetail(e.detail.requestId);
             }}
           ></feed-tabs>
