@@ -531,6 +531,18 @@ export class AppShell extends MobxLitElement {
 
     const sidebarContent = html`
       <div class="algo-selector">
+        <button
+          class="algo-btn ${uiStore.selectedAlgorithm === null ? "active" : ""}"
+          @click=${this.#selectLatest}
+          aria-label="Latest"
+          aria-pressed=${uiStore.selectedAlgorithm === null}
+          type="button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.5rem; height: 1.5rem; flex-shrink: 0;">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+          </svg>
+          <span class="nav-label">Latest</span>
+        </button>
         ${ALGORITHM_IDS.map((id) => {
           const algo = ALGORITHMS[id];
           const isActive = uiStore.selectedAlgorithm === id;
@@ -676,8 +688,12 @@ export class AppShell extends MobxLitElement {
           class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}"
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
-          @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId }>) => {
-            this.#selectAlgorithm(e.detail.algorithmId);
+          @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId | null }>) => {
+            if (e.detail.algorithmId === null) {
+              this.#selectLatest();
+            } else {
+              this.#selectAlgorithm(e.detail.algorithmId);
+            }
           }}
         >
           ${
@@ -766,6 +782,26 @@ export class AppShell extends MobxLitElement {
   #closeDrawer = () => {
     this._drawerOpen = false;
     this.requestUpdate();
+  };
+
+  #selectLatest = () => {
+    const store = getRootStore();
+    if (!store) return;
+    const { feedStore, uiStore } = store;
+    uiStore.clearSelectedAlgorithm();
+    const latest = feedStore.feedList.reduce<(typeof feedStore.feedList)[0] | undefined>(
+      (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+      undefined,
+    );
+    if (latest) {
+      void feedStore.loadFeedDetail(latest.requestId);
+    } else {
+      feedStore.clearFeedDetail();
+    }
+    if (this._currentRoute !== "/feed") {
+      window.location.hash = "/feed";
+    }
+    this.#closeDrawer();
   };
 
   #selectAlgorithm = (id: AlgorithmId) => {

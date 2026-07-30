@@ -295,56 +295,71 @@ export class FeedTabs extends LitElement {
     if (this.feeds.length === 0) return html``;
 
     const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
+    const indicatorLabel = this.selectedAlgorithm ? this.algorithmLabel : "Latest";
 
     return html`
       <div class="tabs-container">
-        ${pngSrc ? html`
-          <div class="algo-indicator">
-            <button
-              class="algo-trigger"
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded=${this._algoDropdownOpen}
-              @click=${this.#toggleAlgoDropdown}
-            >
-              <img src=${pngSrc} alt="" />
-              <span>${this.algorithmLabel}</span>
-              <svg
-                class="algo-chevron ${this._algoDropdownOpen ? "open" : ""}"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9"/>
+        <div class="algo-indicator">
+          <button
+            class="algo-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded=${this._algoDropdownOpen}
+            @click=${this.#toggleAlgoDropdown}
+          >
+            ${pngSrc ? html`<img src=${pngSrc} alt="" />` : html`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.125rem; height: 1.125rem; flex-shrink: 0;">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
               </svg>
-            </button>
-            ${this._algoDropdownOpen ? html`
-              <div class="algo-dropdown" role="listbox">
-                ${ALGORITHM_IDS.map((id) => {
-                  const algo = ALGORITHMS[id];
-                  const isActive = id === this.selectedAlgorithm;
-                  const png = ALGO_PNG[id] ?? "";
-                  return html`
-                    <button
-                      class="algo-option ${isActive ? "active" : ""}"
-                      type="button"
-                      role="option"
-                      aria-selected=${isActive}
-                      @click=${(e: Event) => { this.#selectAlgo(id, e); }}
-                    >
-                      ${png ? html`<img src=${png} alt="" />` : ""}
-                      <span>${algo.label}</span>
-                    </button>
-                  `;
-                })}
-              </div>
-            ` : ""}
-          </div>
-        ` : ""}
+            `}
+            <span>${indicatorLabel}</span>
+            <svg
+              class="algo-chevron ${this._algoDropdownOpen ? "open" : ""}"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          ${this._algoDropdownOpen ? html`
+            <div class="algo-dropdown" role="listbox">
+              <button
+                class="algo-option ${this.selectedAlgorithm === null ? "active" : ""}"
+                type="button"
+                role="option"
+                aria-selected=${this.selectedAlgorithm === null}
+                @click=${(e: Event) => { this.#selectAlgo(null, e); }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1rem; height: 1rem; flex-shrink: 0;">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                </svg>
+                <span>Latest</span>
+              </button>
+              ${ALGORITHM_IDS.map((id) => {
+                const algo = ALGORITHMS[id];
+                const isActive = id === this.selectedAlgorithm;
+                const png = ALGO_PNG[id] ?? "";
+                return html`
+                  <button
+                    class="algo-option ${isActive ? "active" : ""}"
+                    type="button"
+                    role="option"
+                    aria-selected=${isActive}
+                    @click=${(e: Event) => { this.#selectAlgo(id, e); }}
+                  >
+                    ${png ? html`<img src=${png} alt="" />` : ""}
+                    <span>${algo.label}</span>
+                  </button>
+                `;
+              })}
+            </div>
+          ` : ""}
+        </div>
         <div class="tabs-scroll-area">
           <div class="tabs-wrapper">
             <div class="tabs">
@@ -477,7 +492,7 @@ export class FeedTabs extends LitElement {
     this._algoDropdownOpen = !this._algoDropdownOpen;
   };
 
-  #selectAlgo(id: AlgorithmId, e: Event) {
+  #selectAlgo(id: AlgorithmId | null, e: Event) {
     e.stopPropagation();
     this._algoDropdownOpen = false;
     this.dispatchEvent(new CustomEvent("algo-select", {

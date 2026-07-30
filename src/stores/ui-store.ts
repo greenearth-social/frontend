@@ -28,4 +28,8 @@ export class UIStore {
   setSelectedAlgorithm(id: AlgorithmId): void {
     this.selectedAlgorithm = id;
   }
+
+  clearSelectedAlgorithm(): void {
+    this.selectedAlgorithm = null;
+  }
 }
