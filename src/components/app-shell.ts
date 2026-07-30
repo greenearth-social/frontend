@@ -830,18 +830,14 @@ export class AppShell extends MobxLitElement {
     if (!store) return;
     const { feedStore, uiStore } = store;
     const algoId = uiStore.selectedAlgorithm;
-    const algoMatches = algoId
+    const candidates = algoId
       ? feedStore.feedList.filter((f) => f.feedName === algoId)
       : feedStore.feedList;
-    const candidates = algoMatches.length > 0 ? algoMatches : feedStore.feedList;
     const latest = candidates.reduce<(typeof candidates)[0] | undefined>(
       (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
       undefined,
     );
     if (latest) {
-      if (algoId && latest.feedName !== algoId) {
-        uiStore.setSelectedAlgorithm(latest.feedName as AlgorithmId);
-      }
       void feedStore.loadFeedDetail(latest.requestId);
     }
   };
