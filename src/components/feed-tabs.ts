@@ -1,6 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
+import { ALGORITHMS, ALGORITHM_IDS, type AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
 
 const ALGO_PNG: Record<string, string> = {
@@ -17,6 +18,7 @@ export class FeedTabs extends LitElement {
   @property({ type: String }) selectedAlgorithm: string | null = null;
   @property({ type: String }) algorithmLabel: string = "";
   @state() private openBreakdownId: string | null = null;
+  @state() private _algoDropdownOpen = false;
 
   static styles = css`
     :host {
@@ -33,25 +35,91 @@ export class FeedTabs extends LitElement {
     .algo-indicator {
       display: none;
       flex-shrink: 0;
+      position: relative;
+      border-right: 1px solid var(--bluesky-border);
+    }
+    @media (max-width: 1023px) {
+      .algo-indicator {
+        display: block;
+      }
+    }
+    .algo-trigger {
+      display: flex;
       align-items: center;
       gap: 0.375rem;
-      padding: 0 0.75rem;
-      border-right: 1px solid var(--bluesky-border);
+      padding: 0 0.625rem 0 0.75rem;
+      height: 100%;
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--bluesky-text);
       white-space: nowrap;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: background 0.15s;
     }
-    .algo-indicator img {
+    .algo-trigger:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .algo-trigger img {
       width: 1.125rem;
       height: 1.125rem;
       object-fit: contain;
       flex-shrink: 0;
     }
-    @media (max-width: 1023px) {
-      .algo-indicator {
-        display: flex;
-      }
+    .algo-chevron {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+      color: var(--bluesky-text-secondary);
+    }
+    .algo-chevron.open {
+      transform: rotate(180deg);
+    }
+    .algo-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 200;
+      background: rgb(21, 32, 43);
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      min-width: 168px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    }
+    .algo-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--bluesky-text);
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+      font: inherit;
+      font-size: 0.8125rem;
+    }
+    .algo-option:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .algo-option.active {
+      font-weight: 700;
+    }
+    .algo-option img {
+      width: 1rem;
+      height: 1rem;
+      object-fit: contain;
+      flex-shrink: 0;
     }
     .tabs-scroll-area {
       flex: 1;
@@ -232,8 +300,49 @@ export class FeedTabs extends LitElement {
       <div class="tabs-container">
         ${pngSrc ? html`
           <div class="algo-indicator">
-            <img src=${pngSrc} alt=${this.algorithmLabel} />
-            <span>${this.algorithmLabel}</span>
+            <button
+              class="algo-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded=${this._algoDropdownOpen}
+              @click=${this.#toggleAlgoDropdown}
+            >
+              <img src=${pngSrc} alt="" />
+              <span>${this.algorithmLabel}</span>
+              <svg
+                class="algo-chevron ${this._algoDropdownOpen ? "open" : ""}"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            ${this._algoDropdownOpen ? html`
+              <div class="algo-dropdown" role="listbox">
+                ${ALGORITHM_IDS.map((id) => {
+                  const algo = ALGORITHMS[id];
+                  const isActive = id === this.selectedAlgorithm;
+                  const png = ALGO_PNG[id] ?? "";
+                  return html`
+                    <button
+                      class="algo-option ${isActive ? "active" : ""}"
+                      type="button"
+                      role="option"
+                      aria-selected=${isActive}
+                      @click=${(e: Event) => { this.#selectAlgo(id, e); }}
+                    >
+                      ${png ? html`<img src=${png} alt="" />` : ""}
+                      <span>${algo.label}</span>
+                    </button>
+                  `;
+                })}
+              </div>
+            ` : ""}
           </div>
         ` : ""}
         <div class="tabs-scroll-area">
@@ -363,14 +472,35 @@ export class FeedTabs extends LitElement {
     } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
   }
 
+  #toggleAlgoDropdown = (e: Event) => {
+    e.stopPropagation();
+    this._algoDropdownOpen = !this._algoDropdownOpen;
+  };
+
+  #selectAlgo(id: AlgorithmId, e: Event) {
+    e.stopPropagation();
+    this._algoDropdownOpen = false;
+    this.dispatchEvent(new CustomEvent("algo-select", {
+      bubbles: true,
+      composed: true,
+      detail: { algorithmId: id },
+    }));
+  }
+
   #onWindowClick = (event: MouseEvent) => {
     if (this.openBreakdownId && !event.composedPath().includes(this)) {
       this.openBreakdownId = null;
     }
+    if (this._algoDropdownOpen && !event.composedPath().includes(this)) {
+      this._algoDropdownOpen = false;
+    }
   };
 
   #onWindowKeydown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") this.openBreakdownId = null;
+    if (event.key === "Escape") {
+      this.openBreakdownId = null;
+      this._algoDropdownOpen = false;
+    }
   };
 
   #selectTab(requestId: string) {

@@ -676,6 +676,9 @@ export class AppShell extends MobxLitElement {
           class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}"
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
+          @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId }>) => {
+            this.#selectAlgorithm(e.detail.algorithmId);
+          }}
         >
           ${
             this._currentRoute === "/controls"
