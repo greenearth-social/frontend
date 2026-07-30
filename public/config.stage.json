@@ -1,0 +1,8 @@
+{
+  "firestoreDatabase": "greenearth-stage",
+  "blueskyUrls": {
+    "your-feed": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/a0-yf",
+    "best-of-friends": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/fd-bof",
+    "random": "https://bsky.app/profile/caterpie-internal.bsky.social/feed/67-r"
+  }
+}

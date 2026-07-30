@@ -45,9 +45,8 @@ jobs:
         working-directory: functions
         run: npm ci --omit=dev
 
-      - name: Write prod database config
-        run: |
-          printf '{"firestoreDatabase":"greenearth-prod"}\n' > dist/config.json
+      - name: Write prod config
+        run: cp public/config.prod.json dist/config.json
 
       - name: Write functions .env from GitHub Variables
         env:

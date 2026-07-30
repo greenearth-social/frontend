@@ -140,14 +140,14 @@ describe("AppShell algorithm selector", () => {
     testState.rootStore.feedStore.loadFeedList.mockReset();
   });
 
-  it("renders three algorithm buttons", async () => {
+  it("renders four algorithm buttons including Latest", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
 
     // query within the desktop sidebar to avoid double-counting the drawer
     const buttons = element.shadowRoot?.querySelectorAll(".left-sidebar-desktop .algo-btn");
-    expect(buttons?.length).toBe(3);
+    expect(buttons?.length).toBe(4);
   });
 
   it("marks the active algorithm button", async () => {

@@ -5,7 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import { ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
+import { ALGORITHM_FEED_NAME_SET } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
@@ -133,15 +133,25 @@ export class FeedStore {
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
 
-      const firstPublic = this.feedList.find((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName));
-      if (firstPublic) {
-        this.root.uiStore.setSelectedAlgorithm(firstPublic.feedName as AlgorithmId);
+      const currentAlgo = this.root.uiStore.selectedAlgorithm;
+      if (currentAlgo === null) {
+        // Latest mode: load the globally most recent public feed
+        const latestPublic = this.feedList
+          .filter((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName))
+          .reduce<FeedSummary | undefined>(
+            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+            undefined,
+          );
+        if (latestPublic) await this.loadFeedDetail(latestPublic.requestId);
+      } else {
+        // Specific algo selected: load its most recent snapshot, or leave empty
         const latestForAlgo = this.feedList
-          .filter((f) => f.feedName === firstPublic.feedName)
-          .reduce((best, f) => (f.generatedAt > best.generatedAt ? f : best));
-        await this.loadFeedDetail(latestForAlgo.requestId);
-      } else if (this.feedList.length > 0 && this.feedList[0]) {
-        await this.loadFeedDetail(this.feedList[0].requestId);
+          .filter((f) => f.feedName === currentAlgo)
+          .reduce<FeedSummary | undefined>(
+            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+            undefined,
+          );
+        if (latestForAlgo) await this.loadFeedDetail(latestForAlgo.requestId);
       }
     } catch (e) {
       if (seq !== this._feedListLoadSeq) return;

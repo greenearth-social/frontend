@@ -5,7 +5,7 @@ import { FeedStore } from "../stores/feed-store";
 
 function makeStore(
   listFeeds: () => Promise<FeedListResponse>,
-  uiStore = { setSelectedAlgorithm: vi.fn() },
+  uiStore: { setSelectedAlgorithm: ReturnType<typeof vi.fn>; clearSelectedAlgorithm?: ReturnType<typeof vi.fn>; selectedAlgorithm?: string | null } = { setSelectedAlgorithm: vi.fn(), selectedAlgorithm: null },
 ) {
   const root = {
     services: {
@@ -78,7 +78,13 @@ describe("FeedStore.loadFeedList", () => {
 });
 
 describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
-  it("sets selectedAlgorithm to the feedName of the first public feed", async () => {
+  it("loads the most recent public feed without changing selectedAlgorithm (Latest mode)", async () => {
+    const getFeedDetail = vi.fn().mockResolvedValue({
+      requestId: "r1",
+      generatedAt: "2026-07-28T12:00:00Z",
+      items: [],
+      filteringCounts: { storedItemCount: 0, displayedItemCount: 0, publiclyFilteredCount: 0, unavailableCount: 0 },
+    });
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(
       vi.fn().mockResolvedValue({
@@ -92,24 +98,33 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
           },
         ],
       }),
-      { setSelectedAlgorithm },
+      { setSelectedAlgorithm, selectedAlgorithm: null },
     );
+    (store as unknown as { root: { services: { feedApiService: { getFeedDetail: typeof getFeedDetail } } } })
+      .root.services.feedApiService.getFeedDetail = getFeedDetail;
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
+    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(getFeedDetail).toHaveBeenCalledWith("r1");
   });
 
   it("does not call setSelectedAlgorithm when feed list is empty", async () => {
     const setSelectedAlgorithm = vi.fn();
-    const store = makeStore(vi.fn().mockResolvedValue({ feeds: [] }), { setSelectedAlgorithm });
+    const store = makeStore(vi.fn().mockResolvedValue({ feeds: [] }), { setSelectedAlgorithm, selectedAlgorithm: null });
 
     await store.loadFeedList();
 
     expect(setSelectedAlgorithm).not.toHaveBeenCalled();
   });
 
-  it("skips non-public feeds and uses the first public one", async () => {
+  it("skips non-public feeds and loads the most recent public one", async () => {
+    const getFeedDetail = vi.fn().mockResolvedValue({
+      requestId: "r1",
+      generatedAt: "2026-07-28T12:00:00Z",
+      items: [],
+      filteringCounts: { storedItemCount: 0, displayedItemCount: 0, publiclyFilteredCount: 0, unavailableCount: 0 },
+    });
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(
       vi.fn().mockResolvedValue({
@@ -130,12 +145,15 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
           },
         ],
       }),
-      { setSelectedAlgorithm },
+      { setSelectedAlgorithm, selectedAlgorithm: null },
     );
+    (store as unknown as { root: { services: { feedApiService: { getFeedDetail: typeof getFeedDetail } } } })
+      .root.services.feedApiService.getFeedDetail = getFeedDetail;
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
-    expect(setSelectedAlgorithm).toHaveBeenCalledTimes(1);
+    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(getFeedDetail).toHaveBeenCalledWith("r1");
+    expect(getFeedDetail).toHaveBeenCalledTimes(1);
   });
 });
