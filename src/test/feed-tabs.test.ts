@@ -9,6 +9,7 @@ function makeTabs() {
       requestId: "req-1",
       generatedAt: "2026-07-16T12:00:00Z",
       feedName: "your-feed",
+      apiReleaseSha: "api-sha-1",
       appliedSocialRadius: 0,
       generatorDiagnostics: [
         {
@@ -27,6 +28,7 @@ function makeTabs() {
       requestId: "req-2",
       generatedAt: "2026-07-16T11:00:00Z",
       feedName: "your-feed",
+      apiReleaseSha: "api-sha-2",
       appliedSocialRadius: 3,
       generatorDiagnostics: [],
     },

@@ -10,15 +10,15 @@ export class AuthStore {
     this.currentUser = this.root.services.authService.currentUser;
     makeAutoObservable(this, { root: false });
     this.root.services.authService.onAuthStateChanged((user) => {
-      const previousUid = this.currentUser?.uid ?? null;
       this.currentUser = user;
-      if (previousUid !== (user?.uid ?? null)) {
-        this.root.feedStore.reset();
-      }
       if (user) {
+        this.root.feedStore.activateAccount(user.uid);
         this.root.preferencesStore.activateAccount(user.uid);
+        this.root.services.analyticsService.identify(user.uid);
       } else {
+        this.root.feedStore.reset();
         this.root.preferencesStore.reset();
+        this.root.services.analyticsService.reset();
       }
     });
   }

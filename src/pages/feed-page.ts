@@ -153,7 +153,7 @@ export class FeedPage extends MobxLitElement {
         Store not initialized
       </div>`;
 
-    const { feedStore, uiStore, accountStore, authStore } = store;
+    const { feedStore, uiStore, accountStore, authStore, preferencesStore } = store;
     if (!authStore.isSignedIn || !accountStore.activeAccount) {
       return html`
         <div class="logged-out-page">
@@ -364,18 +364,24 @@ export class FeedPage extends MobxLitElement {
               <div style="flex: 1; min-width: 0;">
                 <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
-              <button
-                class="source-breakdown-button"
-                type="button"
-                aria-label="View source breakdown"
-                title="Source breakdown"
-                ?disabled=${feedStore.currentRequestId === null}
-                @click=${(event: MouseEvent) => {
-                  this.#showSourceBreakdown(event);
-                }}
-              >
-                <wa-icon name="source-breakdown" library="app"></wa-icon>
-              </button>
+              ${
+                uiStore.selectedAlgorithm !== "random"
+                  ? html`
+                      <button
+                        class="source-breakdown-button"
+                        type="button"
+                        aria-label="View source breakdown"
+                        title="Source breakdown"
+                        ?disabled=${feedStore.currentRequestId === null}
+                        @click=${(event: MouseEvent) => {
+                          this.#showSourceBreakdown(event);
+                        }}
+                      >
+                        <wa-icon name="source-breakdown" library="app"></wa-icon>
+                      </button>
+                    `
+                  : ""
+              }
             </div>
             <style>
               @media (max-width: 1023px) {
@@ -387,14 +393,15 @@ export class FeedPage extends MobxLitElement {
           </div>
 
           <feed-tabs
-            .feeds=${[...feedStore.feedList]
-              .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
+            .feeds=${[...feedStore.feedList].sort((a, b) =>
+              a.generatedAt > b.generatedAt ? -1 : 1,
+            )}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
             .selectedAlgorithm=${uiStore.selectedAlgorithm}
             .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
-              const feed = feedStore.feedList.find(f => f.requestId === e.detail.requestId);
+              const feed = feedStore.feedList.find((f) => f.requestId === e.detail.requestId);
               if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
                 uiStore.setSelectedAlgorithm(feed.feedName as AlgorithmId);
               } else {
@@ -435,6 +442,9 @@ export class FeedPage extends MobxLitElement {
                   <feed-view
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
+                    .algorithmId=${uiStore.selectedAlgorithm}
+                    .engagingInfluence=${1 - preferencesStore.values.purpose}
+                    .constructiveInfluence=${preferencesStore.values.purpose}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
@@ -471,6 +481,10 @@ export class FeedPage extends MobxLitElement {
       );
     if (!validHandle) {
       this._signInError = "Enter a valid handle, such as alice.bsky.social.";
+      getRootStore()?.services.analyticsService.capture("signInFailed", {
+        failure_stage: "validation",
+        error_category: "invalid_handle",
+      });
       return;
     }
 
@@ -484,6 +498,7 @@ export class FeedPage extends MobxLitElement {
     this._signInError = "";
     const returnUrl = window.location.hash.slice(1) || "/feed";
     const params = new URLSearchParams({ return_url: returnUrl, handle });
+    let errorCategory: "request_failed" | "missing_redirect_url" = "request_failed";
     try {
       const response = await fetch(`/auth/bluesky?${params.toString()}`, {
         headers: { Accept: "application/json" },
@@ -493,9 +508,16 @@ export class FeedPage extends MobxLitElement {
         throw new Error(message || "Could not start sign in");
       }
       const data = (await response.json()) as { redirectUrl?: string };
-      if (!data.redirectUrl) throw new Error("The account server did not provide a sign-in URL");
+      if (!data.redirectUrl) {
+        errorCategory = "missing_redirect_url";
+        throw new Error("The account server did not provide a sign-in URL");
+      }
       window.location.assign(data.redirectUrl);
     } catch (error: unknown) {
+      getRootStore()?.services.analyticsService.capture("signInFailed", {
+        failure_stage: "initiation",
+        error_category: errorCategory,
+      });
       this._signInError =
         error instanceof Error
           ? error.message

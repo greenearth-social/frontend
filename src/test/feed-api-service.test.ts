@@ -23,6 +23,7 @@ describe("FeedApiService", () => {
               request_id: "req-1",
               generated_at: "2026-07-15T12:00:00Z",
               feed_name: "your-feed",
+              api_release_sha: "api-sha-summary",
               applied_social_radius: 0,
               generator_diagnostics: [
                 {
@@ -49,6 +50,7 @@ describe("FeedApiService", () => {
           requestId: "req-1",
           generatedAt: "2026-07-15T12:00:00Z",
           feedName: "your-feed",
+          apiReleaseSha: "api-sha-summary",
           appliedSocialRadius: 0,
           generatorDiagnostics: [
             {
@@ -74,6 +76,7 @@ describe("FeedApiService", () => {
         jsonResponse({
           request_id: "req-1",
           generated_at: "2026-07-15T12:00:00Z",
+          api_release_sha: "api-sha-detail",
           stored_item_count: 4,
           displayed_item_count: 1,
           publicly_filtered_count: 2,
@@ -115,6 +118,7 @@ describe("FeedApiService", () => {
     const response = await service.getFeedDetail("req-1");
 
     expect(response.requestId).toBe("req-1");
+    expect(response.apiReleaseSha).toBe("api-sha-detail");
     expect(response.filteringCounts).toEqual({
       storedItemCount: 4,
       displayedItemCount: 1,

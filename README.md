@@ -18,6 +18,8 @@ User-facing SPA for **Post Observability** — a Bluesky feed debugger that visu
 
 ## Quick Start
 
+### Standalone mock frontend
+
 ```sh
 npm install
 npm run dev        # starts Vite dev server on port 3000 (mock services by default)
@@ -25,13 +27,34 @@ npm run dev        # starts Vite dev server on port 3000 (mock services by defau
 
 Mock services are enabled when `VITE_USE_MOCK_SERVICES=true` (the default). This gives you a fully functional UI with hardcoded feed data — no Firebase or backend required.
 
-To run against real Firebase, the API backend, and BlueSky OAuth locally:
+### Full local stack
 
 ```sh
-VITE_USE_MOCK_SERVICES=false VITE_USE_FIREBASE_EMULATORS=true npm run dev
+cd ../internal-tools/devenv
+./devctl bootstrap
 ```
 
-See `Documentation/LOCAL_OAUTH_TEST.md` for full instructions.
+The shared development environment runs the frontend against the local API,
+Firebase Auth and Firestore emulators, seeded Bluesky data, and the real
+inference service without requiring credentials. It disables frontend mock
+services, supplies the emulator configuration, and keeps Vite hot reload
+enabled.
+
+After bootstrap, run `./devctl login`, open the printed local sign-in URL, run
+`./devctl feed`, and reload the frontend to see a feed snapshot. The UI's
+handle-based sign-in is also backed by the credential-free local auth shim.
+
+Run `./devctl pull` from `internal-tools/devenv` to safely fetch and
+fast-forward sibling repositories at the start of a task. To test the local
+feeds through a real Bluesky account, configure the ngrok token, development
+account handle, and Bluesky app password described in the local environment
+guide, then use `./devctl bsky up`, `./devctl bsky status`, and
+`./devctl bsky down`.
+
+See the [local development environment guide](Documentation/LOCAL_DEV_ENVIRONMENT.md)
+for setup, frontend test commands, and troubleshooting. Developers working
+specifically on the real Bluesky OAuth flow should use the
+[local OAuth testing guide](Documentation/LOCAL_OAUTH_TEST.md).
 
 ### Firebase emulators
 
@@ -73,25 +96,50 @@ const rootStore = getRootStore();
 
 Hash-based SPA routing handled entirely in `app-shell.ts`:
 
-| Hash                      | Page          | Description                                             |
-| ------------------------- | ------------- | ------------------------------------------------------- |
-| `#/feed`                  | Feed Page     | Default. Post observability feed with tabs + pagination |
-| `#/controls`              | Controls Page | Social Radius slider + future controls                  |
-| `#/how-it-works`          | How It Works  | Interactive algorithm diagram                           |
-| `#/settings`              | Settings      | Placeholder                                             |
-| `#/auth/finish?token=...` | (inline)      | OAuth callback handler                                  |
+| Hash             | Page          | Description                                             |
+| ---------------- | ------------- | ------------------------------------------------------- |
+| `#/feed`         | Feed Page     | Default. Post observability feed with tabs + pagination |
+| `#/controls`     | Controls Page | Social Radius slider + future controls                  |
+| `#/how-it-works` | How It Works  | Interactive algorithm diagram                           |
+| `#/feedback`     | Feedback      | Custom PostHog-backed feedback form                     |
+| `#/settings`     | Settings      | Placeholder                                             |
+| `#/auth/finish?token=...` | (inline) | OAuth callback handler                            |
+
+## Product analytics
+
+The frontend uses one shared PostHog client for product events and manual
+survey submissions. Network capture is enabled only by the production runtime
+configuration; stage, local development, mocks, and tests use no-op analytics.
+Autocapture, generic pageviews, exception capture, heatmaps, and session replay
+are disabled.
+
+Custom product events are `signInCompleted`, `signInFailed`,
+`feedControlChanged`, `feedControlChangeFailed`, `controlHelpOpened`,
+`howItWorksViewed`, `howItWorksComponentClicked`, and
+`postOpenedInBluesky`. Every event includes the frontend surface, environment,
+release SHA, sanitized app route, and schema version. Users are identified by
+their Bluesky DID and reset on logout. Event payloads must never include OAuth
+tokens, entered handles, raw errors, post content, or author details.
+
+Feed-specific events use the API feed rkey in `feed_name` (`your-feed`,
+`best-of-friends`, or `random`) plus a human-readable `feed_label`. The three
+feedback surfaces continue to use three PostHog surveys across all feeds.
+Survey responses are segmented with `feedback_context_key` (`<surface>:<feed>`)
+and a unique `feedback_submission_id`. They include the selected feed's
+`api_release_sha` (not the frontend build SHA); detailed snapshot metadata is
+included only when the loaded snapshot belongs to the selected feed.
 
 Route changes trigger a scroll-to-top on the center column.
 
 ### Responsive Layout
 
-Three-column layout managed by `app-shell`:
+Responsive layout managed by `app-shell`:
 
 | Breakpoint        | Behavior                                                             |
 | ----------------- | -------------------------------------------------------------------- |
 | **< 1024px**      | Left sidebar hidden; hamburger drawer menu; center column full width |
 | **1024px–1199px** | Left sidebar visible (275px); center column max 600px                |
-| **≥ 1200px**      | Right sidebar visible (350px); full three-column layout              |
+| **≥ 1200px**      | Left sidebar and centered post list remain visible                   |
 
 ### OAuth Flow
 
@@ -134,7 +182,6 @@ The Bluesky dark theme variables are defined in `src/styles/index.css` and inclu
 | `rank-scores-chart`  | `<rank-scores-chart>`  | Score axis chart showing model scores on -1 to +1                  |
 | `generator-badge`    | `<generator-badge>`    | Colored pill badge for feed generator names + scores               |
 | `pagination-control` | `<pagination-control>` | Page buttons, ellipsis, per-page selector                          |
-| `right-sidebar`      | `<right-sidebar>`      | Feed snapshot list panel                                           |
 | `icon-library`       | `<icon-library>`       | Registers 30+ custom SVG icons with WebAwesome                     |
 
 ## Firestore Security Rules
@@ -195,5 +242,6 @@ CI pipeline runs: `lint` → `typecheck` → `test:unit` → `test:e2e` → `bui
 ## Further Reading
 
 - `AGENTS.md` — Development conventions, service tables, component patterns
-- `Documentation/CI_CD.md` — CI/CD pipeline, environment strategy, deployment
-- `Documentation/LOCAL_OAUTH_TEST.md` — Step-by-step local OAuth E2E test guide
+- [Local development environment](Documentation/LOCAL_DEV_ENVIRONMENT.md) — Credential-free full-stack frontend development with `devctl`
+- [Local OAuth testing](Documentation/LOCAL_OAUTH_TEST.md) — Real Bluesky OAuth testing with a public callback origin and client keys
+- [CI/CD](Documentation/CI_CD.md) — Pipeline, environment strategy, and deployment

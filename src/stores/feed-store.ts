@@ -24,6 +24,7 @@ export class FeedStore {
   feedListLoadState: FeedListLoadState = "idle";
   error: string | null = null;
   lastGeneratedAt: string | null = null;
+  currentApiReleaseSha: string | null = null;
 
   feedList: FeedSummary[] = [];
   currentRequestId: string | null = null;
@@ -31,10 +32,17 @@ export class FeedStore {
 
   private _feedListLoadSeq: number = 0;
   private _loadSeq: number = 0;
+  private _accountId: string | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
     makeAutoObservable(this, { root: false });
+  }
+
+  activateAccount(accountId: string): void {
+    if (this._accountId === accountId) return;
+    this.reset();
+    this._accountId = accountId;
   }
 
   get currentPage(): number {
@@ -106,13 +114,16 @@ export class FeedStore {
   reset(): void {
     this._feedListLoadSeq++;
     this._loadSeq++;
+    this._accountId = null;
     this._allItems = [];
     this._currentPage = 1;
+    this._postsPerPage = DEFAULT_POSTS_PER_PAGE;
     this.items = [];
     this.isLoading = false;
     this.feedListLoadState = "idle";
     this.error = null;
     this.lastGeneratedAt = null;
+    this.currentApiReleaseSha = null;
     this.feedList = [];
     this.currentRequestId = null;
     this.filteringCountsByRequest = {};
@@ -181,12 +192,14 @@ export class FeedStore {
       this._currentPage = 1;
       this._updateVisibleItems();
       this.lastGeneratedAt = response.generatedAt;
+      this.currentApiReleaseSha = response.apiReleaseSha;
     } catch (e) {
       if (seq !== this._loadSeq) return;
 
       console.error("FeedStore.loadFeedDetail error:", e);
       this.error = e instanceof Error ? e.message : "Failed to load feed";
       this._allItems = [];
+      this.currentApiReleaseSha = null;
       this._currentPage = 1;
       this._updateVisibleItems();
     } finally {

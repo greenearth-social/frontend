@@ -3,45 +3,61 @@ import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import "../components/lifecycle-slider";
 import "../components/discrete-slider";
+import "../components/feedback-form";
 import {
   FRESHNESS_PRESETS,
   POLITICS_PRESETS,
   PURPOSE_PRESETS,
   SOCIAL_RADIUS_PRESETS,
 } from "../constants/preferences";
-import type { AlgorithmId } from "../constants/algorithms";
+import {
+  feedAnalyticsProperties,
+  type AlgorithmId,
+} from "../constants/algorithms";
 
 type ControlHelp = "social-radius" | "freshness" | "politics" | "purpose";
 
-const HELP_CONTENT: Record<ControlHelp, {
-  title: string;
-  paragraphs: Array<{ label?: string; text: string }>;
-}> = {
+const HELP_CONTENT: Record<
+  ControlHelp,
+  {
+    title: string;
+    paragraphs: Array<{ label?: string; text: string }>;
+  }
+> = {
   "social-radius": {
     title: "Social Radius",
     paragraphs: [
       { label: "F (Following)", text: "Posts from accounts you follow." },
       { label: "E (Everyone)", text: "Posts discovered beyond accounts you follow." },
-      { text: "Everyone is split evenly between Author/Topic recommendations and Popular posts, so each source receives half of the displayed Everyone weight." },
+      {
+        text: "Everyone is split evenly between Author/Topic recommendations and Popular posts, so each source receives half of the displayed Everyone weight.",
+      },
     ],
   },
   freshness: {
-    title: "Freshness",
+    title: "Time Window",
     paragraphs: [
-      { text: "Controls the maximum candidate-post age for every feed source simultaneously, from 6 hours through 7 days." },
+      {
+        text: "Controls the maximum candidate-post age for every feed source simultaneously, from 6 hours through 7 days.",
+      },
     ],
   },
   politics: {
     title: "Politics",
     paragraphs: [
       { text: "Controls the score multiplier applied to political content." },
-      { text: "1.00 is neutral. Lower values reduce political-content scores; higher values increase them." },
+      {
+        text: "1.00 is neutral. Lower values reduce political-content scores; higher values increase them.",
+      },
     ],
   },
   purpose: {
     title: "Purpose",
     paragraphs: [
-      { label: "E (Engaging)", text: "Weight for content that drives interaction, such as likes and replies." },
+      {
+        label: "E (Engaging)",
+        text: "Weight for content that drives interaction, such as likes and replies.",
+      },
       { label: "C (Constructive)", text: "Weight for healthy, meaningful content." },
       { text: "E and C always sum to 1.00." },
     ],
@@ -169,11 +185,7 @@ export class ControlsPage extends LitElement {
       pointer-events: none;
     }
     .refresh-popup-card {
-      background: linear-gradient(
-        135deg,
-        rgba(30, 39, 50, 0.98) 0%,
-        rgba(21, 32, 43, 0.99) 100%
-      );
+      background: linear-gradient(135deg, rgba(30, 39, 50, 0.98) 0%, rgba(21, 32, 43, 0.99) 100%);
       border: 1px solid var(--bluesky-border);
       border-radius: 12px;
       padding: 0.75rem 1rem;
@@ -226,9 +238,16 @@ export class ControlsPage extends LitElement {
     };
 
     return html`
-      ${this.activeHelp
-        ? html`<div class="backdrop" @click=${() => { this.activeHelp = null; }}></div>`
-        : ""}
+      ${
+        this.activeHelp
+          ? html`<div
+              class="backdrop"
+              @click=${() => {
+                this.activeHelp = null;
+              }}
+            ></div>`
+          : ""
+      }
       <div class="sticky-header">
         <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem;">
           <button
@@ -266,135 +285,155 @@ export class ControlsPage extends LitElement {
         </style>
       </div>
       <div class="controls-content">
-        ${this.showRefreshPopup
-          ? html`
-              <div class="refresh-popup" role="status" aria-live="polite">
-                <div class="refresh-popup-card">
-                  <p class="refresh-popup-message">
-                    Refresh your BlueSky Feed to see updates!
-                  </p>
+        ${
+          this.showRefreshPopup
+            ? html`
+                <div class="refresh-popup" role="status" aria-live="polite">
+                  <div class="refresh-popup-card">
+                    <p class="refresh-popup-message">Refresh your BlueSky Feed to see updates!</p>
+                  </div>
                 </div>
-              </div>
-            `
-          : ""}
-
-        ${this.selectedAlgorithm !== "random"
-          ? html`
-              ${this.selectedAlgorithm === "your-feed"
-                ? html`
-                    <div class="slider-group">
-                      <div class="slider-title">
-                        <span>Social Radius</span>
-                        ${this.#helpButton("social-radius", "Social Radius")}
-                      </div>
-                      ${this.isLoading
-                        ? html`<div class="slider-placeholder"></div>`
-                        : html`
-                            <lifecycle-slider
-                              title="Social Radius"
-                              leftLabel="Friends"
-                              rightLabel="Everyone"
-                              value=${prefs.socialRadius}
-                              .stageLabels=${SOCIAL_RADIUS_PRESETS.map((preset) => preset.displayLines)}
-                              @slider-change=${(e: CustomEvent<{ value: number }>) => {
+              `
+            : ""
+        }
+        ${
+          this.selectedAlgorithm !== "random"
+            ? html`
+                ${
+                this.selectedAlgorithm === "your-feed"
+                  ? html`
+                      <div class="slider-group">
+                        <div class="slider-title">
+                          <span>Social Radius</span>
+                          ${this.#helpButton("social-radius", "Social Radius")}
+                        </div>
+                        ${
+                        this.isLoading
+                          ? html`<div class="slider-placeholder"></div>`
+                          : html`
+                              <lifecycle-slider
+                                title="Social Radius"
+                                leftLabel="Friends"
+                                rightLabel="Everyone"
+                                value=${prefs.socialRadius}
+                                .stageLabels=${SOCIAL_RADIUS_PRESETS.map((preset) => preset.displayLines)}
+                                @slider-change=${(e: CustomEvent<{ value: number }>) => {
                                 this.#handleSocialRadiusChange(e.detail.value);
                               }}
-                            ></lifecycle-slider>
-                          `}
-                    </div>
-                  `
-                : ""}
+                              ></lifecycle-slider>
+                            `
+                      }
+                      </div>
+                    `
+                  : ""
+              }
 
-              <div class="slider-group">
-                <div class="slider-title">
-                  <span>Freshness</span>
-                  ${this.#helpButton("freshness", "Freshness")}
-                </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <discrete-slider
-                        .options=${FRESHNESS_PRESETS.map((p) => p.label)}
-                        .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
-                        value=${prefs.freshness}
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
+                <div class="slider-group">
+                  <div class="slider-title">
+                    <span>Time Window</span>
+                    ${this.#helpButton("freshness", "Time Window")}
+                  </div>
+                  ${
+                  this.isLoading
+                    ? html`<div class="slider-placeholder"></div>`
+                    : html`
+                        <discrete-slider
+                          .options=${FRESHNESS_PRESETS.map((p) => p.label)}
+                          .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
+                          value=${prefs.freshness}
+                          @slider-change=${(e: CustomEvent<{ value: number }>) => {
                           this.#handleFreshnessChange(e.detail.value);
                         }}
-                      ></discrete-slider>
-                    `}
-              </div>
-
-              <div class="slider-group disabled-control">
-                <div class="slider-title">
-                  <span>Politics</span>
-                  <span class="coming-soon">Coming Soon!</span>
-                  ${this.#helpButton("politics", "Politics")}
+                        ></discrete-slider>
+                      `
+                }
                 </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <lifecycle-slider
-                        value=${2}
-                        .stageLabels=${POLITICS_PRESETS.map((preset) => preset.displayLines)}
-                        disabled
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
+
+                <div class="slider-group disabled-control">
+                  <div class="slider-title">
+                    <span>Politics</span>
+                    <span class="coming-soon">Coming Soon!</span>
+                    ${this.#helpButton("politics", "Politics")}
+                  </div>
+                  ${
+                  this.isLoading
+                    ? html`<div class="slider-placeholder"></div>`
+                    : html`
+                        <lifecycle-slider
+                          value=${2}
+                          .stageLabels=${POLITICS_PRESETS.map((preset) => preset.displayLines)}
+                          disabled
+                          @slider-change=${(e: CustomEvent<{ value: number }>) => {
                           const preset = POLITICS_PRESETS[e.detail.value];
                           if (preset) this.#handlePoliticsChange(preset.value);
                         }}
-                      ></lifecycle-slider>
-                    `}
-              </div>
-
-              <div class="slider-group disabled-control">
-                <div class="slider-title">
-                  <span>Purpose</span>
-                  <span class="coming-soon">Coming Soon!</span>
-                  ${this.#helpButton("purpose", "Purpose")}
+                        ></lifecycle-slider>
+                      `
+                }
                 </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <lifecycle-slider
-                        value=${2}
-                        .stageLabels=${PURPOSE_PRESETS.map((preset) => preset.displayLines)}
-                        disabled
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
+
+                <div class="slider-group disabled-control">
+                  <div class="slider-title">
+                    <span>Purpose</span>
+                    <span class="coming-soon">Coming Soon!</span>
+                    ${this.#helpButton("purpose", "Purpose")}
+                  </div>
+                  ${
+                  this.isLoading
+                    ? html`<div class="slider-placeholder"></div>`
+                    : html`
+                        <lifecycle-slider
+                          value=${2}
+                          .stageLabels=${PURPOSE_PRESETS.map((preset) => preset.displayLines)}
+                          disabled
+                          @slider-change=${(e: CustomEvent<{ value: number }>) => {
                           const preset = PURPOSE_PRESETS[e.detail.value];
                           if (preset) this.#handlePurposeChange(preset.value);
                         }}
-                      ></lifecycle-slider>
-                    `}
-              </div>
-            `
-          : html`
-              <div class="slider-group">
-                <div class="slider-title">
-                  <span>Freshness</span>
-                  ${this.#helpButton("freshness", "Freshness")}
+                        ></lifecycle-slider>
+                      `
+                }
                 </div>
-                ${this.isLoading
-                  ? html`<div class="slider-placeholder"></div>`
-                  : html`
-                      <discrete-slider
-                        .options=${FRESHNESS_PRESETS.map((p) => p.label)}
-                        .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
-                        value=${prefs.freshness}
-                        @slider-change=${(e: CustomEvent<{ value: number }>) => {
+              `
+            : html`
+                <div class="slider-group">
+                  <div class="slider-title">
+                    <span>Time Window</span>
+                    ${this.#helpButton("freshness", "Time Window")}
+                  </div>
+                  ${
+                  this.isLoading
+                    ? html`<div class="slider-placeholder"></div>`
+                    : html`
+                        <discrete-slider
+                          .options=${FRESHNESS_PRESETS.map((p) => p.label)}
+                          .iconSources=${FRESHNESS_PRESETS.map((p) => p.iconSrc)}
+                          value=${prefs.freshness}
+                          @slider-change=${(e: CustomEvent<{ value: number }>) => {
                           this.#handleFreshnessChange(e.detail.value);
                         }}
-                      ></discrete-slider>
-                    `}
-              </div>
-            `}
+                        ></discrete-slider>
+                      `
+                }
+                </div>
+              `
+        }
+        <feedback-form
+          surface="controls"
+          .selectedFeed=${this.selectedAlgorithm}
+          prompt="Did you want to change something else? Tell us!"
+          placeholder="Tell us what you'd like to change"
+        ></feedback-form>
       </div>
 
-      ${this.activeHelp
-        ? html`
-            <div class="info-popup" role="dialog" aria-modal="true" aria-labelledby="help-title">
-              <div class="info-popup-title" id="help-title">
-                ${HELP_CONTENT[this.activeHelp].title}
-              </div>
-              ${HELP_CONTENT[this.activeHelp].paragraphs.map(
+      ${
+        this.activeHelp
+          ? html`
+              <div class="info-popup" role="dialog" aria-modal="true" aria-labelledby="help-title">
+                <div class="info-popup-title" id="help-title">
+                  ${HELP_CONTENT[this.activeHelp].title}
+                </div>
+                ${HELP_CONTENT[this.activeHelp].paragraphs.map(
                 (paragraph) => html`
                   <p>
                     ${paragraph.label ? html`<strong>${paragraph.label}:</strong> ` : ""}
@@ -402,9 +441,10 @@ export class ControlsPage extends LitElement {
                   </p>
                 `,
               )}
-            </div>
-          `
-        : ""}
+              </div>
+            `
+          : ""
+      }
     `;
   }
 
@@ -417,6 +457,11 @@ export class ControlsPage extends LitElement {
         @click=${(e: Event) => {
           e.stopPropagation();
           this.activeHelp = control;
+          getRootStore()?.services.analyticsService.capture("controlHelpOpened", {
+            control_name: control.replace("-", "_") as
+              "social_radius" | "freshness" | "politics" | "purpose",
+            ...feedAnalyticsProperties(this.selectedAlgorithm),
+          });
         }}
       >
         <wa-icon name="info-circle" library="app"></wa-icon>
@@ -429,7 +474,7 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, socialRadius: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "social_radius", this.selectedAlgorithm);
   }
 
   #handleFreshnessChange(value: number) {
@@ -437,21 +482,21 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, freshness: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "freshness", this.selectedAlgorithm);
   }
 
   #handlePoliticsChange(value: number) {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, politics: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "politics", this.selectedAlgorithm);
   }
 
   #handlePurposeChange(value: number) {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, purpose: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "purpose", this.selectedAlgorithm);
   }
 
   #showRefreshPopup(): void {

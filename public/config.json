@@ -1,1 +1,9 @@
-{"firestoreDatabase": "greenearth-stage"}
+{
+  "_comment": "Local runtime config. Deployment workflows replace this file for stage and production.",
+  "environment": "local",
+  "firestoreDatabase": "greenearth-stage",
+  "frontendReleaseSha": null,
+  "feedback": {
+    "mode": "test"
+  }
+}

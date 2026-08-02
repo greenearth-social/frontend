@@ -52,6 +52,17 @@ describe("AuthStore account changes", () => {
         getPreferences: vi.fn().mockResolvedValue(preferences),
         putPreferences: vi.fn(),
       },
+      analyticsService: {
+        identify: vi.fn(),
+        reset: vi.fn(),
+        capture: vi.fn(),
+      },
+      feedbackService: {
+        mode: "test",
+        unavailableReason: null,
+        unavailableReasonFor: vi.fn().mockReturnValue(null),
+        submit: vi.fn(),
+      },
     });
     const reset = vi.spyOn(root.feedStore, "reset");
     const accountA = { uid: "did:plc:a", email: null, displayName: "Alice" };

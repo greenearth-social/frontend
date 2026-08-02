@@ -46,7 +46,20 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Write prod config
-        run: cp public/config.prod.json dist/config.json
+        env:
+          FRONTEND_RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          POSTHOG_PROJECT_KEY: ${{ vars.POSTHOG_PROJECT_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_FEEDBACK_SURVEY_ID: ${{ vars.POSTHOG_FEEDBACK_SURVEY_ID }}
+          POSTHOG_FEEDBACK_QUESTION_ID: ${{ vars.POSTHOG_FEEDBACK_QUESTION_ID }}
+          POSTHOG_CONTROLS_SURVEY_ID: ${{ vars.POSTHOG_CONTROLS_SURVEY_ID }}
+          POSTHOG_CONTROLS_QUESTION_ID: ${{ vars.POSTHOG_CONTROLS_QUESTION_ID }}
+          POSTHOG_HOW_IT_WORKS_SURVEY_ID: ${{ vars.POSTHOG_HOW_IT_WORKS_SURVEY_ID }}
+          POSTHOG_HOW_IT_WORKS_QUESTION_ID: ${{ vars.POSTHOG_HOW_IT_WORKS_QUESTION_ID }}
+        run: |
+          test -n "$POSTHOG_PROJECT_KEY"
+          test -n "$POSTHOG_HOST"
+          node -e 'const fs = require("fs"); const env = process.env; const survey = (surveyId, questionId) => surveyId && questionId ? { surveyId, questionId } : null; const entries = [["general", survey(env.POSTHOG_FEEDBACK_SURVEY_ID, env.POSTHOG_FEEDBACK_QUESTION_ID)], ["controls", survey(env.POSTHOG_CONTROLS_SURVEY_ID, env.POSTHOG_CONTROLS_QUESTION_ID)], ["howItWorks", survey(env.POSTHOG_HOW_IT_WORKS_SURVEY_ID, env.POSTHOG_HOW_IT_WORKS_QUESTION_ID)]].filter(([, value]) => value); const config = { ...JSON.parse(fs.readFileSync("public/config.prod.json", "utf8")), frontendReleaseSha: env.FRONTEND_RELEASE_SHA, feedback: { mode: "posthog", projectKey: env.POSTHOG_PROJECT_KEY, host: env.POSTHOG_HOST, surveys: Object.fromEntries(entries) } }; fs.writeFileSync("dist/config.json", JSON.stringify(config, null, 2) + "\n")'
 
       - name: Write functions .env from GitHub Variables
         env:

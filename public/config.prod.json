@@ -1,5 +1,11 @@
 {
+  "environment": "production",
   "firestoreDatabase": "greenearth-prod",
+  "frontendReleaseSha": null,
+  "feedback": {
+    "mode": "unavailable",
+    "reason": "Production analytics configuration is injected during deployment."
+  },
   "blueskyUrls": {
     "your-feed": "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed",
     "best-of-friends": "https://bsky.app/profile/greenearth-social.bsky.social/feed/best-of-friends",

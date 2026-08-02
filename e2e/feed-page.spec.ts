@@ -48,8 +48,7 @@ test.describe("Feed Page", () => {
     await expect(page.locator("h1")).toHaveText("Why Am I Seeing This?");
   });
 
-  test("shows feeds card in right sidebar", async ({ page }) => {
-    const feeds = page.locator("right-sidebar");
-    await expect(feeds).toContainText("Feed Snapshots");
+  test("does not duplicate the feed selector in a right sidebar", async ({ page }) => {
+    await expect(page.locator("right-sidebar")).toHaveCount(0);
   });
 });

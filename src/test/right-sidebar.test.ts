@@ -8,6 +8,7 @@ function makeFeed(feedName: string, hoursAgo: number): FeedSummary {
     requestId: `req-${String(hoursAgo)}`,
     generatedAt: d.toISOString(),
     feedName,
+    apiReleaseSha: null,
     appliedSocialRadius: null,
     generatorDiagnostics: [],
   };
