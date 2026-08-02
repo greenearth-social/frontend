@@ -125,8 +125,9 @@ Feed-specific events use the API feed rkey in `feed_name` (`your-feed`,
 `best-of-friends`, or `random`) plus a human-readable `feed_label`. The three
 feedback surfaces continue to use three PostHog surveys across all feeds.
 Survey responses are segmented with `feedback_context_key` (`<surface>:<feed>`)
-and a unique `feedback_submission_id`; snapshot metadata is included only when
-the loaded snapshot belongs to the selected feed.
+and a unique `feedback_submission_id`. They include the selected feed's
+`api_release_sha` (not the frontend build SHA); detailed snapshot metadata is
+included only when the loaded snapshot belongs to the selected feed.
 
 Route changes trigger a scroll-to-top on the center column.
 

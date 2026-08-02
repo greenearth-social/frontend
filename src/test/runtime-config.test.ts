@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { parseRuntimeConfig } from "../config/runtime-config";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  loadRuntimeConfig,
+  parseRuntimeConfig,
+} from "../config/runtime-config";
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("parseRuntimeConfig", () => {
   it("defaults missing feedback configuration to no-network test mode", () => {
@@ -82,5 +90,28 @@ describe("parseRuntimeConfig", () => {
     });
 
     expect(config.posthog.mode).toBe("disabled");
+  });
+
+  it("falls back when the runtime config request stalls", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      }),
+    );
+
+    const configPromise = loadRuntimeConfig();
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(configPromise).resolves.toMatchObject({
+      environment: "local",
+      posthog: { mode: "disabled" },
+      feedback: { mode: "test" },
+    });
   });
 });

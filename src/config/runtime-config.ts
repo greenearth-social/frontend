@@ -44,6 +44,8 @@ const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   feedback: { mode: "test" },
 };
 
+const RUNTIME_CONFIG_TIMEOUT_MS = 5_000;
+
 function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -130,11 +132,18 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
 }
 
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, RUNTIME_CONFIG_TIMEOUT_MS);
+
   try {
-    const response = await fetch("/config.json");
+    const response = await fetch("/config.json", { signal: controller.signal });
     if (!response.ok) return DEFAULT_RUNTIME_CONFIG;
     return parseRuntimeConfig(await response.json());
   } catch {
     return DEFAULT_RUNTIME_CONFIG;
+  } finally {
+    clearTimeout(timeout);
   }
 }

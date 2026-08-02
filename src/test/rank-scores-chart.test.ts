@@ -296,6 +296,74 @@ describe("RankScoresChart", () => {
     element.remove();
   });
 
+  it("manages focus and closes explanation dialogs with Escape", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const trigger = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      ".diversification-info-button",
+    );
+    trigger?.focus();
+    trigger?.click();
+    await element.updateComplete;
+
+    const dialog = element.shadowRoot?.querySelector<HTMLElement>(".div-popup");
+    const closeButton = dialog?.querySelector<HTMLButtonElement>(".popup-close");
+    expect(dialog?.getAttribute("role")).toBe("dialog");
+    expect(dialog?.getAttribute("aria-modal")).toBe("true");
+    expect(element.shadowRoot?.activeElement).toBe(closeButton);
+
+    const tabEvent = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(tabEvent);
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(element.shadowRoot?.activeElement).toBe(closeButton);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".div-popup")).toBeNull();
+    expect(element.shadowRoot?.activeElement).toBe(trigger);
+    element.remove();
+  });
+
+  it("provides an explicit close button for every explanation dialog", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    for (const triggerSelector of [
+      ".source-info-button",
+      ".rankers-info-button",
+      ".diversification-info-button",
+      ".final-score-info-button",
+    ]) {
+      element.shadowRoot?.querySelector<HTMLButtonElement>(triggerSelector)?.click();
+      await element.updateComplete;
+      const dialog = element.shadowRoot?.querySelector<HTMLElement>("[role='dialog']");
+      expect(dialog?.getAttribute("aria-modal")).toBe("true");
+      const closeButton = dialog?.querySelector<HTMLButtonElement>(".popup-close");
+      expect(closeButton?.getAttribute("aria-label")).toBe("Close explanation");
+      closeButton?.click();
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector("[role='dialog']")).toBeNull();
+    }
+
+    element.remove();
+  });
+
   it("shows only the random source pill for the Random feed", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = item();

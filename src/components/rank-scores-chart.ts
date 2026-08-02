@@ -24,6 +24,7 @@ export class RankScoresChart extends LitElement {
   @state() private _showRankersPopup = false;
   @state() private _showDivPopup = false;
   @state() private _showScorePopup = false;
+  private _popupTrigger: HTMLElement | null = null;
 
   static styles = css`
     :host {
@@ -202,8 +203,38 @@ export class RankScoresChart extends LitElement {
     .div-popup-title,
     .score-popup-title {
       font-weight: 700;
-      margin-bottom: 0.5rem;
       color: var(--bluesky-text);
+    }
+    .popup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .popup-close {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 1.75rem;
+      height: 1.75rem;
+      margin: -0.375rem -0.375rem 0 0;
+      padding: 0;
+      border: 0;
+      border-radius: 9999px;
+      background: transparent;
+      color: var(--bluesky-text-secondary);
+      cursor: pointer;
+      font: inherit;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    .popup-close:hover,
+    .popup-close:focus-visible {
+      background: var(--bluesky-bg-hover);
+      color: var(--bluesky-text);
+      outline: 2px solid color-mix(in srgb, var(--bluesky-brand) 55%, transparent);
+      outline-offset: 1px;
     }
     .score-formula {
       margin: 0.75rem 0;
@@ -302,32 +333,50 @@ export class RankScoresChart extends LitElement {
     }
   `;
 
-  private _toggleDivPopup() {
+  private _toggleDivPopup(trigger: HTMLElement) {
+    this._popupTrigger = trigger;
     this._showDivPopup = !this._showDivPopup;
     this._showSourcePopup = false;
     this._showRankersPopup = false;
     this._showScorePopup = false;
+    this._finishPopupToggle();
   }
 
-  private _toggleScorePopup() {
+  private _toggleScorePopup(trigger: HTMLElement) {
+    this._popupTrigger = trigger;
     this._showScorePopup = !this._showScorePopup;
     this._showSourcePopup = false;
     this._showRankersPopup = false;
     this._showDivPopup = false;
+    this._finishPopupToggle();
   }
 
-  private _toggleSourcePopup() {
+  private _toggleSourcePopup(trigger: HTMLElement) {
+    this._popupTrigger = trigger;
     this._showSourcePopup = !this._showSourcePopup;
     this._showRankersPopup = false;
     this._showDivPopup = false;
     this._showScorePopup = false;
+    this._finishPopupToggle();
   }
 
-  private _toggleRankersPopup() {
+  private _toggleRankersPopup(trigger: HTMLElement) {
+    this._popupTrigger = trigger;
     this._showRankersPopup = !this._showRankersPopup;
     this._showSourcePopup = false;
     this._showDivPopup = false;
     this._showScorePopup = false;
+    this._finishPopupToggle();
+  }
+
+  private _finishPopupToggle() {
+    if (!this._hasOpenPopup()) {
+      this._restorePopupTrigger();
+      return;
+    }
+    void this.updateComplete.then(() => {
+      this.renderRoot.querySelector<HTMLButtonElement>("[role='dialog'] .popup-close")?.focus();
+    });
   }
 
   private _closePopups() {
@@ -335,30 +384,63 @@ export class RankScoresChart extends LitElement {
     this._showRankersPopup = false;
     this._showDivPopup = false;
     this._showScorePopup = false;
+    this._restorePopupTrigger();
+  }
+
+  private _restorePopupTrigger() {
+    const trigger = this._popupTrigger;
+    this._popupTrigger = null;
+    if (!trigger) return;
+    void this.updateComplete.then(() => {
+      trigger.focus();
+    });
+  }
+
+  private _hasOpenPopup(): boolean {
+    return (
+      this._showSourcePopup ||
+      this._showRankersPopup ||
+      this._showDivPopup ||
+      this._showScorePopup
+    );
   }
 
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener("click", this._handleOutsideClick);
+    document.addEventListener("keydown", this._handleKeydown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("click", this._handleOutsideClick);
+    document.removeEventListener("keydown", this._handleKeydown);
   }
 
   private _handleOutsideClick = (e: Event) => {
-    if (
-      this._showSourcePopup ||
-      this._showRankersPopup ||
-      this._showDivPopup ||
-      this._showScorePopup
-    ) {
+    if (this._hasOpenPopup()) {
       const path = e.composedPath();
       if (!path.includes(this)) {
         this._closePopups();
       }
     }
+  };
+
+  private _handleKeydown = (event: KeyboardEvent) => {
+    if (!this._hasOpenPopup()) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this._closePopups();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const closeButton = this.renderRoot.querySelector<HTMLButtonElement>(
+      "[role='dialog'] .popup-close",
+    );
+    if (!closeButton) return;
+    event.preventDefault();
+    closeButton.focus();
   };
 
   render() {
@@ -407,7 +489,7 @@ export class RankScoresChart extends LitElement {
                   }}
                 ></div>
                 <div class="info-popup" role="dialog" aria-modal="true" aria-label="Post sources">
-                  <div class="info-popup-title">Source</div>
+                  ${this.#popupHeader("Source", "info-popup-title")}
                   <p>
                     The Random feed repeats the latest feed load without ranking or diversification.
                   </p>
@@ -419,8 +501,8 @@ export class RankScoresChart extends LitElement {
             <button
               class="random-source-label"
               type="button"
-              @click=${() => {
-                this._toggleSourcePopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleSourcePopup(event.currentTarget as HTMLElement);
               }}
             >
               Source:
@@ -429,8 +511,8 @@ export class RankScoresChart extends LitElement {
               class="explanation-value-button source-pill-button random-source-pill-button"
               type="button"
               aria-label="Explain random source"
-              @click=${() => {
-                this._toggleSourcePopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleSourcePopup(event.currentTarget as HTMLElement);
               }}
             >
               <generator-badge name="random_posts"></generator-badge>
@@ -462,8 +544,8 @@ export class RankScoresChart extends LitElement {
               type="button"
               aria-label="Explain post sources"
               title="Explain sources"
-              @click=${() => {
-                this._toggleSourcePopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleSourcePopup(event.currentTarget as HTMLElement);
               }}
             >
               Source
@@ -476,8 +558,8 @@ export class RankScoresChart extends LitElement {
                     class="explanation-value-button source-pill-button"
                     type="button"
                     aria-label="Explain ${g.name} source"
-                    @click=${() => {
-                      this._toggleSourcePopup();
+                    @click=${(event: MouseEvent) => {
+                      this._toggleSourcePopup(event.currentTarget as HTMLElement);
                     }}
                   >
                     <generator-badge name=${g.name}></generator-badge>
@@ -493,8 +575,8 @@ export class RankScoresChart extends LitElement {
               type="button"
               aria-label="Explain post rankers"
               title="Explain rankers"
-              @click=${() => {
-                this._toggleRankersPopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleRankersPopup(event.currentTarget as HTMLElement);
               }}
             >
               Rankers
@@ -508,8 +590,8 @@ export class RankScoresChart extends LitElement {
                     class="ranker-item explanation-value-button ranker-value-button"
                     type="button"
                     aria-label="Explain ${rr.label} ranker score"
-                    @click=${() => {
-                      this._toggleRankersPopup();
+                    @click=${(event: MouseEvent) => {
+                      this._toggleRankersPopup(event.currentTarget as HTMLElement);
                     }}
                   >
                     <span class="ranker-label">${rr.label}</span>
@@ -537,8 +619,8 @@ export class RankScoresChart extends LitElement {
               type="button"
               aria-label="Explain diversification"
               title="Explain diversification"
-              @click=${() => {
-                this._toggleDivPopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleDivPopup(event.currentTarget as HTMLElement);
               }}
             >
               Diversification
@@ -548,8 +630,8 @@ export class RankScoresChart extends LitElement {
               class="div-content explanation-value-button diversification-value-button"
               type="button"
               aria-label="Explain diversification value"
-              @click=${() => {
-                this._toggleDivPopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleDivPopup(event.currentTarget as HTMLElement);
               }}
             >
               <span class="div-value">${divDeltaStr}</span>
@@ -562,8 +644,8 @@ export class RankScoresChart extends LitElement {
               type="button"
               aria-label="Explain this post's score"
               title="Explain score"
-              @click=${() => {
-                this._toggleScorePopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleScorePopup(event.currentTarget as HTMLElement);
               }}
             >
               Score
@@ -573,8 +655,8 @@ export class RankScoresChart extends LitElement {
               class="score-content explanation-value-button final-score-value-button"
               type="button"
               aria-label="Explain final score value"
-              @click=${() => {
-                this._toggleScorePopup();
+              @click=${(event: MouseEvent) => {
+                this._toggleScorePopup(event.currentTarget as HTMLElement);
               }}
             >
               <span class="score-value">
@@ -588,7 +670,7 @@ export class RankScoresChart extends LitElement {
         this._showSourcePopup
           ? html`
               <div class="info-popup" role="dialog" aria-modal="true" aria-label="Post sources">
-                <div class="info-popup-title">Source</div>
+                ${this.#popupHeader("Source", "info-popup-title")}
                 <p>
                   Sources show which candidate generators found this post before ranking. A post can
                   be found by more than one source.
@@ -601,7 +683,7 @@ export class RankScoresChart extends LitElement {
         this._showRankersPopup
           ? html`
               <div class="info-popup" role="dialog" aria-modal="true" aria-label="Post rankers">
-                <div class="info-popup-title">Rankers</div>
+                ${this.#popupHeader("Rankers", "info-popup-title")}
                 <p>
                   Rankers estimate how engaging and constructive a post may be. Each score is
                   multiplied by the ranker's influence when the relevance score is calculated.
@@ -613,8 +695,13 @@ export class RankScoresChart extends LitElement {
       ${
         this._showDivPopup
           ? html`
-              <div class="div-popup">
-                <div class="div-popup-title">Diversification Formula</div>
+              <div
+                class="div-popup"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Diversification formula"
+              >
+                ${this.#popupHeader("Diversification Formula", "div-popup-title")}
                 <p>
                   Diversification lowers a post when its author has appeared recently or its content
                   is similar to posts already selected.
@@ -670,7 +757,10 @@ export class RankScoresChart extends LitElement {
 
       return html`
         <div class="score-popup" role="dialog" aria-modal="true" aria-label="Score formula">
-          <div class="score-popup-title">How this selection score was calculated</div>
+          ${this.#popupHeader(
+            "How this selection score was calculated",
+            "score-popup-title",
+          )}
           <p>Ranker scores are multiplied by their influence and summed.</p>
           ${
             i.modelScores.length > 0
@@ -710,7 +800,10 @@ export class RankScoresChart extends LitElement {
     const relevanceScore = i.modelScores.length > 0 ? weightedTotal : selectionScore;
     return html`
       <div class="score-popup" role="dialog" aria-modal="true" aria-label="Score formula">
-        <div class="score-popup-title">How this relevance score was calculated</div>
+        ${this.#popupHeader(
+          "How this relevance score was calculated",
+          "score-popup-title",
+        )}
         ${
           i.modelScores.length > 0
             ? html`
@@ -732,6 +825,24 @@ export class RankScoresChart extends LitElement {
                 `
               : html`<p>No ranking formula was recorded for this legacy snapshot.</p>`
         }
+      </div>
+    `;
+  }
+
+  #popupHeader(title: string, titleClass: string) {
+    return html`
+      <div class="popup-header">
+        <div class=${titleClass}>${title}</div>
+        <button
+          class="popup-close"
+          type="button"
+          aria-label="Close explanation"
+          @click=${() => {
+            this._closePopups();
+          }}
+        >
+          &times;
+        </button>
       </div>
     `;
   }

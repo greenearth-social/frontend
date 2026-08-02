@@ -1,9 +1,6 @@
 import type { FeedbackSurface } from "../config/runtime-config";
 import { ALGORITHMS, type AlgorithmId } from "../constants/algorithms";
-import type {
-  FeedbackSnapshotContext,
-  FeedbackSubmitResult,
-} from "../services/feedback/types";
+import type { FeedbackSnapshotContext, FeedbackSubmitResult } from "../services/feedback/types";
 import type { RootStore } from "./root-store";
 
 export class FeedbackStore {
@@ -40,13 +37,20 @@ export class FeedbackStore {
     const filtering = requestId
       ? this.root.feedStore.filteringCountsByRequest[requestId]
       : undefined;
+    const latestSummaryForFeed = this.root.feedStore.feedList
+      .filter((feed) => feed.feedName === feedName)
+      .reduce<(typeof this.root.feedStore.feedList)[number] | undefined>(
+        (latest, feed) => (!latest || feed.generatedAt > latest.generatedAt ? feed : latest),
+        undefined,
+      );
+    const apiReleaseSha =
+      (requestId ? summary?.apiReleaseSha : latestSummaryForFeed?.apiReleaseSha) ?? null;
     const snapshot: FeedbackSnapshotContext | null =
       requestId && summary && filtering
         ? {
             requestId,
             feedName: summary.feedName,
             generatedAt: summary.generatedAt,
-            apiReleaseSha: this.root.feedStore.currentApiReleaseSha,
             storedItemCount: filtering.storedItemCount,
             displayedItemCount: filtering.displayedItemCount,
             publiclyFilteredCount: filtering.publiclyFilteredCount,
@@ -63,6 +67,7 @@ export class FeedbackStore {
       appRoute: route,
       feedName,
       feedLabel: ALGORITHMS[feedName].label,
+      apiReleaseSha,
       preferences: { ...this.root.preferencesStore.values },
       snapshot,
     });

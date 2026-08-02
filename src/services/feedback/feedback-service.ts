@@ -35,7 +35,6 @@ const SURFACE_EVENT_VALUES: Record<FeedbackSurface, string> = {
 export function buildFeedbackEvent(
   submission: FeedbackSubmission,
   survey: SurveyRuntimeConfig,
-  frontendReleaseSha: string | null,
 ): FeedbackEventPayload {
   const surface = SURFACE_EVENT_VALUES[submission.surface];
   const snapshot =
@@ -51,7 +50,7 @@ export function buildFeedbackEvent(
     feed_name: submission.feedName,
     feed_label: submission.feedLabel,
     app_route: submission.appRoute,
-    frontend_release_sha: frontendReleaseSha,
+    api_release_sha: submission.apiReleaseSha,
     snapshot_context_available: snapshot !== null,
     social_radius: submission.preferences.socialRadius,
     freshness: submission.preferences.freshness,
@@ -62,11 +61,9 @@ export function buildFeedbackEvent(
   if (snapshot) {
     properties.feed_snapshot_id = snapshot.requestId;
     properties.feed_generated_at = snapshot.generatedAt;
-    properties.api_release_sha = snapshot.apiReleaseSha;
     properties.feed_stored_item_count = snapshot.storedItemCount;
     properties.feed_displayed_item_count = snapshot.displayedItemCount;
-    properties.feed_publicly_filtered_count =
-      snapshot.publiclyFilteredCount;
+    properties.feed_publicly_filtered_count = snapshot.publiclyFilteredCount;
     properties.feed_unavailable_count = snapshot.unavailableCount;
   }
 
@@ -81,8 +78,6 @@ class TestFeedbackService implements IFeedbackService {
   readonly mode = "test" as const;
   readonly unavailableReason = null;
 
-  constructor(private frontendReleaseSha: string | null) {}
-
   unavailableReasonFor(_surface: FeedbackSurface): string | null {
     return null;
   }
@@ -90,11 +85,7 @@ class TestFeedbackService implements IFeedbackService {
   submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
     return Promise.resolve({
       sent: false,
-      payload: buildFeedbackEvent(
-        submission,
-        PREVIEW_SURVEYS[submission.surface],
-        this.frontendReleaseSha,
-      ),
+      payload: buildFeedbackEvent(submission, PREVIEW_SURVEYS[submission.surface]),
     });
   }
 }
@@ -120,28 +111,19 @@ export class PostHogFeedbackService implements IFeedbackService {
   constructor(
     private analytics: IAnalyticsService,
     private surveys: Partial<Record<FeedbackSurface, SurveyRuntimeConfig>>,
-    private frontendReleaseSha: string | null,
   ) {}
 
   unavailableReasonFor(surface: FeedbackSurface): string | null {
-    return this.surveys[surface]
-      ? null
-      : "Feedback is temporarily unavailable on this page.";
+    return this.surveys[surface] ? null : "Feedback is temporarily unavailable on this page.";
   }
 
   submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
     const survey = this.surveys[submission.surface];
     if (!survey) {
-      return Promise.reject(
-        new Error("Feedback is temporarily unavailable on this page."),
-      );
+      return Promise.reject(new Error("Feedback is temporarily unavailable on this page."));
     }
     this.analytics.identify(submission.distinctId);
-    const payload = buildFeedbackEvent(
-      submission,
-      survey,
-      this.frontendReleaseSha,
-    );
+    const payload = buildFeedbackEvent(submission, survey);
     this.analytics.capture(payload.event, payload.properties);
     return Promise.resolve({ sent: true, payload });
   }
@@ -152,14 +134,10 @@ export function createFeedbackService(
   analytics: IAnalyticsService,
 ): IFeedbackService {
   if (config.feedback.mode === "posthog") {
-    return new PostHogFeedbackService(
-      analytics,
-      config.feedback.surveys,
-      config.frontendReleaseSha,
-    );
+    return new PostHogFeedbackService(analytics, config.feedback.surveys);
   }
   if (config.feedback.mode === "unavailable") {
     return new UnavailableFeedbackService(config.feedback.reason);
   }
-  return new TestFeedbackService(config.frontendReleaseSha);
+  return new TestFeedbackService();
 }

@@ -15,6 +15,7 @@ const submission: FeedbackSubmission = {
   appRoute: "/controls",
   feedName: "your-feed",
   feedLabel: "GreenEarth",
+  apiReleaseSha: "api-sha",
   preferences: {
     socialRadius: 3,
     freshness: 5,
@@ -25,7 +26,6 @@ const submission: FeedbackSubmission = {
     requestId: "request-1",
     feedName: "your-feed",
     generatedAt: "2026-07-27T18:42:10Z",
-    apiReleaseSha: "api-sha",
     storedItemCount: 30,
     displayedItemCount: 26,
     publiclyFilteredCount: 2,
@@ -35,11 +35,10 @@ const submission: FeedbackSubmission = {
 
 describe("feedback event payload", () => {
   it("uses PostHog survey response keys and compact snapshot context", () => {
-    const payload = buildFeedbackEvent(
-      submission,
-      { surveyId: "survey-1", questionId: "question-1" },
-      "frontend-sha",
-    );
+    const payload = buildFeedbackEvent(submission, {
+      surveyId: "survey-1",
+      questionId: "question-1",
+    });
 
     expect(payload).toEqual({
       event: "survey sent",
@@ -55,7 +54,7 @@ describe("feedback event payload", () => {
         feed_name: "your-feed",
         feed_label: "GreenEarth",
         app_route: "/controls",
-        frontend_release_sha: "frontend-sha",
+        api_release_sha: "api-sha",
         snapshot_context_available: true,
         social_radius: 3,
         freshness: 5,
@@ -63,7 +62,6 @@ describe("feedback event payload", () => {
         purpose: 0.5,
         feed_snapshot_id: "request-1",
         feed_generated_at: "2026-07-27T18:42:10Z",
-        api_release_sha: "api-sha",
         feed_stored_item_count: 30,
         feed_displayed_item_count: 26,
         feed_publicly_filtered_count: 2,
@@ -79,9 +77,9 @@ describe("feedback event payload", () => {
         ...submission,
         feedName: "random",
         feedLabel: "Random",
+        apiReleaseSha: "random-api-sha",
       },
       { surveyId: "survey-1", questionId: "question-1" },
-      "frontend-sha",
     );
 
     expect(payload.properties).toMatchObject({
@@ -91,6 +89,7 @@ describe("feedback event payload", () => {
       snapshot_context_available: false,
     });
     expect(payload.properties).not.toHaveProperty("feed_snapshot_id");
+    expect(payload.properties.api_release_sha).toBe("random-api-sha");
   });
 
   it("returns a preview without initializing PostHog in test mode", async () => {
@@ -113,9 +112,7 @@ describe("feedback event payload", () => {
 
     expect(service.mode).toBe("test");
     expect(result.sent).toBe(false);
-    expect(result.payload.properties.$survey_id).toBe(
-      "preview-controls-survey",
-    );
+    expect(result.payload.properties.$survey_id).toBe("preview-controls-survey");
   });
 
   it("identifies once, captures the survey event, and resets on logout", async () => {
@@ -129,7 +126,7 @@ describe("feedback event payload", () => {
       controls: { surveyId: "s2", questionId: "q2" },
       howItWorks: { surveyId: "s3", questionId: "q3" },
     };
-    const service = new PostHogFeedbackService(analytics, surveys, "frontend-sha");
+    const service = new PostHogFeedbackService(analytics, surveys);
 
     await service.submit(submission);
     await service.submit(submission);

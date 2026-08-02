@@ -87,6 +87,7 @@ describe("AppShell authentication UI", () => {
     window.location.hash = "/feed";
     testState.rootStore.authStore.isSignedIn = true;
     testState.rootStore.authStore.signOut.mockReset();
+    testState.rootStore.authStore.signOut.mockResolvedValue(undefined);
     testState.rootStore.authStore.signInWithCustomToken.mockReset();
     testState.rootStore.authStore.signInWithCustomToken.mockResolvedValue(undefined);
     testState.rootStore.services.analyticsService.capture.mockReset();
@@ -136,6 +137,36 @@ describe("AppShell authentication UI", () => {
       expect(testState.rootStore.authStore.signOut).toHaveBeenCalledOnce();
     });
   });
+
+  it.each(["/controls", "/how-it-works", "/feedback"])(
+    "returns signed-out users from %s to the sign-in landing page",
+    async (route) => {
+      window.location.hash = route;
+      testState.rootStore.authStore.signOut.mockImplementation(() => {
+        testState.rootStore.authStore.isSignedIn = false;
+        return Promise.resolve();
+      });
+      const element = document.createElement("app-shell");
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>(".left-sidebar-desktop .more-btn")
+        ?.click();
+      await element.updateComplete;
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>(".left-sidebar-desktop .logout-btn")
+        ?.click();
+
+      await vi.waitFor(() => {
+        expect(window.location.hash).toBe("#/feed");
+        expect(element.shadowRoot?.querySelector(".left-sidebar-desktop")).toBeNull();
+      });
+      const feedPage = element.shadowRoot?.querySelector("feed-page");
+      await feedPage?.updateComplete;
+      expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
+    },
+  );
 
   it("does not reload a successfully loaded empty feed list on later updates", async () => {
     testState.rootStore.feedStore.feedListLoadState = "idle";

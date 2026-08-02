@@ -31,7 +31,6 @@ export class AppShell extends MobxLitElement {
   private _currentRoute = "/feed";
   private _drawerOpen = false;
   @state() private _showLogoutMenu = false;
-  @state() private _justSignedOut = false;
   private _lastHowItWorksViewedFeed: AlgorithmId | null = null;
 
   static styles = css`
@@ -526,6 +525,7 @@ export class AppShell extends MobxLitElement {
 
     const { authStore, accountStore, uiStore } = store;
     const hash = window.location.hash.slice(1) || "/feed";
+    const activeRoute = authStore.isSignedIn ? this._currentRoute : "/feed";
     const selectedAlgorithm = this.#selectedAlgorithmForPage(store);
 
     if (this._currentRoute.startsWith("/auth/finish")) {
@@ -728,17 +728,17 @@ export class AppShell extends MobxLitElement {
           }}
         >
           ${
-            this._currentRoute === "/controls"
+            activeRoute === "/controls"
               ? html`<controls-page
                   .onOpenMenu=${this.#openDrawer}
                   .selectedAlgorithm=${selectedAlgorithm}
                 ></controls-page>`
-              : this._currentRoute === "/how-it-works"
+              : activeRoute === "/how-it-works"
                 ? html`<how-it-works-page
                     .onOpenMenu=${this.#openDrawer}
                     .selectedAlgorithm=${selectedAlgorithm}
                   ></how-it-works-page>`
-                : this._currentRoute === "/feedback"
+                : activeRoute === "/feedback"
                   ? html`<feedback-page
                       .onOpenMenu=${this.#openDrawer}
                       .selectedAlgorithm=${selectedAlgorithm}
@@ -886,7 +886,6 @@ export class AppShell extends MobxLitElement {
   #handleLogout = async () => {
     this._showLogoutMenu = false;
     this._drawerOpen = false;
-    this._justSignedOut = true;
     this.requestUpdate();
     await this.updateComplete;
 
@@ -894,6 +893,12 @@ export class AppShell extends MobxLitElement {
     if (store) {
       await store.authStore.signOut();
     }
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}#/feed`,
+    );
+    this._currentRoute = "/feed";
     this.requestUpdate();
   };
 

@@ -8,7 +8,6 @@ export interface FeedbackSnapshotContext {
   requestId: string;
   feedName: string;
   generatedAt: string;
-  apiReleaseSha: string | null;
   storedItemCount: number;
   displayedItemCount: number;
   publiclyFilteredCount: number;
@@ -23,6 +22,7 @@ export interface FeedbackSubmission {
   appRoute: string;
   feedName: AlgorithmId;
   feedLabel: string;
+  apiReleaseSha: string | null;
   preferences: Preferences;
   snapshot: FeedbackSnapshotContext | null;
 }

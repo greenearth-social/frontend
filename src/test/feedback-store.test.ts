@@ -15,11 +15,13 @@ function makeRoot(currentRequestId: string | null) {
           requestId: "greenearth-request",
           feedName: "your-feed",
           generatedAt: "2026-08-01T10:00:00Z",
+          apiReleaseSha: "greenearth-api-sha",
         },
         {
           requestId: "friends-request",
           feedName: "best-of-friends",
           generatedAt: "2026-08-01T11:00:00Z",
+          apiReleaseSha: "friends-api-sha",
         },
       ],
       filteringCountsByRequest: {
@@ -51,11 +53,7 @@ describe("FeedbackStore", () => {
     window.location.hash = "/controls";
     const { root, submit } = makeRoot("friends-request");
 
-    await new FeedbackStore(root).submit(
-      "controls",
-      "Let me tune this feed.",
-      "best-of-friends",
-    );
+    await new FeedbackStore(root).submit("controls", "Let me tune this feed.", "best-of-friends");
 
     const sent = submit.mock.calls[0]?.[0] as unknown as FeedbackSubmission;
     expect(sent).toMatchObject({
@@ -64,10 +62,10 @@ describe("FeedbackStore", () => {
       appRoute: "/controls",
       feedName: "best-of-friends",
       feedLabel: "Best of Friends",
+      apiReleaseSha: "friends-api-sha",
       snapshot: {
         requestId: "friends-request",
         feedName: "best-of-friends",
-        apiReleaseSha: "api-sha",
       },
     });
     expect(sent.submissionId).toMatch(/^[0-9a-f-]{36}$/);
@@ -76,16 +74,31 @@ describe("FeedbackStore", () => {
   it("does not attach the current snapshot when another feed is selected", async () => {
     const { root, submit } = makeRoot("greenearth-request");
 
-    await new FeedbackStore(root).submit(
-      "general",
-      "Random feedback.",
-      "random",
-    );
+    await new FeedbackStore(root).submit("general", "Random feedback.", "random");
 
     expect(submit).toHaveBeenCalledWith(
       expect.objectContaining({
         feedName: "random",
         feedLabel: "Random",
+        apiReleaseSha: null,
+        snapshot: null,
+      }),
+    );
+  });
+
+  it("uses the selected feed summary API SHA without attaching another feed's snapshot", async () => {
+    const { root, submit } = makeRoot("greenearth-request");
+
+    await new FeedbackStore(root).submit(
+      "howItWorks",
+      "How does this feed work?",
+      "best-of-friends",
+    );
+
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedName: "best-of-friends",
+        apiReleaseSha: "friends-api-sha",
         snapshot: null,
       }),
     );
