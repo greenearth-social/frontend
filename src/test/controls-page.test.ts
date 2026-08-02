@@ -41,8 +41,9 @@ describe("ControlsPage", () => {
       document.body.appendChild(el);
       await el.updateComplete;
 
-      const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((node) => node.textContent.trim());
+      const titles = Array.from(
+        el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [],
+      ).map((node) => node.textContent.trim());
       expect(titles).toContain("Social Radius");
     });
 
@@ -52,21 +53,23 @@ describe("ControlsPage", () => {
       document.body.appendChild(el);
       await el.updateComplete;
 
-      const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((node) => node.textContent.trim());
+      const titles = Array.from(
+        el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [],
+      ).map((node) => node.textContent.trim());
       expect(titles).not.toContain("Social Radius");
-      expect(titles).toContain("Freshness");
+      expect(titles).toContain("Time Window");
     });
 
-    it("shows only Freshness for random", async () => {
+    it("shows only Time Window for random", async () => {
       const el = document.createElement("controls-page");
       el.selectedAlgorithm = "random";
       document.body.appendChild(el);
       await el.updateComplete;
 
-      const titles = Array.from(el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [])
-        .map((node) => node.textContent.trim());
-      expect(titles).toEqual(["Freshness"]);
+      const titles = Array.from(
+        el.shadowRoot?.querySelectorAll(".slider-title span:first-child") ?? [],
+      ).map((node) => node.textContent.trim());
+      expect(titles).toEqual(["Time Window"]);
     });
   });
 
@@ -97,7 +100,7 @@ describe("ControlsPage", () => {
     expect(freshness?.shadowRoot?.querySelector(".step-btn.active img")?.getAttribute("src")).toBe(
       "/assets/freshness_slider/7d.png",
     );
-    expect(el.shadowRoot?.textContent).not.toContain("FreshnessComing Soon");
+    expect(el.shadowRoot?.textContent).not.toContain("Time WindowComing Soon");
     el.remove();
   });
 
@@ -124,7 +127,7 @@ describe("ControlsPage", () => {
     expect(buttons).toHaveLength(4);
     expect(Array.from(buttons ?? []).map((button) => button.getAttribute("aria-label"))).toEqual([
       "Explain Social Radius",
-      "Explain Freshness",
+      "Explain Time Window",
       "Explain Politics",
       "Explain Purpose",
     ]);
@@ -136,6 +139,8 @@ describe("ControlsPage", () => {
     );
     expect(capture).toHaveBeenCalledWith("controlHelpOpened", {
       control_name: "politics",
+      feed_name: "your-feed",
+      feed_label: "GreenEarth",
     });
     el.remove();
   });

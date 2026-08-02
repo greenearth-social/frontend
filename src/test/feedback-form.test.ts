@@ -54,6 +54,7 @@ describe("FeedbackForm", () => {
       expect(testState.rootStore.feedbackStore.submit).toHaveBeenCalledWith(
         "general",
         "Useful feedback",
+        "your-feed",
       );
     });
     await element.updateComplete;

@@ -36,6 +36,7 @@ const testState = vi.hoisted(() => ({
       isLoading: true,
       error: null,
       currentRequestId: null,
+      currentApiReleaseSha: null,
       filteringCountsByRequest: {},
       currentPage: 1,
       totalPages: 1,
@@ -43,11 +44,13 @@ const testState = vi.hoisted(() => ({
       postsPerPage: 10,
       loadFeedList: vi.fn(),
       loadFeedDetail: vi.fn(),
+      clearFeedDetail: vi.fn(),
     },
     uiStore: {
       selectedItemUri: null,
       selectedAlgorithm: "your-feed" satisfies "your-feed" | "best-of-friends" | "random",
       setSelectedAlgorithm: vi.fn(),
+      clearSelectedAlgorithm: vi.fn(),
     },
     preferencesStore: {
       values: { socialRadius: 3, freshness: 5, politics: 1, purpose: 0.5 },
@@ -167,6 +170,7 @@ describe("AppShell authentication UI", () => {
     const form = page?.shadowRoot?.querySelector("feedback-form");
 
     expect(form?.prompt).toBe("We'd love to know what you think of GreenEarth");
+    expect(form?.selectedFeed).toBe("your-feed");
   });
 
   it("captures one How It Works view when entering the route", async () => {
@@ -178,7 +182,10 @@ describe("AppShell authentication UI", () => {
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
       "howItWorksViewed",
-      {},
+      {
+        feed_name: "your-feed",
+        feed_label: "GreenEarth",
+      },
     );
 
     window.dispatchEvent(new HashChangeEvent("hashchange"));
@@ -283,6 +290,34 @@ describe("AppShell algorithm selector", () => {
 
     expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
     expect(testState.rootStore.feedStore.loadFeedDetail).toHaveBeenCalledWith("r2");
+  });
+
+  it("keeps the current page and updates its feedback feed context", async () => {
+    window.location.hash = "/feedback";
+    testState.rootStore.uiStore.setSelectedAlgorithm.mockImplementation((
+      id: "your-feed" | "best-of-friends" | "random",
+    ) => {
+      testState.rootStore.uiStore.selectedAlgorithm = id;
+    });
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+      ".left-sidebar-desktop .algo-btn",
+    );
+    Array.from(buttons ?? [])
+      .find((button) => button.getAttribute("aria-label") === "Best of Friends")
+      ?.click();
+    await element.updateComplete;
+
+    const page = element.shadowRoot?.querySelector("feedback-page");
+    await page?.updateComplete;
+    const form = page?.shadowRoot?.querySelector("feedback-form");
+    expect(window.location.hash).toBe("#/feedback");
+    expect(page?.selectedAlgorithm).toBe("best-of-friends");
+    expect(form?.selectedFeed).toBe("best-of-friends");
+    expect(form?.shadowRoot?.textContent).toContain("Feed: Best of Friends");
   });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {

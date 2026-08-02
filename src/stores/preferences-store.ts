@@ -1,6 +1,10 @@
 import { makeAutoObservable } from "mobx";
 import type { RootStore } from "./root-store";
 import type { Preferences } from "../services/types";
+import {
+  feedAnalyticsProperties,
+  type AlgorithmId,
+} from "../constants/algorithms";
 import type {
   FeedControlEventProperties,
   FeedControlName,
@@ -172,7 +176,11 @@ export class PreferencesStore {
     this.loadPromise = null;
   }
 
-  async save(values: Preferences, control: FeedControlName): Promise<void> {
+  async save(
+    values: Preferences,
+    control: FeedControlName,
+    feedName: AlgorithmId = "your-feed",
+  ): Promise<void> {
     const previousValues = this.values;
     const version = ++this.saveVersion;
     const generation = this.accountGeneration;
@@ -184,7 +192,10 @@ export class PreferencesStore {
         if (controlValue(previousValues, control) !== controlValue(savedValues, control)) {
           this.root.services.analyticsService.capture(
             "feedControlChanged",
-            controlEventProperties(control, previousValues, savedValues),
+            {
+              ...controlEventProperties(control, previousValues, savedValues),
+              ...feedAnalyticsProperties(feedName),
+            },
           );
         }
       }
@@ -193,6 +204,7 @@ export class PreferencesStore {
         this.values = previousValues;
         this.root.services.analyticsService.capture("feedControlChangeFailed", {
           ...controlEventProperties(control, previousValues, values),
+          ...feedAnalyticsProperties(feedName),
           error_category: "preferences_request_failed",
         });
       }

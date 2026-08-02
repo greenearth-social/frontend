@@ -1,10 +1,12 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import type { AlgorithmId } from "../constants/algorithms";
 import "../components/feedback-form";
 
 @customElement("feedback-page")
 export class FeedbackPage extends LitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
+  @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
 
   static styles = css`
     :host {
@@ -96,6 +98,7 @@ export class FeedbackPage extends LitElement {
       <div class="content">
         <feedback-form
           surface="general"
+          .selectedFeed=${this.selectedAlgorithm}
           prompt="We'd love to know what you think of GreenEarth"
           placeholder="Share your feedback"
         ></feedback-form>

@@ -29,3 +29,17 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmConfig> = {
 export const ALGORITHM_IDS: AlgorithmId[] = ["your-feed", "best-of-friends", "random"];
 
 export const ALGORITHM_FEED_NAME_SET = new Set<string>(ALGORITHM_IDS);
+
+export function isAlgorithmId(value: string | null | undefined): value is AlgorithmId {
+  return value !== null && value !== undefined && ALGORITHM_FEED_NAME_SET.has(value);
+}
+
+export function feedAnalyticsProperties(feedName: AlgorithmId): {
+  feed_name: AlgorithmId;
+  feed_label: string;
+} {
+  return {
+    feed_name: feedName,
+    feed_label: ALGORITHMS[feedName].label,
+  };
+}

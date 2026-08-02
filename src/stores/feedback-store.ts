@@ -1,4 +1,5 @@
 import type { FeedbackSurface } from "../config/runtime-config";
+import { ALGORITHMS, type AlgorithmId } from "../constants/algorithms";
 import type {
   FeedbackSnapshotContext,
   FeedbackSubmitResult,
@@ -23,11 +24,16 @@ export class FeedbackStore {
   submit(
     surface: FeedbackSurface,
     response: string,
+    feedName: AlgorithmId,
   ): Promise<FeedbackSubmitResult> {
     const user = this.root.authStore.currentUser;
     if (!user) return Promise.reject(new Error("Sign in to send feedback."));
 
-    const requestId = this.root.feedStore.currentRequestId;
+    const currentRequestId = this.root.feedStore.currentRequestId;
+    const currentSummary = currentRequestId
+      ? this.root.feedStore.feedList.find((feed) => feed.requestId === currentRequestId)
+      : undefined;
+    const requestId = currentSummary?.feedName === feedName ? currentRequestId : null;
     const summary = requestId
       ? this.root.feedStore.feedList.find((feed) => feed.requestId === requestId)
       : undefined;
@@ -50,10 +56,13 @@ export class FeedbackStore {
     const route = window.location.hash.slice(1).split("?")[0] || "/feed";
 
     return this.root.services.feedbackService.submit({
+      submissionId: globalThis.crypto.randomUUID(),
       distinctId: user.uid,
       surface,
       response,
       appRoute: route,
+      feedName,
+      feedLabel: ALGORITHMS[feedName].label,
       preferences: { ...this.root.preferencesStore.values },
       snapshot,
     });

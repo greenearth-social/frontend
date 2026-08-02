@@ -1,4 +1,5 @@
 import type { FeedbackSurface } from "../../config/runtime-config";
+import type { AlgorithmId } from "../../constants/algorithms";
 import type { Preferences } from "../types";
 
 export type FeedbackMode = "posthog" | "test" | "unavailable";
@@ -15,10 +16,13 @@ export interface FeedbackSnapshotContext {
 }
 
 export interface FeedbackSubmission {
+  submissionId: string;
   distinctId: string;
   surface: FeedbackSurface;
   response: string;
   appRoute: string;
+  feedName: AlgorithmId;
+  feedLabel: string;
   preferences: Preferences;
   snapshot: FeedbackSnapshotContext | null;
 }

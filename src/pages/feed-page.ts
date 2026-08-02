@@ -364,18 +364,24 @@ export class FeedPage extends MobxLitElement {
               <div style="flex: 1; min-width: 0;">
                 <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
-              <button
-                class="source-breakdown-button"
-                type="button"
-                aria-label="View source breakdown"
-                title="Source breakdown"
-                ?disabled=${feedStore.currentRequestId === null}
-                @click=${(event: MouseEvent) => {
-                  this.#showSourceBreakdown(event);
-                }}
-              >
-                <wa-icon name="source-breakdown" library="app"></wa-icon>
-              </button>
+              ${
+                uiStore.selectedAlgorithm !== "random"
+                  ? html`
+                      <button
+                        class="source-breakdown-button"
+                        type="button"
+                        aria-label="View source breakdown"
+                        title="Source breakdown"
+                        ?disabled=${feedStore.currentRequestId === null}
+                        @click=${(event: MouseEvent) => {
+                        this.#showSourceBreakdown(event);
+                      }}
+                      >
+                        <wa-icon name="source-breakdown" library="app"></wa-icon>
+                      </button>
+                    `
+                  : ""
+              }
             </div>
             <style>
               @media (max-width: 1023px) {
@@ -387,14 +393,15 @@ export class FeedPage extends MobxLitElement {
           </div>
 
           <feed-tabs
-            .feeds=${[...feedStore.feedList]
-              .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
+            .feeds=${[...feedStore.feedList].sort((a, b) =>
+              a.generatedAt > b.generatedAt ? -1 : 1,
+            )}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
             .selectedAlgorithm=${uiStore.selectedAlgorithm}
             .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
-              const feed = feedStore.feedList.find(f => f.requestId === e.detail.requestId);
+              const feed = feedStore.feedList.find((f) => f.requestId === e.detail.requestId);
               if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
                 uiStore.setSelectedAlgorithm(feed.feedName as AlgorithmId);
               } else {
@@ -435,6 +442,7 @@ export class FeedPage extends MobxLitElement {
                   <feed-view
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
+                    .algorithmId=${uiStore.selectedAlgorithm}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {

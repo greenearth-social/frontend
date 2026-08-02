@@ -44,6 +44,13 @@ After bootstrap, run `./devctl login`, open the printed local sign-in URL, run
 `./devctl feed`, and reload the frontend to see a feed snapshot. The UI's
 handle-based sign-in is also backed by the credential-free local auth shim.
 
+Run `./devctl pull` from `internal-tools/devenv` to safely fetch and
+fast-forward sibling repositories at the start of a task. To test the local
+feeds through a real Bluesky account, configure the ngrok token, development
+account handle, and Bluesky app password described in the local environment
+guide, then use `./devctl bsky up`, `./devctl bsky status`, and
+`./devctl bsky down`.
+
 See the [local development environment guide](Documentation/LOCAL_DEV_ENVIRONMENT.md)
 for setup, frontend test commands, and troubleshooting. Developers working
 specifically on the real Bluesky OAuth flow should use the
@@ -89,12 +96,14 @@ const rootStore = getRootStore();
 
 Hash-based SPA routing handled entirely in `app-shell.ts`:
 
-| Hash                      | Page          | Description                                             |
-| ------------------------- | ------------- | ------------------------------------------------------- |
-| `#/feed`                  | Feed Page     | Default. Post observability feed with tabs + pagination |
-| `#/controls`              | Controls Page | Social Radius slider + future controls                  |
-| `#/how-it-works`          | How It Works  | Interactive algorithm diagram                           |
-| `#/feedback`              | Feedback      | Custom PostHog-backed feedback form                     |
+| Hash             | Page          | Description                                             |
+| ---------------- | ------------- | ------------------------------------------------------- |
+| `#/feed`         | Feed Page     | Default. Post observability feed with tabs + pagination |
+| `#/controls`     | Controls Page | Social Radius slider + future controls                  |
+| `#/how-it-works` | How It Works  | Interactive algorithm diagram                           |
+| `#/feedback`     | Feedback      | Custom PostHog-backed feedback form                     |
+| `#/settings`     | Settings      | Placeholder                                             |
+| `#/auth/finish?token=...` | (inline) | OAuth callback handler                            |
 
 ## Product analytics
 
@@ -111,20 +120,25 @@ Custom product events are `signInCompleted`, `signInFailed`,
 release SHA, sanitized app route, and schema version. Users are identified by
 their Bluesky DID and reset on logout. Event payloads must never include OAuth
 tokens, entered handles, raw errors, post content, or author details.
-| `#/settings`              | Settings      | Placeholder                                             |
-| `#/auth/finish?token=...` | (inline)      | OAuth callback handler                                  |
+
+Feed-specific events use the API feed rkey in `feed_name` (`your-feed`,
+`best-of-friends`, or `random`) plus a human-readable `feed_label`. The three
+feedback surfaces continue to use three PostHog surveys across all feeds.
+Survey responses are segmented with `feedback_context_key` (`<surface>:<feed>`)
+and a unique `feedback_submission_id`; snapshot metadata is included only when
+the loaded snapshot belongs to the selected feed.
 
 Route changes trigger a scroll-to-top on the center column.
 
 ### Responsive Layout
 
-Three-column layout managed by `app-shell`:
+Responsive layout managed by `app-shell`:
 
 | Breakpoint        | Behavior                                                             |
 | ----------------- | -------------------------------------------------------------------- |
 | **< 1024px**      | Left sidebar hidden; hamburger drawer menu; center column full width |
 | **1024px–1199px** | Left sidebar visible (275px); center column max 600px                |
-| **≥ 1200px**      | Right sidebar visible (350px); full three-column layout              |
+| **≥ 1200px**      | Left sidebar and centered post list remain visible                   |
 
 ### OAuth Flow
 
@@ -167,7 +181,6 @@ The Bluesky dark theme variables are defined in `src/styles/index.css` and inclu
 | `rank-scores-chart`  | `<rank-scores-chart>`  | Score axis chart showing model scores on -1 to +1                  |
 | `generator-badge`    | `<generator-badge>`    | Colored pill badge for feed generator names + scores               |
 | `pagination-control` | `<pagination-control>` | Page buttons, ellipsis, per-page selector                          |
-| `right-sidebar`      | `<right-sidebar>`      | Feed snapshot list panel                                           |
 | `icon-library`       | `<icon-library>`       | Registers 30+ custom SVG icons with WebAwesome                     |
 
 ## Firestore Security Rules

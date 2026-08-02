@@ -8,10 +8,13 @@ import type { IAnalyticsService } from "../services/analytics/types";
 import type { FeedbackSubmission } from "../services/feedback/types";
 
 const submission: FeedbackSubmission = {
+  submissionId: "feedback-submission-1",
   distinctId: "did:plc:user",
   surface: "controls",
   response: "Let me tune topic diversity.",
   appRoute: "/controls",
+  feedName: "your-feed",
+  feedLabel: "GreenEarth",
   preferences: {
     socialRadius: 3,
     freshness: 5,
@@ -43,8 +46,14 @@ describe("feedback event payload", () => {
       distinct_id: "did:plc:user",
       properties: {
         $survey_id: "survey-1",
+        $survey_submission_id: "feedback-submission-1",
+        $survey_completed: true,
         "$survey_response_question-1": "Let me tune topic diversity.",
+        feedback_submission_id: "feedback-submission-1",
         feedback_surface: "controls",
+        feedback_context_key: "controls:your-feed",
+        feed_name: "your-feed",
+        feed_label: "GreenEarth",
         app_route: "/controls",
         frontend_release_sha: "frontend-sha",
         snapshot_context_available: true,
@@ -53,7 +62,6 @@ describe("feedback event payload", () => {
         politics: 1,
         purpose: 0.5,
         feed_snapshot_id: "request-1",
-        feed_name: "your-feed",
         feed_generated_at: "2026-07-27T18:42:10Z",
         api_release_sha: "api-sha",
         feed_stored_item_count: 30,
@@ -63,6 +71,26 @@ describe("feedback event payload", () => {
       },
     });
     expect(JSON.stringify(payload)).not.toContain("at://");
+  });
+
+  it("drops snapshot metadata when it belongs to a different selected feed", () => {
+    const payload = buildFeedbackEvent(
+      {
+        ...submission,
+        feedName: "random",
+        feedLabel: "Random",
+      },
+      { surveyId: "survey-1", questionId: "question-1" },
+      "frontend-sha",
+    );
+
+    expect(payload.properties).toMatchObject({
+      feed_name: "random",
+      feed_label: "Random",
+      feedback_context_key: "controls:random",
+      snapshot_context_available: false,
+    });
+    expect(payload.properties).not.toHaveProperty("feed_snapshot_id");
   });
 
   it("returns a preview without initializing PostHog in test mode", async () => {

@@ -147,6 +147,23 @@ describe("PreferencesStore.save", () => {
       new_label: "24h",
       previous_hours: 168,
       new_hours: 24,
+      feed_name: "your-feed",
+      feed_label: "GreenEarth",
     });
+  });
+
+  it("keeps the initiating feed on an asynchronous control event", async () => {
+    const saved = { ...defaults, freshness: 2 };
+    const { store, capture } = makeStore(vi.fn().mockResolvedValue(saved));
+
+    await store.save(saved, "freshness", "best-of-friends");
+
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({
+        feed_name: "best-of-friends",
+        feed_label: "Best of Friends",
+      }),
+    );
   });
 });

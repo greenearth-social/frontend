@@ -1,3 +1,5 @@
+import type { AlgorithmId } from "../../constants/algorithms";
+
 export type FeedControlName =
   | "social_radius"
   | "freshness"
@@ -20,15 +22,15 @@ export interface AnalyticsEventProperties {
       | "missing_token"
       | "token_exchange_failed";
   };
-  feedControlChanged: FeedControlEventProperties;
-  feedControlChangeFailed: FeedControlEventProperties & {
+  feedControlChanged: FeedControlEventProperties & FeedAnalyticsProperties;
+  feedControlChangeFailed: FeedControlEventProperties & FeedAnalyticsProperties & {
     error_category: "preferences_request_failed";
   };
-  controlHelpOpened: {
+  controlHelpOpened: FeedAnalyticsProperties & {
     control_name: FeedControlName;
   };
-  howItWorksViewed: Record<string, never>;
-  howItWorksComponentClicked: {
+  howItWorksViewed: FeedAnalyticsProperties;
+  howItWorksComponentClicked: FeedAnalyticsProperties & {
     component_id: string;
     component_label: string;
     component_type: "source" | "signal" | "penalty" | "config";
@@ -39,6 +41,11 @@ export interface AnalyticsEventProperties {
     final_position: number;
   };
   "survey sent": Record<string, string | number | boolean | null>;
+}
+
+export interface FeedAnalyticsProperties {
+  feed_name: AlgorithmId;
+  feed_label: string;
 }
 
 export interface FeedControlEventProperties {

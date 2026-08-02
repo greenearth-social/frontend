@@ -2,7 +2,10 @@ import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
-import type { AlgorithmId } from "../constants/algorithms";
+import {
+  feedAnalyticsProperties,
+  type AlgorithmId,
+} from "../constants/algorithms";
 import "../components/feedback-form";
 
 interface DiagramNode {
@@ -211,23 +214,30 @@ export class HowItWorksPage extends LitElement {
     }
 
     .weight-pill {
-      background: rgba(34, 197, 94, 0.2);
-      border: 1px solid rgba(34, 197, 94, 0.4);
-      color: #6ee7a0;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--bluesky-border);
+      color: var(--bluesky-text-secondary);
       font-size: 0.6875rem;
-      font-weight: 600;
-      font-style: italic;
-      padding: 0.1875rem 0.625rem;
-      border-radius: 9999px;
+      font-weight: 700;
+      font-style: normal;
+      font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
       cursor: pointer;
       transition:
-        transform 0.15s ease,
-        background 0.15s ease;
+        border-color 0.15s ease,
+        color 0.15s ease;
     }
 
     .weight-pill:hover {
-      transform: scale(1.08);
-      background: rgba(34, 197, 94, 0.3);
+      border-color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
+    }
+
+    .weight-pill::before {
+      content: "Weight ";
+      font-weight: 500;
+      color: var(--bluesky-text-secondary);
     }
 
     .node-box {
@@ -824,14 +834,12 @@ export class HowItWorksPage extends LitElement {
     const node = DIAGRAM_NODES[nodeId];
     if (!node) return;
     this._selectedNode = nodeId;
-    getRootStore()?.services.analyticsService.capture(
-      "howItWorksComponentClicked",
-      {
-        component_id: node.id,
-        component_label: node.label,
-        component_type: node.type,
-      },
-    );
+    getRootStore()?.services.analyticsService.capture("howItWorksComponentClicked", {
+      component_id: node.id,
+      component_label: node.label,
+      component_type: node.type,
+      ...feedAnalyticsProperties(this.selectedAlgorithm),
+    });
   }
 
   #closeDetail() {
@@ -855,7 +863,9 @@ export class HowItWorksPage extends LitElement {
         <h2 class="section-title">Candidate Sources</h2>
         <div
           class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
-          @click=${() => { this.#handleNodeClick("time_window"); }}
+          @click=${() => {
+            this.#handleNodeClick("time_window");
+          }}
         >
           Time window
         </div>
@@ -863,7 +873,9 @@ export class HowItWorksPage extends LitElement {
           <div class="source-row">
             <div
               class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
-              @click=${() => { this.#handleNodeClick("following"); }}
+              @click=${() => {
+                this.#handleNodeClick("following");
+              }}
             >
               Following
             </div>
@@ -879,7 +891,9 @@ export class HowItWorksPage extends LitElement {
           <div class="signal-column">
             <div
               class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
-              @click=${() => { this.#handleNodeClick("predict_like"); }}
+              @click=${() => {
+                this.#handleNodeClick("predict_like");
+              }}
             >
               Predict<br />p(like)
             </div>
@@ -887,7 +901,9 @@ export class HowItWorksPage extends LitElement {
           <div class="signal-column">
             <div
               class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
-              @click=${() => { this.#handleNodeClick("constructiveness"); }}
+              @click=${() => {
+                this.#handleNodeClick("constructiveness");
+              }}
             >
               Constructiveness
               <div class="node-subtitle">(Perspective API)</div>
@@ -896,7 +912,9 @@ export class HowItWorksPage extends LitElement {
         </div>
         <div
           class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
-          @click=${() => { this.#handleNodeClick("engaging_constructive"); }}
+          @click=${() => {
+            this.#handleNodeClick("engaging_constructive");
+          }}
         >
           Engaging vs. Constructive
         </div>
@@ -909,13 +927,17 @@ export class HowItWorksPage extends LitElement {
         <div class="penalties-row">
           <div
             class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
-            @click=${() => { this.#handleNodeClick("repeated_author"); }}
+            @click=${() => {
+              this.#handleNodeClick("repeated_author");
+            }}
           >
             Repeated author penalty
           </div>
           <div
             class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
-            @click=${() => { this.#handleNodeClick("repeated_topic"); }}
+            @click=${() => {
+              this.#handleNodeClick("repeated_topic");
+            }}
           >
             Repeated topic penalty
           </div>
@@ -930,7 +952,9 @@ export class HowItWorksPage extends LitElement {
         <h2 class="section-title">Candidate Sources</h2>
         <div
           class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
-          @click=${() => { this.#handleNodeClick("time_window"); }}
+          @click=${() => {
+            this.#handleNodeClick("time_window");
+          }}
         >
           Time window
         </div>
@@ -996,8 +1020,8 @@ export class HowItWorksPage extends LitElement {
         <div
           class="popup-card"
           @click=${(e: Event) => {
-          e.stopPropagation();
-        }}
+            e.stopPropagation();
+          }}
         >
           <div class="popup-header">
             <h3 class="popup-title type-${node.type}">
@@ -1063,143 +1087,146 @@ export class HowItWorksPage extends LitElement {
 
       <div class="page-content">
         <div class="diagram-wrapper">
-          ${this.selectedAlgorithm === "random"
-            ? this.#renderRandomDiagram()
-            : this.selectedAlgorithm === "best-of-friends"
-              ? this.#renderBestOfFriendsDiagram()
-              : html`
-                  <div class="section section-candidate">
-                    <h2 class="section-title">Candidate Sources</h2>
-                    <div
-                      class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
-                      @click=${() => {
+          ${
+            this.selectedAlgorithm === "random"
+              ? this.#renderRandomDiagram()
+              : this.selectedAlgorithm === "best-of-friends"
+                ? this.#renderBestOfFriendsDiagram()
+                : html`
+                    <div class="section section-candidate">
+                      <h2 class="section-title">Candidate Sources</h2>
+                      <div
+                        class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
+                        @click=${() => {
                         this.#handleNodeClick("time_window");
                       }}
-                    >
-                      Time window
-                    </div>
-                    <div class="sources-row">
-                      <div class="source-row">
-                        <div
-                          class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
-                          @click=${() => {
+                      >
+                        Time window
+                      </div>
+                      <div class="sources-row">
+                        <div class="source-row">
+                          <div
+                            class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
+                            @click=${() => {
                             this.#handleNodeClick("following");
                           }}
-                        >
-                          Following
+                          >
+                            Following
+                          </div>
+                          <div
+                            class="weight-pill"
+                            @click=${() => {
+                            this.#handleNodeClick("following");
+                          }}
+                          >
+                            ${followingWeight.toFixed(2)}
+                          </div>
                         </div>
-                        <div
-                          class="weight-pill"
-                          @click=${() => {
-                          this.#handleNodeClick("following");
-                        }}
-                        >
-                          ${followingWeight.toFixed(2)}
-                        </div>
-                      </div>
-                      <div class="source-row">
-                        <div
-                          class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
-                          @click=${() => {
+                        <div class="source-row">
+                          <div
+                            class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
+                            @click=${() => {
                             this.#handleNodeClick("authors_topics");
                           }}
-                        >
-                          Authors and Topics
+                          >
+                            Authors and Topics
+                          </div>
+                          <div
+                            class="weight-pill"
+                            @click=${() => {
+                            this.#handleNodeClick("authors_topics");
+                          }}
+                          >
+                            ${twoTowerWeight.toFixed(2)}
+                          </div>
                         </div>
-                        <div
-                          class="weight-pill"
-                          @click=${() => {
-                          this.#handleNodeClick("authors_topics");
-                        }}
-                        >
-                          ${twoTowerWeight.toFixed(2)}
-                        </div>
-                      </div>
-                      <div class="source-row">
-                        <div
-                          class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
-                          @click=${() => {
+                        <div class="source-row">
+                          <div
+                            class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
+                            @click=${() => {
                             this.#handleNodeClick("popular");
                           }}
-                        >
-                          Popular
-                        </div>
-                        <div
-                          class="weight-pill"
-                          @click=${() => {
-                          this.#handleNodeClick("popular");
-                        }}
-                        >
-                          ${popularWeight.toFixed(2)}
+                          >
+                            Popular
+                          </div>
+                          <div
+                            class="weight-pill"
+                            @click=${() => {
+                            this.#handleNodeClick("popular");
+                          }}
+                          >
+                            ${popularWeight.toFixed(2)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  ${this.#renderArrow()}
+                    ${this.#renderArrow()}
 
-                  <div class="section section-signals">
-                    <h2 class="section-title">Signals</h2>
-                    <div class="signals-row">
-                      <div class="signal-column">
-                        <div
-                          class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
-                          @click=${() => {
+                    <div class="section section-signals">
+                      <h2 class="section-title">Signals</h2>
+                      <div class="signals-row">
+                        <div class="signal-column">
+                          <div
+                            class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
+                            @click=${() => {
                             this.#handleNodeClick("predict_like");
                           }}
-                        >
-                          Predict<br />p(like)
+                          >
+                            Predict<br />p(like)
+                          </div>
                         </div>
-                      </div>
-                      <div class="signal-column">
-                        <div
-                          class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
-                          @click=${() => {
+                        <div class="signal-column">
+                          <div
+                            class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
+                            @click=${() => {
                             this.#handleNodeClick("constructiveness");
                           }}
+                          >
+                            Constructiveness
+                            <div class="node-subtitle">(Perspective API)</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
+                        @click=${() => {
+                        this.#handleNodeClick("engaging_constructive");
+                      }}
+                      >
+                        Engaging vs. Constructive
+                      </div>
+                    </div>
+
+                    ${this.#renderArrow()}
+
+                    <div class="section section-diversification">
+                      <h2 class="section-title">Diversification</h2>
+                      <div class="penalties-row">
+                        <div
+                          class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
+                          @click=${() => {
+                          this.#handleNodeClick("repeated_author");
+                        }}
                         >
-                          Constructiveness
-                          <div class="node-subtitle">(Perspective API)</div>
+                          Repeated author penalty
+                        </div>
+                        <div
+                          class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
+                          @click=${() => {
+                          this.#handleNodeClick("repeated_topic");
+                        }}
+                        >
+                          Repeated topic penalty
                         </div>
                       </div>
                     </div>
-                    <div
-                      class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
-                      @click=${() => {
-                        this.#handleNodeClick("engaging_constructive");
-                      }}
-                    >
-                      Engaging vs. Constructive
-                    </div>
-                  </div>
-
-                  ${this.#renderArrow()}
-
-                  <div class="section section-diversification">
-                    <h2 class="section-title">Diversification</h2>
-                    <div class="penalties-row">
-                      <div
-                        class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
-                        @click=${() => {
-                          this.#handleNodeClick("repeated_author");
-                        }}
-                      >
-                        Repeated author penalty
-                      </div>
-                      <div
-                        class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
-                        @click=${() => {
-                          this.#handleNodeClick("repeated_topic");
-                        }}
-                      >
-                        Repeated topic penalty
-                      </div>
-                    </div>
-                  </div>
-                `}
+                  `
+          }
         </div>
         <feedback-form
           surface="howItWorks"
+          .selectedFeed=${this.selectedAlgorithm}
           prompt="Still have questions? Please ask!"
           placeholder="Ask your question"
         ></feedback-form>

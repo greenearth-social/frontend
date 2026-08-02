@@ -2,6 +2,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
+import type { AlgorithmId } from "../constants/algorithms";
 import "./feed-item-card";
 
 @customElement("feed-view")
@@ -9,6 +10,7 @@ export class FeedView extends MobxLitElement {
   @property({ type: Array }) items: FeedItemView[] = [];
   @property({ type: String }) blueskyUrl: string = "";
   @property({ type: String }) algorithmLabel: string = "";
+  @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
 
   static styles = css`
     :host {
@@ -58,19 +60,19 @@ export class FeedView extends MobxLitElement {
       const label = this.algorithmLabel || "this feed";
       return html`
         <div class="empty-state">
-          <p class="empty-state-text">
-            You have not refreshed ${label} within the last 24 hours.
-          </p>
-          ${this.blueskyUrl
-            ? html`<a
-                class="open-in-bluesky"
-                href=${this.blueskyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open Bluesky app
-              </a>`
-            : ""}
+          <p class="empty-state-text">You have not refreshed ${label} within the last 24 hours.</p>
+          ${
+            this.blueskyUrl
+              ? html`<a
+                  class="open-in-bluesky"
+                  href=${this.blueskyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open Bluesky app
+                </a>`
+              : ""
+          }
         </div>
       `;
     }
@@ -78,7 +80,9 @@ export class FeedView extends MobxLitElement {
     return html`
       <div class="feed-container">
         ${this.items.map(
-          (item) => html`<feed-item-card .item=${item}></feed-item-card>`,
+          (item) => html`
+            <feed-item-card .item=${item} .algorithmId=${this.algorithmId}></feed-item-card>
+          `,
         )}
       </div>
     `;

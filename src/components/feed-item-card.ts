@@ -2,12 +2,54 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
+import type { AlgorithmId } from "../constants/algorithms";
 import { getRootStore } from "../main";
+import { compactRelativeTime } from "../utils/relative-time";
 import "./rank-scores-chart";
+
+const COUNTED_MEDIA_LABEL = /^(?:(\d+)\s+)?(images?|videos?|links?)$/i;
+
+function countedMediaLabels(item: FeedItemView): string[] {
+  const bareCounts = new Map<string, number>();
+  for (const label of item.mediaLabels) {
+    const match = COUNTED_MEDIA_LABEL.exec(label.trim());
+    if (!match?.[2] || match[1]) continue;
+    const singular = match[2].toLowerCase().replace(/s$/, "");
+    bareCounts.set(singular, (bareCounts.get(singular) ?? 0) + 1);
+  }
+
+  const emittedBareLabels = new Set<string>();
+  return item.mediaLabels.flatMap((label) => {
+    const match = COUNTED_MEDIA_LABEL.exec(label.trim());
+    if (!match?.[2]) return [label];
+
+    const singular = match[2].toLowerCase().replace(/s$/, "");
+    const explicitCount = match[1] ? Number.parseInt(match[1], 10) : null;
+    if (explicitCount === null && emittedBareLabels.has(singular)) return [];
+
+    const repeatedLabelCount = bareCounts.get(singular) ?? 0;
+    const itemCount =
+      singular === "image"
+        ? item.imageUrls.length
+        : singular === "video"
+          ? item.videoUrl
+            ? 1
+            : 0
+          : item.linkCard
+            ? 1
+            : 0;
+    const count = explicitCount ?? (repeatedLabelCount > 1 ? repeatedLabelCount : itemCount);
+    if (explicitCount === null) emittedBareLabels.add(singular);
+    if (count <= 0) return [];
+
+    return [`${String(count)} ${singular}${count === 1 ? "" : "s"}`];
+  });
+}
 
 @customElement("feed-item-card")
 export class FeedItemCard extends MobxLitElement {
   @property({ type: Object }) item: FeedItemView | null = null;
+  @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
 
   static styles = css`
     :host {
@@ -49,6 +91,9 @@ export class FeedItemCard extends MobxLitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .post-time::before {
+      content: " · ";
     }
     .avatar {
       width: 40px;
@@ -100,7 +145,9 @@ export class FeedItemCard extends MobxLitElement {
       border: 1.5px solid var(--bluesky-brand);
       cursor: pointer;
       text-decoration: none;
-      transition: background 0.15s, color 0.15s;
+      transition:
+        background 0.15s,
+        color 0.15s;
       flex-shrink: 0;
     }
     .bluesky-btn:hover {
@@ -132,59 +179,68 @@ export class FeedItemCard extends MobxLitElement {
     const handle = i.author.startsWith("@") ? i.author : `@${i.author}`;
     const displayName = i.displayName || handle;
     const initial = (displayName[0] ?? "?").toUpperCase();
+    const postAge = compactRelativeTime(i.createdAt);
+    const mediaLabels = countedMediaLabels(i);
 
     return html`
       <div class="card">
         <div class="author-row">
-          ${i.avatarUrl
-            ? html`<img src=${i.avatarUrl} alt="" class="avatar" />`
-            : html`<div class="avatar-placeholder">${initial}</div>`}
+          ${
+            i.avatarUrl
+              ? html`<img src=${i.avatarUrl} alt="" class="avatar" />`
+              : html`<div class="avatar-placeholder">${initial}</div>`
+          }
           <div class="author-info">
             <div class="display-name">${displayName}</div>
-            <div class="handle">${handle}</div>
+            <div class="handle">
+              ${handle}${
+                postAge
+                  ? html`<time class="post-time" datetime=${i.createdAt}>${postAge}</time>`
+                  : ""
+              }
+            </div>
           </div>
           <div class="author-actions">
-            ${i.mediaLabels.map(
-              (label) => html`<span class="content-badge">${label}</span>`,
-            )}
-            ${i.postUrl
-              ? html`
-                  <a
-                    href=${i.postUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="bluesky-btn"
-                    title="Open in Bluesky"
-                    @click=${(e: Event) => {
-                      e.stopPropagation();
-                      const root = getRootStore();
-                      const requestId = root?.feedStore.currentRequestId;
-                      const feedName = requestId
-                        ? root.feedStore.feedList.find(
-                            (feed) => feed.requestId === requestId,
-                          )?.feedName
-                        : undefined;
-                      root?.services.analyticsService.capture(
-                        "postOpenedInBluesky",
-                        {
+            ${mediaLabels.map((label) => html`<span class="content-badge">${label}</span>`)}
+            ${
+              i.postUrl
+                ? html`
+                    <a
+                      href=${i.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="bluesky-btn"
+                      title="Open in Bluesky"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        const root = getRootStore();
+                        const requestId = root?.feedStore.currentRequestId;
+                        const feedName = requestId
+                          ? root.feedStore.feedList.find((feed) => feed.requestId === requestId)
+                              ?.feedName
+                          : undefined;
+                        root?.services.analyticsService.capture("postOpenedInBluesky", {
                           item_uri: i.atUri,
                           feed_name: feedName ?? "unknown",
                           final_position: i.finalPosition,
-                        },
-                      );
-                    }}
-                  >
-                    <wa-icon name="bluesky" library="app"></wa-icon>
-                  </a>
-                `
-              : ""}
+                        });
+                      }}
+                    >
+                      <wa-icon name="bluesky" library="app"></wa-icon>
+                    </a>
+                  `
+                : ""
+            }
           </div>
         </div>
 
         <p class="post-content">${i.content}</p>
 
         <div class="chart-section">
-          <rank-scores-chart .item=${this.item}></rank-scores-chart>
+          <rank-scores-chart
+            .item=${this.item}
+            .algorithmId=${this.algorithmId}
+          ></rank-scores-chart>
         </div>
       </div>
     `;
@@ -196,9 +252,7 @@ export class FeedItemCard extends MobxLitElement {
     super.updated(_changedProperties);
     if (this.item && this.item.atUri !== this._loggedAtUri) {
       this._loggedAtUri = this.item.atUri;
-      console.groupCollapsed(
-        `[feed-item-card] ${this.item.author} — generators & model scores`
-      );
+      console.groupCollapsed(`[feed-item-card] ${this.item.author} — generators & model scores`);
       console.log("atUri:", this.item.atUri);
       console.log("generators:", JSON.stringify(this.item.generators));
       console.log("modelScores:", JSON.stringify(this.item.modelScores));

@@ -84,9 +84,16 @@ Feed snapshots are retained for about 15 minutes. If the UI becomes empty, run
 Run these commands from `internal-tools/devenv`:
 
 ```sh
+./devctl pull
 ./devctl up
 ./devctl status
 ```
+
+`./devctl pull` fetches and fast-forwards all sibling repositories that can be
+updated safely. It reports and skips repositories with uncommitted changes,
+diverged history, or no upstream. It also calls out repositories checked out on
+a branch other than `main`; switch those repositories to `main` and pull them
+manually when you need their latest main-branch files.
 
 The frontend checkout is bind-mounted into the Vite container. Vite hot reload
 is always enabled, so saved frontend changes appear without restarting the
@@ -132,10 +139,53 @@ container environment, and the local services require no credentials. The
 manual variables in `.env.example` remain useful for running Vite directly or
 for specialized Firebase work outside the shared environment.
 
-Real Bluesky OAuth development is a separate workflow because the authorization
-server needs a public callback origin and private client keys. See
+The `devctl bsky` workflow below automates the public callback origin and
+development client keys needed for normal end-to-end Bluesky OAuth testing. For
+lower-level OAuth debugging or manually managed keys, see
 [Local OAuth testing](LOCAL_OAUTH_TEST.md) and the
 [internal-tools OAuth notes](https://github.com/greenearth-social/internal-tools/blob/main/devenv/README.md#working-on-real-bluesky-auth).
+
+## Use the local feeds in the real Bluesky app
+
+`devctl` can expose the local API through ngrok, publish every feed from the
+development environment to a real Bluesky account, and wire the tunneled
+frontend for real Bluesky sign-in. Use a separate Bluesky account for local
+development rather than your everyday account.
+
+Create `internal-tools/devenv/devenv.local.env` if it does not exist, keep it
+private (`chmod 600 devenv.local.env`), and add:
+
+```dotenv
+NGROK_AUTHTOKEN=2abc...
+GE_DEV_BSKY_HANDLE=your-greenearth-dev-account.bsky.social
+GE_BSKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+`NGROK_AUTHTOKEN` comes from an ngrok account; the free tier is sufficient.
+Generate `GE_BSKY_APP_PASSWORD` in the Bluesky account's **App Passwords**
+settings. Do not put the account's login password in this file.
+
+With the local stack running and seeded, use:
+
+```sh
+./devctl bsky up
+./devctl bsky status
+./devctl bsky down
+```
+
+- `bsky up` starts the tunnel, publishes all development feeds, wires the
+  frontend, and prints their Bluesky URLs.
+- `bsky status` shows the tunnel and sign-in status and prints the published
+  feed URLs again.
+- `bsky down` deletes the published development feed records and closes the
+  tunnel. Run it when you finish testing.
+
+The first `bsky up` may need to pull the ngrok container image. Free ngrok
+accounts may expose only one endpoint at a time, in which case `devctl` still
+publishes the feeds but may report that tunneled frontend sign-in is
+unavailable. See the
+[internal-tools Bluesky guide](https://github.com/greenearth-social/internal-tools/blob/main/devenv/README.md#serving-a-local-feed-on-real-bluesky)
+for reserved-domain and multi-instance options.
 
 ## Diagnostics
 

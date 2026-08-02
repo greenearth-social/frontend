@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { RankScoresChart } from "../components/rank-scores-chart";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 
-function normalizedText(element: Element | null | undefined): string {
-  return element?.textContent.replace(/\s+/g, " ").trim() ?? "";
+function normalizedText(element: Node | null | undefined): string {
+  return element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
 function item(): FeedItemView {
@@ -25,8 +25,8 @@ function item(): FeedItemView {
     rankScore: 0.6,
     afterRankPosition: 1,
     modelScores: [
-      { name: "heavy_ranker", weight: 1, score: 0.7 },
-      { name: "perspective", weight: 1, score: 0.5 },
+      { name: "heavy_ranker", weight: 0.5, score: 0.7 },
+      { name: "perspective", weight: 0.5, score: 0.5 },
     ],
     diversification: {
       relevance: 1,
@@ -105,13 +105,14 @@ describe("RankScoresChart", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
     await element.updateComplete;
 
     const popup = element.shadowRoot?.querySelector(".score-popup");
     const text = normalizedText(popup);
-    expect(text).toContain("(0.700 × 1.00) + (0.500 × 1.00) = 1.200");
-    expect(text).toContain("1.200 ÷ 2.00 = 0.600");
+    expect(text).toContain("Ranker scores are multiplied by their influence and summed");
+    expect(text).toContain("(0.700 × 0.50) + (0.500 × 0.50) = 0.600");
+    expect(text).not.toContain("total influence");
     expect(text).toContain("0.600 ÷ 0.600 = 1.000 relevance");
     expect(text).toContain("Maximum Marginal Relevance (MMR)");
     expect(text).toContain("(0.30 × 1.000) − 0.150 = 0.150");
@@ -130,7 +131,7 @@ describe("RankScoresChart", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLElement>(".info-icon")?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".diversification-info-button")?.click();
     await element.updateComplete;
 
     const popup = element.shadowRoot?.querySelector(".div-popup");
@@ -163,12 +164,12 @@ describe("RankScoresChart", () => {
 
     expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.27");
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
     await element.updateComplete;
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
     expect(text).toContain("(0.950 × 0.50) + (0.830 × 0.50) = 0.890");
-    expect(text).toContain("0.890 ÷ 1.00 = 0.890");
+    expect(text).not.toContain("0.890 ÷ 1.00");
     expect(text).toContain("(0.30 × 0.910) − 0.000 = 0.273");
     element.remove();
   });
@@ -189,14 +190,90 @@ describe("RankScoresChart", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".score-info-button")?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
     await element.updateComplete;
 
     const popup = element.shadowRoot?.querySelector(".score-popup");
     const text = normalizedText(popup);
-    expect(text).toContain("1.200 ÷ 2.00 = 0.600");
+    expect(text).toContain("(0.700 × 0.50) + (0.500 × 0.50) = 0.600");
+    expect(text).not.toContain("÷ 1.00");
     expect(text).not.toContain("Engaging: 0.700");
     expect(text).not.toContain("Constructive: 0.500");
+    element.remove();
+  });
+
+  it("makes every explanation header clickable", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const cases = [
+      [".source-info-button", ".info-popup", "candidate generators found this post"],
+      [".rankers-info-button", ".info-popup", "how engaging and constructive"],
+      [".diversification-info-button", ".div-popup", "Diversification Formula"],
+      [".final-score-info-button", ".score-popup", "selection score was calculated"],
+    ] as const;
+
+    expect(element.shadowRoot?.querySelectorAll(".header-question")).toHaveLength(4);
+    for (const [buttonSelector, popupSelector, popupText] of cases) {
+      const button = element.shadowRoot?.querySelector<HTMLButtonElement>(buttonSelector);
+      expect(button?.tagName).toBe("BUTTON");
+      button?.click();
+      await element.updateComplete;
+      expect(normalizedText(element.shadowRoot?.querySelector(popupSelector))).toContain(popupText);
+      button?.click();
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(popupSelector)).toBeNull();
+    }
+    element.remove();
+  });
+
+  it("opens the matching explanation from source pills, bars, and score values", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const cases = [
+      [".source-pill-button", ".info-popup"],
+      [".ranker-value-button", ".info-popup"],
+      [".diversification-value-button", ".div-popup"],
+      [".final-score-value-button", ".score-popup"],
+    ] as const;
+
+    for (const [buttonSelector, popupSelector] of cases) {
+      const button = element.shadowRoot?.querySelector<HTMLButtonElement>(buttonSelector);
+      expect(button?.tagName).toBe("BUTTON");
+      button?.click();
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(popupSelector)).not.toBeNull();
+      button?.click();
+      await element.updateComplete;
+    }
+    element.remove();
+  });
+
+  it("shows only the random source pill for the Random feed", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    element.algorithmId = "random";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(normalizedText(element.shadowRoot)).toBe("Source:");
+    const badge = element.shadowRoot?.querySelector("generator-badge");
+    await badge?.updateComplete;
+    expect(normalizedText(badge?.shadowRoot)).toBe("random");
+    expect(element.shadowRoot?.querySelectorAll("generator-badge")).toHaveLength(1);
+    expect(element.shadowRoot?.querySelector(".ranking-grid")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".final-score-info-button")).toBeNull();
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".random-source-pill-button")?.click();
+    await element.updateComplete;
+    expect(normalizedText(element.shadowRoot?.querySelector(".info-popup"))).toContain(
+      "without ranking or diversification",
+    );
     element.remove();
   });
 });

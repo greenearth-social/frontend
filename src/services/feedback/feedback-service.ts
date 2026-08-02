@@ -37,29 +37,37 @@ export function buildFeedbackEvent(
   survey: SurveyRuntimeConfig,
   frontendReleaseSha: string | null,
 ): FeedbackEventPayload {
+  const surface = SURFACE_EVENT_VALUES[submission.surface];
+  const snapshot =
+    submission.snapshot?.feedName === submission.feedName ? submission.snapshot : null;
   const properties: FeedbackEventPayload["properties"] = {
     $survey_id: survey.surveyId,
+    $survey_submission_id: submission.submissionId,
+    $survey_completed: true,
     [`$survey_response_${survey.questionId}`]: submission.response,
-    feedback_surface: SURFACE_EVENT_VALUES[submission.surface],
+    feedback_submission_id: submission.submissionId,
+    feedback_surface: surface,
+    feedback_context_key: `${surface}:${submission.feedName}`,
+    feed_name: submission.feedName,
+    feed_label: submission.feedLabel,
     app_route: submission.appRoute,
     frontend_release_sha: frontendReleaseSha,
-    snapshot_context_available: submission.snapshot !== null,
+    snapshot_context_available: snapshot !== null,
     social_radius: submission.preferences.socialRadius,
     freshness: submission.preferences.freshness,
     politics: submission.preferences.politics,
     purpose: submission.preferences.purpose,
   };
 
-  if (submission.snapshot) {
-    properties.feed_snapshot_id = submission.snapshot.requestId;
-    properties.feed_name = submission.snapshot.feedName;
-    properties.feed_generated_at = submission.snapshot.generatedAt;
-    properties.api_release_sha = submission.snapshot.apiReleaseSha;
-    properties.feed_stored_item_count = submission.snapshot.storedItemCount;
-    properties.feed_displayed_item_count = submission.snapshot.displayedItemCount;
+  if (snapshot) {
+    properties.feed_snapshot_id = snapshot.requestId;
+    properties.feed_generated_at = snapshot.generatedAt;
+    properties.api_release_sha = snapshot.apiReleaseSha;
+    properties.feed_stored_item_count = snapshot.storedItemCount;
+    properties.feed_displayed_item_count = snapshot.displayedItemCount;
     properties.feed_publicly_filtered_count =
-      submission.snapshot.publiclyFilteredCount;
-    properties.feed_unavailable_count = submission.snapshot.unavailableCount;
+      snapshot.publiclyFilteredCount;
+    properties.feed_unavailable_count = snapshot.unavailableCount;
   }
 
   return {

@@ -24,5 +24,10 @@ test("previews feedback without contacting PostHog in local test mode", async ({
   await expect(form.locator("pre")).toContainText(
     '"feed_snapshot_id": "abc123-def456-ghi789"',
   );
+  await expect(form.locator("pre")).toContainText('"feed_name": "your-feed"');
+  await expect(form.locator("pre")).toContainText(
+    '"feedback_context_key": "general:your-feed"',
+  );
+  await expect(form.locator("pre")).toContainText('"feedback_submission_id":');
   expect(postHogRequests).toEqual([]);
 });

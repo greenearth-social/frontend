@@ -1,12 +1,14 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedbackSurface } from "../config/runtime-config";
+import { ALGORITHMS, type AlgorithmId } from "../constants/algorithms";
 import type { FeedbackEventPayload } from "../services/feedback/types";
 import { getRootStore } from "../main";
 
 @customElement("feedback-form")
 export class FeedbackForm extends LitElement {
   @property({ type: String }) surface: FeedbackSurface = "general";
+  @property({ type: String }) selectedFeed: AlgorithmId = "your-feed";
   @property({ type: String }) prompt = "";
   @property({ type: String }) placeholder = "Share your feedback";
 
@@ -34,6 +36,16 @@ export class FeedbackForm extends LitElement {
       font-size: 1rem;
       font-weight: 700;
       line-height: 1.4;
+    }
+    .feed-context {
+      display: inline-flex;
+      margin-bottom: 0.625rem;
+      padding: 0.25rem 0.625rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 9999px;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.75rem;
+      font-weight: 600;
     }
     textarea {
       display: block;
@@ -143,6 +155,7 @@ export class FeedbackForm extends LitElement {
 
     return html`
       <form class="feedback-card" @submit=${this.#handleSubmit}>
+        <div class="feed-context">Feed: ${ALGORITHMS[this.selectedFeed].label}</div>
         <label for="feedback-input">${this.prompt}</label>
         <textarea
           id="feedback-input"
@@ -204,7 +217,11 @@ export class FeedbackForm extends LitElement {
     this.message = "";
     this.messageKind = "";
     try {
-      const result = await store.feedbackStore.submit(this.surface, response);
+      const result = await store.feedbackStore.submit(
+        this.surface,
+        response,
+        this.selectedFeed,
+      );
       this.previewPayload = result.sent ? null : result.payload;
       this.response = "";
       this.message = result.sent
