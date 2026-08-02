@@ -6,6 +6,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
+import { ALGORITHMS, ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
 import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
@@ -87,6 +88,15 @@ export class FeedPage extends MobxLitElement {
     .source-breakdown-button:disabled {
       opacity: 0.5;
       cursor: default;
+    }
+    .header-title {
+      font-size: clamp(0.9375rem, 3.5vw, 1.25rem);
+      font-weight: 700;
+      color: var(--bluesky-text);
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     @media (max-width: 480px) {
       .header-row {
@@ -352,9 +362,7 @@ export class FeedPage extends MobxLitElement {
                 </svg>
               </button>
               <div style="flex: 1; min-width: 0;">
-                <h1 class="text-xl font-bold" style="color: var(--bluesky-text); margin: 0;">
-                  Why Am I Seeing This?
-                </h1>
+                <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
               <button
                 class="source-breakdown-button"
@@ -379,10 +387,19 @@ export class FeedPage extends MobxLitElement {
           </div>
 
           <feed-tabs
-            .feeds=${feedStore.feedList}
+            .feeds=${[...feedStore.feedList]
+              .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
+            .selectedAlgorithm=${uiStore.selectedAlgorithm}
+            .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
+              const feed = feedStore.feedList.find(f => f.requestId === e.detail.requestId);
+              if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
+                uiStore.setSelectedAlgorithm(feed.feedName as AlgorithmId);
+              } else {
+                uiStore.clearSelectedAlgorithm();
+              }
               void feedStore.loadFeedDetail(e.detail.requestId);
             }}
           ></feed-tabs>
@@ -418,6 +435,8 @@ export class FeedPage extends MobxLitElement {
                   <feed-view
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
+                    .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
+                    .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}

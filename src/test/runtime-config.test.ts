@@ -7,6 +7,10 @@ describe("parseRuntimeConfig", () => {
       parseRuntimeConfig({
         environment: "stage",
         firestoreDatabase: "greenearth-stage",
+        blueskyUrls: {
+          "your-feed": "https://example.test/your-feed",
+          random: "https://example.test/random",
+        },
       }),
     ).toEqual({
       environment: "stage",
@@ -14,6 +18,10 @@ describe("parseRuntimeConfig", () => {
       frontendReleaseSha: null,
       posthog: { mode: "disabled" },
       feedback: { mode: "test" },
+      blueskyUrls: {
+        "your-feed": "https://example.test/your-feed",
+        random: "https://example.test/random",
+      },
     });
   });
 

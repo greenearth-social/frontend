@@ -1,28 +1,133 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
+import { ALGORITHMS, ALGORITHM_IDS, type AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
+
+const ALGO_PNG: Record<string, string> = {
+  "your-feed": "/assets/algo-greenearth.png",
+  "best-of-friends": "/assets/algo-best-of-friends.png",
+  "random": "/assets/algo-random.png",
+};
 
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
   @property({ type: String }) activeRequestId: string | null = null;
   @property({ type: Object }) filteringCountsByRequest: Record<string, FilteringCounts> = {};
+  @property({ type: String }) selectedAlgorithm: string | null = null;
+  @property({ type: String }) algorithmLabel: string = "";
   @state() private openBreakdownId: string | null = null;
+  @state() private _algoDropdownOpen = false;
 
   static styles = css`
     :host {
       display: block;
     }
     .tabs-container {
-      position: relative;
+      display: flex;
+      align-items: stretch;
       background: rgba(21, 32, 43, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
     }
-    .tabs-container::before,
-    .tabs-container::after {
+    .algo-indicator {
+      display: none;
+      flex-shrink: 0;
+      position: relative;
+      border-right: 1px solid var(--bluesky-border);
+    }
+    @media (max-width: 1023px) {
+      .algo-indicator {
+        display: block;
+      }
+    }
+    .algo-trigger {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0 0.625rem 0 0.75rem;
+      height: 100%;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--bluesky-text);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .algo-trigger:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .algo-trigger img {
+      width: 1.125rem;
+      height: 1.125rem;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .algo-chevron {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+      color: var(--bluesky-text-secondary);
+    }
+    .algo-chevron.open {
+      transform: rotate(180deg);
+    }
+    .algo-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 200;
+      background: rgb(21, 32, 43);
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      min-width: 168px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    }
+    .algo-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--bluesky-text);
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+      font: inherit;
+      font-size: 0.8125rem;
+    }
+    .algo-option:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .algo-option.active {
+      font-weight: 700;
+    }
+    .algo-option img {
+      width: 1rem;
+      height: 1rem;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .tabs-scroll-area {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+    .tabs-scroll-area::before,
+    .tabs-scroll-area::after {
       content: "";
       position: absolute;
       top: 0;
@@ -31,12 +136,12 @@ export class FeedTabs extends LitElement {
       z-index: 2;
       pointer-events: none;
     }
-    .tabs-container::before {
+    .tabs-scroll-area::before {
       left: 0;
       width: 1.5rem;
       background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
     }
-    .tabs-container::after {
+    .tabs-scroll-area::after {
       right: 0;
       background: linear-gradient(to left, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
     }
@@ -68,6 +173,16 @@ export class FeedTabs extends LitElement {
       display: flex;
       align-items: center;
       gap: 0.35rem;
+    }
+    .tab-algo-icon {
+      width: 0.875rem;
+      height: 0.875rem;
+      object-fit: contain;
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    .tab.active .tab-algo-icon {
+      opacity: 1;
     }
     .tab:hover {
       background: var(--bluesky-bg-hover);
@@ -179,20 +294,90 @@ export class FeedTabs extends LitElement {
   render() {
     if (this.feeds.length === 0) return html``;
 
+    const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
+    const indicatorLabel = this.selectedAlgorithm ? this.algorithmLabel : "Latest";
+
     return html`
       <div class="tabs-container">
-        <div class="tabs-wrapper">
-          <div class="tabs">
-            ${this.feeds.map(
-              (f, index) => html`
-                <div
-                  class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
-                  @click=${() => { this.#selectTab(f.requestId); }}
-                >
-                  <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
-                </div>
-              `,
-            )}
+        <div class="algo-indicator">
+          <button
+            class="algo-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded=${this._algoDropdownOpen}
+            @click=${this.#toggleAlgoDropdown}
+          >
+            ${pngSrc ? html`<img src=${pngSrc} alt="" />` : html`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.125rem; height: 1.125rem; flex-shrink: 0;">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+              </svg>
+            `}
+            <span>${indicatorLabel}</span>
+            <svg
+              class="algo-chevron ${this._algoDropdownOpen ? "open" : ""}"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          ${this._algoDropdownOpen ? html`
+            <div class="algo-dropdown" role="listbox">
+              <button
+                class="algo-option ${this.selectedAlgorithm === null ? "active" : ""}"
+                type="button"
+                role="option"
+                aria-selected=${this.selectedAlgorithm === null}
+                @click=${(e: Event) => { this.#selectAlgo(null, e); }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1rem; height: 1rem; flex-shrink: 0;">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                </svg>
+                <span>Latest</span>
+              </button>
+              ${ALGORITHM_IDS.map((id) => {
+                const algo = ALGORITHMS[id];
+                const isActive = id === this.selectedAlgorithm;
+                const png = ALGO_PNG[id] ?? "";
+                return html`
+                  <button
+                    class="algo-option ${isActive ? "active" : ""}"
+                    type="button"
+                    role="option"
+                    aria-selected=${isActive}
+                    @click=${(e: Event) => { this.#selectAlgo(id, e); }}
+                  >
+                    ${png ? html`<img src=${png} alt="" />` : ""}
+                    <span>${algo.label}</span>
+                  </button>
+                `;
+              })}
+            </div>
+          ` : ""}
+        </div>
+        <div class="tabs-scroll-area">
+          <div class="tabs-wrapper">
+            <div class="tabs">
+              ${this.feeds.map(
+                (f, index) => {
+                  const iconSrc = ALGO_PNG[f.feedName] ?? "";
+                  return html`
+                    <div
+                      class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
+                      @click=${() => { this.#selectTab(f.requestId); }}
+                    >
+                      ${iconSrc ? html`<img class="tab-algo-icon" src=${iconSrc} alt="" />` : ""}
+                      <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
+                    </div>
+                  `;
+                },
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -302,14 +487,35 @@ export class FeedTabs extends LitElement {
     } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
   }
 
+  #toggleAlgoDropdown = (e: Event) => {
+    e.stopPropagation();
+    this._algoDropdownOpen = !this._algoDropdownOpen;
+  };
+
+  #selectAlgo(id: AlgorithmId | null, e: Event) {
+    e.stopPropagation();
+    this._algoDropdownOpen = false;
+    this.dispatchEvent(new CustomEvent("algo-select", {
+      bubbles: true,
+      composed: true,
+      detail: { algorithmId: id },
+    }));
+  }
+
   #onWindowClick = (event: MouseEvent) => {
     if (this.openBreakdownId && !event.composedPath().includes(this)) {
       this.openBreakdownId = null;
     }
+    if (this._algoDropdownOpen && !event.composedPath().includes(this)) {
+      this._algoDropdownOpen = false;
+    }
   };
 
   #onWindowKeydown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") this.openBreakdownId = null;
+    if (event.key === "Escape") {
+      this.openBreakdownId = null;
+      this._algoDropdownOpen = false;
+    }
   };
 
   #selectTab(requestId: string) {

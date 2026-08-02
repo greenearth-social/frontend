@@ -50,6 +50,6 @@ test.describe("Feed Page", () => {
 
   test("shows feeds card in right sidebar", async ({ page }) => {
     const feeds = page.locator("right-sidebar");
-    await expect(feeds).toContainText("Feeds");
+    await expect(feeds).toContainText("Feed Snapshots");
   });
 });

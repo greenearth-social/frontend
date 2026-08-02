@@ -34,6 +34,7 @@ export interface RuntimeConfig {
   frontendReleaseSha: string | null;
   posthog: PostHogRuntimeConfig;
   feedback: FeedbackRuntimeConfig;
+  blueskyUrls?: Partial<Record<"your-feed" | "best-of-friends" | "random", string>>;
 }
 
 const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
@@ -61,6 +62,20 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
   const environment = nonEmptyString(candidate.environment) ?? "local";
   const frontendReleaseSha = nonEmptyString(candidate.frontendReleaseSha);
   const firestoreDatabase = nonEmptyString(candidate.firestoreDatabase) ?? undefined;
+  const rawBlueskyUrls =
+    typeof candidate.blueskyUrls === "object" && candidate.blueskyUrls !== null
+      ? (candidate.blueskyUrls as Record<string, unknown>)
+      : null;
+  const yourFeedUrl = nonEmptyString(rawBlueskyUrls?.["your-feed"]);
+  const bestOfFriendsUrl = nonEmptyString(rawBlueskyUrls?.["best-of-friends"]);
+  const randomUrl = nonEmptyString(rawBlueskyUrls?.random);
+  const blueskyUrls = rawBlueskyUrls
+    ? {
+        ...(yourFeedUrl ? { "your-feed": yourFeedUrl } : {}),
+        ...(bestOfFriendsUrl ? { "best-of-friends": bestOfFriendsUrl } : {}),
+        ...(randomUrl ? { random: randomUrl } : {}),
+      }
+    : undefined;
   const rawFeedback =
     typeof candidate.feedback === "object" && candidate.feedback !== null
       ? (candidate.feedback as Record<string, unknown>)
@@ -110,6 +125,7 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
     frontendReleaseSha,
     posthog,
     feedback,
+    ...(blueskyUrls ? { blueskyUrls } : {}),
   };
 }
 

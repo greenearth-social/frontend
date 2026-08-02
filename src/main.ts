@@ -7,6 +7,7 @@ import type { ServiceProvider } from "./services/service-provider";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { createFeedbackService } from "./services/feedback/feedback-service";
 import { createAnalyticsService } from "./services/analytics/analytics-service";
+import { runtimeConfig as blueskyRuntimeConfig } from "./config";
 
 setBasePath("/");
 
@@ -20,6 +21,9 @@ export function getRootStore(): RootStore | null {
 
 async function init() {
   const runtimeConfig = await loadRuntimeConfig();
+  if (runtimeConfig.blueskyUrls) {
+    Object.assign(blueskyRuntimeConfig.blueskyUrls, runtimeConfig.blueskyUrls);
+  }
   const analyticsService = await createAnalyticsService(runtimeConfig);
   const feedbackService = createFeedbackService(runtimeConfig, analyticsService);
   let services: ServiceProvider;

@@ -20,9 +20,9 @@ export class RootStore {
 
     this.preferencesStore = new PreferencesStore(this);
     this.feedStore = new FeedStore(this);
+    this.uiStore = new UIStore();
     this.authStore = new AuthStore(this);
     this.accountStore = new AccountStore(this);
-    this.uiStore = new UIStore();
     this.feedbackStore = new FeedbackStore(this);
   }
 }

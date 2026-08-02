@@ -10,6 +10,8 @@ const RANKER_COLORS: Record<string, string> = {
   Constructive: "#a78bfa",
 };
 
+const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
+
 const MMR_RELEVANCE_WEIGHT = 0.3;
 
 @customElement("rank-scores-chart")
@@ -308,7 +310,7 @@ export class RankScoresChart extends LitElement {
         i.diversification.contentPenalty
       : relevanceScore;
 
-    const engaging = i.modelScores.find((m) => m.name === "heavy_ranker");
+    const engaging = i.modelScores.find((m) => ENGAGING_RANKER_NAMES.has(m.name));
     const constructive = i.modelScores.find((m) => m.name === "perspective");
 
     const engagingScore = engaging?.score ?? 0;

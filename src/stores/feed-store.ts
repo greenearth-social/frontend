@@ -5,9 +5,12 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
+import { ALGORITHM_FEED_NAME_SET } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
+
+type FeedListLoadState = "idle" | "loading" | "loaded" | "error";
 
 export class FeedStore {
   root: RootStore;
@@ -18,6 +21,7 @@ export class FeedStore {
 
   items: FeedItemView[] = [];
   isLoading: boolean = false;
+  feedListLoadState: FeedListLoadState = "idle";
   error: string | null = null;
   lastGeneratedAt: string | null = null;
   currentApiReleaseSha: string | null = null;
@@ -26,6 +30,7 @@ export class FeedStore {
   currentRequestId: string | null = null;
   filteringCountsByRequest: Record<string, FilteringCounts> = {};
 
+  private _feedListLoadSeq: number = 0;
   private _loadSeq: number = 0;
   private _accountId: string | null = null;
 
@@ -38,22 +43,6 @@ export class FeedStore {
     if (this._accountId === accountId) return;
     this.reset();
     this._accountId = accountId;
-  }
-
-  reset(): void {
-    this._loadSeq++;
-    this._accountId = null;
-    this._allItems = [];
-    this._currentPage = 1;
-    this._postsPerPage = DEFAULT_POSTS_PER_PAGE;
-    this.items = [];
-    this.isLoading = false;
-    this.error = null;
-    this.lastGeneratedAt = null;
-    this.currentApiReleaseSha = null;
-    this.feedList = [];
-    this.currentRequestId = null;
-    this.filteringCountsByRequest = {};
   }
 
   get currentPage(): number {
@@ -113,23 +102,78 @@ export class FeedStore {
     this._updateVisibleItems();
   }
 
+  clearFeedDetail(): void {
+    this._loadSeq++;
+    this._allItems = [];
+    this._currentPage = 1;
+    this.items = [];
+    this.currentRequestId = null;
+    this.error = null;
+  }
+
+  reset(): void {
+    this._feedListLoadSeq++;
+    this._loadSeq++;
+    this._accountId = null;
+    this._allItems = [];
+    this._currentPage = 1;
+    this._postsPerPage = DEFAULT_POSTS_PER_PAGE;
+    this.items = [];
+    this.isLoading = false;
+    this.feedListLoadState = "idle";
+    this.error = null;
+    this.lastGeneratedAt = null;
+    this.currentApiReleaseSha = null;
+    this.feedList = [];
+    this.currentRequestId = null;
+    this.filteringCountsByRequest = {};
+  }
+
   async loadFeedList(): Promise<void> {
     if (this.isLoading) return;
 
+    const seq = ++this._feedListLoadSeq;
     this.isLoading = true;
+    this.feedListLoadState = "loading";
     this.error = null;
 
     try {
       const response = await this.root.services.feedApiService.listFeeds();
+      if (seq !== this._feedListLoadSeq) return;
+
       this.feedList = response.feeds ?? [];
-      if (this.feedList.length > 0 && this.feedList[0]) {
-        await this.loadFeedDetail(this.feedList[0].requestId);
+      this.feedListLoadState = "loaded";
+
+      const currentAlgo = this.root.uiStore.selectedAlgorithm;
+      if (currentAlgo === null) {
+        // Latest mode: load the globally most recent public feed
+        const latestPublic = this.feedList
+          .filter((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName))
+          .reduce<FeedSummary | undefined>(
+            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+            undefined,
+          );
+        if (latestPublic) await this.loadFeedDetail(latestPublic.requestId);
+      } else {
+        // Specific algo selected: load its most recent snapshot, or leave empty
+        const latestForAlgo = this.feedList
+          .filter((f) => f.feedName === currentAlgo)
+          .reduce<FeedSummary | undefined>(
+            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+            undefined,
+          );
+        if (latestForAlgo) await this.loadFeedDetail(latestForAlgo.requestId);
       }
     } catch (e) {
+      if (seq !== this._feedListLoadSeq) return;
+
       console.error("FeedStore.loadFeedList error:", e);
       this.error = e instanceof Error ? e.message : "Failed to load feed list";
+      this.feedListLoadState = "error";
     } finally {
-      this.isLoading = false;
+      if (seq === this._feedListLoadSeq) {
+        this.isLoading = false;
+      }
     }
   }
 
