@@ -16,6 +16,10 @@ export class FeedbackStore {
     return this.root.services.feedbackService.unavailableReason;
   }
 
+  unavailableReasonFor(surface: FeedbackSurface): string | null {
+    return this.root.services.feedbackService.unavailableReasonFor(surface);
+  }
+
   submit(
     surface: FeedbackSurface,
     response: string,

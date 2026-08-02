@@ -4,6 +4,8 @@ const testState = vi.hoisted(() => ({
   rootStore: {
     authStore: {
       isSignedIn: true,
+      currentUser: { uid: "did:plc:alice" },
+      signInWithCustomToken: vi.fn<() => Promise<void>>(),
       signOut: vi.fn<() => Promise<void>>(),
     },
     accountStore: {
@@ -27,9 +29,25 @@ const testState = vi.hoisted(() => ({
     uiStore: {
       selectedItemUri: null,
     },
+    preferencesStore: {
+      values: { socialRadius: 3, freshness: 5, politics: 1, purpose: 0.5 },
+      socialRadiusWeights: [
+        { name: "followed_users", weight: 0.4 },
+        { name: "two_tower", weight: 0.3 },
+        { name: "popularity", weight: 0.3 },
+      ],
+      load: vi.fn().mockResolvedValue(undefined),
+    },
     feedbackStore: {
       mode: "test",
       unavailableReason: null,
+      unavailableReasonFor: vi.fn().mockReturnValue(null),
+    },
+    services: {
+      analyticsService: {
+        identify: vi.fn(),
+        capture: vi.fn(),
+      },
     },
   },
 }));
@@ -46,6 +64,9 @@ describe("AppShell authentication UI", () => {
     window.location.hash = "/feed";
     testState.rootStore.authStore.isSignedIn = true;
     testState.rootStore.authStore.signOut.mockReset();
+    testState.rootStore.authStore.signInWithCustomToken.mockReset();
+    testState.rootStore.authStore.signInWithCustomToken.mockResolvedValue(undefined);
+    testState.rootStore.services.analyticsService.capture.mockReset();
   });
 
   it("centers the completing-sign-in state without relying on global utility styles", async () => {
@@ -108,5 +129,63 @@ describe("AppShell authentication UI", () => {
     expect(form?.prompt).toBe(
       "We'd love to know what you think of GreenEarth",
     );
+  });
+
+  it("captures one How It Works view when entering the route", async () => {
+    window.location.hash = "/how-it-works";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+      "howItWorksViewed",
+      {},
+    );
+
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
+  });
+
+  it("captures a completed sign-in without exposing the callback token", async () => {
+    window.location.hash = "/auth/finish?token=secret-token&return_url=/controls";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+
+    await vi.waitFor(() => {
+      expect(
+        testState.rootStore.authStore.signInWithCustomToken,
+      ).toHaveBeenCalledWith("secret-token");
+      expect(
+        testState.rootStore.services.analyticsService.capture,
+      ).toHaveBeenCalledWith("signInCompleted", {
+        auth_method: "bluesky_oauth",
+        return_route: "/controls",
+      });
+    });
+    expect(
+      JSON.stringify(testState.rootStore.services.analyticsService.capture.mock.calls),
+    ).not.toContain("secret-token");
+  });
+
+  it("captures a bounded callback failure", async () => {
+    testState.rootStore.authStore.signInWithCustomToken.mockRejectedValue(
+      new Error("raw provider failure"),
+    );
+    window.location.hash = "/auth/finish?token=secret-token";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+
+    await vi.waitFor(() => {
+      expect(
+        testState.rootStore.services.analyticsService.capture,
+      ).toHaveBeenCalledWith("signInFailed", {
+        failure_stage: "callback",
+        error_category: "token_exchange_failed",
+      });
+    });
+    expect(
+      JSON.stringify(testState.rootStore.services.analyticsService.capture.mock.calls),
+    ).not.toContain("raw provider failure");
   });
 });

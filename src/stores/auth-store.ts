@@ -14,11 +14,11 @@ export class AuthStore {
       if (user) {
         this.root.feedStore.activateAccount(user.uid);
         this.root.preferencesStore.activateAccount(user.uid);
-        this.root.services.feedbackService.identify(user.uid);
+        this.root.services.analyticsService.identify(user.uid);
       } else {
         this.root.feedStore.reset();
         this.root.preferencesStore.reset();
-        this.root.services.feedbackService.reset();
+        this.root.services.analyticsService.reset();
       }
     });
   }

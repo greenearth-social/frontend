@@ -11,25 +11,35 @@ export type FeedbackRuntimeConfig =
     }
   | {
       mode: "posthog";
-      projectKey: string;
-      host: string;
-      surveys: Record<FeedbackSurface, SurveyRuntimeConfig>;
+      surveys: Partial<Record<FeedbackSurface, SurveyRuntimeConfig>>;
     }
   | {
       mode: "unavailable";
       reason: string;
     };
 
+export type PostHogRuntimeConfig =
+  | {
+      mode: "disabled";
+    }
+  | {
+      mode: "posthog";
+      projectKey: string;
+      host: string;
+    };
+
 export interface RuntimeConfig {
   environment: string;
   firestoreDatabase?: string;
   frontendReleaseSha: string | null;
+  posthog: PostHogRuntimeConfig;
   feedback: FeedbackRuntimeConfig;
 }
 
 const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   environment: "local",
   frontendReleaseSha: null,
+  posthog: { mode: "disabled" },
   feedback: { mode: "test" },
 };
 
@@ -56,10 +66,14 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
       ? (candidate.feedback as Record<string, unknown>)
       : null;
 
+  let posthog: PostHogRuntimeConfig = { mode: "disabled" };
   let feedback: FeedbackRuntimeConfig = { mode: "test" };
   if (rawFeedback?.mode === "posthog") {
     const projectKey = nonEmptyString(rawFeedback.projectKey);
     const host = nonEmptyString(rawFeedback.host);
+    if (environment === "production" && projectKey && host) {
+      posthog = { mode: "posthog", projectKey, host };
+    }
     const rawSurveys =
       typeof rawFeedback.surveys === "object" && rawFeedback.surveys !== null
         ? (rawFeedback.surveys as Record<string, unknown>)
@@ -67,18 +81,21 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
     const general = parseSurvey(rawSurveys?.general);
     const controls = parseSurvey(rawSurveys?.controls);
     const howItWorks = parseSurvey(rawSurveys?.howItWorks);
-    feedback =
-      projectKey && host && general && controls && howItWorks
-        ? {
-            mode: "posthog",
-            projectKey,
-            host,
-            surveys: { general, controls, howItWorks },
-          }
-        : {
-            mode: "unavailable",
-            reason: "Production feedback configuration is incomplete.",
-          };
+    if (projectKey && host) {
+      feedback = {
+        mode: "posthog",
+        surveys: {
+          ...(general ? { general } : {}),
+          ...(controls ? { controls } : {}),
+          ...(howItWorks ? { howItWorks } : {}),
+        },
+      };
+    } else {
+      feedback = {
+        mode: "unavailable",
+        reason: "Production feedback configuration is incomplete.",
+      };
+    }
   } else if (rawFeedback?.mode === "unavailable") {
     feedback = {
       mode: "unavailable",
@@ -91,6 +108,7 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
     environment,
     ...(firestoreDatabase ? { firestoreDatabase } : {}),
     frontendReleaseSha,
+    posthog,
     feedback,
   };
 }

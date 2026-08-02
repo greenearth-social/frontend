@@ -14,6 +14,7 @@ const testState = vi.hoisted(() => ({
     feedbackStore: {
       mode: "test" as const,
       unavailableReason: null,
+      unavailableReasonFor: vi.fn().mockReturnValue(null),
       submit: vi.fn(),
     },
   },

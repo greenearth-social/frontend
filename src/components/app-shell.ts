@@ -662,6 +662,7 @@ export class AppShell extends MobxLitElement {
 
   #updateRoute() {
     const hash = window.location.hash.slice(1) || "/feed";
+    const previousRoute = this._currentRoute;
     this._currentRoute = hash;
     this.requestUpdate();
 
@@ -682,6 +683,10 @@ export class AppShell extends MobxLitElement {
         window.location.hash = "/feed";
       }
       return;
+    }
+
+    if (hash === "/how-it-works" && previousRoute !== "/how-it-works") {
+      store.services.analyticsService.capture("howItWorksViewed", {});
     }
 
     if (hash === "/feed" || hash === "") {
@@ -728,15 +733,36 @@ export class AppShell extends MobxLitElement {
     const token = params.get("token");
     const returnUrl = params.get("return_url") ?? "/feed";
 
-    if (!token) return;
+    if (!token) {
+      getRootStore()?.services.analyticsService.capture("signInFailed", {
+        failure_stage: "callback",
+        error_category: "missing_token",
+      });
+      return;
+    }
 
     const store = getRootStore();
     if (!store) return;
 
     try {
       await store.authStore.signInWithCustomToken(token);
+      const user =
+        store.authStore.currentUser ?? store.services.authService.currentUser;
+      if (!user) throw new Error("Authentication completed without a user");
+      store.services.analyticsService.identify(user.uid);
+      const sanitizedReturnRoute = returnUrl.startsWith("/")
+        ? (returnUrl.split("?")[0] || "/feed")
+        : "/feed";
+      store.services.analyticsService.capture("signInCompleted", {
+        auth_method: "bluesky_oauth",
+        return_route: sanitizedReturnRoute,
+      });
       window.location.replace(window.location.origin + "/#" + returnUrl);
     } catch {
+      store.services.analyticsService.capture("signInFailed", {
+        failure_stage: "callback",
+        error_category: "token_exchange_failed",
+      });
       window.location.hash = "/feed";
     }
   }

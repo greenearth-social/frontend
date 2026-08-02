@@ -393,6 +393,13 @@ export class ControlsPage extends LitElement {
         @click=${(e: Event) => {
           e.stopPropagation();
           this.activeHelp = control;
+          getRootStore()?.services.analyticsService.capture("controlHelpOpened", {
+            control_name: control.replace("-", "_") as
+              | "social_radius"
+              | "freshness"
+              | "politics"
+              | "purpose",
+          });
         }}
       >
         <wa-icon name="info-circle" library="app"></wa-icon>
@@ -405,7 +412,7 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, socialRadius: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "social_radius");
   }
 
   #handleFreshnessChange(value: number) {
@@ -413,21 +420,21 @@ export class ControlsPage extends LitElement {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, freshness: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "freshness");
   }
 
   #handlePoliticsChange(value: number) {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, politics: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "politics");
   }
 
   #handlePurposeChange(value: number) {
     const root = getRootStore();
     if (!root) return;
     const newPrefs = { ...root.preferencesStore.values, purpose: value };
-    void root.preferencesStore.save(newPrefs);
+    void root.preferencesStore.save(newPrefs, "purpose");
   }
 
   #showRefreshPopup(): void {

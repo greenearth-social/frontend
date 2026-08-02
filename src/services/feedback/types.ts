@@ -37,7 +37,6 @@ export interface FeedbackSubmitResult {
 export interface IFeedbackService {
   readonly mode: FeedbackMode;
   readonly unavailableReason: string | null;
-  identify(distinctId: string): void;
-  reset(): void;
+  unavailableReasonFor(surface: FeedbackSurface): string | null;
   submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult>;
 }

@@ -3,8 +3,8 @@ import {
   PostHogFeedbackService,
   buildFeedbackEvent,
   createFeedbackService,
-  type PostHogClient,
 } from "../services/feedback/feedback-service";
+import type { IAnalyticsService } from "../services/analytics/types";
 import type { FeedbackSubmission } from "../services/feedback/types";
 
 const submission: FeedbackSubmission = {
@@ -66,11 +66,20 @@ describe("feedback event payload", () => {
   });
 
   it("returns a preview without initializing PostHog in test mode", async () => {
-    const service = await createFeedbackService({
-      environment: "stage",
-      frontendReleaseSha: "stage-sha",
-      feedback: { mode: "test" },
-    });
+    const analytics = {
+      identify: vi.fn(),
+      reset: vi.fn(),
+      capture: vi.fn(),
+    } as IAnalyticsService;
+    const service = createFeedbackService(
+      {
+        environment: "stage",
+        frontendReleaseSha: "stage-sha",
+        posthog: { mode: "disabled" },
+        feedback: { mode: "test" },
+      },
+      analytics,
+    );
 
     const result = await service.submit(submission);
 
@@ -82,32 +91,30 @@ describe("feedback event payload", () => {
   });
 
   it("identifies once, captures the survey event, and resets on logout", async () => {
-    const client: PostHogClient = {
-      capture: vi.fn(),
+    const analytics = {
       identify: vi.fn(),
       reset: vi.fn(),
-    };
+      capture: vi.fn(),
+    } as IAnalyticsService;
     const surveys = {
       general: { surveyId: "s1", questionId: "q1" },
       controls: { surveyId: "s2", questionId: "q2" },
       howItWorks: { surveyId: "s3", questionId: "q3" },
     };
-    const service = new PostHogFeedbackService(client, surveys, "frontend-sha");
+    const service = new PostHogFeedbackService(analytics, surveys, "frontend-sha");
 
     await service.submit(submission);
     await service.submit(submission);
-    service.reset();
 
-    expect(client.identify).toHaveBeenCalledOnce();
-    expect(client.identify).toHaveBeenCalledWith("did:plc:user");
-    expect(client.capture).toHaveBeenCalledTimes(2);
-    expect(client.capture).toHaveBeenCalledWith(
+    expect(analytics.identify).toHaveBeenCalledTimes(2);
+    expect(analytics.identify).toHaveBeenCalledWith("did:plc:user");
+    expect(analytics.capture).toHaveBeenCalledTimes(2);
+    expect(analytics.capture).toHaveBeenCalledWith(
       "survey sent",
       expect.objectContaining({
         $survey_id: "s2",
         feedback_surface: "controls",
       }),
     );
-    expect(client.reset).toHaveBeenCalledOnce();
   });
 });

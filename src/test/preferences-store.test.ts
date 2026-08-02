@@ -11,10 +11,14 @@ const defaults: Preferences = {
 };
 
 function makeStore(putPreferences: (values: Preferences) => Promise<Preferences>) {
+  const capture = vi.fn();
   const root = {
-    services: { feedApiService: { putPreferences, getPreferences: vi.fn() } },
+    services: {
+      feedApiService: { putPreferences, getPreferences: vi.fn() },
+      analyticsService: { capture },
+    },
   } as unknown as RootStore;
-  return new PreferencesStore(root);
+  return { store: new PreferencesStore(root), capture };
 }
 
 describe("PreferencesStore.load", () => {
@@ -65,20 +69,32 @@ describe("PreferencesStore.load", () => {
 describe("PreferencesStore.save", () => {
   it("uses the preferences returned by the API", async () => {
     const saved = { ...defaults, socialRadius: 3 };
-    const store = makeStore(vi.fn().mockResolvedValue(saved));
+    const { store, capture } = makeStore(vi.fn().mockResolvedValue(saved));
 
-    await store.save({ ...defaults, socialRadius: 4 });
+    await store.save({ ...defaults, socialRadius: 4 }, "social_radius");
 
     expect(store.values).toEqual(saved);
+    expect(capture).not.toHaveBeenCalled();
   });
 
   it("rolls back the latest optimistic update when saving fails", async () => {
-    const store = makeStore(vi.fn().mockRejectedValue(new Error("offline")));
+    const { store, capture } = makeStore(
+      vi.fn().mockRejectedValue(new Error("offline")),
+    );
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await store.save({ ...defaults, socialRadius: 4 });
+    await store.save({ ...defaults, socialRadius: 4 }, "social_radius");
 
     expect(store.values).toEqual(defaults);
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChangeFailed",
+      expect.objectContaining({
+        control_name: "social_radius",
+        previous_value: 3,
+        new_value: 4,
+        error_category: "preferences_request_failed",
+      }),
+    );
     consoleError.mockRestore();
   });
 
@@ -91,11 +107,11 @@ describe("PreferencesStore.save", () => {
       .fn()
       .mockReturnValueOnce(firstRequest)
       .mockResolvedValueOnce({ ...defaults, socialRadius: 4 });
-    const store = makeStore(putPreferences);
+    const { store } = makeStore(putPreferences);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const firstSave = store.save({ ...defaults, socialRadius: 3 });
-    await store.save({ ...defaults, socialRadius: 4 });
+    const firstSave = store.save({ ...defaults, socialRadius: 3 }, "social_radius");
+    await store.save({ ...defaults, socialRadius: 4 }, "social_radius");
     rejectFirst?.(new Error("late failure"));
     await firstSave;
 
@@ -106,13 +122,31 @@ describe("PreferencesStore.save", () => {
   it("does not apply a save response after sign-out", async () => {
     let resolveSave: ((value: Preferences) => void) | undefined;
     const request = new Promise<Preferences>((resolve) => { resolveSave = resolve; });
-    const store = makeStore(vi.fn().mockReturnValue(request));
+    const { store, capture } = makeStore(vi.fn().mockReturnValue(request));
 
-    const save = store.save({ ...defaults, socialRadius: 4 });
+    const save = store.save({ ...defaults, socialRadius: 4 }, "social_radius");
     store.reset();
     resolveSave?.({ ...defaults, socialRadius: 4 });
     await save;
 
     expect(store.values).toEqual(defaults);
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("captures a successful freshness change with semantic values", async () => {
+    const saved = { ...defaults, freshness: 2 };
+    const { store, capture } = makeStore(vi.fn().mockResolvedValue(saved));
+
+    await store.save(saved, "freshness");
+
+    expect(capture).toHaveBeenCalledWith("feedControlChanged", {
+      control_name: "freshness",
+      previous_value: 5,
+      new_value: 2,
+      previous_label: "7d",
+      new_label: "24h",
+      previous_hours: 168,
+      new_hours: 24,
+    });
   });
 });

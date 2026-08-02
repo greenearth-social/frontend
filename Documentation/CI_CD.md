@@ -62,7 +62,7 @@ Git push to main
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `.env.local` (local) / build-time | Baked into the JS bundle at build time |
 | Firestore database name | `dist/config.json` | Swapped by CI before deploy (`greenearth-stage` / `greenearth-prod`) |
 | Frontend release SHA | `dist/config.json` | Written from the exact GitHub commit being deployed |
-| PostHog project token, host, and survey/question IDs | Production GitHub Variables | Written to production `dist/config.json`; stage remains in no-network test mode |
+| PostHog project token, host, and survey/question IDs | Production GitHub Variables | Written to production `dist/config.json`; product analytics and survey submissions share one client, while stage remains in no-network test mode |
 
 ### Why the private key goes to Secret Manager
 

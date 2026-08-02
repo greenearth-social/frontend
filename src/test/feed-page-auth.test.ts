@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const testState = vi.hoisted(() => ({
+  capture: vi.fn(),
   rootStore: {
     authStore: { isSignedIn: false },
     accountStore: { activeAccount: null },
     feedStore: {},
     uiStore: {},
+    services: { analyticsService: { capture: vi.fn() } },
   },
 }));
 
@@ -23,6 +25,10 @@ describe("FeedPage sign in", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     document.body.replaceChildren();
+  });
+
+  beforeEach(() => {
+    testState.rootStore.services.analyticsService.capture.mockReset();
   });
 
   it("shows one handle-first sign-in form for every account provider", async () => {
@@ -88,6 +94,13 @@ describe("FeedPage sign in", () => {
     expect(element.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
       "Enter a valid handle",
     );
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+      "signInFailed",
+      {
+        failure_stage: "validation",
+        error_category: "invalid_handle",
+      },
+    );
 
     input.value = "https://pds.example.com";
     input.dispatchEvent(new InputEvent("input", { bubbles: true }));
@@ -108,6 +121,13 @@ describe("FeedPage sign in", () => {
         "Handle could not be resolved",
       );
     });
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+      "signInFailed",
+      {
+        failure_stage: "initiation",
+        error_category: "request_failed",
+      },
+    );
 
     input.value = "bob.bsky.social";
     input.dispatchEvent(new InputEvent("input", { bubbles: true }));

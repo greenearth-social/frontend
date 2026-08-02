@@ -815,7 +815,21 @@ export class HowItWorksPage extends LitElement {
   `;
 
   #handleNodeClick(nodeId: string) {
-    this._selectedNode = this._selectedNode === nodeId ? null : nodeId;
+    if (this._selectedNode === nodeId) {
+      this._selectedNode = null;
+      return;
+    }
+    const node = DIAGRAM_NODES[nodeId];
+    if (!node) return;
+    this._selectedNode = nodeId;
+    getRootStore()?.services.analyticsService.capture(
+      "howItWorksComponentClicked",
+      {
+        component_id: node.id,
+        component_label: node.label,
+        component_type: node.type,
+      },
+    );
   }
 
   #closeDetail() {

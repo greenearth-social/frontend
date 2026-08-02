@@ -1,13 +1,35 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const testState = vi.hoisted(() => ({
+  rootStore: null as {
+    preferencesStore: {
+      values: {
+        socialRadius: number;
+        freshness: number;
+        politics: number;
+        purpose: number;
+      };
+      load: ReturnType<typeof vi.fn>;
+      save: ReturnType<typeof vi.fn>;
+    };
+    services: { analyticsService: { capture: ReturnType<typeof vi.fn> } };
+    feedbackStore: {
+      mode: "test";
+      unavailableReason: null;
+      unavailableReasonFor: ReturnType<typeof vi.fn>;
+    };
+  } | null,
+}));
+
 vi.mock("../main", () => ({
-  getRootStore: () => null,
+  getRootStore: () => testState.rootStore,
 }));
 
 import { ControlsPage } from "../pages/controls-page";
 
 describe("ControlsPage", () => {
   afterEach(() => {
+    testState.rootStore = null;
     document.body.replaceChildren();
     vi.useRealTimers();
   });
@@ -44,6 +66,20 @@ describe("ControlsPage", () => {
   });
 
   it("renders accessible help buttons for all controls and opens disabled help", async () => {
+    const capture = vi.fn();
+    testState.rootStore = {
+      preferencesStore: {
+        values: { socialRadius: 3, freshness: 5, politics: 1, purpose: 0.5 },
+        load: vi.fn().mockResolvedValue(undefined),
+        save: vi.fn().mockResolvedValue(undefined),
+      },
+      services: { analyticsService: { capture } },
+      feedbackStore: {
+        mode: "test",
+        unavailableReason: null,
+        unavailableReasonFor: vi.fn().mockReturnValue(null),
+      },
+    };
     const el = document.createElement("controls-page");
     document.body.appendChild(el);
     await el.updateComplete;
@@ -62,6 +98,9 @@ describe("ControlsPage", () => {
     expect(el.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain(
       "1.00 is neutral",
     );
+    expect(capture).toHaveBeenCalledWith("controlHelpOpened", {
+      control_name: "politics",
+    });
     el.remove();
   });
 

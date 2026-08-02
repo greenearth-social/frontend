@@ -95,6 +95,22 @@ Hash-based SPA routing handled entirely in `app-shell.ts`:
 | `#/controls`              | Controls Page | Social Radius slider + future controls                  |
 | `#/how-it-works`          | How It Works  | Interactive algorithm diagram                           |
 | `#/feedback`              | Feedback      | Custom PostHog-backed feedback form                     |
+
+## Product analytics
+
+The frontend uses one shared PostHog client for product events and manual
+survey submissions. Network capture is enabled only by the production runtime
+configuration; stage, local development, mocks, and tests use no-op analytics.
+Autocapture, generic pageviews, exception capture, heatmaps, and session replay
+are disabled.
+
+Custom product events are `signInCompleted`, `signInFailed`,
+`feedControlChanged`, `feedControlChangeFailed`, `controlHelpOpened`,
+`howItWorksViewed`, `howItWorksComponentClicked`, and
+`postOpenedInBluesky`. Every event includes the frontend surface, environment,
+release SHA, sanitized app route, and schema version. Users are identified by
+their Bluesky DID and reset on logout. Event payloads must never include OAuth
+tokens, entered handles, raw errors, post content, or author details.
 | `#/settings`              | Settings      | Placeholder                                             |
 | `#/auth/finish?token=...` | (inline)      | OAuth callback handler                                  |
 

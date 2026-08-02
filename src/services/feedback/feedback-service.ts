@@ -1,9 +1,9 @@
 import type {
-  FeedbackRuntimeConfig,
   FeedbackSurface,
   RuntimeConfig,
   SurveyRuntimeConfig,
 } from "../../config/runtime-config";
+import type { IAnalyticsService } from "../analytics/types";
 import type {
   FeedbackEventPayload,
   FeedbackSubmission,
@@ -75,9 +75,9 @@ class TestFeedbackService implements IFeedbackService {
 
   constructor(private frontendReleaseSha: string | null) {}
 
-  identify(_distinctId: string): void {}
-
-  reset(): void {}
+  unavailableReasonFor(_surface: FeedbackSurface): string | null {
+    return null;
+  }
 
   submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
     return Promise.resolve({
@@ -96,92 +96,59 @@ class UnavailableFeedbackService implements IFeedbackService {
 
   constructor(readonly unavailableReason: string) {}
 
-  identify(_distinctId: string): void {}
-
-  reset(): void {}
+  unavailableReasonFor(_surface: FeedbackSurface): string {
+    return this.unavailableReason;
+  }
 
   submit(_submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
     return Promise.reject(new Error(this.unavailableReason));
   }
 }
 
-export interface PostHogClient {
-  capture(event: string, properties: Record<string, unknown>): unknown;
-  identify(distinctId: string): void;
-  reset(): void;
-}
-
 export class PostHogFeedbackService implements IFeedbackService {
   readonly mode = "posthog" as const;
   readonly unavailableReason = null;
-  private identifiedId: string | null = null;
 
   constructor(
-    private client: PostHogClient,
-    private surveys: Record<FeedbackSurface, SurveyRuntimeConfig>,
+    private analytics: IAnalyticsService,
+    private surveys: Partial<Record<FeedbackSurface, SurveyRuntimeConfig>>,
     private frontendReleaseSha: string | null,
   ) {}
 
-  identify(distinctId: string): void {
-    if (this.identifiedId === distinctId) return;
-    this.client.identify(distinctId);
-    this.identifiedId = distinctId;
-  }
-
-  reset(): void {
-    this.client.reset();
-    this.identifiedId = null;
+  unavailableReasonFor(surface: FeedbackSurface): string | null {
+    return this.surveys[surface]
+      ? null
+      : "Feedback is temporarily unavailable on this page.";
   }
 
   submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
-    this.identify(submission.distinctId);
+    const survey = this.surveys[submission.surface];
+    if (!survey) {
+      return Promise.reject(
+        new Error("Feedback is temporarily unavailable on this page."),
+      );
+    }
+    this.analytics.identify(submission.distinctId);
     const payload = buildFeedbackEvent(
       submission,
-      this.surveys[submission.surface],
+      survey,
       this.frontendReleaseSha,
     );
-    this.client.capture(payload.event, payload.properties);
+    this.analytics.capture(payload.event, payload.properties);
     return Promise.resolve({ sent: true, payload });
   }
 }
 
-async function createPostHogService(
-  feedback: Extract<FeedbackRuntimeConfig, { mode: "posthog" }>,
-  frontendReleaseSha: string | null,
-): Promise<IFeedbackService> {
-  try {
-    const { default: posthog } = await import("posthog-js");
-    posthog.init(feedback.projectKey, {
-      api_host: feedback.host,
-      autocapture: false,
-      capture_pageview: false,
-      capture_pageleave: false,
-      capture_dead_clicks: false,
-      capture_exceptions: false,
-      capture_heatmaps: false,
-      disable_session_recording: true,
-      disable_surveys: true,
-      advanced_disable_feature_flags: true,
-      person_profiles: "identified_only",
-    });
-    return new PostHogFeedbackService(
-      posthog,
-      feedback.surveys,
-      frontendReleaseSha,
-    );
-  } catch (error) {
-    console.error("Failed to initialize production feedback:", error);
-    return new UnavailableFeedbackService(
-      "Feedback is temporarily unavailable.",
-    );
-  }
-}
-
-export async function createFeedbackService(
+export function createFeedbackService(
   config: RuntimeConfig,
-): Promise<IFeedbackService> {
+  analytics: IAnalyticsService,
+): IFeedbackService {
   if (config.feedback.mode === "posthog") {
-    return createPostHogService(config.feedback, config.frontendReleaseSha);
+    return new PostHogFeedbackService(
+      analytics,
+      config.feedback.surveys,
+      config.frontendReleaseSha,
+    );
   }
   if (config.feedback.mode === "unavailable") {
     return new UnavailableFeedbackService(config.feedback.reason);

@@ -12,6 +12,7 @@ describe("parseRuntimeConfig", () => {
       environment: "stage",
       firestoreDatabase: "greenearth-stage",
       frontendReleaseSha: null,
+      posthog: { mode: "disabled" },
       feedback: { mode: "test" },
     });
   });
@@ -34,11 +35,15 @@ describe("parseRuntimeConfig", () => {
 
     expect(config.feedback).toMatchObject({
       mode: "posthog",
+    });
+    expect(config.posthog).toEqual({
+      mode: "posthog",
       projectKey: "phc_project",
+      host: "https://us.i.posthog.com",
     });
   });
 
-  it("fails closed when production survey configuration is incomplete", () => {
+  it("keeps analytics enabled when production survey configuration is incomplete", () => {
     const config = parseRuntimeConfig({
       environment: "production",
       feedback: {
@@ -49,6 +54,25 @@ describe("parseRuntimeConfig", () => {
       },
     });
 
-    expect(config.feedback.mode).toBe("unavailable");
+    expect(config.feedback).toEqual({ mode: "posthog", surveys: {} });
+    expect(config.posthog.mode).toBe("posthog");
+  });
+
+  it("disables PostHog outside production even when keys are present", () => {
+    const config = parseRuntimeConfig({
+      environment: "stage",
+      feedback: {
+        mode: "posthog",
+        projectKey: "phc_project",
+        host: "https://us.i.posthog.com",
+        surveys: {
+          general: { surveyId: "s1", questionId: "q1" },
+          controls: { surveyId: "s2", questionId: "q2" },
+          howItWorks: { surveyId: "s3", questionId: "q3" },
+        },
+      },
+    });
+
+    expect(config.posthog.mode).toBe("disabled");
   });
 });

@@ -452,6 +452,10 @@ export class FeedPage extends MobxLitElement {
       );
     if (!validHandle) {
       this._signInError = "Enter a valid handle, such as alice.bsky.social.";
+      getRootStore()?.services.analyticsService.capture("signInFailed", {
+        failure_stage: "validation",
+        error_category: "invalid_handle",
+      });
       return;
     }
 
@@ -465,6 +469,7 @@ export class FeedPage extends MobxLitElement {
     this._signInError = "";
     const returnUrl = window.location.hash.slice(1) || "/feed";
     const params = new URLSearchParams({ return_url: returnUrl, handle });
+    let errorCategory: "request_failed" | "missing_redirect_url" = "request_failed";
     try {
       const response = await fetch(`/auth/bluesky?${params.toString()}`, {
         headers: { Accept: "application/json" },
@@ -474,9 +479,16 @@ export class FeedPage extends MobxLitElement {
         throw new Error(message || "Could not start sign in");
       }
       const data = (await response.json()) as { redirectUrl?: string };
-      if (!data.redirectUrl) throw new Error("The account server did not provide a sign-in URL");
+      if (!data.redirectUrl) {
+        errorCategory = "missing_redirect_url";
+        throw new Error("The account server did not provide a sign-in URL");
+      }
       window.location.assign(data.redirectUrl);
     } catch (error: unknown) {
+      getRootStore()?.services.analyticsService.capture("signInFailed", {
+        failure_stage: "initiation",
+        error_category: errorCategory,
+      });
       this._signInError =
         error instanceof Error
           ? error.message

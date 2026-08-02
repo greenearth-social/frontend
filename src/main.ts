@@ -6,6 +6,7 @@ import { RootStore } from "./stores/root-store";
 import type { ServiceProvider } from "./services/service-provider";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { createFeedbackService } from "./services/feedback/feedback-service";
+import { createAnalyticsService } from "./services/analytics/analytics-service";
 
 setBasePath("/");
 
@@ -19,7 +20,8 @@ export function getRootStore(): RootStore | null {
 
 async function init() {
   const runtimeConfig = await loadRuntimeConfig();
-  const feedbackService = await createFeedbackService(runtimeConfig);
+  const analyticsService = await createAnalyticsService(runtimeConfig);
+  const feedbackService = createFeedbackService(runtimeConfig, analyticsService);
   let services: ServiceProvider;
 
   if (useMock) {
@@ -29,6 +31,7 @@ async function init() {
     services = {
       authService: new MockAuthService(),
       feedApiService: new MockFeedApiService(),
+      analyticsService,
       feedbackService,
     };
   } else {
@@ -52,6 +55,7 @@ async function init() {
     services = {
       authService,
       feedApiService: new FeedApiService(apiBaseUrl, () => authService.getIdToken()),
+      analyticsService,
       feedbackService,
     };
   }

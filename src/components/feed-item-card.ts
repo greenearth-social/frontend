@@ -2,6 +2,7 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
+import { getRootStore } from "../main";
 import "./rank-scores-chart";
 
 @customElement("feed-item-card")
@@ -154,7 +155,24 @@ export class FeedItemCard extends MobxLitElement {
                     rel="noopener noreferrer"
                     class="bluesky-btn"
                     title="Open in Bluesky"
-                    @click=${(e: Event) => { e.stopPropagation(); }}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      const root = getRootStore();
+                      const requestId = root?.feedStore.currentRequestId;
+                      const feedName = requestId
+                        ? root.feedStore.feedList.find(
+                            (feed) => feed.requestId === requestId,
+                          )?.feedName
+                        : undefined;
+                      root?.services.analyticsService.capture(
+                        "postOpenedInBluesky",
+                        {
+                          item_uri: i.atUri,
+                          feed_name: feedName ?? "unknown",
+                          final_position: i.finalPosition,
+                        },
+                      );
+                    }}
                   >
                     <wa-icon name="bluesky" library="app"></wa-icon>
                   </a>

@@ -137,9 +137,9 @@ export class FeedbackForm extends LitElement {
 
   render() {
     const store = getRootStore();
-    const unavailable = store?.feedbackStore.mode === "unavailable";
     const unavailableReason =
-      store?.feedbackStore.unavailableReason ?? "Feedback is temporarily unavailable.";
+      store?.feedbackStore.unavailableReasonFor(this.surface) ?? null;
+    const unavailable = unavailableReason !== null;
 
     return html`
       <form class="feedback-card" @submit=${this.#handleSubmit}>
