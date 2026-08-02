@@ -11,6 +11,8 @@ export class FeedView extends MobxLitElement {
   @property({ type: String }) blueskyUrl: string = "";
   @property({ type: String }) algorithmLabel: string = "";
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
+  @property({ type: Number }) engagingInfluence = 0.5;
+  @property({ type: Number }) constructiveInfluence = 0.5;
 
   static styles = css`
     :host {
@@ -81,7 +83,12 @@ export class FeedView extends MobxLitElement {
       <div class="feed-container">
         ${this.items.map(
           (item) => html`
-            <feed-item-card .item=${item} .algorithmId=${this.algorithmId}></feed-item-card>
+            <feed-item-card
+              .item=${item}
+              .algorithmId=${this.algorithmId}
+              .engagingInfluence=${this.engagingInfluence}
+              .constructiveInfluence=${this.constructiveInfluence}
+            ></feed-item-card>
           `,
         )}
       </div>

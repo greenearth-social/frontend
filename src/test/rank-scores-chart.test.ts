@@ -25,8 +25,8 @@ function item(): FeedItemView {
     rankScore: 0.6,
     afterRankPosition: 1,
     modelScores: [
-      { name: "heavy_ranker", weight: 0.5, score: 0.7 },
-      { name: "perspective", weight: 0.5, score: 0.5 },
+      { name: "heavy_ranker", weight: 1, score: 0.7 },
+      { name: "perspective", weight: 1, score: 0.5 },
     ],
     diversification: {
       relevance: 1,
@@ -78,6 +78,8 @@ describe("RankScoresChart", () => {
     expect(styles).toMatch(
       /@media\s*\(max-width:\s*600px\)[\s\S]*\.source-content\s*\{[^}]*justify-content:\s*center/s,
     );
+    expect(styles).toMatch(/\.ranker-bar-fill\s*\{[^}]*display:\s*block/s);
+    expect(styles).not.toMatch(/\.explanation-value-button:hover[^}]*outline:/s);
   });
 
   it("leaves a tappable backdrop above and below popups on small screens", () => {
@@ -199,6 +201,46 @@ describe("RankScoresChart", () => {
     expect(text).not.toContain("÷ 1.00");
     expect(text).not.toContain("Engaging: 0.700");
     expect(text).not.toContain("Constructive: 0.500");
+    element.remove();
+  });
+
+  it("uses the configured Engaging and Constructive influences in score math", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = { ...item(), diversification: null };
+    element.engagingInfluence = 0.7;
+    element.constructiveInfluence = 0.3;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("(0.700 × 0.70) + (0.500 × 0.30) = 0.640");
+    expect(text).not.toContain("× 1.00");
+    element.remove();
+  });
+
+  it("ignores raw 1.00 model weights in favor of the default 0.50 influences", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      diversification: null,
+      modelScores: [
+        { name: "heavy_ranker", weight: 1, score: 1 },
+        { name: "perspective", weight: 1, score: 0.47 },
+      ],
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.73");
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("(1.000 × 0.50) + (0.470 × 0.50) = 0.735");
+    expect(text).not.toContain("× 1.00");
     element.remove();
   });
 

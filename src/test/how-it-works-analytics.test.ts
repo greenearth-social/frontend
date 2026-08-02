@@ -90,22 +90,20 @@ describe("HowItWorks analytics", () => {
     ]);
   });
 
-  it("presents source weights as fixed values while keeping their details clickable", async () => {
+  it("keeps source weight pills and presents popup weights as fixed metrics", async () => {
     const element = document.createElement("how-it-works-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelectorAll(".weight-pill")).toHaveLength(3);
     expect(element.shadowRoot?.querySelector(".weight-pill")?.textContent.trim()).toBe("0.40");
-    expect(HowItWorksPage.styles.cssText).toContain('content: "Weight "');
-    expect(HowItWorksPage.styles.cssText).toContain("font-style: normal");
-    expect(HowItWorksPage.styles.cssText).not.toContain("transform: scale(1.08)");
+    expect(HowItWorksPage.styles.cssText).toContain("font-style: italic");
+    expect(HowItWorksPage.styles.cssText).toContain("transform: scale(1.08)");
 
     element.shadowRoot?.querySelector<HTMLElement>(".weight-pill")?.click();
     await element.updateComplete;
-    expect(element.shadowRoot?.querySelector(".popup-value")?.textContent).toContain(
-      "Weight: 0.40",
-    );
+    expect(element.shadowRoot?.querySelector(".popup-metric-label")?.textContent).toBe("Weight");
+    expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe("0.40");
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
       "howItWorksComponentClicked",
       {
@@ -116,5 +114,18 @@ describe("HowItWorks analytics", () => {
         feed_label: "GreenEarth",
       },
     );
+
+    element.shadowRoot?.querySelector<HTMLElement>(".engaging-pill")?.click();
+    await element.updateComplete;
+    expect(
+      Array.from(element.shadowRoot?.querySelectorAll(".popup-metric-label") ?? []).map(
+        (label) => label.textContent,
+      ),
+    ).toEqual(["Engaging", "Constructive"]);
+    expect(
+      Array.from(element.shadowRoot?.querySelectorAll(".popup-metric-value") ?? []).map(
+        (value) => value.textContent,
+      ),
+    ).toEqual(["0.50", "0.50"]);
   });
 });

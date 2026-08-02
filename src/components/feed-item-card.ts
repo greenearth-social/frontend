@@ -50,6 +50,8 @@ function countedMediaLabels(item: FeedItemView): string[] {
 export class FeedItemCard extends MobxLitElement {
   @property({ type: Object }) item: FeedItemView | null = null;
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
+  @property({ type: Number }) engagingInfluence = 0.5;
+  @property({ type: Number }) constructiveInfluence = 0.5;
 
   static styles = css`
     :host {
@@ -240,6 +242,8 @@ export class FeedItemCard extends MobxLitElement {
           <rank-scores-chart
             .item=${this.item}
             .algorithmId=${this.algorithmId}
+            .engagingInfluence=${this.engagingInfluence}
+            .constructiveInfluence=${this.constructiveInfluence}
           ></rank-scores-chart>
         </div>
       </div>

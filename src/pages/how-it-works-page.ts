@@ -2,10 +2,7 @@ import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
-import {
-  feedAnalyticsProperties,
-  type AlgorithmId,
-} from "../constants/algorithms";
+import { feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
 import "../components/feedback-form";
 
 interface DiagramNode {
@@ -214,30 +211,23 @@ export class HowItWorksPage extends LitElement {
     }
 
     .weight-pill {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--bluesky-border);
-      color: var(--bluesky-text-secondary);
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #6ee7a0;
       font-size: 0.6875rem;
-      font-weight: 700;
-      font-style: normal;
-      font-variant-numeric: tabular-nums;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
+      font-weight: 600;
+      font-style: italic;
+      padding: 0.1875rem 0.625rem;
+      border-radius: 9999px;
       cursor: pointer;
       transition:
-        border-color 0.15s ease,
-        color 0.15s ease;
+        transform 0.15s ease,
+        background 0.15s ease;
     }
 
     .weight-pill:hover {
-      border-color: var(--bluesky-text-secondary);
-      color: var(--bluesky-text);
-    }
-
-    .weight-pill::before {
-      content: "Weight ";
-      font-weight: 500;
-      color: var(--bluesky-text-secondary);
+      transform: scale(1.08);
+      background: rgba(34, 197, 94, 0.3);
     }
 
     .node-box {
@@ -605,11 +595,31 @@ export class HowItWorksPage extends LitElement {
 
     .popup-value {
       margin-top: 0.75rem;
-      padding: 0.5rem 0.75rem;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: baseline;
+    }
+
+    .popup-metric {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.375rem;
+    }
+
+    .popup-metric-label {
+      color: var(--bluesky-text-secondary);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .popup-metric-value {
       color: var(--bluesky-text);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
     }
 
     .popup-close {
@@ -985,31 +995,31 @@ export class HowItWorksPage extends LitElement {
     if (node.id === "time_window" && prefs) {
       const freshness = FRESHNESS_PRESETS[prefs.freshness];
       valueDisplay = html`
-        <div class="popup-value"><strong>Current:</strong> ${freshness?.label ?? "7d"}</div>
+        <div class="popup-value">${this.#popupMetric("Current", freshness?.label ?? "7d")}</div>
       `;
     } else if (node.id === "following" && prefs) {
       const weights = root.preferencesStore.socialRadiusWeights;
       const followingWeight = weights.find((w) => w.name === "followed_users")?.weight ?? 0;
       valueDisplay = html`
-        <div class="popup-value"><strong>Weight:</strong> ${followingWeight.toFixed(2)}</div>
+        <div class="popup-value">${this.#popupMetric("Weight", followingWeight.toFixed(2))}</div>
       `;
     } else if (node.id === "authors_topics" && prefs) {
       const weights = root.preferencesStore.socialRadiusWeights;
       const twoTowerWeight = weights.find((w) => w.name === "two_tower")?.weight ?? 0;
       valueDisplay = html`
-        <div class="popup-value"><strong>Weight:</strong> ${twoTowerWeight.toFixed(2)}</div>
+        <div class="popup-value">${this.#popupMetric("Weight", twoTowerWeight.toFixed(2))}</div>
       `;
     } else if (node.id === "popular" && prefs) {
       const weights = root.preferencesStore.socialRadiusWeights;
       const popularWeight = weights.find((w) => w.name === "popularity")?.weight ?? 0;
       valueDisplay = html`
-        <div class="popup-value"><strong>Weight:</strong> ${popularWeight.toFixed(2)}</div>
+        <div class="popup-value">${this.#popupMetric("Weight", popularWeight.toFixed(2))}</div>
       `;
     } else if (node.id === "engaging_constructive" && prefs) {
       valueDisplay = html`
         <div class="popup-value">
-          <strong>Engaging:</strong> ${(1 - prefs.purpose).toFixed(2)},
-          <strong>Constructive:</strong> ${prefs.purpose.toFixed(2)}
+          ${this.#popupMetric("Engaging", (1 - prefs.purpose).toFixed(2))}
+          ${this.#popupMetric("Constructive", prefs.purpose.toFixed(2))}
         </div>
       `;
     }
@@ -1036,6 +1046,15 @@ export class HowItWorksPage extends LitElement {
           ${valueDisplay}
         </div>
       </div>
+    `;
+  }
+
+  #popupMetric(label: string, value: string) {
+    return html`
+      <span class="popup-metric">
+        <span class="popup-metric-label">${label}</span>
+        <span class="popup-metric-value">${value}</span>
+      </span>
     `;
   }
 
@@ -1098,8 +1117,8 @@ export class HowItWorksPage extends LitElement {
                       <div
                         class="config-pill ${this._selectedNode === "time_window" ? "selected" : ""}"
                         @click=${() => {
-                        this.#handleNodeClick("time_window");
-                      }}
+                          this.#handleNodeClick("time_window");
+                        }}
                       >
                         Time window
                       </div>
@@ -1108,16 +1127,16 @@ export class HowItWorksPage extends LitElement {
                           <div
                             class="node-box node-box-source ${this._selectedNode === "following" ? "selected" : ""}"
                             @click=${() => {
-                            this.#handleNodeClick("following");
-                          }}
+                              this.#handleNodeClick("following");
+                            }}
                           >
                             Following
                           </div>
                           <div
                             class="weight-pill"
                             @click=${() => {
-                            this.#handleNodeClick("following");
-                          }}
+                              this.#handleNodeClick("following");
+                            }}
                           >
                             ${followingWeight.toFixed(2)}
                           </div>
@@ -1126,16 +1145,16 @@ export class HowItWorksPage extends LitElement {
                           <div
                             class="node-box node-box-source ${this._selectedNode === "authors_topics" ? "selected" : ""}"
                             @click=${() => {
-                            this.#handleNodeClick("authors_topics");
-                          }}
+                              this.#handleNodeClick("authors_topics");
+                            }}
                           >
                             Authors and Topics
                           </div>
                           <div
                             class="weight-pill"
                             @click=${() => {
-                            this.#handleNodeClick("authors_topics");
-                          }}
+                              this.#handleNodeClick("authors_topics");
+                            }}
                           >
                             ${twoTowerWeight.toFixed(2)}
                           </div>
@@ -1144,16 +1163,16 @@ export class HowItWorksPage extends LitElement {
                           <div
                             class="node-box node-box-source ${this._selectedNode === "popular" ? "selected" : ""}"
                             @click=${() => {
-                            this.#handleNodeClick("popular");
-                          }}
+                              this.#handleNodeClick("popular");
+                            }}
                           >
                             Popular
                           </div>
                           <div
                             class="weight-pill"
                             @click=${() => {
-                            this.#handleNodeClick("popular");
-                          }}
+                              this.#handleNodeClick("popular");
+                            }}
                           >
                             ${popularWeight.toFixed(2)}
                           </div>
@@ -1170,8 +1189,8 @@ export class HowItWorksPage extends LitElement {
                           <div
                             class="node-box node-box-signal ${this._selectedNode === "predict_like" ? "selected" : ""}"
                             @click=${() => {
-                            this.#handleNodeClick("predict_like");
-                          }}
+                              this.#handleNodeClick("predict_like");
+                            }}
                           >
                             Predict<br />p(like)
                           </div>
@@ -1180,8 +1199,8 @@ export class HowItWorksPage extends LitElement {
                           <div
                             class="node-box node-box-signal ${this._selectedNode === "constructiveness" ? "selected" : ""}"
                             @click=${() => {
-                            this.#handleNodeClick("constructiveness");
-                          }}
+                              this.#handleNodeClick("constructiveness");
+                            }}
                           >
                             Constructiveness
                             <div class="node-subtitle">(Perspective API)</div>
@@ -1191,8 +1210,8 @@ export class HowItWorksPage extends LitElement {
                       <div
                         class="engaging-pill ${this._selectedNode === "engaging_constructive" ? "selected" : ""}"
                         @click=${() => {
-                        this.#handleNodeClick("engaging_constructive");
-                      }}
+                          this.#handleNodeClick("engaging_constructive");
+                        }}
                       >
                         Engaging vs. Constructive
                       </div>
@@ -1206,16 +1225,16 @@ export class HowItWorksPage extends LitElement {
                         <div
                           class="penalty-pill ${this._selectedNode === "repeated_author" ? "selected" : ""}"
                           @click=${() => {
-                          this.#handleNodeClick("repeated_author");
-                        }}
+                            this.#handleNodeClick("repeated_author");
+                          }}
                         >
                           Repeated author penalty
                         </div>
                         <div
                           class="penalty-pill ${this._selectedNode === "repeated_topic" ? "selected" : ""}"
                           @click=${() => {
-                          this.#handleNodeClick("repeated_topic");
-                        }}
+                            this.#handleNodeClick("repeated_topic");
+                          }}
                         >
                           Repeated topic penalty
                         </div>

@@ -153,7 +153,7 @@ export class FeedPage extends MobxLitElement {
         Store not initialized
       </div>`;
 
-    const { feedStore, uiStore, accountStore, authStore } = store;
+    const { feedStore, uiStore, accountStore, authStore, preferencesStore } = store;
     if (!authStore.isSignedIn || !accountStore.activeAccount) {
       return html`
         <div class="logged-out-page">
@@ -374,8 +374,8 @@ export class FeedPage extends MobxLitElement {
                         title="Source breakdown"
                         ?disabled=${feedStore.currentRequestId === null}
                         @click=${(event: MouseEvent) => {
-                        this.#showSourceBreakdown(event);
-                      }}
+                          this.#showSourceBreakdown(event);
+                        }}
                       >
                         <wa-icon name="source-breakdown" library="app"></wa-icon>
                       </button>
@@ -443,6 +443,8 @@ export class FeedPage extends MobxLitElement {
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
                     .algorithmId=${uiStore.selectedAlgorithm}
+                    .engagingInfluence=${1 - preferencesStore.values.purpose}
+                    .constructiveInfluence=${preferencesStore.values.purpose}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {

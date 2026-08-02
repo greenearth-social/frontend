@@ -2,7 +2,6 @@ import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
-import { weightedRankScore } from "../models/feed-debug-snapshot";
 import { styleMap } from "lit/directives/style-map.js";
 import "./generator-badge";
 
@@ -19,6 +18,8 @@ const MMR_RELEVANCE_WEIGHT = 0.3;
 export class RankScoresChart extends LitElement {
   @property({ type: Object }) item: FeedItemView | null = null;
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
+  @property({ type: Number }) engagingInfluence = 0.5;
+  @property({ type: Number }) constructiveInfluence = 0.5;
   @state() private _showSourcePopup = false;
   @state() private _showRankersPopup = false;
   @state() private _showDivPopup = false;
@@ -109,9 +110,10 @@ export class RankScoresChart extends LitElement {
       border-radius: 9999px;
       -webkit-tap-highlight-color: transparent;
     }
-    .explanation-value-button:hover,
-    .explanation-value-button:focus-visible {
+    .explanation-value-button:hover {
       filter: brightness(1.2);
+    }
+    .explanation-value-button:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--bluesky-brand) 55%, transparent);
       outline-offset: 3px;
     }
@@ -147,6 +149,7 @@ export class RankScoresChart extends LitElement {
       min-width: 50px;
     }
     .ranker-bar-fill {
+      display: block;
       height: 100%;
       border-radius: 3px;
     }
@@ -362,18 +365,21 @@ export class RankScoresChart extends LitElement {
     if (!this.item) return html``;
 
     const i = this.item;
-    const relevanceScore = i.rankScore ?? weightedRankScore(i.modelScores);
-    const selectionScore = i.diversification
-      ? MMR_RELEVANCE_WEIGHT * i.diversification.relevance -
-        i.diversification.authorPenalty -
-        i.diversification.contentPenalty
-      : relevanceScore;
-
     const engaging = i.modelScores.find((m) => ENGAGING_RANKER_NAMES.has(m.name));
     const constructive = i.modelScores.find((m) => m.name === "perspective");
 
     const engagingScore = engaging?.score ?? 0;
     const constructiveScore = constructive?.score ?? 0;
+    const configuredRankerScore = i.modelScores.reduce(
+      (sum, model) => sum + model.score * this.#rankerInfluence(model.name, model.weight),
+      0,
+    );
+    const relevanceScore = i.modelScores.length > 0 ? configuredRankerScore : i.rankScore;
+    const selectionScore = i.diversification
+      ? MMR_RELEVANCE_WEIGHT * i.diversification.relevance -
+        i.diversification.authorPenalty -
+        i.diversification.contentPenalty
+      : relevanceScore;
 
     const engagingPct = Math.max(0, engagingScore) * 100;
     const constructivePct = Math.max(0, constructiveScore) * 100;
@@ -643,9 +649,15 @@ export class RankScoresChart extends LitElement {
   }
 
   #renderScorePopup(i: FeedItemView, selectionScore: number | null) {
-    const weightedTotal = i.modelScores.reduce((sum, model) => sum + model.score * model.weight, 0);
+    const weightedTotal = i.modelScores.reduce(
+      (sum, model) => sum + model.score * this.#rankerInfluence(model.name, model.weight),
+      0,
+    );
     const weightedParts = i.modelScores
-      .map((model) => `(${model.score.toFixed(3)} × ${model.weight.toFixed(2)})`)
+      .map(
+        (model) =>
+          `(${model.score.toFixed(3)} × ${this.#rankerInfluence(model.name, model.weight).toFixed(2)})`,
+      )
       .join(" + ");
 
     if (i.diversification) {
@@ -695,7 +707,7 @@ export class RankScoresChart extends LitElement {
       `;
     }
 
-    const relevanceScore = selectionScore;
+    const relevanceScore = i.modelScores.length > 0 ? weightedTotal : selectionScore;
     return html`
       <div class="score-popup" role="dialog" aria-modal="true" aria-label="Score formula">
         <div class="score-popup-title">How this relevance score was calculated</div>
@@ -731,6 +743,12 @@ export class RankScoresChart extends LitElement {
         <span class="formula-number">${value === null ? "—" : value.toFixed(3)}</span>
       </div>
     `;
+  }
+
+  #rankerInfluence(name: string, fallback: number): number {
+    if (ENGAGING_RANKER_NAMES.has(name)) return this.engagingInfluence;
+    if (name === "perspective") return this.constructiveInfluence;
+    return fallback;
   }
 }
 
