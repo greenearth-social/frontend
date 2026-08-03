@@ -174,16 +174,6 @@ export class FeedTabs extends LitElement {
       align-items: center;
       gap: 0.35rem;
     }
-    .tab-algo-icon {
-      width: 0.875rem;
-      height: 0.875rem;
-      object-fit: contain;
-      flex-shrink: 0;
-      opacity: 0.6;
-    }
-    .tab.active .tab-algo-icon {
-      opacity: 1;
-    }
     .tab:hover {
       background: var(--bluesky-bg-hover);
       color: var(--bluesky-text);
@@ -353,13 +343,11 @@ export class FeedTabs extends LitElement {
             <div class="tabs">
               ${this.feeds.map(
                 (f, index) => {
-                  const iconSrc = ALGO_PNG[f.feedName] ?? "";
                   return html`
                     <div
                       class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
                       @click=${() => { this.#selectTab(f.requestId); }}
                     >
-                      ${iconSrc ? html`<img class="tab-algo-icon" src=${iconSrc} alt="" />` : ""}
                       <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
                     </div>
                   `;

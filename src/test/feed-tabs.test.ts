@@ -131,6 +131,17 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
   });
 
+  it("does not render algo icons inside individual tabs", async () => {
+    const element = makeTabs();
+    element.selectedAlgorithm = "your-feed";
+    await element.updateComplete;
+
+    const tabIcons = element.shadowRoot?.querySelectorAll(".tab-algo-icon");
+
+    element.remove();
+    expect(tabIcons?.length ?? 0).toBe(0);
+  });
+
   it("does not include a Latest option in the mobile algo dropdown", async () => {
     const element = makeTabs();
     element.selectedAlgorithm = "your-feed";
