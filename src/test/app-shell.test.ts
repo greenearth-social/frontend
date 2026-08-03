@@ -281,14 +281,14 @@ describe("AppShell algorithm selector", () => {
     testState.rootStore.feedStore.loadFeedList.mockReset();
   });
 
-  it("renders four algorithm buttons including Latest", async () => {
+  it("renders three algorithm buttons without Latest", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
 
     // query within the desktop sidebar to avoid double-counting the drawer
     const buttons = element.shadowRoot?.querySelectorAll(".left-sidebar-desktop .algo-btn");
-    expect(buttons?.length).toBe(4);
+    expect(buttons?.length).toBe(3);
   });
 
   it("marks the active algorithm button", async () => {
@@ -350,6 +350,18 @@ describe("AppShell algorithm selector", () => {
     expect(form?.selectedFeed).toBe("best-of-friends");
     expect(form?.shadowRoot?.textContent).toContain("Feed: Best of Friends");
   });
+
+  it("does not render a Latest button in the algo selector", async () => {
+  const element = document.createElement("app-shell") as AppShell;
+  document.body.appendChild(element);
+  await element.updateComplete;
+
+  const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])]
+    .filter((btn) => btn.textContent?.trim().includes("Latest"));
+
+  element.remove();
+  expect(latestButtons).toHaveLength(0);
+});
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {
     // Simulate a scenario where the same feed was run twice.

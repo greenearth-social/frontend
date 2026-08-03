@@ -295,7 +295,7 @@ export class FeedTabs extends LitElement {
     if (this.feeds.length === 0) return html``;
 
     const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
-    const indicatorLabel = this.selectedAlgorithm ? this.algorithmLabel : "Latest";
+    const indicatorLabel = this.algorithmLabel;
 
     return html`
       <div class="tabs-container">
@@ -328,18 +328,6 @@ export class FeedTabs extends LitElement {
           </button>
           ${this._algoDropdownOpen ? html`
             <div class="algo-dropdown" role="listbox">
-              <button
-                class="algo-option ${this.selectedAlgorithm === null ? "active" : ""}"
-                type="button"
-                role="option"
-                aria-selected=${this.selectedAlgorithm === null}
-                @click=${(e: Event) => { this.#selectAlgo(null, e); }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1rem; height: 1rem; flex-shrink: 0;">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-                </svg>
-                <span>Latest</span>
-              </button>
               ${ALGORITHM_IDS.map((id) => {
                 const algo = ALGORITHMS[id];
                 const isActive = id === this.selectedAlgorithm;
