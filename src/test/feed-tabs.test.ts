@@ -153,7 +153,7 @@ describe("FeedTabs source breakdown", () => {
     await element.updateComplete;
 
     const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])]
-      .filter((btn) => btn.textContent?.trim() === "Latest");
+      .filter((btn) => btn.textContent.includes("Latest"));
 
     element.remove();
     expect(latestOptions).toHaveLength(0);

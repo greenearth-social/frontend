@@ -352,12 +352,12 @@ describe("AppShell algorithm selector", () => {
   });
 
   it("does not render a Latest button in the algo selector", async () => {
-    const element = document.createElement("app-shell") as AppShell;
+    const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
 
     const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])]
-      .filter((btn) => btn.textContent?.trim().includes("Latest"));
+      .filter((btn) => btn.textContent.includes("Latest"));
 
     element.remove();
     expect(latestButtons).toHaveLength(0);
