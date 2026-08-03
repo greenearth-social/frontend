@@ -130,4 +130,32 @@ describe("FeedTabs source breakdown", () => {
     expect(FeedTabs.styles.cssText).toContain("::backdrop");
     element.remove();
   });
+
+  it("does not render algo icons inside individual tabs", async () => {
+    const element = makeTabs();
+    element.selectedAlgorithm = "your-feed";
+    await element.updateComplete;
+
+    const tabIcons = element.shadowRoot?.querySelectorAll(".tab-algo-icon");
+
+    element.remove();
+    expect(tabIcons?.length ?? 0).toBe(0);
+  });
+
+  it("does not include a Latest option in the mobile algo dropdown", async () => {
+    const element = makeTabs();
+    element.selectedAlgorithm = "your-feed";
+    element.algorithmLabel = "GreenEarth";
+    await element.updateComplete;
+
+    const trigger = element.shadowRoot?.querySelector<HTMLButtonElement>(".algo-trigger");
+    trigger?.click();
+    await element.updateComplete;
+
+    const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])]
+      .filter((btn) => btn.textContent.includes("Latest"));
+
+    element.remove();
+    expect(latestOptions).toHaveLength(0);
+  });
 });

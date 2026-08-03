@@ -546,28 +546,6 @@ export class AppShell extends MobxLitElement {
 
     const sidebarContent = html`
       <div class="algo-selector">
-        <button
-          class="algo-btn ${uiStore.selectedAlgorithm === null ? "active" : ""}"
-          @click=${this.#selectLatest}
-          aria-label="Latest"
-          aria-pressed=${uiStore.selectedAlgorithm === null}
-          type="button"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            style="width: 1.5rem; height: 1.5rem; flex-shrink: 0;"
-          >
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-            <polyline points="17 6 23 6 23 12" />
-          </svg>
-          <span class="nav-label">Latest</span>
-        </button>
         ${ALGORITHM_IDS.map((id) => {
           const algo = ALGORITHMS[id];
           const isActive = uiStore.selectedAlgorithm === id;
@@ -720,9 +698,7 @@ export class AppShell extends MobxLitElement {
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
           @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId | null }>) => {
-            if (e.detail.algorithmId === null) {
-              this.#selectLatest();
-            } else {
+            if (e.detail.algorithmId !== null) {
               this.#selectAlgorithm(e.detail.algorithmId);
             }
           }}
@@ -802,26 +778,6 @@ export class AppShell extends MobxLitElement {
   #closeDrawer = () => {
     this._drawerOpen = false;
     this.requestUpdate();
-  };
-
-  #selectLatest = () => {
-    const store = getRootStore();
-    if (!store) return;
-    const { feedStore, uiStore } = store;
-    uiStore.clearSelectedAlgorithm();
-    const latest = feedStore.feedList
-      .filter((feed) => isAlgorithmId(feed.feedName))
-      .reduce<(typeof feedStore.feedList)[0] | undefined>(
-        (best, feed) =>
-          !best || feed.generatedAt > best.generatedAt ? feed : best,
-        undefined,
-      );
-    if (latest) {
-      void feedStore.loadFeedDetail(latest.requestId);
-    } else {
-      feedStore.clearFeedDetail();
-    }
-    this.#closeDrawer();
   };
 
   #selectAlgorithm = (id: AlgorithmId) => {

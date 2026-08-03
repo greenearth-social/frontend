@@ -79,7 +79,7 @@ describe("FeedStore.loadFeedList", () => {
 });
 
 describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
-  it("loads the most recent public feed without changing selectedAlgorithm (Latest mode)", async () => {
+  it("sets selectedAlgorithm and loads the most recent public feed on first load", async () => {
     const getFeedDetail = vi.fn().mockResolvedValue({
       requestId: "r1",
       generatedAt: "2026-07-28T12:00:00Z",
@@ -107,13 +107,67 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
     expect(getFeedDetail).toHaveBeenCalledWith("r1");
   });
 
   it("does not call setSelectedAlgorithm when feed list is empty", async () => {
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(vi.fn().mockResolvedValue({ feeds: [] }), { setSelectedAlgorithm, selectedAlgorithm: null });
+
+    await store.loadFeedList();
+
+    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+  });
+
+  it("sets selectedAlgorithm from the most-recent snapshot on first load", async () => {
+    const setSelectedAlgorithm = vi.fn();
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "r1",
+            generatedAt: "2026-07-28T02:00:00Z",
+            feedName: "best-of-friends",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+          {
+            requestId: "r2",
+            generatedAt: "2026-07-28T01:00:00Z",
+            feedName: "your-feed",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm, selectedAlgorithm: null },
+    );
+
+    await store.loadFeedList();
+
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
+  });
+
+  it("does not change selectedAlgorithm when already set", async () => {
+    const setSelectedAlgorithm = vi.fn();
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "r1",
+            generatedAt: "2026-07-28T00:00:00Z",
+            feedName: "your-feed",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm, selectedAlgorithm: "random" },
+    );
 
     await store.loadFeedList();
 
@@ -156,7 +210,7 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
     expect(getFeedDetail).toHaveBeenCalledWith("r1");
     expect(getFeedDetail).toHaveBeenCalledTimes(1);
   });

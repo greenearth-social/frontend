@@ -5,7 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import { ALGORITHM_FEED_NAME_SET } from "../constants/algorithms";
+import { ALGORITHM_FEED_NAME_SET, isAlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
@@ -146,14 +146,18 @@ export class FeedStore {
 
       const currentAlgo = this.root.uiStore.selectedAlgorithm;
       if (currentAlgo === null) {
-        // Latest mode: load the globally most recent public feed
         const latestPublic = this.feedList
           .filter((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName))
           .reduce<FeedSummary | undefined>(
             (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
             undefined,
           );
-        if (latestPublic) await this.loadFeedDetail(latestPublic.requestId);
+        if (latestPublic) {
+          if (isAlgorithmId(latestPublic.feedName)) {
+            this.root.uiStore.setSelectedAlgorithm(latestPublic.feedName);
+          }
+          await this.loadFeedDetail(latestPublic.requestId);
+        }
       } else {
         // Specific algo selected: load its most recent snapshot, or leave empty
         const latestForAlgo = this.feedList
