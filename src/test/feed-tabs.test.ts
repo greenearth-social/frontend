@@ -132,19 +132,19 @@ describe("FeedTabs source breakdown", () => {
   });
 
   it("does not include a Latest option in the mobile algo dropdown", async () => {
-  const element = makeTabs();
-  element.selectedAlgorithm = "your-feed";
-  element.algorithmLabel = "GreenEarth";
-  await element.updateComplete;
+    const element = makeTabs();
+    element.selectedAlgorithm = "your-feed";
+    element.algorithmLabel = "GreenEarth";
+    await element.updateComplete;
 
-  const trigger = element.shadowRoot?.querySelector<HTMLButtonElement>(".algo-trigger");
-  trigger?.click();
-  await element.updateComplete;
+    const trigger = element.shadowRoot?.querySelector<HTMLButtonElement>(".algo-trigger");
+    trigger?.click();
+    await element.updateComplete;
 
-  const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])]
-    .filter((btn) => btn.textContent?.trim() === "Latest");
+    const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])]
+      .filter((btn) => btn.textContent?.trim() === "Latest");
 
-  element.remove();
-  expect(latestOptions).toHaveLength(0);
-});
+    element.remove();
+    expect(latestOptions).toHaveLength(0);
+  });
 });

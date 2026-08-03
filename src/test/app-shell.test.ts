@@ -352,16 +352,16 @@ describe("AppShell algorithm selector", () => {
   });
 
   it("does not render a Latest button in the algo selector", async () => {
-  const element = document.createElement("app-shell") as AppShell;
-  document.body.appendChild(element);
-  await element.updateComplete;
+    const element = document.createElement("app-shell") as AppShell;
+    document.body.appendChild(element);
+    await element.updateComplete;
 
-  const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])]
-    .filter((btn) => btn.textContent?.trim().includes("Latest"));
+    const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])]
+      .filter((btn) => btn.textContent?.trim().includes("Latest"));
 
-  element.remove();
-  expect(latestButtons).toHaveLength(0);
-});
+    element.remove();
+    expect(latestButtons).toHaveLength(0);
+  });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {
     // Simulate a scenario where the same feed was run twice.
