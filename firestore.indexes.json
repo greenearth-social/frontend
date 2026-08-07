@@ -9,5 +9,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "popularity_cache",
+      "fieldPath": "payload",
+      "indexes": []
+    }
+  ]
 }
