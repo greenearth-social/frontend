@@ -177,4 +177,32 @@ describe("ControlsPage", () => {
     );
     el.remove();
   });
+
+  it("renders refresh popup as a link to blueskyUrl when provided", async () => {
+    vi.useFakeTimers();
+    const el = document.createElement("controls-page") as InstanceType<typeof ControlsPage>;
+    el.blueskyUrl = "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed";
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await vi.runAllTimersAsync();
+    await el.updateComplete;
+
+    const freshness = el.shadowRoot?.querySelector("discrete-slider");
+    freshness?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 2 },
+      }),
+    );
+    await el.updateComplete;
+
+    const link = el.shadowRoot?.querySelector<HTMLAnchorElement>(".refresh-popup-card");
+    expect(link?.tagName.toLowerCase()).toBe("a");
+    expect(link?.href).toBe(
+      "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed",
+    );
+    expect(link?.target).toBe("_blank");
+    el.remove();
+  });
 });

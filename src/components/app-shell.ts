@@ -708,6 +708,7 @@ export class AppShell extends MobxLitElement {
               ? html`<controls-page
                   .onOpenMenu=${this.#openDrawer}
                   .selectedAlgorithm=${selectedAlgorithm}
+                  .blueskyUrl=${ALGORITHMS[selectedAlgorithm].blueskyUrl}
                 ></controls-page>`
               : activeRoute === "/how-it-works"
                 ? html`<how-it-works-page

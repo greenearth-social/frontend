@@ -68,6 +68,7 @@ const HELP_CONTENT: Record<
 export class ControlsPage extends LitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
+  @property({ type: String }) blueskyUrl: string = "";
   @state() private isLoading = true;
   @state() private activeHelp: ControlHelp | null = null;
   @state() private showRefreshPopup = false;
@@ -182,9 +183,9 @@ export class ControlsPage extends LitElement {
       transform: translateX(-50%);
       z-index: 40;
       animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-      pointer-events: none;
     }
     .refresh-popup-card {
+      display: block;
       background: linear-gradient(135deg, rgba(30, 39, 50, 0.98) 0%, rgba(21, 32, 43, 0.99) 100%);
       border: 1px solid var(--bluesky-border);
       border-radius: 12px;
@@ -193,6 +194,12 @@ export class ControlsPage extends LitElement {
         0 8px 24px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(255, 255, 255, 0.05);
       white-space: nowrap;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .refresh-popup-card:hover {
+      background: linear-gradient(135deg, rgba(40, 52, 66, 0.98) 0%, rgba(30, 44, 58, 0.99) 100%);
     }
     .refresh-popup-message {
       font-size: 0.8125rem;
@@ -289,9 +296,15 @@ export class ControlsPage extends LitElement {
           this.showRefreshPopup
             ? html`
                 <div class="refresh-popup" role="status" aria-live="polite">
-                  <div class="refresh-popup-card">
+                  <a
+                    class="refresh-popup-card"
+                    href=${this.blueskyUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Refresh your feed in Bluesky"
+                  >
                     <p class="refresh-popup-message">Refresh your BlueSky Feed to see updates!</p>
-                  </div>
+                  </a>
                 </div>
               `
             : ""
