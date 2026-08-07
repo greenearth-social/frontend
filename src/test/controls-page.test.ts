@@ -180,7 +180,7 @@ describe("ControlsPage", () => {
 
   it("renders refresh popup as a link to blueskyUrl when provided", async () => {
     vi.useFakeTimers();
-    const el = document.createElement("controls-page") as InstanceType<typeof ControlsPage>;
+    const el = document.createElement("controls-page");
     el.blueskyUrl = "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed";
     document.body.appendChild(el);
     await el.updateComplete;
