@@ -5,7 +5,7 @@ import type {
   FilteringCounts,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import { ALGORITHM_FEED_NAME_SET, isAlgorithmId } from "../constants/algorithms";
+import type { AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
 const DEFAULT_POSTS_PER_PAGE = 10;
@@ -129,8 +129,17 @@ export class FeedStore {
     this.filteringCountsByRequest = {};
   }
 
-  async loadFeedList(): Promise<void> {
-    if (this.isLoading) return;
+  async loadFeedList(options?: {
+    feedName?: AlgorithmId;
+    force?: boolean;
+  }): Promise<void> {
+    if (this.isLoading && !options?.force) return;
+
+    if (options?.force) {
+      // An explicit refresh supersedes both an older list request and any
+      // detail request that could otherwise populate the newly selected page.
+      this._loadSeq++;
+    }
 
     const seq = ++this._feedListLoadSeq;
     this.isLoading = true;
@@ -144,29 +153,30 @@ export class FeedStore {
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
 
-      const currentAlgo = this.root.uiStore.selectedAlgorithm;
-      if (currentAlgo === null) {
-        const latestPublic = this.feedList
-          .filter((f) => ALGORITHM_FEED_NAME_SET.has(f.feedName))
-          .reduce<FeedSummary | undefined>(
-            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
-            undefined,
-          );
-        if (latestPublic) {
-          if (isAlgorithmId(latestPublic.feedName)) {
-            this.root.uiStore.setSelectedAlgorithm(latestPublic.feedName);
-          }
-          await this.loadFeedDetail(latestPublic.requestId);
-        }
+      const currentAlgo = options?.feedName
+        ?? this.root.uiStore.selectedAlgorithm
+        ?? "your-feed";
+      if (this.root.uiStore.selectedAlgorithm === null) {
+        this.root.uiStore.setSelectedAlgorithm(currentAlgo);
+      }
+
+      // A pull can finish after the user navigates to a different feed. Keep
+      // the refreshed summaries, but never put the old feed's detail there.
+      if (
+        options?.feedName !== undefined
+        && this.root.uiStore.selectedAlgorithm !== currentAlgo
+      ) return;
+
+      const latestForAlgo = this.feedList
+        .filter((f) => f.feedName === currentAlgo)
+        .reduce<FeedSummary | undefined>(
+          (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
+          undefined,
+        );
+      if (latestForAlgo) {
+        await this.loadFeedDetail(latestForAlgo.requestId);
       } else {
-        // Specific algo selected: load its most recent snapshot, or leave empty
-        const latestForAlgo = this.feedList
-          .filter((f) => f.feedName === currentAlgo)
-          .reduce<FeedSummary | undefined>(
-            (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
-            undefined,
-          );
-        if (latestForAlgo) await this.loadFeedDetail(latestForAlgo.requestId);
+        this.clearFeedDetail();
       }
     } catch (e) {
       if (seq !== this._feedListLoadSeq) return;

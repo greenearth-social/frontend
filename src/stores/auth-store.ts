@@ -4,6 +4,7 @@ import type { RootStore } from "./root-store";
 export class AuthStore {
   root: RootStore;
   currentUser: { uid: string; email: string | null; displayName: string | null } | null;
+  isInitialized = false;
 
   constructor(root: RootStore) {
     this.root = root;
@@ -11,11 +12,14 @@ export class AuthStore {
     makeAutoObservable(this, { root: false });
     this.root.services.authService.onAuthStateChanged((user) => {
       this.currentUser = user;
+      this.isInitialized = true;
       if (user) {
+        this.root.uiStore.activateAccount(user.uid);
         this.root.feedStore.activateAccount(user.uid);
         this.root.preferencesStore.activateAccount(user.uid);
         this.root.services.analyticsService.identify(user.uid);
       } else {
+        this.root.uiStore.deactivateAccount();
         this.root.feedStore.reset();
         this.root.preferencesStore.reset();
         this.root.services.analyticsService.reset();

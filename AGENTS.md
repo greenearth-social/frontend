@@ -16,17 +16,67 @@ npm run emulators:firestore # Firestore emulator for API development
 
 CI order: `lint` → `typecheck` → `test:unit` → `test:e2e` → `build`.
 
+### Shared full-stack environment (`devctl`)
+
+Run these commands from the sibling `internal-tools/devenv` directory. The
+frontend checkout is bind-mounted and Vite hot reload is enabled.
+
+```sh
+# First-time, resumable setup; builds, starts, downloads data/models, and seeds
+./devctl bootstrap
+
+# Local sign-in and feed snapshot generation
+./devctl login
+./devctl feed
+./devctl feed your-feed --user did:plc:...
+
+# Daily lifecycle
+./devctl pull
+./devctl up
+./devctl status
+./devctl down
+
+# Frontend verification inside the shared environment
+./devctl test frontend
+./devctl exec frontend npm run lint
+./devctl exec frontend npm run typecheck
+./devctl exec frontend npm run test:unit
+./devctl exec frontend npm run build
+
+# Publish local feeds through ngrok to a separate Bluesky development account
+./devctl bsky up
+./devctl bsky status
+./devctl bsky down
+
+# Diagnostics
+./devctl doctor
+./devctl status
+./devctl logs frontend
+./devctl logs -t frontend
+./devctl restart frontend
+./devctl ports
+```
+
+`test frontend` and `exec frontend` require the frontend service to be running;
+use `./devctl up` first. `restart frontend` is for configuration changes, not
+normal source edits. The shared stack supplies its own environment, so do not
+create `.env.local` for this workflow. `devctl pull` skips dirty, diverged, or
+non-upstream repositories rather than overwriting local work. Full setup and
+credential requirements for `bsky` remain in
+`Documentation/LOCAL_DEV_ENVIRONMENT.md`.
+
 ## Architecture
 
 ```
 src/
   services/
-    types.ts              → IAuthService, IFeedApiService (listFeeds, getFeedDetail, getPreferences, putPreferences)
+    types.ts              → IAuthService, IFeedApiService (listFeeds, getFeedDetail, getPreferences, patchPreferences)
     service-provider.ts   → ServiceProvider { authService, feedApiService }
     mock/                 → MockAuthService, MockFeedApiService (default when VITE_USE_MOCK_SERVICES=true)
     firebase/             → FirebaseAuthService, firebase-init.ts
     api/                  → FeedApiService (proxies to /api/* via Vite dev proxy)
   stores/                 → MobX stores; never import Firebase/HTTP directly
+    preferences-store.ts  → feed-keyed values/control availability and isolated optimistic updates
     root-store.ts         → owns all stores + ServiceProvider
   models/                 → Domain types (feed-debug-snapshot.ts, bluesky-account.ts)
   components/             → Lit elements (MobxLitElement or LitElement)
@@ -34,7 +84,7 @@ src/
     lifecycle-slider.ts   → 5-stage slider (eggs→butterfly) with drag, snap, popup
     feed-tabs.ts          → Horizontal scrollable tabs with gradient fade edges
     feed-item-card.ts     → Single post card; reference pattern for truncation CSS
-  pages/                  → feed-page, controls-page, how-it-works-page, settings-page
+  pages/                  → feed-page, unified settings-page, feedback-page
   styles/index.css        → CSS variables (--bluesky-*), Tailwind setup
   main.ts                 → Entry point; getRootStore() is the DI accessor
 functions/                → Cloud Functions OAuth bridge + metadata endpoints
@@ -60,7 +110,7 @@ Lit components use Shadow DOM. Global Tailwind utilities do not apply inside sha
 - **Never modify .env files, Firebase secrets, or run deployment commands** without explicit permission.
 - **Stores never import Firebase, atproto, or HTTP clients.** They consume service interfaces via `ServiceProvider`.
 - **`getRootStore()`** (from `main.ts`) is the DI entry point. Components call it directly.
-- **Routing** is hash-based (`#/feed`, `#/controls`, `#/how-it-works`, `#/settings`, `#/auth/finish`), handled in `app-shell.ts`. Route changes scroll `.center-column` to top.
+- **Routing** is hash-based (`#/feed`, canonical `#/settings`, `#/feedback`, `#/auth/finish`), handled in `app-shell.ts`. Legacy `#/controls` and `#/how-it-works` routes history-replace to Settings. Route changes scroll `.center-column` to top.
 - **CSS variables** use Bluesky dark theme naming (`--bluesky-*`), defined in `src/styles/index.css`.
 - **`<img>` tags in Lit components** must have explicit `width`/`height` HTML attributes to prevent alt-text flash before Shadow DOM CSS applies. Use `alt=""` for decorative icons.
 - **Arrow function event handlers** that return void must use braces: `@click=${() => { this.#method(); }}` — shorthand `() => this.#method()` triggers `@typescript-eslint/no-confusing-void-expression`.
@@ -70,9 +120,64 @@ Lit components use Shadow DOM. Global Tailwind utilities do not apply inside sha
 | Service | File | Behavior |
 |---------|------|----------|
 | `MockAuthService` | `src/services/mock/mock-auth-service.ts` | `displayName: "Mock User"`, `email: "mock@example.com"`, `uid: "mock-user-1"` |
-| `MockFeedApiService` | `src/services/mock/mock-feed-api-service.ts` | Returns hardcoded feed data; `getPreferences()` returns `{ socialRadius: 2 }` |
+| `MockFeedApiService` | `src/services/mock/mock-feed-api-service.ts` | Returns hardcoded feed data and the sparse feed-keyed preference contract |
 | `FirebaseAuthService` | `src/services/firebase/firebase-auth-service.ts` | Firebase Auth; default persistence is LOCAL (survives browser restart) |
-| `FeedApiService` | `src/services/api/feed-api-service.ts` | Proxies to backend `/api/*`; `_fetch()` accepts optional `RequestInit` for PUT/POST |
+| `FeedApiService` | `src/services/api/feed-api-service.ts` | Maps snake_case sparse preferences and proxies feed-specific PATCH requests to `/api/*` |
+
+## Feed-scoped controls
+
+Preference state is keyed by `AlgorithmId`; never reuse a global preference value
+when the selected feed changes. The API feed-preference response is the canonical
+source of enabled controls:
+
+- `your-feed`: Source Weights, Time Window, Purpose
+- `best-of-friends`: Time Window, Purpose
+- `random`: Time Window
+- Politics stays a local disabled "Coming Soon" presentation and must not be sent
+  to the API.
+
+`PreferencesStore.valuesByFeed` holds resolved UI values and
+`controlsByFeed` records the sparse controls returned for each feed. Components
+must read with `valuesFor(feedName)` and gate controls with
+`supportsControl(feedName, control)`. Updates use
+`save(feedName, control, value)`, which optimistically changes and, on failure,
+rolls back only that feed/control. Request versioning is also per feed/control so
+a stale response cannot overwrite a newer edit or an edit to a sibling feed.
+
+`settings-page.ts` renders the feed-specific settings pipeline. Adding an existing
+control to another feed should require backend feed configuration and a matching
+pipeline section; adding a genuinely new control type also requires a frontend
+renderer and typed mapping. Settings explanations, feed-detail influence displays,
+analytics, and feedback payloads
+must always use the selected feed's resolved values.
+
+The preference wire contract is:
+
+```json
+{
+  "feeds": {
+    "your-feed": {
+      "source_weights": {
+        "following": 0.4,
+        "authors_topics": 0.3,
+        "popular": 0.3
+      },
+      "freshness": 5,
+      "purpose": 0.5
+    }
+  }
+}
+```
+
+Read it with `getPreferences()` and mutate it with
+`patchPreferences(feedName, partialPreferences)`. The removed flat response and
+global `PUT` must not be reintroduced. Mock services and fixtures must use the same
+contract. Preference tests should cover feed switching, visibility, serialization,
+isolated optimistic updates/rollbacks, stale requests, analytics attribution,
+diagrams, and feedback context.
+
+API and frontend preference-contract changes must be deployed and rolled back
+together.
 
 ### Vite dev proxy
 

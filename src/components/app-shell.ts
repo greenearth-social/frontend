@@ -9,29 +9,32 @@ import {
   ALGORITHM_IDS,
   ALGORITHMS,
   feedAnalyticsProperties,
-  isAlgorithmId,
   type AlgorithmId,
 } from "../constants/algorithms";
 import type { RootStore } from "../stores/root-store";
+import { feedScopedPath, resolveFeedScopedRoute, type AppPage } from "../utils/app-route";
 import "../pages/feed-page";
-import "../pages/controls-page";
-import "../pages/how-it-works-page";
+import "../pages/settings-page";
 import "../pages/feedback-page";
 import "../pages/not-found-page";
 
 const NAV_ITEMS = [
-  { icon: "activity", label: "Why Am I Seeing This?", route: "/feed" },
-  { icon: "info", label: "How It Works", route: "/how-it-works" },
-  { icon: "controls", label: "Feed Controls", route: "/controls" },
-  { icon: "chat", label: "Feedback", route: "/feedback" },
-];
+  { icon: "activity", label: "Why Am I Seeing This?", page: "feed" },
+  { icon: "controls", label: "Settings", page: "settings" },
+  { icon: "chat", label: "Feedback", page: "feedback" },
+] satisfies { icon: string; label: string; page: AppPage }[];
 
 @customElement("app-shell")
 export class AppShell extends MobxLitElement {
   private _currentRoute = "/feed";
+  private _currentPage: AppPage = "feed";
+  private _currentFeed: AlgorithmId = "your-feed";
   private _drawerOpen = false;
   @state() private _showLogoutMenu = false;
-  private _lastHowItWorksViewedFeed: AlgorithmId | null = null;
+  @state() private _expandedAlgorithms = new Set<AlgorithmId>();
+  private _lastRouteFeed: AlgorithmId | null = null;
+  private _lastSettingsViewedFeed: AlgorithmId | null = null;
+  private _lastResolvedAuthState: boolean | null = null;
 
   static styles = css`
     :host {
@@ -78,6 +81,9 @@ export class AppShell extends MobxLitElement {
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-width: 0;
+      width: 100%;
+      overflow-x: hidden;
       overflow-y: hidden;
       padding: 0 0 0 0;
     }
@@ -99,57 +105,108 @@ export class AppShell extends MobxLitElement {
       display: block;
     }
 
-    /* ── Algorithm selector ── */
-    .algo-selector {
-      width: 100%;
-      padding: 0.75rem 0.5rem 0.5rem 0.5rem;
+    /* ── Feed-scoped navigation ── */
+    .feed-groups {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
-      border-bottom: 1px solid var(--bluesky-border);
-      flex-shrink: 0;
+      gap: 0.5rem;
+      min-width: 0;
+      width: 100%;
     }
-    @media (min-width: 1024px) {
-      .algo-selector {
-        padding: 0.75rem 1rem 0.5rem 1rem;
-      }
+    .feed-group {
+      min-width: 0;
+      width: 100%;
     }
-
-    .algo-btn {
+    .algo-row {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 0.625rem 0.75rem;
       border-radius: 9999px;
-      border: none;
       background: transparent;
       color: var(--bluesky-text);
-      text-decoration: none;
-      font-size: 1.0625rem;
-      cursor: pointer;
       transition: background-color 0.15s;
+      min-width: 0;
       width: 100%;
-      text-align: left;
     }
-    .algo-btn:hover {
+    .algo-row:hover {
       background: var(--bluesky-bg-hover);
     }
-    .algo-btn.active {
+    .algo-row.active {
       background: var(--bluesky-brand);
       color: #fff;
       font-weight: 700;
     }
+    .algo-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+      flex: 1;
+      padding: 0.625rem 0 0.625rem 0.75rem;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-decoration: none;
+      font-size: 1.0625rem;
+      cursor: pointer;
+      text-align: left;
+    }
     .algo-btn wa-icon {
       font-size: 1.5rem;
       flex-shrink: 0;
+    }
+    .algo-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .algo-toggle {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 9999px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    .algo-toggle:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .algo-toggle wa-icon {
+      font-size: 1rem;
+      transition: transform 0.15s ease;
+    }
+    .algo-toggle[aria-expanded="true"] wa-icon {
+      transform: rotate(180deg);
+    }
+
+    .feed-subnav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+      margin: 0.25rem 0 0;
+      padding: 0 0 0 0.5rem;
+    }
+    .feed-subnav[hidden] {
+      display: none;
     }
 
     .sidebar-nav-wrapper {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 0.75rem 0.5rem 0 0.5rem;
-      overflow-y: hidden;
+      box-sizing: border-box;
+      min-width: 0;
+      min-height: 0;
+      width: 100%;
+      padding: 0.75rem 0.5rem 0;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     @media (min-width: 1024px) {
       .sidebar-nav-wrapper {
@@ -161,35 +218,53 @@ export class AppShell extends MobxLitElement {
     .nav-link {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 0.625rem 0.75rem;
-      border-radius: 9999px;
+      gap: 0.625rem;
+      min-height: 44px;
+      min-width: 0;
+      box-sizing: border-box;
+      padding: 0.625rem;
+      border-radius: 0.75rem;
       color: var(--bluesky-text);
       text-decoration: none;
-      font-size: 1.0625rem;
+      font-size: 0.9375rem;
       transition: background-color 0.15s;
     }
     .nav-link:hover {
       background: var(--bluesky-bg-hover);
     }
     .nav-link.active {
+      background: #166534;
+      color: #f0fdf4;
       font-weight: 700;
     }
+    .nav-link.active:hover {
+      background: #15803d;
+      color: #fff;
+    }
     .nav-link wa-icon {
-      font-size: 1.5rem;
+      font-size: 1.125rem;
       flex-shrink: 0;
     }
 
     .nav-label {
-      display: none;
+      display: inline;
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
+
     @media (min-width: 1024px) {
       .nav-label {
-        display: inline;
+        white-space: nowrap;
+        overflow-wrap: normal;
       }
     }
-    .drawer .nav-label {
-      display: inline;
+
+    .algo-btn:focus-visible,
+    .algo-toggle:focus-visible,
+    .nav-link:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
     }
 
     /* ── User section ─ */
@@ -199,6 +274,7 @@ export class AppShell extends MobxLitElement {
       gap: 0.5rem;
       margin-top: auto;
       margin-bottom: 0.5rem;
+      min-width: 0;
       width: 100%;
     }
     .user-btn {
@@ -213,19 +289,14 @@ export class AppShell extends MobxLitElement {
       color: var(--bluesky-text);
       flex: 1;
       min-width: 0;
-    }
-    .user-details {
-      display: none;
-      min-width: 0;
       overflow: hidden;
     }
-    @media (min-width: 1024px) {
-      .user-details {
-        display: block;
-      }
-    }
-    .drawer .user-details {
+    .user-details {
       display: block;
+      flex: 1;
+      min-width: 0;
+      width: 0;
+      overflow: hidden;
     }
 
     .user-details-name {
@@ -234,6 +305,8 @@ export class AppShell extends MobxLitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      display: block;
+      width: 100%;
       color: var(--bluesky-text);
     }
 
@@ -242,12 +315,19 @@ export class AppShell extends MobxLitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      display: block;
+      width: 100%;
       color: var(--bluesky-text-secondary);
     }
 
     .user-details-handle--primary {
       font-size: 0.875rem;
       font-weight: 600;
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: var(--bluesky-text-secondary);
     }
 
@@ -393,12 +473,15 @@ export class AppShell extends MobxLitElement {
       bottom: 0;
       z-index: 80;
       width: 280px;
+      max-width: calc(100vw - 32px);
+      box-sizing: border-box;
       background: var(--bluesky-nav-bg);
       transform: translateX(-100%);
       transition: transform 0.25s ease;
       display: flex;
       flex-direction: column;
       padding: 0;
+      overflow-x: hidden;
       overflow-y: auto;
     }
     .drawer.open {
@@ -413,29 +496,41 @@ export class AppShell extends MobxLitElement {
     .drawer-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.5rem;
-      margin-bottom: 0.5rem;
+      justify-content: flex-end;
+      min-width: 0;
+      box-sizing: border-box;
+      padding: 0.625rem 0.625rem 0.25rem;
+      margin-bottom: 0;
+      flex-shrink: 0;
     }
     .drawer-close {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       border-radius: 9999px;
-      border: none;
-      background: transparent;
-      color: var(--bluesky-text);
+      border: 1px solid var(--bluesky-border);
+      background: var(--bluesky-bg-card);
+      color: var(--bluesky-text-secondary);
       cursor: pointer;
-      transition: background 0.15s;
+      transition:
+        background-color 0.15s,
+        border-color 0.15s,
+        color 0.15s;
     }
     .drawer-close:hover {
       background: var(--bluesky-bg-hover);
+      border-color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
+    }
+    .drawer-close:focus-visible {
+      outline: 2px solid var(--bluesky-brand);
+      outline-offset: 2px;
     }
     .drawer-close svg {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
     }
 
     /* ── Logged-out layout ── */
@@ -469,6 +564,7 @@ export class AppShell extends MobxLitElement {
     super.connectedCallback();
     window.addEventListener("hashchange", this.#onHashChange);
     window.addEventListener("click", this.#onGlobalClick);
+    this.addEventListener("wheel", this.#handleShellWheel, { passive: false });
     this.#updateRoute();
   }
 
@@ -476,29 +572,37 @@ export class AppShell extends MobxLitElement {
     super.disconnectedCallback();
     window.removeEventListener("hashchange", this.#onHashChange);
     window.removeEventListener("click", this.#onGlobalClick);
+    this.removeEventListener("wheel", this.#handleShellWheel);
   }
 
   willUpdate(_changedProperties: Map<string, unknown>) {
     super.willUpdate(_changedProperties);
-    const hash = window.location.hash.slice(1) || "/feed";
-    if (["/feed", "/controls", "/how-it-works", "/feedback"].includes(hash)) {
-      const store = getRootStore();
-      if (
-        store?.authStore.isSignedIn &&
-        store.feedStore.feedListLoadState === "idle" &&
-        !store.feedStore.isLoading
-      ) {
-        void store.feedStore.loadFeedList();
-      }
+    const store = getRootStore();
+    if (
+      store?.authStore.isSignedIn &&
+      store.feedStore.feedListLoadState === "idle" &&
+      !store.feedStore.isLoading
+    ) {
+      void store.feedStore.loadFeedList();
     }
   }
 
   updated(): void {
-    if (this._currentRoute !== "/how-it-works") {
-      this._lastHowItWorksViewedFeed = null;
+    const root = getRootStore();
+    const resolvedAuthState = root?.authStore.isInitialized ? root.authStore.isSignedIn : null;
+    if (resolvedAuthState !== this._lastResolvedAuthState) {
+      this._lastResolvedAuthState = resolvedAuthState;
+      if (resolvedAuthState !== null) {
+        this.#updateRoute();
+        return;
+      }
+    }
+
+    if (this._currentPage !== "settings") {
+      this._lastSettingsViewedFeed = null;
       return;
     }
-    const store = getRootStore();
+    const store = root;
     if (!store?.authStore.isSignedIn) return;
     if (
       store.uiStore.selectedAlgorithm === null &&
@@ -508,12 +612,9 @@ export class AppShell extends MobxLitElement {
       return;
     }
     const feedName = this.#selectedAlgorithmForPage(store);
-    if (feedName === this._lastHowItWorksViewedFeed) return;
-    store.services.analyticsService.capture(
-      "howItWorksViewed",
-      feedAnalyticsProperties(feedName),
-    );
-    this._lastHowItWorksViewedFeed = feedName;
+    if (feedName === this._lastSettingsViewedFeed) return;
+    store.services.analyticsService.capture("settingsViewed", feedAnalyticsProperties(feedName));
+    this._lastSettingsViewedFeed = feedName;
   }
 
   render() {
@@ -523,9 +624,18 @@ export class AppShell extends MobxLitElement {
         <wa-callout variant="danger">Store not initialized</wa-callout>
       </div>`;
 
-    const { authStore, accountStore, uiStore } = store;
-    const hash = window.location.hash.slice(1) || "/feed";
-    const activeRoute = authStore.isSignedIn ? this._currentRoute : "/feed";
+    const { authStore, accountStore } = store;
+    if (!authStore.isInitialized) {
+      return html`
+        <div class="auth-progress">
+          <div>
+            <wa-spinner></wa-spinner>
+            <p>Loading your account...</p>
+          </div>
+        </div>
+      `;
+    }
+    const activePage: AppPage = authStore.isSignedIn ? this._currentPage : "feed";
     const selectedAlgorithm = this.#selectedAlgorithmForPage(store);
 
     if (this._currentRoute.startsWith("/auth/finish")) {
@@ -543,118 +653,6 @@ export class AppShell extends MobxLitElement {
     const authorHandle = accountStore.activeAccount?.handle || "";
     const authorInitial = (authorHandle[0] || "?").toUpperCase();
     const showDisplayName = authorName && authorName !== authorHandle;
-
-    const sidebarContent = html`
-      <div class="algo-selector">
-        ${ALGORITHM_IDS.map((id) => {
-          const algo = ALGORITHMS[id];
-          const isActive = uiStore.selectedAlgorithm === id;
-          return html`
-            <button
-              class="algo-btn ${isActive ? "active" : ""}"
-              @click=${() => {
-                this.#selectAlgorithm(id);
-              }}
-              aria-label=${algo.label}
-              aria-pressed=${isActive}
-              type="button"
-            >
-              <wa-icon name=${algo.icon} library="app"></wa-icon>
-              <span class="nav-label">${algo.label}</span>
-            </button>
-          `;
-        })}
-      </div>
-      <div class="sidebar-nav-wrapper">
-        <nav class="flex-1 flex flex-col gap-1 mt-0.5">
-          ${NAV_ITEMS.map((item) => {
-            const isActive = hash === item.route;
-            return html`
-              <a
-                href="#${item.route}"
-                class="nav-link ${isActive ? "active" : ""}"
-                @click=${item.route === "/feed" ? this.#onFeedNavClick : this.#closeDrawer}
-              >
-                <wa-icon name=${item.icon} library="app"></wa-icon>
-                <span class="nav-label">${item.label}</span>
-              </a>
-            `;
-          })}
-        </nav>
-        ${
-          authStore.isSignedIn
-            ? html`
-                <div class="user-section">
-                  <div class="user-btn">
-                    <wa-avatar
-                      initials=${authorInitial}
-                      style="--wa-avatar-size: 40px; flex-shrink: 0;"
-                    ></wa-avatar>
-                    <div class="flex-1 min-w-0 text-left user-details">
-                      ${showDisplayName ? html`<div class="user-details-name">${authorName}</div>` : ""}
-                      <div
-                        class="${showDisplayName ? "user-details-handle" : "user-details-handle--primary"}"
-                      >
-                        @${authorHandle || "unknown"}
-                      </div>
-                    </div>
-                  </div>
-                  <div style="position: relative;">
-                    <button
-                      class="more-btn"
-                      @click=${this.#toggleLogoutMenu}
-                      aria-label="More options"
-                      type="button"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="width: 20px; height: 20px;"
-                      >
-                        <circle cx="12" cy="12" r="1" />
-                        <circle cx="19" cy="12" r="1" />
-                        <circle cx="5" cy="12" r="1" />
-                      </svg>
-                    </button>
-                    ${
-                      this._showLogoutMenu
-                        ? html`
-                            <div class="logout-menu">
-                              <button class="logout-btn" @click=${this.#handleLogout} type="button">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  stroke-width="2"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  style="width: 16px; height: 16px;"
-                                >
-                                  <path
-                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-                                  />
-                                  <polyline points="15 3 21 3 21 9" />
-                                  <line x1="10" y1="14" x2="21" y2="3" />
-                                </svg>
-                                Log out
-                              </button>
-                            </div>
-                          `
-                        : ""
-                    }
-                  </div>
-                </div>
-              `
-            : ""
-        }
-      </div>
-    `;
 
     return html`
       <div
@@ -679,7 +677,7 @@ export class AppShell extends MobxLitElement {
             </svg>
           </button>
         </div>
-        ${sidebarContent}
+        ${this.#renderSidebarContent("drawer", authorName, authorHandle, authorInitial, Boolean(showDisplayName))}
       </aside>
 
       <div class="shell-container ${!authStore.isSignedIn ? "logged-out" : ""}">
@@ -687,7 +685,9 @@ export class AppShell extends MobxLitElement {
           authStore.isSignedIn
             ? html`
                 <aside class="left-sidebar left-sidebar-desktop hidden lg:flex">
-                  <div class="left-sidebar-inner">${sidebarContent}</div>
+                  <div class="left-sidebar-inner">
+                    ${this.#renderSidebarContent("desktop", authorName, authorHandle, authorInitial, Boolean(showDisplayName))}
+                  </div>
                 </aside>
               `
             : ""
@@ -704,24 +704,136 @@ export class AppShell extends MobxLitElement {
           }}
         >
           ${
-            activeRoute === "/controls"
-              ? html`<controls-page
+            activePage === "settings"
+              ? html`<settings-page
                   .onOpenMenu=${this.#openDrawer}
                   .selectedAlgorithm=${selectedAlgorithm}
-                ></controls-page>`
-              : activeRoute === "/how-it-works"
-                ? html`<how-it-works-page
+                ></settings-page>`
+              : activePage === "feedback"
+                ? html`<feedback-page
                     .onOpenMenu=${this.#openDrawer}
                     .selectedAlgorithm=${selectedAlgorithm}
-                  ></how-it-works-page>`
-                : activeRoute === "/feedback"
-                  ? html`<feedback-page
-                      .onOpenMenu=${this.#openDrawer}
-                      .selectedAlgorithm=${selectedAlgorithm}
-                    ></feedback-page>`
-                  : html`<feed-page .onOpenMenu=${this.#openDrawer}></feed-page>`
+                  ></feedback-page>`
+                : html`<feed-page .onOpenMenu=${this.#openDrawer}></feed-page>`
           }
         </main>
+      </div>
+    `;
+  }
+
+  #renderSidebarContent(
+    surface: "desktop" | "drawer",
+    authorName: string,
+    authorHandle: string,
+    authorInitial: string,
+    showDisplayName: boolean,
+  ) {
+    const store = getRootStore();
+    if (!store) return html``;
+
+    return html`
+      <div class="sidebar-nav-wrapper">
+        <nav class="feed-groups" aria-label="Feed pages">
+          ${ALGORITHM_IDS.map((id) => {
+            const algo = ALGORITHMS[id];
+            const isActiveFeed = this._currentFeed === id;
+            const isExpanded = this._expandedAlgorithms.has(id);
+            const subnavId = `${surface}-${id}-pages`;
+            return html`
+              <div class="feed-group">
+                <div class="algo-row ${isActiveFeed ? "active" : ""}">
+                  <button
+                    class="algo-btn"
+                    @click=${() => {
+                      this.#navigateTo(this._currentPage, id);
+                    }}
+                    aria-label=${algo.label}
+                    aria-pressed=${isActiveFeed}
+                    type="button"
+                  >
+                    <wa-icon name=${algo.icon} library="app"></wa-icon>
+                    <span class="algo-label">${algo.label}</span>
+                  </button>
+                  <button
+                    class="algo-toggle"
+                    type="button"
+                    aria-label="${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages"
+                    aria-expanded=${isExpanded}
+                    aria-controls=${subnavId}
+                    @click=${() => {
+                      this.#toggleAlgorithmExpanded(id);
+                    }}
+                  >
+                    <wa-icon name="chevron-down" library="app"></wa-icon>
+                  </button>
+                </div>
+                <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
+                  ${NAV_ITEMS.map((item) => {
+                    const isActive = isActiveFeed && this._currentPage === item.page;
+                    const path = feedScopedPath(item.page, id);
+                    return html`
+                      <a
+                        href="#${path}"
+                        class="nav-link ${isActive ? "active" : ""}"
+                        aria-current=${isActive ? "page" : "false"}
+                        @click=${(event: MouseEvent) => {
+                          event.preventDefault();
+                          this.#navigateTo(item.page, id);
+                        }}
+                      >
+                        <wa-icon name=${item.icon} library="app"></wa-icon>
+                        <span class="nav-label">${item.label}</span>
+                      </a>
+                    `;
+                  })}
+                </div>
+              </div>
+            `;
+          })}
+        </nav>
+        ${
+          store.authStore.isSignedIn
+            ? html`
+                <div class="user-section">
+                  <div class="user-btn">
+                    <wa-avatar
+                      initials=${authorInitial}
+                      style="--wa-avatar-size: 40px; flex-shrink: 0;"
+                    ></wa-avatar>
+                    <div class="user-details">
+                      ${showDisplayName ? html`<div class="user-details-name">${authorName}</div>` : ""}
+                      <div
+                        class="${showDisplayName ? "user-details-handle" : "user-details-handle--primary"}"
+                      >
+                        @${authorHandle || "unknown"}
+                      </div>
+                    </div>
+                  </div>
+                  <div style="position: relative; flex-shrink: 0;">
+                    <button
+                      class="more-btn"
+                      @click=${this.#toggleLogoutMenu}
+                      aria-label="More options"
+                      type="button"
+                    >
+                      <wa-icon name="more-horizontal" library="app"></wa-icon>
+                    </button>
+                    ${
+                      this._showLogoutMenu
+                        ? html`
+                            <div class="logout-menu">
+                              <button class="logout-btn" @click=${this.#handleLogout} type="button">
+                                Log out
+                              </button>
+                            </div>
+                          `
+                        : ""
+                    }
+                  </div>
+                </div>
+              `
+            : ""
+        }
       </div>
     `;
   }
@@ -731,22 +843,23 @@ export class AppShell extends MobxLitElement {
   };
 
   #onGlobalClick = (e: Event) => {
-    const target = e.target as HTMLElement;
-    if (!target.closest(".more-btn") && !target.closest(".logout-menu")) {
+    const clickedLogoutControl = e
+      .composedPath()
+      .some(
+        (target) =>
+          target instanceof HTMLElement &&
+          (target.matches(".more-btn") || target.matches(".logout-menu")),
+      );
+    if (!clickedLogoutControl) {
       this._showLogoutMenu = false;
     }
   };
 
   #updateRoute() {
-    const hash = window.location.hash.slice(1) || "/feed";
-    this._currentRoute = hash;
-    this.requestUpdate();
-
-    void this.updateComplete.then(() => {
-      this.renderRoot.querySelector(".center-column")?.scrollTo(0, 0);
-    });
-
-    if (hash.startsWith("/auth/finish")) {
+    const rawHash = window.location.hash.slice(1) || "/feed";
+    if (rawHash.startsWith("/auth/finish")) {
+      this._currentRoute = rawHash;
+      this.requestUpdate();
       void this.#handleAuthFinish();
       return;
     }
@@ -754,16 +867,53 @@ export class AppShell extends MobxLitElement {
     const store = getRootStore();
     if (!store) return;
 
+    if (!store.authStore.isInitialized) {
+      this._lastResolvedAuthState = null;
+      this._currentRoute = rawHash;
+      this.requestUpdate();
+      return;
+    }
+
+    this._lastResolvedAuthState = store.authStore.isSignedIn;
+
     if (!store.authStore.isSignedIn) {
-      if (hash !== "/feed" && hash !== "") {
+      this._currentRoute = "/feed";
+      this._currentPage = "feed";
+      this._currentFeed = "your-feed";
+      this.requestUpdate();
+      if (rawHash !== "/feed") {
         window.location.hash = "/feed";
       }
       return;
     }
 
-    if (hash === "/feed" || hash === "") {
-      void store.feedStore.loadFeedList();
+    const path = rawHash.split("?")[0] || "/feed";
+    const route = resolveFeedScopedRoute(path, store.uiStore.selectedAlgorithm) ?? {
+      page: "feed" as const,
+      feedName: store.uiStore.selectedAlgorithm ?? "your-feed",
+      path: feedScopedPath("feed", store.uiStore.selectedAlgorithm ?? "your-feed"),
+    };
+    if (path !== route.path) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}#${route.path}`,
+      );
     }
+
+    this._currentRoute = route.path;
+    this._currentPage = route.page;
+    this._currentFeed = route.feedName;
+    if (this._lastRouteFeed !== route.feedName) {
+      this._expandedAlgorithms = new Set([...this._expandedAlgorithms, route.feedName]);
+      this._lastRouteFeed = route.feedName;
+    }
+    this.#syncSelectedAlgorithm(route.feedName);
+    this.requestUpdate();
+
+    void this.updateComplete.then(() => {
+      this.renderRoot.querySelector(".center-column")?.scrollTo(0, 0);
+    });
   }
 
   #openDrawer = () => {
@@ -775,14 +925,53 @@ export class AppShell extends MobxLitElement {
     this.renderRoot.querySelector(".center-column")?.scrollTo(0, 0);
   };
 
+  #handleShellWheel = (event: WheelEvent): void => {
+    if (this._drawerOpen) return;
+    const center = this.renderRoot.querySelector<HTMLElement>(".center-column");
+    if (!center || event.composedPath().includes(center)) return;
+
+    const multiplier =
+      event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? center.clientHeight
+          : 1;
+    center.scrollTop += event.deltaY * multiplier;
+    event.preventDefault();
+  };
+
   #closeDrawer = () => {
     this._drawerOpen = false;
     this.requestUpdate();
   };
 
+  #toggleAlgorithmExpanded(id: AlgorithmId): void {
+    const expanded = new Set(this._expandedAlgorithms);
+    if (expanded.has(id)) {
+      expanded.delete(id);
+    } else {
+      expanded.add(id);
+    }
+    this._expandedAlgorithms = expanded;
+  }
+
+  #navigateTo(page: AppPage, id: AlgorithmId): void {
+    this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
+    const path = feedScopedPath(page, id);
+    if (window.location.hash.slice(1) !== path) {
+      window.location.hash = path;
+    }
+    this.#updateRoute();
+  }
+
   #selectAlgorithm = (id: AlgorithmId) => {
+    this.#navigateTo(this._currentPage, id);
+  };
+
+  #syncSelectedAlgorithm(id: AlgorithmId): void {
     const store = getRootStore();
     if (!store) return;
+    if (store.uiStore.selectedAlgorithm === id) return;
     store.uiStore.setSelectedAlgorithm(id);
     const matches = store.feedStore.feedList.filter((f) => f.feedName === id);
     const match = matches.reduce<(typeof matches)[0] | undefined>(
@@ -794,43 +983,10 @@ export class AppShell extends MobxLitElement {
     } else {
       store.feedStore.clearFeedDetail();
     }
-    this.#closeDrawer();
-  };
-
-  #onFeedNavClick = () => {
-    this.#closeDrawer();
-    const store = getRootStore();
-    if (!store) return;
-    const { feedStore, uiStore } = store;
-    const algoId = uiStore.selectedAlgorithm;
-    const candidates = algoId
-      ? feedStore.feedList.filter((f) => f.feedName === algoId)
-      : feedStore.feedList;
-    const latest = candidates.reduce<(typeof candidates)[0] | undefined>(
-      (best, f) => (!best || f.generatedAt > best.generatedAt ? f : best),
-      undefined,
-    );
-    if (latest) {
-      void feedStore.loadFeedDetail(latest.requestId);
-    }
-  };
+  }
 
   #selectedAlgorithmForPage(store: RootStore): AlgorithmId {
-    if (store.uiStore.selectedAlgorithm) return store.uiStore.selectedAlgorithm;
-    const current = store.feedStore.currentRequestId
-      ? store.feedStore.feedList.find(
-          (feed) => feed.requestId === store.feedStore.currentRequestId,
-        )
-      : undefined;
-    if (isAlgorithmId(current?.feedName)) return current.feedName;
-    const latest = store.feedStore.feedList
-      .filter((feed) => isAlgorithmId(feed.feedName))
-      .reduce<(typeof store.feedStore.feedList)[0] | undefined>(
-        (best, feed) =>
-          !best || feed.generatedAt > best.generatedAt ? feed : best,
-        undefined,
-      );
-    return isAlgorithmId(latest?.feedName) ? latest.feedName : "your-feed";
+    return store.uiStore.selectedAlgorithm ?? this._currentFeed;
   }
 
   #toggleLogoutMenu = (e: Event) => {
@@ -855,6 +1011,9 @@ export class AppShell extends MobxLitElement {
       `${window.location.pathname}${window.location.search}#/feed`,
     );
     this._currentRoute = "/feed";
+    this._currentPage = "feed";
+    this._currentFeed = "your-feed";
+    this._lastRouteFeed = null;
     this.requestUpdate();
   };
 
@@ -879,14 +1038,23 @@ export class AppShell extends MobxLitElement {
       const user = store.authStore.currentUser ?? store.services.authService.currentUser;
       if (!user) throw new Error("Authentication completed without a user");
       store.services.analyticsService.identify(user.uid);
-      const sanitizedReturnRoute = returnUrl.startsWith("/")
-        ? returnUrl.split("?")[0] || "/feed"
-        : "/feed";
+      const requestedReturnRoute = returnUrl.startsWith("/") ? returnUrl : "/feed";
+      const routeWithoutQuery = requestedReturnRoute.split("?")[0] || "/feed";
+      const sanitizedReturnRoute =
+        (
+          resolveFeedScopedRoute(routeWithoutQuery, store.uiStore.selectedAlgorithm) ??
+          resolveFeedScopedRoute("/feed", store.uiStore.selectedAlgorithm)
+        )?.path ?? "/feed/your-feed";
       store.services.analyticsService.capture("signInCompleted", {
         auth_method: "bluesky_oauth",
         return_route: sanitizedReturnRoute,
       });
-      window.location.replace(window.location.origin + "/#" + returnUrl);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}#${sanitizedReturnRoute}`,
+      );
+      this.#updateRoute();
     } catch {
       store.services.analyticsService.capture("signInFailed", {
         failure_stage: "callback",

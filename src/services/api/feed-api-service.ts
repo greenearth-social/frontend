@@ -1,4 +1,13 @@
-import type { IFeedApiService, Preferences } from "../types";
+import type {
+  FeedPreferences,
+  FeedPreferencesByFeed,
+  IFeedApiService,
+} from "../types";
+import {
+  canonicalAlgorithmId,
+  isAlgorithmId,
+  type AlgorithmId,
+} from "../../constants/algorithms";
 import type {
   ApiFeedItem,
   FeedDetailResponse,
@@ -6,10 +15,19 @@ import type {
 } from "../../models/feed-debug-snapshot";
 
 interface ApiPreferences {
-  social_radius: number;
-  freshness: number;
-  politics: number;
-  purpose: number;
+  source_weights?: {
+    following: number;
+    network_likes?: number;
+    authors_topics: number;
+    popular: number;
+  };
+  freshness?: number;
+  politics?: number;
+  purpose?: number;
+}
+
+interface ApiPreferencesResponse {
+  feeds: Record<string, ApiPreferences>;
 }
 
 interface ApiFeedSummary {
@@ -81,22 +99,36 @@ interface ApiFeedDetailResponse {
   unavailable_count?: number;
 }
 
-function mapPreferences(prefs: ApiPreferences): Preferences {
-  return {
-    socialRadius: prefs.social_radius,
-    freshness: prefs.freshness,
-    politics: prefs.politics,
-    purpose: prefs.purpose,
-  };
+function mapPreferences(prefs: ApiPreferences): FeedPreferences {
+  const mapped: FeedPreferences = {};
+  if (prefs.source_weights !== undefined) {
+    mapped.sourceWeights = {
+      following: prefs.source_weights.following,
+      networkLikes: prefs.source_weights.network_likes ?? 0,
+      authorsTopics: prefs.source_weights.authors_topics,
+      popular: prefs.source_weights.popular,
+    };
+  }
+  if (prefs.freshness !== undefined) mapped.freshness = prefs.freshness;
+  if (prefs.politics !== undefined) mapped.politics = prefs.politics;
+  if (prefs.purpose !== undefined) mapped.purpose = prefs.purpose;
+  return mapped;
 }
 
-function serializePreferences(prefs: Preferences): ApiPreferences {
-  return {
-    social_radius: prefs.socialRadius,
-    freshness: prefs.freshness,
-    politics: prefs.politics,
-    purpose: prefs.purpose,
-  };
+function serializePreferences(prefs: FeedPreferences): ApiPreferences {
+  const serialized: ApiPreferences = {};
+  if (prefs.sourceWeights !== undefined) {
+    serialized.source_weights = {
+      following: prefs.sourceWeights.following,
+      network_likes: prefs.sourceWeights.networkLikes,
+      authors_topics: prefs.sourceWeights.authorsTopics,
+      popular: prefs.sourceWeights.popular,
+    };
+  }
+  if (prefs.freshness !== undefined) serialized.freshness = prefs.freshness;
+  if (prefs.politics !== undefined) serialized.politics = prefs.politics;
+  if (prefs.purpose !== undefined) serialized.purpose = prefs.purpose;
+  return serialized;
 }
 
 function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
@@ -152,23 +184,27 @@ export class FeedApiService implements IFeedApiService {
   async listFeeds(): Promise<FeedListResponse> {
     const response = await this._fetch<ApiFeedListResponse>("/api/feeds");
     return {
-      feeds: response.feeds.map((feed) => ({
-        requestId: feed.request_id,
-        generatedAt: feed.generated_at,
-        feedName: feed.feed_name,
-        apiReleaseSha: feed.api_release_sha ?? null,
-        appliedSocialRadius: feed.applied_social_radius ?? null,
-        generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
-          name: diagnostic.name,
-          weight: diagnostic.weight,
-          requestedCount: diagnostic.requested_count,
-          returnedCount: diagnostic.returned_count,
-          contributedCount: diagnostic.contributed_count,
-          status: diagnostic.status,
-          reason: diagnostic.reason,
-          mode: diagnostic.mode,
-        })),
-      })),
+      feeds: response.feeds.flatMap((feed) => {
+        const feedName = canonicalAlgorithmId(feed.feed_name);
+        if (feedName === null) return [];
+        return [{
+          requestId: feed.request_id,
+          generatedAt: feed.generated_at,
+          feedName,
+          apiReleaseSha: feed.api_release_sha ?? null,
+          appliedSocialRadius: feed.applied_social_radius ?? null,
+          generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
+            name: diagnostic.name,
+            weight: diagnostic.weight,
+            requestedCount: diagnostic.requested_count,
+            returnedCount: diagnostic.returned_count,
+            contributedCount: diagnostic.contributed_count,
+            status: diagnostic.status,
+            reason: diagnostic.reason,
+            mode: diagnostic.mode,
+          })),
+        }];
+      }),
     };
   }
 
@@ -188,16 +224,27 @@ export class FeedApiService implements IFeedApiService {
     };
   }
 
-  async getPreferences(): Promise<Preferences> {
-    return mapPreferences(await this._fetch<ApiPreferences>("/api/feeds/preferences"));
+  async getPreferences(): Promise<FeedPreferencesByFeed> {
+    const response = await this._fetch<ApiPreferencesResponse>("/api/feeds/preferences");
+    const mapped: FeedPreferencesByFeed = {};
+    for (const [feedName, preferences] of Object.entries(response.feeds)) {
+      if (isAlgorithmId(feedName)) mapped[feedName] = mapPreferences(preferences);
+    }
+    return mapped;
   }
 
-  async putPreferences(prefs: Preferences): Promise<Preferences> {
-    const response = await this._fetch<ApiPreferences>("/api/feeds/preferences", {
-      method: "PUT",
+  async patchPreferences(
+    feedName: AlgorithmId,
+    prefs: FeedPreferences,
+  ): Promise<FeedPreferences> {
+    const response = await this._fetch<ApiPreferences>(
+      `/api/feeds/preferences/${encodeURIComponent(feedName)}`,
+      {
+      method: "PATCH",
       body: JSON.stringify(serializePreferences(prefs)),
       headers: { "Content-Type": "application/json" },
-    });
+      },
+    );
     return mapPreferences(response);
   }
 

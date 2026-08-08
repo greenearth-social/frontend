@@ -1,4 +1,4 @@
-import type { IFeedApiService, Preferences } from "../types";
+import type { IFeedApiService } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -228,16 +228,27 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(MOCK_FEED_DETAIL);
   }
 
-  getPreferences(): Promise<Preferences> {
+  getPreferences(): Promise<import("../types").FeedPreferencesByFeed> {
     return Promise.resolve({
-      socialRadius: 3,
-      freshness: 5,
-      politics: 1.0,
-      purpose: 0.5,
+      "your-feed": {
+        sourceWeights: {
+          following: 0.3,
+          networkLikes: 0.2,
+          authorsTopics: 0.25,
+          popular: 0.25,
+        },
+        freshness: 5,
+        purpose: 0.5,
+      },
+      "best-of-friends": { freshness: 5, purpose: 0.5 },
+      random: { freshness: 5 },
     });
   }
 
-  putPreferences(prefs: Preferences): Promise<Preferences> {
+  patchPreferences(
+    _feedName: import("../../constants/algorithms").AlgorithmId,
+    prefs: import("../types").FeedPreferences,
+  ): Promise<import("../types").FeedPreferences> {
     return Promise.resolve(prefs);
   }
 }

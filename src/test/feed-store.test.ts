@@ -79,7 +79,7 @@ describe("FeedStore.loadFeedList", () => {
 });
 
 describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
-  it("sets selectedAlgorithm and loads the most recent public feed on first load", async () => {
+  it("defaults to GreenEarth even when another feed has the only activity", async () => {
     const getFeedDetail = vi.fn().mockResolvedValue({
       requestId: "r1",
       generatedAt: "2026-07-28T12:00:00Z",
@@ -107,20 +107,89 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
-    expect(getFeedDetail).toHaveBeenCalledWith("r1");
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(getFeedDetail).not.toHaveBeenCalled();
   });
 
-  it("does not call setSelectedAlgorithm when feed list is empty", async () => {
+  it("force-refreshes the newest snapshot for the requested feed", async () => {
+    const setSelectedAlgorithm = vi.fn();
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "friends-new",
+            generatedAt: "2026-08-07T12:00:00Z",
+            feedName: "best-of-friends",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+          {
+            requestId: "random-new",
+            generatedAt: "2026-08-07T11:00:00Z",
+            feedName: "random",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm, selectedAlgorithm: "random" },
+    );
+
+    await store.loadFeedList({ feedName: "random", force: true });
+
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).toHaveBeenCalledWith("random-new");
+    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+  });
+
+  it("does not populate a refreshed feed after navigation changes", async () => {
+    let resolveList: ((response: FeedListResponse) => void) | undefined;
+    const listRequest = new Promise<FeedListResponse>((resolve) => {
+      resolveList = resolve;
+    });
+    const uiStore = { setSelectedAlgorithm: vi.fn(), selectedAlgorithm: "random" };
+    const store = makeStore(vi.fn().mockReturnValue(listRequest), uiStore);
+
+    const refresh = store.loadFeedList({ feedName: "random", force: true });
+    uiStore.selectedAlgorithm = "best-of-friends";
+    resolveList?.({
+      feeds: [
+        {
+          requestId: "random-new",
+          generatedAt: "2026-08-07T11:00:00Z",
+          feedName: "random",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    await refresh;
+
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).not.toHaveBeenCalled();
+    expect(store.feedList).toHaveLength(1);
+  });
+
+  it("selects GreenEarth when the feed list is empty", async () => {
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(vi.fn().mockResolvedValue({ feeds: [] }), { setSelectedAlgorithm, selectedAlgorithm: null });
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(store.currentRequestId).toBeNull();
   });
 
-  it("sets selectedAlgorithm from the most-recent snapshot on first load", async () => {
+  it("loads GreenEarth rather than the newest snapshot from another feed", async () => {
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(
       vi.fn().mockResolvedValue({
@@ -148,7 +217,12 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).toHaveBeenCalledWith("r2");
   });
 
   it("does not change selectedAlgorithm when already set", async () => {

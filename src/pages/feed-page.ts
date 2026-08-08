@@ -12,6 +12,9 @@ import "../components/feed-tabs";
 import "../components/pagination-control";
 import type { FeedTabs } from "../components/feed-tabs";
 
+const PULL_REFRESH_THRESHOLD = 56;
+const PULL_REFRESH_MAX_DISTANCE = 88;
+
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
@@ -20,10 +23,46 @@ export class FeedPage extends MobxLitElement {
   @state() private _handle = "";
   @state() private _signInPending = false;
   @state() private _signInError = "";
+  @state() private _pullDistance = 0;
+  @state() private _pullTracking = false;
+  @state() private _pullRefreshing = false;
+  private _pullStart: { x: number; y: number } | null = null;
 
   static styles = css`
     :host {
       display: block;
+      overscroll-behavior-y: contain;
+    }
+    .pull-refresh {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-sizing: border-box;
+      height: 0;
+      overflow: hidden;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: height 180ms ease;
+    }
+    .pull-refresh.tracking {
+      transition: none;
+    }
+    .pull-refresh svg,
+    .pull-refresh wa-spinner {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+    .pull-refresh svg {
+      fill: currentColor;
+      transform: rotate(var(--pull-rotation, 0deg));
+    }
+    @media (max-width: 1023px) {
+      .pull-refresh {
+        display: flex;
+      }
     }
     .loader-container {
       display: flex;
@@ -160,7 +199,7 @@ export class FeedPage extends MobxLitElement {
           <div class="logged-out-content">
             <img src="/assets/caterpillar.png" alt="GreenEarth" class="logged-out-logo" />
             <h1 class="logged-out-title">GreenEarth</h1>
-            <p class="logged-out-subtitle">Sign in to view Feed Controls and Transparency</p>
+            <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>
             <form class="sign-in-form" @submit=${this.#signIn}>
               <label class="handle-label" for="account-handle">Account handle</label>
               <input
@@ -334,8 +373,17 @@ export class FeedPage extends MobxLitElement {
       `;
     }
 
+    const selectedAlgorithm = uiStore.selectedAlgorithm ?? "your-feed";
+    const selectedPreferences = preferencesStore.valuesFor(selectedAlgorithm);
+    const pullReady = this._pullDistance >= PULL_REFRESH_THRESHOLD;
+
     return html`
-      <div>
+      <div
+        @touchstart=${this.#onPullStart}
+        @touchmove=${this.#onPullMove}
+        @touchend=${this.#onPullEnd}
+        @touchcancel=${this.#onPullCancel}
+      >
         <div class="sticky-header-wrapper">
           <div class="header-section">
             <div class="header-row">
@@ -412,6 +460,24 @@ export class FeedPage extends MobxLitElement {
           ></feed-tabs>
         </div>
 
+        <div
+          class="pull-refresh ${this._pullTracking ? "tracking" : ""}"
+          style=${`height: ${String(this._pullDistance)}px; --pull-rotation: ${String(Math.min(180, this._pullDistance * 3))}deg;`}
+          role="status"
+          aria-live="polite"
+        >
+          ${
+            this._pullRefreshing
+              ? html`<wa-spinner></wa-spinner><span>Refreshing snapshots…</span>`
+              : html`
+                  <svg viewBox="0 0 640 640" aria-hidden="true">
+                    <path d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"></path>
+                  </svg>
+                  <span>${pullReady ? "Release to refresh" : "Pull to refresh"}</span>
+                `
+          }
+        </div>
+
         ${
           feedStore.error
             ? html`
@@ -443,8 +509,8 @@ export class FeedPage extends MobxLitElement {
                     .items=${feedStore.items}
                     .selectedUri=${uiStore.selectedItemUri}
                     .algorithmId=${uiStore.selectedAlgorithm}
-                    .engagingInfluence=${1 - preferencesStore.values.purpose}
-                    .constructiveInfluence=${preferencesStore.values.purpose}
+                    .engagingInfluence=${1 - selectedPreferences.purpose}
+                    .constructiveInfluence=${selectedPreferences.purpose}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
@@ -468,6 +534,80 @@ export class FeedPage extends MobxLitElement {
         }
       </div>
     `;
+  }
+
+  #onPullStart = (event: TouchEvent): void => {
+    const touch = event.touches[0];
+    const scrollContainer = this.parentElement;
+    const feedStore = getRootStore()?.feedStore;
+    if (
+      !touch
+      || window.innerWidth >= 1024
+      || (scrollContainer?.scrollTop ?? 0) > 0
+      || feedStore?.isLoading
+      || this._pullRefreshing
+    ) {
+      this._pullStart = null;
+      return;
+    }
+    this._pullStart = { x: touch.clientX, y: touch.clientY };
+    this._pullTracking = true;
+    this._pullDistance = 0;
+  };
+
+  #onPullMove = (event: TouchEvent): void => {
+    const touch = event.touches[0];
+    if (!this._pullStart || !touch || !this._pullTracking) return;
+
+    const deltaX = touch.clientX - this._pullStart.x;
+    const deltaY = touch.clientY - this._pullStart.y;
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      this.#resetPullGesture();
+      return;
+    }
+    if (deltaY <= 0 || (this.parentElement?.scrollTop ?? 0) > 0) {
+      this._pullDistance = 0;
+      return;
+    }
+
+    if (event.cancelable) event.preventDefault();
+    this._pullDistance = Math.min(PULL_REFRESH_MAX_DISTANCE, deltaY * 0.55);
+  };
+
+  #onPullEnd = (): void => {
+    if (!this._pullTracking) return;
+    const shouldRefresh = this._pullDistance >= PULL_REFRESH_THRESHOLD;
+    this._pullStart = null;
+    this._pullTracking = false;
+    if (shouldRefresh) {
+      void this.#refreshSelectedFeed();
+    } else {
+      this._pullDistance = 0;
+    }
+  };
+
+  #onPullCancel = (): void => {
+    this.#resetPullGesture();
+  };
+
+  #resetPullGesture(): void {
+    this._pullStart = null;
+    this._pullTracking = false;
+    if (!this._pullRefreshing) this._pullDistance = 0;
+  }
+
+  async #refreshSelectedFeed(): Promise<void> {
+    const store = getRootStore();
+    if (!store || this._pullRefreshing) return;
+    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
+    this._pullRefreshing = true;
+    this._pullDistance = 48;
+    try {
+      await store.feedStore.loadFeedList({ feedName, force: true });
+    } finally {
+      this._pullRefreshing = false;
+      this._pullDistance = 0;
+    }
   }
 
   async #signIn(event: SubmitEvent): Promise<void> {

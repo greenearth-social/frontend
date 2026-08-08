@@ -282,8 +282,6 @@ export class FeedTabs extends LitElement {
   }
 
   render() {
-    if (this.feeds.length === 0) return html``;
-
     const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
     const indicatorLabel = this.algorithmLabel;
 
@@ -368,6 +366,19 @@ export class FeedTabs extends LitElement {
     const radius = feed.appliedSocialRadius === null
       ? "Unknown"
       : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
+    const sourceNames: Record<string, string> = {
+      followed_users: "Following",
+      two_tower: "Authors/Topics",
+      two_tower_empty_history: "Authors/Topics",
+      popularity: "Popular",
+    };
+    const sourceMix = feed.generatorDiagnostics
+      .filter((diagnostic) => sourceNames[diagnostic.name] !== undefined)
+      .map(
+        (diagnostic) =>
+          `${sourceNames[diagnostic.name] ?? diagnostic.name} ${(diagnostic.weight * 100).toFixed(0)}%`,
+      )
+      .join(" · ");
     const filtering = this.filteringCountsByRequest[feed.requestId];
     return html`
       <dialog
@@ -380,7 +391,9 @@ export class FeedTabs extends LitElement {
         }}
       >
         <div class="popover-title">Source breakdown</div>
-        <div class="popover-subtitle">Applied social radius: ${radius}</div>
+        <div class="popover-subtitle">
+          ${sourceMix ? `Applied source mix: ${sourceMix}` : `Legacy social radius: ${radius}`}
+        </div>
         <div class="filter-summary">
           ${filtering
             ? html`

@@ -8,6 +8,8 @@ class TestAuthService implements IAuthService {
   currentUser: User = null;
   private listener: ((user: User) => void) | null = null;
 
+  constructor(private emitImmediately = true) {}
+
   signInWithCustomToken(): Promise<void> {
     return Promise.resolve();
   }
@@ -22,7 +24,7 @@ class TestAuthService implements IAuthService {
 
   onAuthStateChanged(callback: (user: User) => void): () => void {
     this.listener = callback;
-    callback(this.currentUser);
+    if (this.emitImmediately) callback(this.currentUser);
     return () => {
       this.listener = null;
     };
@@ -35,7 +37,12 @@ class TestAuthService implements IAuthService {
 }
 
 const preferences: Preferences = {
-  socialRadius: 3,
+  sourceWeights: {
+    following: 0.3,
+    networkLikes: 0.2,
+    authorsTopics: 0.25,
+    popular: 0.25,
+  },
   freshness: 5,
   politics: 1,
   purpose: 0.5,
@@ -49,8 +56,8 @@ describe("AuthStore account changes", () => {
       feedApiService: {
         listFeeds: vi.fn(),
         getFeedDetail: vi.fn(),
-        getPreferences: vi.fn().mockResolvedValue(preferences),
-        putPreferences: vi.fn(),
+        getPreferences: vi.fn().mockResolvedValue({ "your-feed": preferences }),
+        patchPreferences: vi.fn(),
       },
       analyticsService: {
         identify: vi.fn(),
@@ -74,5 +81,34 @@ describe("AuthStore account changes", () => {
     authService.emit(null);
 
     expect(reset).toHaveBeenCalledTimes(3);
+    expect(root.authStore.isInitialized).toBe(true);
+  });
+
+  it("stays initializing until the first authentication callback", () => {
+    const authService = new TestAuthService(false);
+    const root = new RootStore({
+      authService,
+      feedApiService: {
+        listFeeds: vi.fn(),
+        getFeedDetail: vi.fn(),
+        getPreferences: vi.fn().mockResolvedValue({}),
+        patchPreferences: vi.fn(),
+      },
+      analyticsService: {
+        identify: vi.fn(),
+        reset: vi.fn(),
+        capture: vi.fn(),
+      },
+      feedbackService: {
+        mode: "test",
+        unavailableReason: null,
+        unavailableReasonFor: vi.fn().mockReturnValue(null),
+        submit: vi.fn(),
+      },
+    });
+
+    expect(root.authStore.isInitialized).toBe(false);
+    authService.emit(null);
+    expect(root.authStore.isInitialized).toBe(true);
   });
 });
