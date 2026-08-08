@@ -5,6 +5,13 @@ import {
 } from "../components/icon-range-slider";
 
 describe("IconRangeSlider", () => {
+  it("exposes themeable track, fill, and tick colors", () => {
+    const styles = IconRangeSlider.styles.toString();
+    expect(styles).toContain("var(--icon-track-color)");
+    expect(styles).toContain("var(--icon-fill-color)");
+    expect(styles).toContain("var(--icon-tick-color)");
+  });
+
   it("divides continuous controls into five icon buckets and includes the maximum", () => {
     expect(iconIndexForValue(0, 0, 1, 5)).toBe(0);
     expect(iconIndexForValue(0.199, 0, 1, 5)).toBe(0);

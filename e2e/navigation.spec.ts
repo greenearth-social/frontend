@@ -153,6 +153,13 @@ test.describe("feed-scoped navigation", () => {
     await expect(sourceRank).toHaveAttribute("aria-valuemin", "0");
     await expect(sourceRank).toHaveAttribute("aria-valuemax", "4");
 
+    const firstSourceCard = settings.locator(".source-slider-card").first();
+    const cardBox = await firstSourceCard.boundingBox();
+    const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(trackBox).not.toBeNull();
+    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.8);
+
     await expect(page.getByRole("spinbutton", {
       name: "Following percentage",
       exact: true,

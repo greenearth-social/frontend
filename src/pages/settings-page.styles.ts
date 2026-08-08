@@ -182,8 +182,8 @@ export const settingsPageStyles = css`
 
   .config-card {
     margin-bottom: 0.75rem;
-    border: 1px solid rgba(110, 231, 160, 0.24);
-    background: linear-gradient(145deg, #2f684f, #285746);
+    border: 1px solid rgba(253, 186, 116, 0.28);
+    background: linear-gradient(145deg, #a94f45, #a86f32);
   }
 
   .source-card {
@@ -281,6 +281,12 @@ export const settingsPageStyles = css`
   .master-column icon-range-slider {
     flex: 1;
     min-height: 330px;
+  }
+
+  .source-slider-card icon-range-slider {
+    --icon-track-color: rgba(239, 246, 255, 0.56);
+    --icon-fill-color: #163b70;
+    --icon-tick-color: rgba(255, 255, 255, 0.82);
   }
 
   .source-list {
@@ -794,7 +800,12 @@ export const settingsPageStyles = css`
     }
 
     .source-slider-card {
-      padding-inline: 0.4rem;
+      padding-inline: 0.125rem;
+    }
+
+    .source-slider-card icon-range-slider {
+      --icon-thumb-size: 32px;
+      --icon-thumb-overhang: 16px;
     }
   }
 `;

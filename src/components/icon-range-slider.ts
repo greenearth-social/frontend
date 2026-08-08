@@ -35,6 +35,9 @@ export class IconRangeSlider extends LitElement {
     :host {
       --icon-thumb-size: 40px;
       --icon-thumb-overhang: 20px;
+      --icon-track-color: rgba(148, 163, 184, 0.3);
+      --icon-fill-color: var(--bluesky-brand);
+      --icon-tick-color: rgba(255, 255, 255, 0.35);
       display: block;
       min-width: 0;
     }
@@ -76,13 +79,13 @@ export class IconRangeSlider extends LitElement {
     }
 
     .track {
-      background: rgba(148, 163, 184, 0.3);
+      background: var(--icon-track-color);
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
     }
 
     .fill {
       right: auto;
-      background: var(--bluesky-brand);
+      background: var(--icon-fill-color);
     }
 
     .ticks {
@@ -99,7 +102,7 @@ export class IconRangeSlider extends LitElement {
       width: 2px;
       height: 10px;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.35);
+      background: var(--icon-tick-color);
     }
 
     input[type="range"] {
