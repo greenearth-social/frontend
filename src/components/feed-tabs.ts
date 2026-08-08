@@ -27,6 +27,7 @@ export class FeedTabs extends LitElement {
     .tabs-container {
       display: flex;
       align-items: stretch;
+      min-height: 2.75rem;
       background: rgba(21, 32, 43, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -49,6 +50,8 @@ export class FeedTabs extends LitElement {
       gap: 0.375rem;
       padding: 0 0.625rem 0 0.75rem;
       height: 100%;
+      min-height: 2.75rem;
+      box-sizing: border-box;
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--bluesky-text);

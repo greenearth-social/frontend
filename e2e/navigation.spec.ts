@@ -62,6 +62,36 @@ test.describe("feed-scoped navigation", () => {
     await expect(desktop.getByRole("button", { name: "Log out" })).toBeVisible();
   });
 
+  test("visually separates expanded feed groups from their subpages", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 720 });
+    const desktop = page.locator(".left-sidebar-desktop");
+
+    for (const feed of ["Best of Friends", "Random"]) {
+      await desktop.getByRole("button", { name: `Expand ${feed} pages` }).click();
+    }
+
+    const groups = desktop.locator(".feed-group");
+    await expect(groups).toHaveCount(3);
+    await expect(desktop.locator(".feed-subnav:not([hidden])")).toHaveCount(3);
+
+    const groupStyles = await groups.evaluateAll((elements) =>
+      elements.map((element) => ({
+        borderStyle: getComputedStyle(element).borderStyle,
+        borderRadius: getComputedStyle(element).borderRadius,
+      })),
+    );
+    expect(groupStyles).toEqual(
+      Array.from({ length: 3 }, () => ({
+        borderStyle: "solid",
+        borderRadius: "14px",
+      })),
+    );
+
+    const activeGroup = desktop.locator(".feed-group.active-feed");
+    await expect(activeGroup).toHaveCount(1);
+    await expect(activeGroup.locator('.algo-btn[aria-pressed="true"]')).toHaveCount(1);
+  });
+
   test("resets changed Settings controls to their defaults", async ({ page }) => {
     await page.evaluate(() => {
       window.location.hash = "/settings/your-feed";
@@ -185,17 +215,23 @@ test.describe("feed-scoped navigation", () => {
   test("keeps the mobile feed switcher mapped to the canonical feed route", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 720 });
     const tabs = page.locator("feed-page feed-tabs");
-    await tabs.locator(".algo-trigger").click();
+    const trigger = tabs.locator(".algo-trigger");
+    const greenEarthHeight = (await trigger.boundingBox())?.height;
+    expect(greenEarthHeight).toBeDefined();
+
+    await trigger.click();
     await tabs.getByRole("option", { name: "Best of Friends" }).click();
 
     await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
-    await expect(tabs.locator(".algo-trigger")).toContainText("Best of Friends");
+    await expect(trigger).toContainText("Best of Friends");
     await expect(tabs.locator(".tab")).toHaveCount(0);
+    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
 
-    await tabs.locator(".algo-trigger").click();
+    await trigger.click();
     await tabs.getByRole("option", { name: "Random" }).click();
     await expect(page).toHaveURL(/#\/feed\/random$/);
-    await expect(tabs.locator(".algo-trigger")).toContainText("Random");
+    await expect(trigger).toContainText("Random");
+    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
   });
 });
 

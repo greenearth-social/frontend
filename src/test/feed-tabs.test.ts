@@ -171,6 +171,7 @@ describe("FeedTabs source breakdown", () => {
       "Best of Friends",
     );
     expect(element.shadowRoot?.querySelectorAll(".tab")).toHaveLength(0);
+    expect(FeedTabs.styles.cssText).toContain("min-height: 2.75rem");
     element.remove();
   });
 });

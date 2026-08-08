@@ -581,6 +581,8 @@ describe("AppShell algorithm selector", () => {
     const friendsPages = root?.querySelector<HTMLElement>("#desktop-best-of-friends-pages");
     expect(greenPages?.hidden).toBe(false);
     expect(friendsPages?.hidden).toBe(true);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("active-feed")).toBe(true);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
 
     root
       ?.querySelector<HTMLButtonElement>(
@@ -590,6 +592,7 @@ describe("AppShell algorithm selector", () => {
     await element.updateComplete;
     expect(greenPages?.hidden).toBe(false);
     expect(friendsPages?.hidden).toBe(false);
+    expect(friendsPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
 
     root
       ?.querySelector<HTMLButtonElement>(
@@ -599,6 +602,7 @@ describe("AppShell algorithm selector", () => {
     await element.updateComplete;
     expect(greenPages?.hidden).toBe(true);
     expect(friendsPages?.hidden).toBe(false);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(false);
 
     const ids = Array.from(root?.querySelectorAll<HTMLElement>("[id$='-pages']") ?? []).map(
       (node) => node.id,

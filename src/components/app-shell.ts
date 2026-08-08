@@ -109,19 +109,32 @@ export class AppShell extends MobxLitElement {
     .feed-groups {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.625rem;
       min-width: 0;
       width: 100%;
     }
     .feed-group {
+      box-sizing: border-box;
       min-width: 0;
       width: 100%;
+      padding: 0.25rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.875rem;
+      background: color-mix(in srgb, var(--bluesky-bg-hover) 30%, transparent);
+      transition:
+        border-color 0.15s,
+        background-color 0.15s;
+    }
+    .feed-group.active-feed {
+      border-color: color-mix(in srgb, var(--bluesky-brand) 55%, var(--bluesky-border));
+      background: color-mix(in srgb, var(--bluesky-brand) 7%, var(--bluesky-nav-bg));
     }
     .algo-row {
       display: flex;
       align-items: center;
-      border-radius: 9999px;
-      background: transparent;
+      min-height: 44px;
+      border-radius: 0.6875rem;
+      background: var(--bluesky-bg-hover);
       color: var(--bluesky-text);
       transition: background-color 0.15s;
       min-width: 0;
@@ -190,7 +203,7 @@ export class AppShell extends MobxLitElement {
       gap: 0.25rem;
       min-width: 0;
       margin: 0.25rem 0 0;
-      padding: 0 0 0 0.5rem;
+      padding: 0.125rem 0;
     }
     .feed-subnav[hidden] {
       display: none;
@@ -740,7 +753,9 @@ export class AppShell extends MobxLitElement {
             const isExpanded = this._expandedAlgorithms.has(id);
             const subnavId = `${surface}-${id}-pages`;
             return html`
-              <div class="feed-group">
+              <div
+                class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
+              >
                 <div class="algo-row ${isActiveFeed ? "active" : ""}">
                   <button
                     class="algo-btn"
