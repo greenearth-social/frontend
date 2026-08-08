@@ -334,22 +334,24 @@ export class SettingsPage extends MobxLitElement {
               .max=${String(Math.round(bounds.max * 100))}
               .value=${String(Math.round(weights[key] * 100))}
               aria-label=${`${label} percentage`}
+              aria-invalid="false"
+              required
               ?disabled=${adjustmentDisabled}
               @focus=${(event: FocusEvent) => {
                 (event.currentTarget as HTMLInputElement).select();
               }}
               @input=${(event: Event) => {
-                const value = (event.currentTarget as HTMLInputElement).valueAsNumber;
-                if (Number.isFinite(value)) {
+                const input = event.currentTarget as HTMLInputElement;
+                const value = input.valueAsNumber;
+                if (this.#validatePercentageInput(input)) {
                   this.#previewSourceWeight(weights, key, value / 100);
                 }
               }}
               @change=${(event: Event) => {
-                const value = (event.currentTarget as HTMLInputElement).valueAsNumber;
-                if (Number.isFinite(value)) {
+                const input = event.currentTarget as HTMLInputElement;
+                const value = input.valueAsNumber;
+                if (this.#validatePercentageInput(input)) {
                   this.#commitSourceWeight(weights, key, nodeId, value / 100);
-                } else {
-                  this.requestUpdate();
                 }
               }}
               @keydown=${(event: KeyboardEvent) => {
@@ -584,6 +586,24 @@ export class SettingsPage extends MobxLitElement {
     const store = getRootStore()?.preferencesStore;
     if (!store) return;
     void store.save(this.selectedAlgorithm, "source_weights", weights, origin);
+  }
+
+  #validatePercentageInput(input: HTMLInputElement): boolean {
+    const value = input.valueAsNumber;
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const isValid =
+      input.value.trim() !== "" &&
+      Number.isFinite(value) &&
+      Number.isInteger(value) &&
+      value >= min &&
+      value <= max;
+
+    input.setCustomValidity(
+      isValid ? "" : `Enter a whole percentage between ${String(min)} and ${String(max)}.`,
+    );
+    input.setAttribute("aria-invalid", String(!isValid));
+    return isValid;
   }
 
   #previewSourceWeight(weights: SourceWeights, key: SourceWeightKey, value: number): void {

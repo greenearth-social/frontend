@@ -182,8 +182,8 @@ export const settingsPageStyles = css`
 
   .config-card {
     margin-bottom: 0.75rem;
-    border: 1px solid rgba(253, 186, 116, 0.28);
-    background: linear-gradient(145deg, #a94f45, #a86f32);
+    border: 1px solid rgba(110, 231, 160, 0.24);
+    background: linear-gradient(145deg, #2f684f, #285746);
   }
 
   .source-card {
@@ -355,6 +355,13 @@ export const settingsPageStyles = css`
   .percentage-input::-webkit-outer-spin-button {
     margin: 0;
     appearance: none;
+  }
+
+  .percentage-field:has(.percentage-input[aria-invalid="true"]),
+  .percentage-field:has(.percentage-input:invalid) {
+    border-color: #f87171;
+    outline: 2px solid #ef4444;
+    outline-offset: 1px;
   }
 
   .percentage-suffix {

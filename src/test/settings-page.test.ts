@@ -423,6 +423,37 @@ describe("SettingsPage", () => {
     ).toContain("M416 160C416 124.7");
   });
 
+  it("rejects fractional and out-of-range source percentages", async () => {
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[aria-label="Following percentage"]',
+    );
+    expect(input).toBeDefined();
+    if (!input) return;
+
+    expect(input.required).toBe(true);
+    expect(input.step).toBe("1");
+    expect(input.min).toBe("0");
+    expect(input.max).toBe("100");
+
+    for (const invalidValue of ["12.5", "101", "-1", ""]) {
+      input.value = invalidValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      expect(input.getAttribute("aria-invalid")).toBe("true");
+    }
+    expect(testState.rootStore.preferencesStore.save).not.toHaveBeenCalled();
+
+    input.value = "40";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+    expect(testState.rootStore.preferencesStore.save).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the persistent refresh notice for both Ranking controls", async () => {
     vi.useFakeTimers();
     const element = document.createElement("settings-page");
