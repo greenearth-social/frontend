@@ -52,10 +52,14 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
 }
 
 export function renderSettingsDetailDialog(options: SettingsDetailDialogOptions): TemplateResult {
-  const { nodeId, onClose } = options;
+  const { nodeId, onClose, selectedAlgorithm } = options;
   if (!nodeId) return html``;
   const node = SETTINGS_NODES[nodeId];
   if (!node) return html``;
+  const description =
+    nodeId === "following" && selectedAlgorithm === "best-of-friends"
+      ? "Posts from accounts you follow."
+      : node.description;
 
   return html`
     <div class="popup-overlay" @click=${onClose}>
@@ -75,7 +79,7 @@ export function renderSettingsDetailDialog(options: SettingsDetailDialogOptions)
             &times;
           </button>
         </div>
-        <p class="popup-description">${node.description}</p>
+        <p class="popup-description">${description}</p>
         ${
           nodeId === "constructiveness"
             ? html`

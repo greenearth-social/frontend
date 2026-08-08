@@ -247,6 +247,9 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector(".popup-card .popup-values")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toBe(
+      "Posts from accounts you follow.",
+    );
   });
 
   it("links Constructive details to the long-form explanation", async () => {
