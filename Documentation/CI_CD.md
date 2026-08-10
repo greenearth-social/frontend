@@ -254,6 +254,19 @@ This repository is the sole source of truth for Firebase rules, indexes, TTL
 policies, emulators, Functions, and Hosting. API deployments do not mutate this
 configuration.
 
+### Single-field index exemptions
+
+`firestore.indexes.json` also carries `fieldOverrides`. Firestore indexes every
+field by default and rejects any write whose index entry exceeds 7.5 KiB, so a
+field holding a large blob has to be exempted before it can be written at all.
+Today that is `popularity_cache.payload` — the API's shared pool of popularity
+candidates, stored as one compressed blob of a few hundred KB (api#330). It is
+never queried on, only read by document ID.
+
+The emulator does not enforce index-entry limits, so a missing exemption fails
+only in a deployed environment: deploy the exemption before the API release
+that starts writing the field.
+
 ## Rotating the OAuth key pair
 
 If the private key is compromised or needs rotation:
