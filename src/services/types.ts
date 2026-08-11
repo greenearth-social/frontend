@@ -6,16 +6,32 @@ export interface IAuthService {
   getIdToken(): Promise<string>;
 }
 
-export interface Preferences {
-  socialRadius: number;  // 0-4
-  freshness: number;     // 0-5; default 5 (7 days)
-  politics: number;      // 0.5-1.5
-  purpose: number;       // 0.2-0.8
+export interface SourceWeights {
+  following: number;
+  networkLikes: number;
+  authorsTopics: number;
+  popular: number;
 }
+
+export interface Preferences {
+  sourceWeights: SourceWeights;
+  freshness: number; // 0-5; default 5 (7 days)
+  politics: number; // 0.5-1.5; frontend-only placeholder
+  purpose: number; // 0.2-0.8
+}
+
+export type FeedPreferences = Partial<Preferences>;
+
+export type FeedPreferencesByFeed = Partial<
+  Record<import("../constants/algorithms").AlgorithmId, FeedPreferences>
+>;
 
 export interface IFeedApiService {
   listFeeds(): Promise<import("../models/feed-debug-snapshot").FeedListResponse>;
   getFeedDetail(requestId: string): Promise<import("../models/feed-debug-snapshot").FeedDetailResponse>;
-  getPreferences(): Promise<Preferences>;
-  putPreferences(prefs: Preferences): Promise<Preferences>;
+  getPreferences(): Promise<FeedPreferencesByFeed>;
+  patchPreferences(
+    feedName: import("../constants/algorithms").AlgorithmId,
+    prefs: FeedPreferences,
+  ): Promise<FeedPreferences>;
 }

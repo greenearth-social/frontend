@@ -158,4 +158,20 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
     expect(latestOptions).toHaveLength(0);
   });
+
+  it("keeps the mobile feed switcher available when the selected feed has no snapshots", async () => {
+    const element = document.createElement("feed-tabs");
+    element.feeds = [];
+    element.selectedAlgorithm = "best-of-friends";
+    element.algorithmLabel = "Best of Friends";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".algo-trigger")?.textContent).toContain(
+      "Best of Friends",
+    );
+    expect(element.shadowRoot?.querySelectorAll(".tab")).toHaveLength(0);
+    expect(FeedTabs.styles.cssText).toContain("min-height: 2.75rem");
+    element.remove();
+  });
 });

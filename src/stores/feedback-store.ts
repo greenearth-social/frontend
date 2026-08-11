@@ -68,7 +68,7 @@ export class FeedbackStore {
       feedName,
       feedLabel: ALGORITHMS[feedName].label,
       apiReleaseSha,
-      preferences: { ...this.root.preferencesStore.values },
+      preferences: { ...this.root.preferencesStore.valuesFor(feedName) },
       snapshot,
     });
   }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const testState = vi.hoisted(() => ({
   rootStore: {
     authStore: {
+      isInitialized: true,
       isSignedIn: true,
       currentUser: { uid: "did:plc:alice" },
       signInWithCustomToken: vi.fn<() => Promise<void>>(),
@@ -53,12 +54,42 @@ const testState = vi.hoisted(() => ({
       clearSelectedAlgorithm: vi.fn(),
     },
     preferencesStore: {
-      values: { socialRadius: 3, freshness: 5, politics: 1, purpose: 0.5 },
+      values: {
+        sourceWeights: {
+          following: 0.3,
+          networkLikes: 0.2,
+          authorsTopics: 0.25,
+          popular: 0.25,
+        },
+        freshness: 5,
+        politics: 1,
+        purpose: 0.5,
+      },
+      valuesFor() {
+        return this.values;
+      },
       socialRadiusWeights: [
         { name: "followed_users", weight: 0.4 },
         { name: "two_tower", weight: 0.3 },
         { name: "popularity", weight: 0.3 },
       ],
+      socialRadiusWeightsFor() {
+        return this.socialRadiusWeights;
+      },
+      supportsControl(
+        feedName: "your-feed" | "best-of-friends" | "random",
+        control: "source_weights" | "freshness" | "politics" | "purpose",
+      ) {
+        if (control === "source_weights") return feedName === "your-feed";
+        if (control === "purpose") return feedName !== "random";
+        return control === "freshness";
+      },
+      engagingWeightFor() {
+        return 1 - this.values.purpose;
+      },
+      constructiveWeightFor() {
+        return this.values.purpose;
+      },
       load: vi.fn().mockResolvedValue(undefined),
     },
     feedbackStore: {
@@ -86,6 +117,7 @@ describe("AppShell authentication UI", () => {
     document.body.replaceChildren();
     window.location.hash = "/feed";
     testState.rootStore.authStore.isSignedIn = true;
+    testState.rootStore.authStore.isInitialized = true;
     testState.rootStore.authStore.signOut.mockReset();
     testState.rootStore.authStore.signOut.mockResolvedValue(undefined);
     testState.rootStore.authStore.signInWithCustomToken.mockReset();
@@ -110,6 +142,82 @@ describe("AppShell authentication UI", () => {
     );
   });
 
+  it("preserves a direct route while persisted authentication is initializing", async () => {
+    window.location.hash = "/settings/random";
+    testState.rootStore.authStore.isInitialized = false;
+    testState.rootStore.authStore.isSignedIn = false;
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(window.location.hash).toBe("#/settings/random");
+    expect(element.shadowRoot?.querySelector(".auth-progress")?.textContent).toContain(
+      "Loading your account",
+    );
+
+    testState.rootStore.authStore.isInitialized = true;
+    testState.rootStore.authStore.isSignedIn = true;
+    element.requestUpdate();
+    await vi.waitFor(() => {
+      expect(element.shadowRoot?.querySelector("settings-page")).not.toBeNull();
+    });
+    expect(window.location.hash).toBe("#/settings/random");
+  });
+
+  it("routes desktop sidebar wheel gestures to the content panel", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const center = element.shadowRoot?.querySelector<HTMLElement>(".center-column");
+    const sidebar = element.shadowRoot?.querySelector<HTMLElement>(".left-sidebar-desktop");
+    if (!center || !sidebar) throw new Error("App shell columns did not render");
+    center.scrollTop = 20;
+    const sidebarWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      deltaY: 120,
+    });
+
+    sidebar.dispatchEvent(sidebarWheel);
+
+    expect(center.scrollTop).toBe(140);
+    expect(sidebarWheel.defaultPrevented).toBe(true);
+
+    const contentWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      deltaY: 120,
+    });
+    center.dispatchEvent(contentWheel);
+    expect(center.scrollTop).toBe(140);
+    expect(contentWheel.defaultPrevented).toBe(false);
+
+    const gutterWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -40,
+    });
+    element.dispatchEvent(gutterWheel);
+    expect(center.scrollTop).toBe(100);
+    expect(gutterWheel.defaultPrevented).toBe(true);
+
+    const feedPage = element.shadowRoot?.querySelector("feed-page");
+    await feedPage?.updateComplete;
+    feedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+    const drawerWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 120,
+    });
+    element.dispatchEvent(drawerWheel);
+    expect(center.scrollTop).toBe(100);
+    expect(drawerWheel.defaultPrevented).toBe(false);
+  });
+
   it("closes the mobile drawer before signing out", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
@@ -121,24 +229,60 @@ describe("AppShell authentication UI", () => {
     await element.updateComplete;
     expect(element.shadowRoot?.querySelector(".drawer")?.classList.contains("open")).toBe(true);
 
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".drawer .more-btn")
-      ?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".drawer .more-btn")?.click();
     await element.updateComplete;
     testState.rootStore.authStore.signOut.mockImplementation(() => {
       expect(element.shadowRoot?.querySelector(".drawer")?.classList.contains("open")).toBe(false);
       return Promise.resolve();
     });
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".drawer .logout-btn")
-      ?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".drawer .logout-btn")?.click();
 
     await vi.waitFor(() => {
       expect(testState.rootStore.authStore.signOut).toHaveBeenCalledOnce();
     });
   });
 
-  it.each(["/controls", "/how-it-works", "/feedback"])(
+  it("keeps the mobile drawer open while navigating and closes it only on dismissal", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const feedPage = element.shadowRoot?.querySelector("feed-page");
+    await feedPage?.updateComplete;
+    feedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+
+    const drawer = element.shadowRoot?.querySelector<HTMLElement>(".drawer");
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    drawer?.querySelector<HTMLButtonElement>('.algo-btn[aria-label="Best of Friends"]')?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feed/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.drawer a[href="#/settings/best-of-friends"]')
+      ?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/settings/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot?.querySelector<HTMLElement>(".drawer-backdrop")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    const settingsPage = element.shadowRoot?.querySelector("settings-page");
+    await settingsPage?.updateComplete;
+    settingsPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    drawer?.querySelector<HTMLButtonElement>(".drawer-close")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(false);
+  });
+
+  it.each(["/settings", "/feedback"])(
     "returns signed-out users from %s to the sign-in landing page",
     async (route) => {
       window.location.hash = route;
@@ -204,15 +348,15 @@ describe("AppShell authentication UI", () => {
     expect(form?.selectedFeed).toBe("your-feed");
   });
 
-  it("captures one How It Works view when entering the route", async () => {
-    window.location.hash = "/how-it-works";
+  it("captures one Settings view when entering the route", async () => {
+    window.location.hash = "/settings";
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
 
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
-      "howItWorksViewed",
+      "settingsViewed",
       {
         feed_name: "your-feed",
         feed_label: "GreenEarth",
@@ -222,6 +366,24 @@ describe("AppShell authentication UI", () => {
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
   });
+
+  it.each(["/controls", "/how-it-works"])(
+    "redirects the legacy %s route to Settings",
+    async (route) => {
+      window.location.hash = route;
+      const element = document.createElement("app-shell");
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      expect(window.location.hash).toBe("#/settings/your-feed");
+      expect(element.shadowRoot?.querySelector("settings-page")).not.toBeNull();
+      expect(
+        Array.from(element.shadowRoot?.querySelectorAll(".nav-label") ?? []).map(
+          (label) => label.textContent,
+        ),
+      ).toContain("Settings");
+    },
+  );
 
   it("captures a completed sign-in without exposing the callback token", async () => {
     window.location.hash = "/auth/finish?token=secret-token&return_url=/controls";
@@ -236,7 +398,7 @@ describe("AppShell authentication UI", () => {
         "signInCompleted",
         {
           auth_method: "bluesky_oauth",
-          return_route: "/controls",
+          return_route: "/settings/your-feed",
         },
       );
     });
@@ -273,6 +435,7 @@ describe("AppShell algorithm selector", () => {
     document.body.replaceChildren();
     window.location.hash = "/feed";
     testState.rootStore.authStore.isSignedIn = true;
+    testState.rootStore.authStore.isInitialized = true;
     testState.rootStore.uiStore.selectedAlgorithm = "your-feed";
     testState.rootStore.uiStore.setSelectedAlgorithm.mockReset();
     testState.rootStore.feedStore.loadFeedDetail.mockReset();
@@ -298,9 +461,12 @@ describe("AppShell algorithm selector", () => {
     await element.updateComplete;
 
     // query within the desktop sidebar to avoid double-counting the drawer
-    const active = element.shadowRoot?.querySelectorAll(".left-sidebar-desktop .algo-btn.active");
+    const active = element.shadowRoot?.querySelectorAll(
+      ".left-sidebar-desktop .algo-row.active .algo-btn",
+    );
     expect(active?.length).toBe(1);
     expect(active?.[0]?.getAttribute("aria-label")).toBe("Best of Friends");
+    expect(window.location.hash).toBe("#/feed/best-of-friends");
   });
 
   it("calls setSelectedAlgorithm and loadFeedDetail on click", async () => {
@@ -312,24 +478,28 @@ describe("AppShell algorithm selector", () => {
     await element.updateComplete;
 
     // click through the desktop sidebar buttons
-    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".left-sidebar-desktop .algo-btn");
+    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+      ".left-sidebar-desktop .algo-btn",
+    );
     const friendsBtn = Array.from(buttons ?? []).find(
       (b) => b.getAttribute("aria-label") === "Best of Friends",
     );
     friendsBtn?.click();
     await element.updateComplete;
 
-    expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
+    expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith(
+      "best-of-friends",
+    );
     expect(testState.rootStore.feedStore.loadFeedDetail).toHaveBeenCalledWith("r2");
   });
 
   it("keeps the current page and updates its feedback feed context", async () => {
     window.location.hash = "/feedback";
-    testState.rootStore.uiStore.setSelectedAlgorithm.mockImplementation((
-      id: "your-feed" | "best-of-friends" | "random",
-    ) => {
-      testState.rootStore.uiStore.selectedAlgorithm = id;
-    });
+    testState.rootStore.uiStore.setSelectedAlgorithm.mockImplementation(
+      (id: "your-feed" | "best-of-friends" | "random") => {
+        testState.rootStore.uiStore.selectedAlgorithm = id;
+      },
+    );
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -345,7 +515,7 @@ describe("AppShell algorithm selector", () => {
     const page = element.shadowRoot?.querySelector("feedback-page");
     await page?.updateComplete;
     const form = page?.shadowRoot?.querySelector("feedback-form");
-    expect(window.location.hash).toBe("#/feedback");
+    expect(window.location.hash).toBe("#/feedback/best-of-friends");
     expect(page?.selectedAlgorithm).toBe("best-of-friends");
     expect(form?.selectedFeed).toBe("best-of-friends");
     expect(form?.shadowRoot?.textContent).toContain("Feed: Best of Friends");
@@ -356,11 +526,88 @@ describe("AppShell algorithm selector", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])]
-      .filter((btn) => btn.textContent.includes("Latest"));
+    const latestButtons = [...(element.shadowRoot?.querySelectorAll(".algo-btn") ?? [])].filter(
+      (btn) => btn.textContent.includes("Latest"),
+    );
 
     element.remove();
     expect(latestButtons).toHaveLength(0);
+  });
+
+  it("uses the canonical URL as the selected feed and page", async () => {
+    window.location.hash = "/settings/random";
+    testState.rootStore.uiStore.setSelectedAlgorithm.mockImplementation(
+      (id: "your-feed" | "best-of-friends" | "random") => {
+        testState.rootStore.uiStore.selectedAlgorithm = id;
+      },
+    );
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const page = element.shadowRoot?.querySelector("settings-page");
+    const activeLink = element.shadowRoot?.querySelector<HTMLAnchorElement>(
+      '.left-sidebar-desktop .nav-link[aria-current="page"]',
+    );
+    expect(testState.rootStore.uiStore.setSelectedAlgorithm).toHaveBeenCalledWith("random");
+    expect(page?.selectedAlgorithm).toBe("random");
+    expect(activeLink?.getAttribute("href")).toBe("#/settings/random");
+    expect(activeLink?.classList.contains("active")).toBe(true);
+  });
+
+  it("falls back to GreenEarth for an invalid canonical feed", async () => {
+    window.location.hash = "/feedback/removed-feed";
+    testState.rootStore.uiStore.setSelectedAlgorithm.mockImplementation(
+      (id: "your-feed" | "best-of-friends" | "random") => {
+        testState.rootStore.uiStore.selectedAlgorithm = id;
+      },
+    );
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(window.location.hash).toBe("#/feedback/your-feed");
+    expect(testState.rootStore.uiStore.setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(element.shadowRoot?.querySelector("feedback-page")?.selectedAlgorithm).toBe("your-feed");
+  });
+
+  it("keeps feed groups independently expandable with unique control ids", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const root = element.shadowRoot;
+    const greenPages = root?.querySelector<HTMLElement>("#desktop-your-feed-pages");
+    const friendsPages = root?.querySelector<HTMLElement>("#desktop-best-of-friends-pages");
+    expect(greenPages?.hidden).toBe(false);
+    expect(friendsPages?.hidden).toBe(true);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("active-feed")).toBe(true);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
+
+    root
+      ?.querySelector<HTMLButtonElement>(
+        '.left-sidebar-desktop .algo-toggle[aria-label="Expand Best of Friends pages"]',
+      )
+      ?.click();
+    await element.updateComplete;
+    expect(greenPages?.hidden).toBe(false);
+    expect(friendsPages?.hidden).toBe(false);
+    expect(friendsPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
+
+    root
+      ?.querySelector<HTMLButtonElement>(
+        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse GreenEarth pages"]',
+      )
+      ?.click();
+    await element.updateComplete;
+    expect(greenPages?.hidden).toBe(true);
+    expect(friendsPages?.hidden).toBe(false);
+    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(false);
+
+    const ids = Array.from(root?.querySelectorAll<HTMLElement>("[id$='-pages']") ?? []).map(
+      (node) => node.id,
+    );
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {
@@ -390,7 +637,9 @@ describe("AppShell algorithm selector", () => {
     await element.updateComplete;
 
     // click the "your-feed" algorithm button (labeled "GreenEarth")
-    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".left-sidebar-desktop .algo-btn");
+    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+      ".left-sidebar-desktop .algo-btn",
+    );
     const yourFeedBtn = Array.from(buttons ?? []).find(
       (b) => b.getAttribute("aria-label") === "GreenEarth",
     );

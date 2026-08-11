@@ -76,8 +76,8 @@ identity:
 ./devctl feed your-feed --user did:plc:...
 ```
 
-Feed snapshots are retained for about 15 minutes. If the UI becomes empty, run
-`./devctl feed` again and reload.
+Feed snapshots are retained for 24 hours, with the newest 100 snapshots kept per
+user. If the UI becomes empty, run `./devctl feed` again and reload.
 
 ## Daily frontend workflow
 

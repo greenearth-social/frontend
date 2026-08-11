@@ -34,7 +34,26 @@ function makeRoot(currentRequestId: string | null) {
       },
     },
     preferencesStore: {
-      values: { socialRadius: 3, freshness: 5, politics: 1, purpose: 0.5 },
+      values: {
+        sourceWeights: {
+          following: 0.3,
+          networkLikes: 0.2,
+          authorsTopics: 0.25,
+          popular: 0.25,
+        },
+        freshness: 5,
+        politics: 1,
+        purpose: 0.5,
+      },
+      valuesFor(feedName: "your-feed" | "best-of-friends" | "random") {
+        if (feedName === "best-of-friends") {
+          return { ...this.values, freshness: 2, purpose: 0.65 };
+        }
+        if (feedName === "random") {
+          return { ...this.values, freshness: 1, purpose: 0.5 };
+        }
+        return this.values;
+      },
     },
     services: {
       feedbackService: {
@@ -50,7 +69,7 @@ function makeRoot(currentRequestId: string | null) {
 
 describe("FeedbackStore", () => {
   it("sends the explicit selected feed with its matching snapshot", async () => {
-    window.location.hash = "/controls";
+    window.location.hash = "/settings";
     const { root, submit } = makeRoot("friends-request");
 
     await new FeedbackStore(root).submit("controls", "Let me tune this feed.", "best-of-friends");
@@ -59,7 +78,7 @@ describe("FeedbackStore", () => {
     expect(sent).toMatchObject({
       distinctId: "did:plc:alice",
       surface: "controls",
-      appRoute: "/controls",
+      appRoute: "/settings",
       feedName: "best-of-friends",
       feedLabel: "Best of Friends",
       apiReleaseSha: "friends-api-sha",

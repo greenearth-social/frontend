@@ -69,6 +69,31 @@ describe("FeedApiService", () => {
     });
   });
 
+  it("maps published Bluesky rkeys to their canonical feed pages", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          feeds: [
+            { request_id: "green", generated_at: "2026-08-07T10:00:00Z", feed_name: "a0-yf" },
+            { request_id: "friends", generated_at: "2026-08-07T09:00:00Z", feed_name: "fd-bof" },
+            { request_id: "random", generated_at: "2026-08-07T08:00:00Z", feed_name: "67-r" },
+            { request_id: "internal", generated_at: "2026-08-07T07:00:00Z", feed_name: "op-tt" },
+          ],
+        }),
+      ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    const response = await service.listFeeds();
+
+    expect(response.feeds?.map((feed) => [feed.requestId, feed.feedName])).toEqual([
+      ["green", "your-feed"],
+      ["friends", "best-of-friends"],
+      ["random", "random"],
+    ]);
+  });
+
   it("maps nested feed details from snake_case", async () => {
     vi.stubGlobal(
       "fetch",
@@ -142,39 +167,119 @@ describe("FeedApiService", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        jsonResponse({ social_radius: 3, freshness: 4, politics: 1.25, purpose: 0.65 }),
+        jsonResponse({
+          feeds: {
+            "your-feed": {
+              source_weights: {
+                following: 0.3,
+                network_likes: 0.2,
+                authors_topics: 0.25,
+                popular: 0.25,
+              },
+              freshness: 4,
+              purpose: 0.65,
+            },
+            "best-of-friends": { freshness: 2, purpose: 0.35 },
+            random: { freshness: 1 },
+          },
+        }),
       ),
     );
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(service.getPreferences()).resolves.toEqual({
-      socialRadius: 3,
-      freshness: 4,
-      politics: 1.25,
-      purpose: 0.65,
+      "your-feed": {
+        sourceWeights: {
+          following: 0.3,
+          networkLikes: 0.2,
+          authorsTopics: 0.25,
+          popular: 0.25,
+        },
+        freshness: 4,
+        purpose: 0.65,
+      },
+      "best-of-friends": { freshness: 2, purpose: 0.35 },
+      random: { freshness: 1 },
+    });
+  });
+
+  it("maps legacy three-source preferences with no network likes weight", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          feeds: {
+            "your-feed": {
+              source_weights: {
+                following: 0.4,
+                authors_topics: 0.3,
+                popular: 0.3,
+              },
+            },
+          },
+        }),
+      ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getPreferences()).resolves.toMatchObject({
+      "your-feed": {
+        sourceWeights: {
+          following: 0.4,
+          networkLikes: 0,
+          authorsTopics: 0.3,
+          popular: 0.3,
+        },
+      },
     });
   });
 
   it("serializes preference updates as snake_case", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ social_radius: 1, freshness: 2, politics: 1, purpose: 0.5 }),
+      jsonResponse({ freshness: 2 }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
-    await service.putPreferences({
-      socialRadius: 1,
-      freshness: 2,
-      politics: 1,
-      purpose: 0.5,
+    await service.patchPreferences("best-of-friends", { freshness: 2 });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/preferences/best-of-friends");
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ freshness: 2 });
+  });
+
+  it("serializes atomic source weights as snake_case", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        source_weights: {
+          following: 0.4,
+          network_likes: 0.2,
+          authors_topics: 0.15,
+          popular: 0.25,
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await service.patchPreferences("your-feed", {
+      sourceWeights: {
+        following: 0.4,
+        networkLikes: 0.2,
+        authorsTopics: 0.15,
+        popular: 0.25,
+      },
     });
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(init.body as string)).toEqual({
-      social_radius: 1,
-      freshness: 2,
-      politics: 1,
-      purpose: 0.5,
+      source_weights: {
+        following: 0.4,
+        network_likes: 0.2,
+        authors_topics: 0.15,
+        popular: 0.25,
+      },
     });
   });
 });

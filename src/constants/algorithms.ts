@@ -30,8 +30,21 @@ export const ALGORITHM_IDS: AlgorithmId[] = ["your-feed", "best-of-friends", "ra
 
 export const ALGORITHM_FEED_NAME_SET = new Set<string>(ALGORITHM_IDS);
 
+const ALGORITHM_FEED_ALIASES: Record<string, AlgorithmId> = {
+  "your-feed": "your-feed",
+  "a0-yf": "your-feed",
+  "best-of-friends": "best-of-friends",
+  "fd-bof": "best-of-friends",
+  random: "random",
+  "67-r": "random",
+};
+
 export function isAlgorithmId(value: string | null | undefined): value is AlgorithmId {
   return value !== null && value !== undefined && ALGORITHM_FEED_NAME_SET.has(value);
+}
+
+export function canonicalAlgorithmId(value: string | null | undefined): AlgorithmId | null {
+  return value ? (ALGORITHM_FEED_ALIASES[value] ?? null) : null;
 }
 
 export function feedAnalyticsProperties(feedName: AlgorithmId): {

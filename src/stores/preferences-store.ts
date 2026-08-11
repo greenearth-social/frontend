@@ -1,95 +1,112 @@
 import { makeAutoObservable } from "mobx";
 import type { RootStore } from "./root-store";
-import type { Preferences } from "../services/types";
-import {
-  feedAnalyticsProperties,
-  type AlgorithmId,
-} from "../constants/algorithms";
-import type {
-  FeedControlEventProperties,
-  FeedControlName,
-} from "../services/analytics/types";
-import {
-  SOCIAL_RADIUS_PRESETS,
-  FRESHNESS_PRESETS,
-} from "../constants/preferences";
+import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
+import { ALGORITHM_IDS, feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
+import type { FeedControlEventProperties, FeedControlName } from "../services/analytics/types";
+import { FRESHNESS_PRESETS } from "../constants/preferences";
 
-const SOCIAL_RADIUS_LABELS = [
-  "Friends",
-  "Very close",
-  "Closer",
-  "Balanced",
-  "Everyone",
-];
+export type SourceWeightChangeOrigin =
+  | "following"
+  | "network_likes"
+  | "authors_topics"
+  | "popular"
+  | "source_mix_master"
+  | "reset_defaults";
 
-function socialRadiusWeights(index: number): {
-  friends: number;
-  everyone: number;
-} {
-  const weights = SOCIAL_RADIUS_PRESETS[index]?.weights ?? [];
-  const weight = (name: string) =>
-    weights.find((generator) => generator.name === name)?.weight ?? 0;
+export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
+  following: 0.3,
+  networkLikes: 0.2,
+  authorsTopics: 0.25,
+  popular: 0.25,
+};
+
+export const DEFAULT_PREFERENCES: Preferences = {
+  sourceWeights: DEFAULT_SOURCE_WEIGHTS,
+  freshness: 5,
+  politics: 1.0,
+  purpose: 0.5,
+};
+
+const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
+  source_weights: "sourceWeights",
+  freshness: "freshness",
+  politics: "politics",
+  purpose: "purpose",
+};
+
+const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
+  sourceWeights: "source_weights",
+  freshness: "freshness",
+  politics: "politics",
+  purpose: "purpose",
+};
+
+const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
+  "your-feed": ["source_weights", "freshness", "purpose"],
+  "best-of-friends": ["freshness", "purpose"],
+  random: ["freshness"],
+};
+
+function clonePreferences(values: Preferences): Preferences {
   return {
-    friends: weight("followed_users"),
-    everyone: weight("two_tower") + weight("popularity"),
+    ...values,
+    sourceWeights: { ...values.sourceWeights },
   };
 }
 
-function controlValue(values: Preferences, control: FeedControlName): number {
-  switch (control) {
-    case "social_radius":
-      return values.socialRadius;
-    case "freshness":
-      return values.freshness;
-    case "politics":
-      return values.politics;
-    case "purpose":
-      return values.purpose;
-  }
+function defaultValuesByFeed(): Record<AlgorithmId, Preferences> {
+  return Object.fromEntries(
+    ALGORITHM_IDS.map((feedName) => [feedName, clonePreferences(DEFAULT_PREFERENCES)]),
+  ) as Record<AlgorithmId, Preferences>;
 }
 
-function controlLabel(control: FeedControlName, value: number): string {
-  switch (control) {
-    case "social_radius":
-      return SOCIAL_RADIUS_LABELS[value] ?? `Preset ${String(value)}`;
-    case "freshness":
-      return FRESHNESS_PRESETS[value]?.label ?? `Preset ${String(value)}`;
-    case "politics":
-      return value.toFixed(2);
-    case "purpose":
-      return `E:${(1 - value).toFixed(2)} C:${value.toFixed(2)}`;
-  }
+function emptyControlsByFeed(): Record<AlgorithmId, FeedControlName[]> {
+  return {
+    "your-feed": [],
+    "best-of-friends": [],
+    random: [],
+  };
 }
 
-function controlEventProperties(
+function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
+  return (
+    a.following === b.following &&
+    a.networkLikes === b.networkLikes &&
+    a.authorsTopics === b.authorsTopics &&
+    a.popular === b.popular
+  );
+}
+
+function controlChanged(
   control: FeedControlName,
+  previous: Preferences,
+  next: Preferences,
+): boolean {
+  if (control === "source_weights") {
+    return !sourceWeightsEqual(previous.sourceWeights, next.sourceWeights);
+  }
+  return previous[CONTROL_PROPERTIES[control]] !== next[CONTROL_PROPERTIES[control]];
+}
+
+function numericEventProperties(
+  control: Exclude<FeedControlName, "source_weights">,
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
-  const previousValue = controlValue(previousValues, control);
-  const newValue = controlValue(newValues, control);
+  const property = CONTROL_PROPERTIES[control] as "freshness" | "politics" | "purpose";
+  const previousValue = previousValues[property];
+  const newValue = newValues[property];
   const base: FeedControlEventProperties = {
     control_name: control,
     previous_value: previousValue,
     new_value: newValue,
-    previous_label: controlLabel(control, previousValue),
-    new_label: controlLabel(control, newValue),
   };
 
-  if (control === "social_radius") {
-    const previous = socialRadiusWeights(previousValue);
-    const next = socialRadiusWeights(newValue);
-    return {
-      ...base,
-      previous_friends_weight: previous.friends,
-      new_friends_weight: next.friends,
-      previous_everyone_weight: previous.everyone,
-      new_everyone_weight: next.everyone,
-    };
-  }
   if (control === "freshness") {
     return {
       ...base,
+      previous_label: FRESHNESS_PRESETS[previousValue]?.label ?? `Preset ${String(previousValue)}`,
+      new_label: FRESHNESS_PRESETS[newValue]?.label ?? `Preset ${String(newValue)}`,
       previous_hours: FRESHNESS_PRESETS[previousValue]?.hours ?? 0,
       new_hours: FRESHNESS_PRESETS[newValue]?.hours ?? 0,
     };
@@ -97,26 +114,52 @@ function controlEventProperties(
   if (control === "purpose") {
     return {
       ...base,
+      previous_label: `E:${(1 - previousValue).toFixed(2)} C:${previousValue.toFixed(2)}`,
+      new_label: `E:${(1 - newValue).toFixed(2)} C:${newValue.toFixed(2)}`,
       previous_engaging_weight: 1 - previousValue,
       new_engaging_weight: 1 - newValue,
       previous_constructive_weight: previousValue,
       new_constructive_weight: newValue,
     };
   }
-  return base;
+  return {
+    ...base,
+    previous_label: previousValue.toFixed(2),
+    new_label: newValue.toFixed(2),
+  };
+}
+
+function controlEventProperties(
+  control: FeedControlName,
+  previousValues: Preferences,
+  newValues: Preferences,
+  origin?: SourceWeightChangeOrigin,
+): FeedControlEventProperties {
+  if (control !== "source_weights") {
+    return numericEventProperties(control, previousValues, newValues);
+  }
+  return {
+    control_name: control,
+    ...(origin ? { change_origin: origin } : {}),
+    previous_following_weight: previousValues.sourceWeights.following,
+    new_following_weight: newValues.sourceWeights.following,
+    previous_network_likes_weight: previousValues.sourceWeights.networkLikes,
+    new_network_likes_weight: newValues.sourceWeights.networkLikes,
+    previous_authors_topics_weight: previousValues.sourceWeights.authorsTopics,
+    new_authors_topics_weight: newValues.sourceWeights.authorsTopics,
+    previous_popular_weight: previousValues.sourceWeights.popular,
+    new_popular_weight: newValues.sourceWeights.popular,
+  };
 }
 
 export class PreferencesStore {
   root: RootStore;
-  values: Preferences = {
-    socialRadius: 3,
-    freshness: 5,
-    politics: 1.0,
-    purpose: 0.5,
-  };
+  valuesByFeed = defaultValuesByFeed();
+  controlsByFeed = emptyControlsByFeed();
   isLoading = false;
   hasLoaded = false;
-  private saveVersion = 0;
+  private saveSequence = 0;
+  private saveVersions: Record<string, number> = {};
   private loadPromise: Promise<void> | null = null;
   private accountGeneration = 0;
   private accountId: string | null = null;
@@ -140,19 +183,34 @@ export class PreferencesStore {
     const generation = this.accountGeneration;
     this.isLoading = true;
     const promise = (async () => {
+      let loadedSuccessfully = false;
       try {
         const loadedValues = await this.root.services.feedApiService.getPreferences();
         if (generation === this.accountGeneration) {
-          this.values = loadedValues;
+          for (const feedName of ALGORITHM_IDS) {
+            const feedValues = loadedValues[feedName] ?? {};
+            this.valuesByFeed[feedName] = {
+              ...clonePreferences(DEFAULT_PREFERENCES),
+              ...feedValues,
+              sourceWeights: {
+                ...DEFAULT_SOURCE_WEIGHTS,
+                ...(feedValues.sourceWeights ?? {}),
+              },
+            };
+            this.controlsByFeed[feedName] = Object.keys(feedValues)
+              .map((property) => PROPERTY_CONTROLS[property as keyof Preferences])
+              .filter((control): control is FeedControlName => control !== undefined);
+          }
+          loadedSuccessfully = true;
         }
-      } catch (e) {
-        console.error("Failed to load preferences:", e);
+      } catch (error) {
+        console.error("Failed to load preferences:", error);
       } finally {
         if (generation === this.accountGeneration) {
           this.isLoading = false;
-          this.hasLoaded = true;
-        }
-        if (generation === this.accountGeneration) {
+          // A failed request must remain retryable the next time Settings is
+          // opened instead of permanently treating fallback defaults as saved.
+          this.hasLoaded = loadedSuccessfully;
           this.loadPromise = null;
         }
       }
@@ -163,68 +221,198 @@ export class PreferencesStore {
 
   reset(): void {
     this.accountGeneration++;
-    this.saveVersion++;
+    this.saveSequence++;
+    this.saveVersions = {};
     this.accountId = null;
-    this.values = {
-      socialRadius: 3,
-      freshness: 5,
-      politics: 1.0,
-      purpose: 0.5,
-    };
+    this.valuesByFeed = defaultValuesByFeed();
+    this.controlsByFeed = emptyControlsByFeed();
     this.isLoading = false;
     this.hasLoaded = false;
     this.loadPromise = null;
   }
 
   async save(
-    values: Preferences,
+    feedName: AlgorithmId,
     control: FeedControlName,
-    feedName: AlgorithmId = "your-feed",
+    value: number | SourceWeights,
+    origin?: SourceWeightChangeOrigin,
   ): Promise<void> {
-    const previousValues = this.values;
-    const version = ++this.saveVersion;
+    const property = CONTROL_PROPERTIES[control];
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const normalizedValue =
+      control === "source_weights" ? { ...(value as SourceWeights) } : (value as number);
+    const optimisticValues = {
+      ...previousValues,
+      [property]: normalizedValue,
+    };
+    const key = `${feedName}:${control}`;
+    const version = ++this.saveSequence;
+    this.saveVersions[key] = version;
     const generation = this.accountGeneration;
-    this.values = values;
+    this.valuesByFeed[feedName] = optimisticValues;
+
     try {
-      const savedValues = await this.root.services.feedApiService.putPreferences(values);
-      if (generation === this.accountGeneration && version === this.saveVersion) {
-        this.values = savedValues;
-        if (controlValue(previousValues, control) !== controlValue(savedValues, control)) {
-          this.root.services.analyticsService.capture(
-            "feedControlChanged",
-            {
-              ...controlEventProperties(control, previousValues, savedValues),
-              ...feedAnalyticsProperties(feedName),
-            },
-          );
+      const patch = { [property]: normalizedValue } as FeedPreferences;
+      const savedValues = await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      if (generation === this.accountGeneration && version === this.saveVersions[key]) {
+        const savedValue = savedValues[property] ?? normalizedValue;
+        const currentValues = this.valuesFor(feedName);
+        const finalValues = {
+          ...currentValues,
+          [property]:
+            control === "source_weights" ? { ...(savedValue as SourceWeights) } : savedValue,
+        };
+        this.valuesByFeed[feedName] = finalValues;
+        if (controlChanged(control, previousValues, finalValues)) {
+          this.root.services.analyticsService.capture("feedControlChanged", {
+            ...controlEventProperties(control, previousValues, finalValues, origin),
+            ...feedAnalyticsProperties(feedName),
+          });
         }
       }
-    } catch (e) {
-      if (generation === this.accountGeneration && version === this.saveVersion) {
-        this.values = previousValues;
+    } catch (error) {
+      if (generation === this.accountGeneration && version === this.saveVersions[key]) {
+        const currentValues = clonePreferences(this.valuesFor(feedName));
+        const previousValue = previousValues[property];
+        this.valuesByFeed[feedName] = {
+          ...currentValues,
+          [property]:
+            control === "source_weights" ? { ...(previousValue as SourceWeights) } : previousValue,
+        };
         this.root.services.analyticsService.capture("feedControlChangeFailed", {
-          ...controlEventProperties(control, previousValues, values),
+          ...controlEventProperties(control, previousValues, optimisticValues, origin),
           ...feedAnalyticsProperties(feedName),
           error_category: "preferences_request_failed",
         });
       }
-      console.error("Failed to save preferences:", e);
+      console.error("Failed to save preferences:", error);
     }
   }
 
+  async restoreDefaults(feedName: AlgorithmId): Promise<boolean> {
+    // Reset what the Settings page exposes, even if an older or partial load
+    // did not populate the control metadata. This keeps Candidate Sources in
+    // the same atomic reset as freshness and ranking.
+    const controls = RESETTABLE_CONTROLS_BY_FEED[feedName];
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const changedControls = controls.filter((control) =>
+      controlChanged(control, previousValues, DEFAULT_PREFERENCES),
+    );
+    if (changedControls.length === 0) return true;
+
+    const optimisticValues = clonePreferences(previousValues);
+    const patch: FeedPreferences = {};
+    const version = ++this.saveSequence;
+    const generation = this.accountGeneration;
+
+    for (const control of changedControls) {
+      const property = CONTROL_PROPERTIES[control];
+      const defaultValue = DEFAULT_PREFERENCES[property];
+      const normalizedDefault =
+        control === "source_weights"
+          ? { ...(defaultValue as SourceWeights) }
+          : (defaultValue as number);
+      Object.assign(optimisticValues, { [property]: normalizedDefault });
+      Object.assign(patch, { [property]: normalizedDefault });
+      this.saveVersions[`${feedName}:${control}`] = version;
+    }
+    this.valuesByFeed[feedName] = optimisticValues;
+
+    try {
+      await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      if (generation !== this.accountGeneration) return false;
+
+      const finalValues = clonePreferences(this.valuesFor(feedName));
+      for (const control of changedControls) {
+        const key = `${feedName}:${control}`;
+        if (this.saveVersions[key] !== version) continue;
+        const property = CONTROL_PROPERTIES[control];
+        const defaultValue = DEFAULT_PREFERENCES[property];
+        Object.assign(finalValues, {
+          [property]:
+            control === "source_weights" ? { ...(defaultValue as SourceWeights) } : defaultValue,
+        });
+        this.root.services.analyticsService.capture("feedControlChanged", {
+          ...controlEventProperties(control, previousValues, finalValues, "reset_defaults"),
+          ...feedAnalyticsProperties(feedName),
+        });
+      }
+      this.valuesByFeed[feedName] = finalValues;
+      return true;
+    } catch (error) {
+      if (generation === this.accountGeneration) {
+        const rolledBackValues = clonePreferences(this.valuesFor(feedName));
+        for (const control of changedControls) {
+          const key = `${feedName}:${control}`;
+          if (this.saveVersions[key] !== version) continue;
+          const property = CONTROL_PROPERTIES[control];
+          const previousValue = previousValues[property];
+          Object.assign(rolledBackValues, {
+            [property]:
+              control === "source_weights"
+                ? { ...(previousValue as SourceWeights) }
+                : previousValue,
+          });
+          this.root.services.analyticsService.capture("feedControlChangeFailed", {
+            ...controlEventProperties(control, previousValues, optimisticValues, "reset_defaults"),
+            ...feedAnalyticsProperties(feedName),
+            error_category: "preferences_request_failed",
+          });
+        }
+        this.valuesByFeed[feedName] = rolledBackValues;
+      }
+      console.error("Failed to restore default preferences:", error);
+      return false;
+    }
+  }
+
+  valuesFor(feedName: AlgorithmId): Preferences {
+    return this.valuesByFeed[feedName];
+  }
+
+  supportsControl(feedName: AlgorithmId, control: FeedControlName): boolean {
+    return this.controlsByFeed[feedName].includes(control);
+  }
+
+  get values(): Preferences {
+    return this.valuesFor("your-feed");
+  }
+
+  socialRadiusWeightsFor(feedName: AlgorithmId) {
+    const weights = this.valuesFor(feedName).sourceWeights;
+    return [
+      { name: "followed_users", weight: weights.following },
+      { name: "network_likes", weight: weights.networkLikes },
+      { name: "two_tower", weight: weights.authorsTopics },
+      { name: "popularity", weight: weights.popular },
+    ];
+  }
+
   get socialRadiusWeights() {
-    return SOCIAL_RADIUS_PRESETS[this.values.socialRadius]?.weights ?? [];
+    return this.socialRadiusWeightsFor("your-feed");
+  }
+
+  freshnessLabelFor(feedName: AlgorithmId) {
+    return FRESHNESS_PRESETS[this.valuesFor(feedName).freshness]?.label ?? "7d";
   }
 
   get freshnessLabel() {
-    return FRESHNESS_PRESETS[this.values.freshness]?.label ?? "7d";
+    return this.freshnessLabelFor("your-feed");
+  }
+
+  engagingWeightFor(feedName: AlgorithmId) {
+    return 1 - this.valuesFor(feedName).purpose;
   }
 
   get engagingWeight() {
-    return 1 - this.values.purpose;
+    return this.engagingWeightFor("your-feed");
+  }
+
+  constructiveWeightFor(feedName: AlgorithmId) {
+    return this.valuesFor(feedName).purpose;
   }
 
   get constructiveWeight() {
-    return this.values.purpose;
+    return this.constructiveWeightFor("your-feed");
   }
 }

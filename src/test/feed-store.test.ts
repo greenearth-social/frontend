@@ -76,10 +76,108 @@ describe("FeedStore.loadFeedList", () => {
     expect(store.feedListLoadState).toBe("idle");
     expect(store.isLoading).toBe(false);
   });
+
+  it("quietly loads detail only when Bluesky creates a new snapshot", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({
+      feeds: [
+        {
+          requestId: "new-request",
+          generatedAt: "2026-08-10T12:00:00Z",
+          feedName: "random",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "random",
+    });
+    const api = (store as unknown as {
+      root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+    }).root.services.feedApiService;
+
+    expect(await store.refreshFeedIfNew("random", "old-request")).toBe(true);
+    expect(api.getFeedDetail).toHaveBeenCalledWith("new-request");
+    expect(store.isLoading).toBe(false);
+    api.getFeedDetail.mockClear();
+
+    expect(await store.refreshFeedIfNew("random", "new-request")).toBe(false);
+    expect(api.getFeedDetail).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
+    let resolveDetail: ((value: {
+      requestId: string;
+      generatedAt: string;
+      items: [];
+      filteringCounts: {
+        storedItemCount: number;
+        displayedItemCount: number;
+        publiclyFilteredCount: number;
+        unavailableCount: number;
+      };
+    }) => void) | undefined;
+    const detailRequest = new Promise<{
+      requestId: string;
+      generatedAt: string;
+      items: [];
+      filteringCounts: {
+        storedItemCount: number;
+        displayedItemCount: number;
+        publiclyFilteredCount: number;
+        unavailableCount: number;
+      };
+    }>((resolve) => {
+      resolveDetail = resolve;
+    });
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "new-request",
+            generatedAt: "2026-08-10T12:00:00Z",
+            feedName: "random",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm: vi.fn(), selectedAlgorithm: "random" },
+    );
+    const api = (store as unknown as {
+      root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+    }).root.services.feedApiService;
+    api.getFeedDetail.mockReturnValue(detailRequest);
+    store.currentRequestId = "old-request";
+
+    const refresh = store.refreshFeedIfNew("random", "old-request");
+    await vi.waitFor(() => {
+      expect(api.getFeedDetail).toHaveBeenCalledWith("new-request");
+    });
+    expect(store.isLoading).toBe(false);
+    expect(store.currentRequestId).toBe("old-request");
+
+    resolveDetail?.({
+      requestId: "new-request",
+      generatedAt: "2026-08-10T12:00:00Z",
+      items: [],
+      filteringCounts: {
+        storedItemCount: 0,
+        displayedItemCount: 0,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+    });
+    expect(await refresh).toBe(true);
+    expect(store.currentRequestId).toBe("new-request");
+  });
 });
 
 describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
-  it("sets selectedAlgorithm and loads the most recent public feed on first load", async () => {
+  it("defaults to GreenEarth even when another feed has the only activity", async () => {
     const getFeedDetail = vi.fn().mockResolvedValue({
       requestId: "r1",
       generatedAt: "2026-07-28T12:00:00Z",
@@ -107,20 +205,89 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
-    expect(getFeedDetail).toHaveBeenCalledWith("r1");
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(getFeedDetail).not.toHaveBeenCalled();
   });
 
-  it("does not call setSelectedAlgorithm when feed list is empty", async () => {
+  it("force-refreshes the newest snapshot for the requested feed", async () => {
+    const setSelectedAlgorithm = vi.fn();
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "friends-new",
+            generatedAt: "2026-08-07T12:00:00Z",
+            feedName: "best-of-friends",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+          {
+            requestId: "random-new",
+            generatedAt: "2026-08-07T11:00:00Z",
+            feedName: "random",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm, selectedAlgorithm: "random" },
+    );
+
+    await store.loadFeedList({ feedName: "random", force: true });
+
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).toHaveBeenCalledWith("random-new");
+    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+  });
+
+  it("does not populate a refreshed feed after navigation changes", async () => {
+    let resolveList: ((response: FeedListResponse) => void) | undefined;
+    const listRequest = new Promise<FeedListResponse>((resolve) => {
+      resolveList = resolve;
+    });
+    const uiStore = { setSelectedAlgorithm: vi.fn(), selectedAlgorithm: "random" };
+    const store = makeStore(vi.fn().mockReturnValue(listRequest), uiStore);
+
+    const refresh = store.loadFeedList({ feedName: "random", force: true });
+    uiStore.selectedAlgorithm = "best-of-friends";
+    resolveList?.({
+      feeds: [
+        {
+          requestId: "random-new",
+          generatedAt: "2026-08-07T11:00:00Z",
+          feedName: "random",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    await refresh;
+
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).not.toHaveBeenCalled();
+    expect(store.feedList).toHaveLength(1);
+  });
+
+  it("selects GreenEarth when the feed list is empty", async () => {
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(vi.fn().mockResolvedValue({ feeds: [] }), { setSelectedAlgorithm, selectedAlgorithm: null });
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).not.toHaveBeenCalled();
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(store.currentRequestId).toBeNull();
   });
 
-  it("sets selectedAlgorithm from the most-recent snapshot on first load", async () => {
+  it("loads GreenEarth rather than the newest snapshot from another feed", async () => {
     const setSelectedAlgorithm = vi.fn();
     const store = makeStore(
       vi.fn().mockResolvedValue({
@@ -148,7 +315,12 @@ describe("FeedStore.loadFeedList – selectedAlgorithm", () => {
 
     await store.loadFeedList();
 
-    expect(setSelectedAlgorithm).toHaveBeenCalledWith("best-of-friends");
+    expect(setSelectedAlgorithm).toHaveBeenCalledWith("your-feed");
+    expect(
+      (store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }).root.services.feedApiService.getFeedDetail,
+    ).toHaveBeenCalledWith("r2");
   });
 
   it("does not change selectedAlgorithm when already set", async () => {

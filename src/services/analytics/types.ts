@@ -1,7 +1,7 @@
 import type { AlgorithmId } from "../../constants/algorithms";
 
 export type FeedControlName =
-  | "social_radius"
+  | "source_weights"
   | "freshness"
   | "politics"
   | "purpose";
@@ -29,6 +29,7 @@ export interface AnalyticsEventProperties {
   controlHelpOpened: FeedAnalyticsProperties & {
     control_name: FeedControlName;
   };
+  settingsViewed: FeedAnalyticsProperties;
   howItWorksViewed: FeedAnalyticsProperties;
   howItWorksComponentClicked: FeedAnalyticsProperties & {
     component_id: string;
@@ -50,14 +51,25 @@ export interface FeedAnalyticsProperties {
 
 export interface FeedControlEventProperties {
   control_name: FeedControlName;
-  previous_value: number;
-  new_value: number;
-  previous_label: string;
-  new_label: string;
-  previous_friends_weight?: number;
-  new_friends_weight?: number;
-  previous_everyone_weight?: number;
-  new_everyone_weight?: number;
+  change_origin?:
+    | "following"
+    | "network_likes"
+    | "authors_topics"
+    | "popular"
+    | "source_mix_master"
+    | "reset_defaults";
+  previous_value?: number;
+  new_value?: number;
+  previous_label?: string;
+  new_label?: string;
+  previous_following_weight?: number;
+  new_following_weight?: number;
+  previous_network_likes_weight?: number;
+  new_network_likes_weight?: number;
+  previous_authors_topics_weight?: number;
+  new_authors_topics_weight?: number;
+  previous_popular_weight?: number;
+  new_popular_weight?: number;
   previous_hours?: number;
   new_hours?: number;
   previous_engaging_weight?: number;
