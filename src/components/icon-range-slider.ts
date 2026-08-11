@@ -116,6 +116,8 @@ export class IconRangeSlider extends LitElement {
       margin: 0;
       opacity: 0;
       cursor: pointer;
+      touch-action: pan-y;
+      -webkit-tap-highlight-color: transparent;
     }
 
     input[type="range"]:focus-visible + .icon-thumb {
@@ -206,6 +208,7 @@ export class IconRangeSlider extends LitElement {
       height: calc(100% + var(--icon-thumb-size));
       writing-mode: vertical-lr;
       direction: ltr;
+      touch-action: pan-x;
     }
 
     .vertical .icon-thumb {

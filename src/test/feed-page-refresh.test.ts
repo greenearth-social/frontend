@@ -7,7 +7,11 @@ const testState = vi.hoisted(() => ({
     accountStore: { activeAccount: { did: "did:plc:test" } },
     feedStore: {
       isLoading: false,
-      feedList: [],
+      feedList: [] as Array<{
+        requestId: string;
+        generatedAt: string;
+        feedName: "your-feed" | "best-of-friends" | "random";
+      }>,
       currentRequestId: null,
       filteringCountsByRequest: {},
       error: null,
@@ -17,6 +21,7 @@ const testState = vi.hoisted(() => ({
       totalCount: 0,
       postsPerPage: 10,
       loadFeedList: vi.fn(),
+      refreshFeedIfNew: vi.fn(),
       loadFeedDetail: vi.fn(),
       goToPage: vi.fn(),
       setPostsPerPage: vi.fn(),
@@ -64,8 +69,10 @@ describe("FeedPage pull to refresh", () => {
     document.body.replaceChildren();
     vi.stubGlobal("innerWidth", 375);
     testState.rootStore.feedStore.isLoading = false;
+    testState.rootStore.feedStore.feedList = [];
     testState.rootStore.uiStore.selectedAlgorithm = "random";
     testState.rootStore.feedStore.loadFeedList.mockReset();
+    testState.rootStore.feedStore.refreshFeedIfNew.mockReset();
   });
 
   afterEach(() => {
@@ -110,4 +117,64 @@ describe("FeedPage pull to refresh", () => {
       ).toBe("0px");
     });
   });
+
+  it("loads a new snapshot when the user returns from opening the feed in Bluesky", async () => {
+    vi.useFakeTimers();
+    testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(true);
+    const scrollContainer = document.createElement("main");
+    const element = document.createElement("feed-page");
+    scrollContainer.appendChild(element);
+    document.body.appendChild(scrollContainer);
+    await element.updateComplete;
+
+    const feedView = element.shadowRoot?.querySelector("feed-view");
+    feedView?.dispatchEvent(
+      new CustomEvent("bluesky-feed-opened", { bubbles: true, composed: true }),
+    );
+    window.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+      "random",
+      null,
+    );
+    vi.useRealTimers();
+  });
+
+  it.each([
+    { label: "no previous snapshots", feeds: [], baselineRequestId: null },
+    {
+      label: "an existing snapshot",
+      feeds: [
+        {
+          requestId: "random-old",
+          generatedAt: "2026-08-10T20:00:00Z",
+          feedName: "random" as const,
+        },
+      ],
+      baselineRequestId: "random-old",
+    },
+  ])(
+    "checks for new posts after returning to the frontend with $label",
+    async ({ feeds, baselineRequestId }) => {
+      vi.useFakeTimers();
+      testState.rootStore.feedStore.feedList = feeds;
+      testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(true);
+      const scrollContainer = document.createElement("main");
+      const element = document.createElement("feed-page");
+      scrollContainer.appendChild(element);
+      document.body.appendChild(scrollContainer);
+      await element.updateComplete;
+
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+        "random",
+        baselineRequestId,
+      );
+      vi.useRealTimers();
+    },
+  );
 });

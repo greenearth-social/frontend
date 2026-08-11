@@ -32,7 +32,7 @@ import {
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
-  @state() private isLoading = true;
+  @state() private isLoading = false;
   @state() private selectedNode: string | null = null;
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
@@ -47,6 +47,12 @@ export class SettingsPage extends MobxLitElement {
 
   static styles = settingsPageStyles;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    const root = getRootStore();
+    this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
+  }
+
   disconnectedCallback(): void {
     if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
     super.disconnectedCallback();
@@ -58,6 +64,11 @@ export class SettingsPage extends MobxLitElement {
       this.isLoading = false;
       return;
     }
+    if (root.preferencesStore.hasLoaded) {
+      this.isLoading = false;
+      return;
+    }
+    this.isLoading = true;
     void root.preferencesStore.load().finally(() => {
       this.isLoading = false;
     });
@@ -132,45 +143,53 @@ export class SettingsPage extends MobxLitElement {
       </div>
 
       <div class="page-content">
-        ${
-          this.showRefreshPopup
-            ? html`<div class="refresh-popup" role="status" aria-live="polite">
-                ${this.refreshPopupMessage}
-              </div>`
-            : ""
-        }
-        <div class="diagram-wrapper">
-          ${this.#renderCandidateSection(weights, freshness)}
-          ${
-            this.selectedAlgorithm === "random"
-              ? ""
-              : html`
-                  ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
-                  ${this.#renderArrow()} ${this.#renderDiversificationSection()}
-                `
-          }
-        </div>
+        ${this.isLoading
+          ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
+              Loading your saved settings…
+            </div>`
+          : html`
+              ${
+                this.showRefreshPopup
+                  ? html`<div class="refresh-popup" role="status" aria-live="polite">
+                      ${this.refreshPopupMessage}
+                    </div>`
+                  : ""
+              }
+              <div class="diagram-wrapper">
+                ${this.#renderCandidateSection(weights, freshness)}
+                ${
+                  this.selectedAlgorithm === "random"
+                    ? ""
+                    : html`
+                        ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
+                        ${this.#renderArrow()} ${this.#renderDiversificationSection()}
+                      `
+                }
+              </div>
 
-        ${this.#renderPolitics()}
+              ${this.#renderPolitics()}
 
-        <feedback-form
-          surface="controls"
-          .selectedFeed=${this.selectedAlgorithm}
-          prompt="Want to change something or learn more? Tell us!"
-          placeholder="Share your settings feedback or questions"
-        ></feedback-form>
+              <feedback-form
+                surface="controls"
+                .selectedFeed=${this.selectedAlgorithm}
+                prompt="Want to change something or learn more? Tell us!"
+                placeholder="Share your settings feedback or questions"
+              ></feedback-form>
+            `}
       </div>
 
-      ${renderSettingsDetailDialog({
-        nodeId: this.selectedNode,
-        weights,
-        purpose,
-        freshness,
-        selectedAlgorithm: this.selectedAlgorithm,
-        onClose: () => {
-          this.selectedNode = null;
-        },
-      })}
+      ${this.isLoading
+        ? ""
+        : renderSettingsDetailDialog({
+            nodeId: this.selectedNode,
+            weights,
+            purpose,
+            freshness,
+            selectedAlgorithm: this.selectedAlgorithm,
+            onClose: () => {
+              this.selectedNode = null;
+            },
+          })}
     `;
   }
 

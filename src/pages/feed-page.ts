@@ -14,6 +14,9 @@ import type { FeedTabs } from "../components/feed-tabs";
 
 const PULL_REFRESH_THRESHOLD = 56;
 const PULL_REFRESH_MAX_DISTANCE = 88;
+const BLUESKY_REFRESH_INITIAL_DELAY_MS = 1_000;
+const BLUESKY_REFRESH_POLL_INTERVAL_MS = 2_500;
+const BLUESKY_REFRESH_TIMEOUT_MS = 45_000;
 
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
@@ -27,6 +30,13 @@ export class FeedPage extends MobxLitElement {
   @state() private _pullTracking = false;
   @state() private _pullRefreshing = false;
   private _pullStart: { x: number; y: number } | null = null;
+  private _blueskyRefreshSession: {
+    feedName: AlgorithmId;
+    baselineRequestId: string | null;
+    expiresAt: number | null;
+  } | null = null;
+  private _blueskyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private _blueskyRefreshInFlight = false;
 
   static styles = css`
     :host {
@@ -150,12 +160,27 @@ export class FeedPage extends MobxLitElement {
     }
   `;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("blur", this.#handleFrontendLeft);
+    window.addEventListener("focus", this.#resumeBlueskyRefresh);
+    window.addEventListener("pagehide", this.#handleFrontendLeft);
+    window.addEventListener("pageshow", this.#resumeBlueskyRefresh);
+    document.addEventListener("visibilitychange", this.#handleVisibilityChange);
+  }
+
   disconnectedCallback(): void {
-    super.disconnectedCallback();
+    window.removeEventListener("blur", this.#handleFrontendLeft);
+    window.removeEventListener("focus", this.#resumeBlueskyRefresh);
+    window.removeEventListener("pagehide", this.#handleFrontendLeft);
+    window.removeEventListener("pageshow", this.#resumeBlueskyRefresh);
+    document.removeEventListener("visibilitychange", this.#handleVisibilityChange);
+    this.#cancelBlueskyRefresh();
     if (this._loadTimer) {
       clearTimeout(this._loadTimer);
       this._loadTimer = null;
     }
+    super.disconnectedCallback();
   }
 
   updated(changedProperties: Map<string, unknown>) {
@@ -513,6 +538,7 @@ export class FeedPage extends MobxLitElement {
                     .constructiveInfluence=${selectedPreferences.purpose}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
+                    @bluesky-feed-opened=${this.#handleBlueskyFeedOpened}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}
@@ -608,6 +634,99 @@ export class FeedPage extends MobxLitElement {
       this._pullRefreshing = false;
       this._pullDistance = 0;
     }
+  }
+
+  #handleBlueskyFeedOpened = (): void => {
+    this.#armBlueskyRefresh(true);
+  };
+
+  #handleFrontendLeft = (): void => {
+    this.#armBlueskyRefresh(false);
+  };
+
+  #handleVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") {
+      this.#handleFrontendLeft();
+    } else {
+      this.#resumeBlueskyRefresh();
+    }
+  };
+
+  #armBlueskyRefresh(startImmediately: boolean): void {
+    const store = getRootStore();
+    if (!store) return;
+    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
+    if (this._blueskyRefreshSession?.feedName === feedName) {
+      if (startImmediately) {
+        this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
+        this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
+      }
+      return;
+    }
+    const latest = store.feedStore.feedList
+      .filter((feed) => feed.feedName === feedName)
+      .reduce<(typeof store.feedStore.feedList)[number] | undefined>(
+        (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
+        undefined,
+      );
+
+    this.#cancelBlueskyRefresh();
+    this._blueskyRefreshSession = {
+      feedName,
+      baselineRequestId: latest?.requestId ?? null,
+      expiresAt: startImmediately ? Date.now() + BLUESKY_REFRESH_TIMEOUT_MS : null,
+    };
+    if (startImmediately) this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
+  }
+
+  #resumeBlueskyRefresh = (): void => {
+    if (document.visibilityState === "hidden" || !this._blueskyRefreshSession) return;
+    // Give every actual return from Bluesky a complete polling window, even
+    // when the user spent several minutes away from the frontend.
+    this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
+    this.#scheduleBlueskyRefresh(0);
+  };
+
+  #scheduleBlueskyRefresh(delay: number): void {
+    if (!this._blueskyRefreshSession || this._blueskyRefreshInFlight) return;
+    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
+    this._blueskyRefreshTimer = setTimeout(() => {
+      this._blueskyRefreshTimer = null;
+      void this.#pollForBlueskySnapshot();
+    }, delay);
+  }
+
+  async #pollForBlueskySnapshot(): Promise<void> {
+    const session = this._blueskyRefreshSession;
+    const store = getRootStore();
+    if (!session || !store || this._blueskyRefreshInFlight) return;
+    if (
+      session.expiresAt === null
+      || Date.now() >= session.expiresAt
+      || store.uiStore.selectedAlgorithm !== session.feedName
+    ) {
+      this.#cancelBlueskyRefresh();
+      return;
+    }
+
+    this._blueskyRefreshInFlight = true;
+    const found = await store.feedStore.refreshFeedIfNew(
+      session.feedName,
+      session.baselineRequestId,
+    );
+    this._blueskyRefreshInFlight = false;
+    if (this._blueskyRefreshSession !== session) return;
+    if (found) {
+      this.#cancelBlueskyRefresh();
+      return;
+    }
+    this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_POLL_INTERVAL_MS);
+  }
+
+  #cancelBlueskyRefresh(): void {
+    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
+    this._blueskyRefreshTimer = null;
+    this._blueskyRefreshSession = null;
   }
 
   async #signIn(event: SubmitEvent): Promise<void> {

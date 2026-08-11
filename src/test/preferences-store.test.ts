@@ -92,6 +92,27 @@ describe("PreferencesStore.load", () => {
 
     expect(store.valuesFor("random").freshness).toBe(4);
   });
+
+  it("retries preference loading after a failed request", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const getPreferences = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(loaded);
+    const root = {
+      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+    } as unknown as RootStore;
+    const store = new PreferencesStore(root);
+
+    await store.load();
+    expect(store.hasLoaded).toBe(false);
+    await store.load();
+
+    expect(getPreferences).toHaveBeenCalledTimes(2);
+    expect(store.hasLoaded).toBe(true);
+    expect(store.valuesFor("best-of-friends").purpose).toBe(0.65);
+    consoleError.mockRestore();
+  });
 });
 
 describe("PreferencesStore.save", () => {

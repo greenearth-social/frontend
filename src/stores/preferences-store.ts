@@ -183,6 +183,7 @@ export class PreferencesStore {
     const generation = this.accountGeneration;
     this.isLoading = true;
     const promise = (async () => {
+      let loadedSuccessfully = false;
       try {
         const loadedValues = await this.root.services.feedApiService.getPreferences();
         if (generation === this.accountGeneration) {
@@ -200,13 +201,16 @@ export class PreferencesStore {
               .map((property) => PROPERTY_CONTROLS[property as keyof Preferences])
               .filter((control): control is FeedControlName => control !== undefined);
           }
+          loadedSuccessfully = true;
         }
       } catch (error) {
         console.error("Failed to load preferences:", error);
       } finally {
         if (generation === this.accountGeneration) {
           this.isLoading = false;
-          this.hasLoaded = true;
+          // A failed request must remain retryable the next time Settings is
+          // opened instead of permanently treating fallback defaults as saved.
+          this.hasLoaded = loadedSuccessfully;
           this.loadPromise = null;
         }
       }

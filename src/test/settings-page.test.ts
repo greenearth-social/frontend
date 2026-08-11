@@ -18,6 +18,7 @@ const testState = vi.hoisted(() => {
     capture: vi.fn(),
     rootStore: {
       preferencesStore: {
+        hasLoaded: true,
         valuesFor: vi.fn(() => values),
         load: vi.fn().mockResolvedValue(undefined),
         save: vi.fn(),
@@ -58,6 +59,9 @@ describe("SettingsPage", () => {
     testState.rootStore.preferencesStore.save.mockResolvedValue(undefined);
     testState.rootStore.preferencesStore.restoreDefaults.mockReset();
     testState.rootStore.preferencesStore.restoreDefaults.mockResolvedValue(true);
+    testState.rootStore.preferencesStore.load.mockReset();
+    testState.rootStore.preferencesStore.load.mockResolvedValue(undefined);
+    testState.rootStore.preferencesStore.hasLoaded = true;
     testState.rootStore.services.analyticsService.capture.mockReset();
   });
 
@@ -130,6 +134,44 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".reset-label-short")?.textContent).toBe(
       "Defaults",
     );
+  });
+
+  it("waits for saved preferences instead of briefly showing fallback defaults", async () => {
+    let finishLoad: (() => void) | undefined;
+    testState.rootStore.preferencesStore.hasLoaded = false;
+    testState.rootStore.preferencesStore.load.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finishLoad = resolve;
+      }),
+    );
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".saved-settings-loading")?.textContent).toContain(
+      "Loading your saved settings",
+    );
+    expect(element.shadowRoot?.querySelector("icon-range-slider")).toBeNull();
+
+    testState.values.sourceWeights = {
+      following: 0.55,
+      networkLikes: 0.15,
+      authorsTopics: 0.2,
+      popular: 0.1,
+    };
+    testState.values.freshness = 2;
+    testState.values.purpose = 0.65;
+    testState.rootStore.preferencesStore.hasLoaded = true;
+    finishLoad?.();
+    await Promise.resolve();
+    await element.updateComplete;
+
+    const sliders = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    );
+    expect(sliders.find((slider) => slider.ariaLabel === "Following amount")?.value).toBe(0.55);
+    expect(sliders.find((slider) => slider.ariaLabel === "Time Window")?.value).toBe(2);
+    expect(sliders.find((slider) => slider.ariaLabel === "Constructive weight")?.value).toBe(0.65);
   });
 
   it("resets the selected feed and shows the refresh notice", async () => {

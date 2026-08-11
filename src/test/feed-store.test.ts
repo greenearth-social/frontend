@@ -76,6 +76,104 @@ describe("FeedStore.loadFeedList", () => {
     expect(store.feedListLoadState).toBe("idle");
     expect(store.isLoading).toBe(false);
   });
+
+  it("quietly loads detail only when Bluesky creates a new snapshot", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({
+      feeds: [
+        {
+          requestId: "new-request",
+          generatedAt: "2026-08-10T12:00:00Z",
+          feedName: "random",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "random",
+    });
+    const api = (store as unknown as {
+      root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+    }).root.services.feedApiService;
+
+    expect(await store.refreshFeedIfNew("random", "old-request")).toBe(true);
+    expect(api.getFeedDetail).toHaveBeenCalledWith("new-request");
+    expect(store.isLoading).toBe(false);
+    api.getFeedDetail.mockClear();
+
+    expect(await store.refreshFeedIfNew("random", "new-request")).toBe(false);
+    expect(api.getFeedDetail).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
+    let resolveDetail: ((value: {
+      requestId: string;
+      generatedAt: string;
+      items: [];
+      filteringCounts: {
+        storedItemCount: number;
+        displayedItemCount: number;
+        publiclyFilteredCount: number;
+        unavailableCount: number;
+      };
+    }) => void) | undefined;
+    const detailRequest = new Promise<{
+      requestId: string;
+      generatedAt: string;
+      items: [];
+      filteringCounts: {
+        storedItemCount: number;
+        displayedItemCount: number;
+        publiclyFilteredCount: number;
+        unavailableCount: number;
+      };
+    }>((resolve) => {
+      resolveDetail = resolve;
+    });
+    const store = makeStore(
+      vi.fn().mockResolvedValue({
+        feeds: [
+          {
+            requestId: "new-request",
+            generatedAt: "2026-08-10T12:00:00Z",
+            feedName: "random",
+            apiReleaseSha: null,
+            appliedSocialRadius: null,
+            generatorDiagnostics: [],
+          },
+        ],
+      }),
+      { setSelectedAlgorithm: vi.fn(), selectedAlgorithm: "random" },
+    );
+    const api = (store as unknown as {
+      root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+    }).root.services.feedApiService;
+    api.getFeedDetail.mockReturnValue(detailRequest);
+    store.currentRequestId = "old-request";
+
+    const refresh = store.refreshFeedIfNew("random", "old-request");
+    await vi.waitFor(() => {
+      expect(api.getFeedDetail).toHaveBeenCalledWith("new-request");
+    });
+    expect(store.isLoading).toBe(false);
+    expect(store.currentRequestId).toBe("old-request");
+
+    resolveDetail?.({
+      requestId: "new-request",
+      generatedAt: "2026-08-10T12:00:00Z",
+      items: [],
+      filteringCounts: {
+        storedItemCount: 0,
+        displayedItemCount: 0,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+    });
+    expect(await refresh).toBe(true);
+    expect(store.currentRequestId).toBe("new-request");
+  });
 });
 
 describe("FeedStore.loadFeedList – selectedAlgorithm", () => {

@@ -191,10 +191,57 @@ export class FeedStore {
     }
   }
 
-  async loadFeedDetail(requestId: string): Promise<void> {
+  /**
+   * Quietly check for a snapshot created after the user opened a feed in
+   * Bluesky. Existing content stays in place unless a new request is found.
+   */
+  async refreshFeedIfNew(
+    feedName: AlgorithmId,
+    baselineRequestId: string | null,
+  ): Promise<boolean> {
+    // Do not supersede an intentional route, tab, or pull-to-refresh load.
+    // The next background poll will retry after that visible load completes.
+    if (this.isLoading) return false;
+    const seq = ++this._feedListLoadSeq;
+
+    try {
+      const response = await this.root.services.feedApiService.listFeeds();
+      if (seq !== this._feedListLoadSeq) return false;
+
+      this.feedList = response.feeds ?? [];
+      this.feedListLoadState = "loaded";
+      const latest = this.feedList
+        .filter((feed) => feed.feedName === feedName)
+        .reduce<FeedSummary | undefined>(
+          (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
+          undefined,
+        );
+
+      if (
+        !latest
+        || latest.requestId === baselineRequestId
+        || this.root.uiStore.selectedAlgorithm !== feedName
+      ) {
+        return false;
+      }
+
+      await this.loadFeedDetail(latest.requestId, { background: true });
+      return this.currentRequestId === latest.requestId;
+    } catch (error) {
+      // This is a background convenience refresh. Keep the current snapshot
+      // visible and let the next scheduled check retry quietly.
+      console.error("FeedStore.refreshFeedIfNew error:", error);
+      return false;
+    }
+  }
+
+  async loadFeedDetail(requestId: string, options?: { background?: boolean }): Promise<void> {
+    const background = options?.background ?? false;
     const seq = ++this._loadSeq;
-    this.isLoading = true;
-    this.error = null;
+    if (!background) {
+      this.isLoading = true;
+      this.error = null;
+    }
 
     try {
       const response = await this.root.services.feedApiService.getFeedDetail(requestId);
@@ -211,13 +258,14 @@ export class FeedStore {
       if (seq !== this._loadSeq) return;
 
       console.error("FeedStore.loadFeedDetail error:", e);
+      if (background) return;
       this.error = e instanceof Error ? e.message : "Failed to load feed";
       this._allItems = [];
       this.currentApiReleaseSha = null;
       this._currentPage = 1;
       this._updateVisibleItems();
     } finally {
-      if (seq === this._loadSeq) {
+      if (!background && seq === this._loadSeq) {
         this.isLoading = false;
       }
     }

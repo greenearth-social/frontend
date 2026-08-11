@@ -172,12 +172,30 @@ export const settingsPageStyles = css`
       filter 150ms ease;
   }
 
-  .control-card:hover,
   .control-card:focus-within {
     z-index: 1;
-    filter: brightness(1.06);
-    transform: translateY(-2px);
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .control-card:hover {
+      z-index: 1;
+      filter: brightness(1.06);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .saved-settings-loading {
+    display: grid;
+    place-items: center;
+    width: min(560px, 100%);
+    min-height: 15rem;
+    box-sizing: border-box;
+    color: var(--bluesky-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
   }
 
   .config-card {

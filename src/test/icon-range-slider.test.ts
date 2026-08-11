@@ -10,6 +10,8 @@ describe("IconRangeSlider", () => {
     expect(styles).toContain("var(--icon-track-color)");
     expect(styles).toContain("var(--icon-fill-color)");
     expect(styles).toContain("var(--icon-tick-color)");
+    expect(styles).toContain("touch-action: pan-y");
+    expect(styles).toContain("touch-action: pan-x");
   });
 
   it("divides continuous controls into five icon buckets and includes the maximum", () => {
