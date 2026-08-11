@@ -12,6 +12,7 @@ describe("IconRangeSlider", () => {
     expect(styles).toContain("var(--icon-tick-color)");
     expect(styles).toContain("touch-action: pan-y");
     expect(styles).toContain("touch-action: pan-x");
+    expect(styles).not.toContain("transition: left");
   });
 
   it("divides continuous controls into five icon buckets and includes the maximum", () => {
@@ -85,6 +86,123 @@ describe("IconRangeSlider", () => {
     expect(element.shadowRoot?.querySelector("input")?.getAttribute("aria-valuemax")).toBe(
       "0.8",
     );
+  });
+
+  it("tracks a coarse pointer from its first contact and keeps fill and thumb aligned", async () => {
+    const element = new IconRangeSlider();
+    element.min = 0;
+    element.max = 0.6;
+    element.scaleMin = 0;
+    element.scaleMax = 1;
+    element.step = 0.01;
+    element.value = 0.2;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const previewed = vi.fn();
+    const committed = vi.fn();
+    element.addEventListener("slider-preview", previewed);
+    element.addEventListener("slider-change", committed);
+    const shell = element.shadowRoot?.querySelector<HTMLElement>(".range-shell");
+    const input = element.shadowRoot?.querySelector<HTMLInputElement>("input");
+    if (!shell || !input) throw new Error("Range input did not render");
+    vi.spyOn(shell, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 20,
+      left: 100,
+      top: 20,
+      right: 300,
+      bottom: 64,
+      width: 200,
+      height: 44,
+      toJSON: () => ({}),
+    });
+
+    input.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        pointerId: 7,
+        pointerType: "touch",
+        clientX: 180,
+        clientY: 42,
+      }),
+    );
+    await element.updateComplete;
+
+    expect(previewed).toHaveBeenLastCalledWith(
+      expect.objectContaining({ detail: { value: 0.4 } }),
+    );
+    expect(element.shadowRoot?.querySelector(".fill")?.getAttribute("style")).toContain(
+      "width: 40%",
+    );
+    expect(element.shadowRoot?.querySelector(".icon-thumb")?.getAttribute("style")).toContain(
+      "left: 40%",
+    );
+
+    input.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        pointerId: 7,
+        pointerType: "touch",
+        clientX: 250,
+        clientY: 42,
+      }),
+    );
+
+    expect(committed).toHaveBeenCalledOnce();
+    expect(committed).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: { value: 0.6 } }),
+    );
+  });
+
+  it("restores the starting value when a vertical scroll cancels a touch", async () => {
+    const element = new IconRangeSlider();
+    element.min = 0;
+    element.max = 1;
+    element.step = 0.01;
+    element.value = 0.25;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const committed = vi.fn();
+    element.addEventListener("slider-change", committed);
+    const shell = element.shadowRoot?.querySelector<HTMLElement>(".range-shell");
+    const input = element.shadowRoot?.querySelector<HTMLInputElement>("input");
+    if (!shell || !input) throw new Error("Range input did not render");
+    vi.spyOn(shell, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 44,
+      width: 100,
+      height: 44,
+      toJSON: () => ({}),
+    });
+
+    input.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        pointerId: 8,
+        pointerType: "touch",
+        clientX: 80,
+        clientY: 22,
+      }),
+    );
+    input.dispatchEvent(
+      new PointerEvent("pointercancel", {
+        bubbles: true,
+        pointerId: 8,
+        pointerType: "touch",
+        clientX: 80,
+        clientY: 22,
+      }),
+    );
+    await element.updateComplete;
+
+    expect(element.value).toBe(0.25);
+    expect(committed).not.toHaveBeenCalled();
   });
 
   it("commits the last arbitrary preview value after a parent rerender", async () => {

@@ -30,6 +30,8 @@ export class IconRangeSlider extends LitElement {
   @property({ type: Boolean }) showValue = true;
   @property({ type: Number }) thumbIconSize = 30;
   private previewValue: number | null = null;
+  private activeTouchPointerId: number | null = null;
+  private touchStartValue: number | null = null;
 
   static styles = css`
     :host {
@@ -142,7 +144,6 @@ export class IconRangeSlider extends LitElement {
         0 0 0 2px rgba(16, 131, 254, 0.25);
       transform: translate(-50%, -50%);
       pointer-events: none;
-      transition: left 120ms ease, top 120ms ease;
     }
 
     .icon-thumb img {
@@ -231,6 +232,16 @@ export class IconRangeSlider extends LitElement {
         max-height: 26px;
       }
     }
+
+    @media (pointer: coarse) {
+      input[type="range"] {
+        width: calc(100% + var(--icon-thumb-size));
+      }
+
+      .vertical input[type="range"] {
+        width: 44px;
+      }
+    }
   `;
 
   render() {
@@ -273,6 +284,8 @@ export class IconRangeSlider extends LitElement {
             aria-valuenow=${this.value}
             aria-valuetext=${displayValue}
             aria-orientation=${this.orientation}
+            @pointerdown=${this.#handlePointerStart}
+            @pointermove=${this.#handlePointerMove}
             @input=${this.#handleInput}
             @change=${this.#handleChange}
             @pointerup=${this.#handlePointerEnd}
@@ -318,24 +331,93 @@ export class IconRangeSlider extends LitElement {
   }
 
   #handleInput = (event: Event): void => {
+    if (this.activeTouchPointerId !== null) return;
     const input = event.currentTarget as HTMLInputElement;
-    this.previewValue = Number(input.value);
-    this.value = this.previewValue;
+    this.#preview(Number(input.value));
+  };
+
+  #handlePointerStart = (event: PointerEvent): void => {
+    if (this.disabled || event.pointerType === "mouse") return;
+
+    const input = event.currentTarget as HTMLInputElement;
+    this.activeTouchPointerId = event.pointerId;
+    this.touchStartValue = this.value;
+    event.preventDefault();
+    input.focus({ preventScroll: true });
+    try {
+      input.setPointerCapture(event.pointerId);
+    } catch {
+      // Older WebKit versions can reject capture for an ending pointer. The
+      // input remains the event target, so direct touch tracking still works.
+    }
+    this.#previewPointerPosition(event, input);
+  };
+
+  #handlePointerMove = (event: PointerEvent): void => {
+    if (event.pointerId !== this.activeTouchPointerId) return;
+    event.preventDefault();
+    this.#previewPointerPosition(event, event.currentTarget as HTMLInputElement);
+  };
+
+  #previewPointerPosition(event: PointerEvent, input: HTMLInputElement): void {
+    const shell = input.parentElement;
+    if (!shell) return;
+    const rect = shell.getBoundingClientRect();
+    const length = this.orientation === "vertical" ? rect.height : rect.width;
+    if (length <= 0) return;
+
+    const pointerOffset =
+      this.orientation === "vertical" ? event.clientY - rect.top : event.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, pointerOffset / length));
+    const scaleMin = this.scaleMin ?? this.min;
+    const scaleMax = this.scaleMax ?? this.max;
+    const rawValue = scaleMin + ratio * (scaleMax - scaleMin);
+    const clampedValue = Math.max(this.min, Math.min(this.max, rawValue));
+    const step = this.step > 0 ? this.step : 1;
+    const steppedValue = this.min + Math.round((clampedValue - this.min) / step) * step;
+    this.#preview(Number(Math.max(this.min, Math.min(this.max, steppedValue)).toFixed(12)));
+  }
+
+  #preview(value: number): void {
+    this.previewValue = value;
+    this.value = value;
     this.dispatchEvent(
       new CustomEvent("slider-preview", {
         bubbles: true,
         composed: true,
-        detail: { value: this.value },
+        detail: { value },
       }),
     );
+  }
+
+  #handleChange = (): void => {
+    if (this.activeTouchPointerId !== null || this.previewValue === null) return;
+    this.#commitValue(this.previewValue);
   };
 
-  #handleChange = (event: Event): void => {
-    const input = event.currentTarget as HTMLInputElement;
-    this.#commitValue(this.previewValue ?? Number(input.value));
-  };
+  #handlePointerEnd = (event: PointerEvent): void => {
+    if (event.pointerId === this.activeTouchPointerId) {
+      const input = event.currentTarget as HTMLInputElement;
+      event.preventDefault();
 
-  #handlePointerEnd = (): void => {
+      if (event.type === "pointercancel") {
+        if (this.touchStartValue !== null) this.#preview(this.touchStartValue);
+        this.previewValue = null;
+      } else {
+        this.#previewPointerPosition(event, input);
+        if (this.previewValue !== null) this.#commitValue(this.previewValue);
+      }
+
+      try {
+        input.releasePointerCapture(event.pointerId);
+      } catch {
+        // Capture may already have been released by the browser.
+      }
+      this.activeTouchPointerId = null;
+      this.touchStartValue = null;
+      return;
+    }
+
     // A live parent rerender can prevent Safari and some touch browsers from
     // delivering the range input's final `change` event. Let the native event
     // run first, then commit the last preview only when it did not arrive.
