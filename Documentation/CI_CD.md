@@ -247,26 +247,42 @@ The same rules and indexes are configured independently for both named databases
 Stage deployments target only `greenearth-stage`; production deployments target
 only `greenearth-prod`. The shared deployment helper also idempotently enables
 `expires_at` TTL on `feed_cache`, `seen_posts`, `discarded_posts`, `feed_debug`,
-`feed_snapshots`, and `user_history_cache`. Firebase checks function source and
-configuration hashes and skips unchanged functions rather than creating
-unnecessary revisions.
+`feed_snapshots`, `followed_users_cache`, and `user_history_cache`. Firebase
+checks function source and configuration hashes and skips unchanged functions
+rather than creating unnecessary revisions.
 
 This repository is the sole source of truth for Firebase rules, indexes, TTL
 policies, emulators, Functions, and Hosting. API deployments do not mutate this
 configuration.
+
+When an API revision depends on a new index exemption or TTL policy, deploy the
+Firestore configuration for the target environment first and wait for
+`deploy-firestore.sh` to complete successfully before deploying the API. This
+ordering applies to the user-history cache: API cache writes require the
+`user_history_cache.*` exemption described below. Deploying the API first does
+not break feed generation because cache writes fail open, but it prevents the
+cache from populating and sends every request back through the uncached
+Elasticsearch path.
 
 ### Single-field index exemptions
 
 `firestore.indexes.json` also carries `fieldOverrides`. Firestore indexes every
 field by default and rejects any write whose index entry exceeds 7.5 KiB, so a
 field holding a large blob has to be exempted before it can be written at all.
-Today that is `popularity_cache.payload` — the API's shared pool of popularity
-candidates, stored as one compressed blob of a few hundred KB (api#330). It is
-never queried on, only read by document ID.
+The current exemptions are:
+
+- `popularity_cache.payload` — the API's shared pool of popularity candidates,
+  stored as one compressed blob of a few hundred KB (api#330).
+- `followed_users_cache.follows` and `followed_users_cache.pending_adds` —
+  potentially large arrays maintained by the followed-users cache.
+- `user_history_cache.*` — all fields in each user-history cache document,
+  including the array of base64-encoded post embeddings.
+
+These cache collections are read by document ID and do not need field indexes.
 
 The emulator does not enforce index-entry limits, so a missing exemption fails
 only in a deployed environment: deploy the exemption before the API release
-that starts writing the field.
+that starts writing the affected collection or field.
 
 ## Rotating the OAuth key pair
 
