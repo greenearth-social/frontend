@@ -14,6 +14,16 @@
       "collectionGroup": "popularity_cache",
       "fieldPath": "payload",
       "indexes": []
+    },
+    {
+      "collectionGroup": "followed_users_cache",
+      "fieldPath": "follows",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "followed_users_cache",
+      "fieldPath": "pending_adds",
+      "indexes": []
     }
   ]
 }
