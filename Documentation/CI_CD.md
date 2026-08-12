@@ -247,8 +247,9 @@ The same rules and indexes are configured independently for both named databases
 Stage deployments target only `greenearth-stage`; production deployments target
 only `greenearth-prod`. The shared deployment helper also idempotently enables
 `expires_at` TTL on `feed_cache`, `seen_posts`, `discarded_posts`, `feed_debug`,
-and `feed_snapshots`. Firebase checks function source and configuration hashes
-and skips unchanged functions rather than creating unnecessary revisions.
+`feed_snapshots`, and `user_history_cache`. Firebase checks function source and
+configuration hashes and skips unchanged functions rather than creating
+unnecessary revisions.
 
 This repository is the sole source of truth for Firebase rules, indexes, TTL
 policies, emulators, Functions, and Hosting. API deployments do not mutate this
