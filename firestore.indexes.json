@@ -24,6 +24,11 @@
       "collectionGroup": "followed_users_cache",
       "fieldPath": "pending_adds",
       "indexes": []
+    },
+    {
+      "collectionGroup": "user_history_cache",
+      "fieldPath": "*",
+      "indexes": []
     }
   ]
 }
