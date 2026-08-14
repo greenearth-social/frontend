@@ -42,8 +42,9 @@ const DEFAULT_STYLE = {
 
 const GENERATOR_LABELS: Record<string, string> = {
   two_tower: "Author/Topic",
-  followed_users: "Followed",
+  followed_users: "Following",
   popularity: "Popular",
+  network_likes: "Following Likes",
   random_posts: "random",
 };
 
