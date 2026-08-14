@@ -14,6 +14,7 @@ describe("GeneratorBadge", () => {
   it.each([
     ["followed_users", "Followed"],
     ["popularity", "Popular"],
+    ["network_likes", "Followed Likes"],
   ])("maps %s to %s", async (name, label) => {
     const el = document.createElement("generator-badge");
     el.name = name;
