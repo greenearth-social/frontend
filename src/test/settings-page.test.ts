@@ -80,7 +80,7 @@ describe("SettingsPage", () => {
     const sectionTitles = Array.from(
       element.shadowRoot?.querySelectorAll(".section-title") ?? [],
     ).map((title) => title.textContent.trim());
-    expect(sectionTitles).toEqual(["Candidate Sources", "Ranking", "Diversification"]);
+    expect(sectionTitles).toEqual(["Post Sources", "Ranking", "Diversification"]);
     expect(element.shadowRoot?.querySelector('.politics-card .coming-soon')?.textContent).toContain(
       "Coming Soon",
     );
