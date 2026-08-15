@@ -3,11 +3,20 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { ALGORITHMS, ALGORITHM_IDS, type AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
+import { GENERATOR_LABELS } from "./generator-badge";
 
 const ALGO_PNG: Record<string, string> = {
   "your-feed": "/assets/algo-greenearth.png",
   "best-of-friends": "/assets/algo-best-of-friends.png",
   "random": "/assets/algo-random.png",
+};
+
+const GENERATOR_ORDER: Record<string, number> = {
+  followed_users: 0,
+  network_likes: 1,
+  two_tower: 2,
+  two_tower_empty_history: 2,
+  popularity: 3,
 };
 
 @customElement("feed-tabs")
@@ -416,10 +425,14 @@ export class FeedTabs extends LitElement {
                   <tr><th>Source</th><th>Weight</th><th>Asked</th><th>Returned</th><th>Shown</th><th>Status</th></tr>
                 </thead>
                 <tbody>
-                  ${feed.generatorDiagnostics.map((diagnostic) => html`
+                  ${[...feed.generatorDiagnostics].sort(
+                    (a, b) =>
+                      (GENERATOR_ORDER[a.name] ?? Number.MAX_SAFE_INTEGER)
+                      - (GENERATOR_ORDER[b.name] ?? Number.MAX_SAFE_INTEGER),
+                  ).map((diagnostic) => html`
                     <tr>
                       <td>
-                        ${diagnostic.name}
+                        ${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}
                       </td>
                       <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
                       <td>${diagnostic.requestedCount}</td>

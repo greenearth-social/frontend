@@ -196,7 +196,7 @@ export class SettingsPage extends MobxLitElement {
   #renderCandidateSection(weights: SourceWeights, freshness: number): TemplateResult {
     return html`
       <section class="section section-candidate">
-        <h2 class="section-title">Candidate Sources</h2>
+        <h2 class="section-title">Post Sources</h2>
         <div class="control-card config-card">
           ${this.#titleButton("time_window", "Time Window")}
           <icon-range-slider
