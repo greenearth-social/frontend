@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { ALGORITHMS, ALGORITHM_IDS, type AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
+import { GENERATOR_LABELS } from "./generator-badge";
 
 const ALGO_PNG: Record<string, string> = {
   "your-feed": "/assets/algo-greenearth.png",
@@ -419,7 +420,7 @@ export class FeedTabs extends LitElement {
                   ${feed.generatorDiagnostics.map((diagnostic) => html`
                     <tr>
                       <td>
-                        ${diagnostic.name}
+                        ${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}
                       </td>
                       <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
                       <td>${diagnostic.requestedCount}</td>

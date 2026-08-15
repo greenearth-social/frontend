@@ -49,7 +49,9 @@ describe("FeedTabs source breakdown", () => {
 
     expect(changed).not.toHaveBeenCalled();
     expect(element.shadowRoot?.querySelectorAll(".breakdown-button")).toHaveLength(0);
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("followed_users");
+    const dialogText = element.shadowRoot?.querySelector("dialog")?.textContent;
+    expect(dialogText).toContain("Followed");
+    expect(dialogText).not.toContain("followed_users");
     element.remove();
   });
 
@@ -65,9 +67,7 @@ describe("FeedTabs source breakdown", () => {
     externalButton.click();
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
-      "followed_users",
-    );
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Followed");
     externalButton.remove();
     element.remove();
   });
