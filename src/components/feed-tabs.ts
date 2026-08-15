@@ -11,6 +11,14 @@ const ALGO_PNG: Record<string, string> = {
   "random": "/assets/algo-random.png",
 };
 
+const GENERATOR_ORDER: Record<string, number> = {
+  followed_users: 0,
+  network_likes: 1,
+  two_tower: 2,
+  two_tower_empty_history: 2,
+  popularity: 3,
+};
+
 @customElement("feed-tabs")
 export class FeedTabs extends LitElement {
   @property({ type: Array }) feeds: FeedSummary[] = [];
@@ -417,7 +425,11 @@ export class FeedTabs extends LitElement {
                   <tr><th>Source</th><th>Weight</th><th>Asked</th><th>Returned</th><th>Shown</th><th>Status</th></tr>
                 </thead>
                 <tbody>
-                  ${feed.generatorDiagnostics.map((diagnostic) => html`
+                  ${[...feed.generatorDiagnostics].sort(
+                    (a, b) =>
+                      (GENERATOR_ORDER[a.name] ?? Number.MAX_SAFE_INTEGER)
+                      - (GENERATOR_ORDER[b.name] ?? Number.MAX_SAFE_INTEGER),
+                  ).map((diagnostic) => html`
                     <tr>
                       <td>
                         ${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}

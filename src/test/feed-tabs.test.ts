@@ -72,6 +72,38 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
   });
 
+  it("orders sources to match Settings", async () => {
+    const element = makeTabs();
+    const feed = element.feeds[0];
+    if (!feed) throw new Error("Expected feed fixture");
+    const diagnostic = feed.generatorDiagnostics[0];
+    if (!diagnostic) throw new Error("Expected diagnostic fixture");
+    element.feeds = [
+      {
+        ...feed,
+        generatorDiagnostics: [
+          { ...diagnostic, name: "popularity" },
+          { ...diagnostic, name: "two_tower" },
+          { ...diagnostic, name: "followed_users" },
+          { ...diagnostic, name: "network_likes" },
+        ],
+      },
+      ...element.feeds.slice(1),
+    ];
+    await element.updateComplete;
+
+    element.showActiveBreakdown();
+    await element.updateComplete;
+
+    const tableText = element.shadowRoot?.querySelector("tbody")?.textContent ?? "";
+    const sourceNames = Array.from(
+      tableText.matchAll(/(Followed Likes|Followed|Author\/Topic|Popular)\s+70%/g),
+      (match) => match[1],
+    );
+    expect(sourceNames).toEqual(["Followed", "Followed Likes", "Author/Topic", "Popular"]);
+    element.remove();
+  });
+
   it("shows filtering counts for a hydrated snapshot", async () => {
     const element = makeTabs();
     element.filteringCountsByRequest = {
