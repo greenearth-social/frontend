@@ -207,6 +207,6 @@ See `Documentation/CI_CD.md` for the full CI/CD pipeline, one-time setup, and co
 ### Security notes
 
 - The Firebase custom token is passed in the URL hash fragment (`/#/auth/finish?token=...`). Hash fragments are never sent to the server.
-- After sign-in, the token is consumed and the URL is immediately replaced with `#/feed`.
+- After sign-in or callback failure, the callback URL is immediately replaced with `#/feed`.
 - Access tokens and DPoP keys are not persisted — they are used only during the OAuth callback.
 - Firestore reads are gated by security rules (`request.auth.uid` matches the `did` in the path).

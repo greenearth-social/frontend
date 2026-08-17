@@ -291,7 +291,7 @@ export class PreferencesStore {
 
   async restoreDefaults(feedName: AlgorithmId): Promise<boolean> {
     // Reset what the Settings page exposes, even if an older or partial load
-    // did not populate the control metadata. This keeps Post Sources in
+    // did not populate the control metadata. This keeps Sources in
     // the same atomic reset as freshness and ranking.
     const controls = RESETTABLE_CONTROLS_BY_FEED[feedName];
     const previousValues = clonePreferences(this.valuesFor(feedName));

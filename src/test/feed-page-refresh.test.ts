@@ -19,7 +19,7 @@ const testState = vi.hoisted(() => ({
       currentPage: 1,
       totalPages: 0,
       totalCount: 0,
-      postsPerPage: 10,
+      postsPerPage: 20,
       loadFeedList: vi.fn(),
       refreshFeedIfNew: vi.fn(),
       loadFeedDetail: vi.fn(),

@@ -325,7 +325,7 @@ describe("PreferencesStore.restoreDefaults", () => {
     );
   });
 
-  it("includes Post Sources when loaded control metadata is incomplete", async () => {
+  it("includes Sources when loaded control metadata is incomplete", async () => {
     const patch = vi.fn().mockResolvedValue({
       sourceWeights: {
         following: 0.3,

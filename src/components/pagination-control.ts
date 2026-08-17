@@ -6,8 +6,8 @@ export class PaginationControl extends LitElement {
   @property({ type: Number }) currentPage = 1;
   @property({ type: Number }) totalPages = 1;
   @property({ type: Number }) totalItems = 0;
-  @property({ type: Number }) itemsPerPage = 10;
-  @property({ type: Array }) perPageOptions: number[] = [3, 5, 10, 20];
+  @property({ type: Number }) itemsPerPage = 20;
+  @property({ type: Array }) perPageOptions: number[] = [10, 20, 50, 100];
 
   static styles = css`
     :host {
@@ -119,29 +119,35 @@ export class PaginationControl extends LitElement {
           <button
             class="page-btn nav-btn"
             ?disabled=${this.currentPage === 1}
-            @click=${() => { this.#goToPage(this.currentPage - 1); }}
+            @click=${() => {
+              this.#goToPage(this.currentPage - 1);
+            }}
             aria-label="Previous page"
           >
             ‹
           </button>
-          
+
           ${pages.map((page) =>
             page === "ellipsis"
               ? html`<span class="ellipsis">...</span>`
               : html`
                   <button
                     class="page-btn ${page === this.currentPage ? "active" : ""}"
-                    @click=${() => { this.#goToPage(page); }}
+                    @click=${() => {
+                      this.#goToPage(page);
+                    }}
                   >
                     ${page}
                   </button>
-                `
+                `,
           )}
-          
+
           <button
             class="page-btn nav-btn"
             ?disabled=${this.currentPage === this.totalPages}
-            @click=${() => { this.#goToPage(this.currentPage + 1); }}
+            @click=${() => {
+              this.#goToPage(this.currentPage + 1);
+            }}
             aria-label="Next page"
           >
             ›
@@ -154,12 +160,15 @@ export class PaginationControl extends LitElement {
           </span>
           <div class="per-page-select">
             <select
-              @change=${(e: Event) => { this.#changePerPage(e); }}
+              @change=${(e: Event) => {
+                this.#changePerPage(e);
+              }}
             >
-              ${this.perPageOptions.map((option) =>
-                html`<option value=${option} ?selected=${option === this.itemsPerPage}>
-                  ${option}
-                </option>`
+              ${this.perPageOptions.map(
+                (option) =>
+                  html`<option value=${option} ?selected=${option === this.itemsPerPage}>
+                    ${option}
+                  </option>`,
               )}
             </select>
           </div>
@@ -179,22 +188,22 @@ export class PaginationControl extends LitElement {
       }
     } else {
       pages.push(1);
-      
+
       if (current > 3) {
         pages.push("ellipsis");
       }
-      
+
       const start = Math.max(2, current - 1);
       const end = Math.min(total - 1, current + 1);
-      
+
       for (let i = start; i <= end; i++) {
         pages.push(i);
       }
-      
+
       if (current < total - 2) {
         pages.push("ellipsis");
       }
-      
+
       pages.push(total);
     }
 
@@ -208,7 +217,7 @@ export class PaginationControl extends LitElement {
           bubbles: true,
           composed: true,
           detail: { page },
-        })
+        }),
       );
     }
   }
@@ -221,7 +230,7 @@ export class PaginationControl extends LitElement {
         bubbles: true,
         composed: true,
         detail: { perPage: newPerPage },
-      })
+      }),
     );
   }
 }

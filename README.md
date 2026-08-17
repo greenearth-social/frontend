@@ -103,7 +103,8 @@ Hash-based SPA routing handled entirely in `app-shell.ts`:
 | `#/settings`     | Settings      | Feed-specific controls and pipeline explanations        |
 | `#/controls`     | Redirect      | Legacy route; history-replaced with `#/settings`        |
 | `#/how-it-works` | Redirect      | Legacy route; history-replaced with `#/settings`        |
-| `#/auth/finish?token=...` | (inline) | OAuth callback handler                            |
+| `#/auth/finish?token=...` | (inline) | Completes a successful OAuth callback             |
+| `#/auth/finish?error=...` | (inline) | Returns OAuth failures to the signed-out form     |
 
 ## Product analytics
 
@@ -154,6 +155,11 @@ User clicks "Sign in with Bluesky"
   → signInWithCustomToken(token)                   (FirebaseAuthService)
   → Redirect to #/feed
 ```
+
+If authorization is canceled or the callback fails, `oauthCallback` instead
+redirects with one of the bounded `access_denied`, `provider_error`, or
+`callback_failed` categories. The app replaces the callback URL with `#/feed`
+and displays a retryable message on the signed-out form.
 
 Cloud Functions live in `functions/src/auth/` and serve:
 

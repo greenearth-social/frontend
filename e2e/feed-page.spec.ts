@@ -25,7 +25,7 @@ test.describe("Feed Page", () => {
     await expect(page.locator("h1")).toContainText("Why Am I Seeing This?");
   });
 
-  test("shows all feed cards (default per page is 10)", async ({ page }) => {
+  test("shows all feed cards (default per page is 20)", async ({ page }) => {
     await expect(page.locator("feed-item-card")).toHaveCount(6);
   });
 
@@ -50,5 +50,19 @@ test.describe("Feed Page", () => {
 
   test("does not duplicate the feed selector in a right sidebar", async ({ page }) => {
     await expect(page.locator("right-sidebar")).toHaveCount(0);
+  });
+});
+
+test.describe("OAuth failure recovery", () => {
+  test("returns cancellation to the login form", async ({ page }) => {
+    await page.goto(
+      "/#/auth/finish?error=access_denied&error_description=raw-provider-description",
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await expect(page).toHaveURL(/#\/feed$/);
+    await expect(page.getByRole("alert")).toContainText("Sign in was canceled");
+    await expect(page.getByLabel("Account handle")).toBeVisible();
+    expect(page.url()).not.toContain("raw-provider-description");
   });
 });

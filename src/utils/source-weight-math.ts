@@ -5,10 +5,7 @@ export type SourceWeightKey = keyof SourceWeights;
 export const SOURCE_RANK_MIN = 0;
 export const SOURCE_RANK_MAX = 4;
 
-export const SOURCE_WEIGHT_BOUNDS: Record<
-  SourceWeightKey,
-  { min: number; max: number }
-> = {
+export const SOURCE_WEIGHT_BOUNDS: Record<SourceWeightKey, { min: number; max: number }> = {
   following: { min: 0, max: 1 },
   networkLikes: { min: 0, max: 1 },
   authorsTopics: { min: 0, max: 1 },
@@ -22,10 +19,10 @@ const FRIENDS_PRESET: SourceWeights = {
   popular: 0,
 };
 const EVERYONE_PRESET: SourceWeights = {
-  following: 0.1,
+  following: 0,
   networkLikes: 0.1,
-  authorsTopics: 0.4,
-  popular: 0.4,
+  authorsTopics: 0.45,
+  popular: 0.45,
 };
 
 export const SOURCE_RANK_PRESETS: readonly SourceWeights[] = [
@@ -52,14 +49,17 @@ function allocateCents(
   desired: Record<SourceWeightKey, number>,
   total: number,
 ): Record<SourceWeightKey, number> {
-  const allocated = Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, 0]),
-  ) as Record<SourceWeightKey, number>;
-  const ranked = keys.map((key, index) => {
-    const floor = Math.floor(desired[key]);
-    allocated[key] = floor;
-    return { key, index, fraction: desired[key] - floor };
-  }).sort((a, b) => b.fraction - a.fraction || a.index - b.index);
+  const allocated = Object.fromEntries(SOURCE_KEYS.map((key) => [key, 0])) as Record<
+    SourceWeightKey,
+    number
+  >;
+  const ranked = keys
+    .map((key, index) => {
+      const floor = Math.floor(desired[key]);
+      allocated[key] = floor;
+      return { key, index, fraction: desired[key] - floor };
+    })
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index);
   let remaining = total - keys.reduce((sum, key) => sum + allocated[key], 0);
   for (let index = 0; remaining > 0; index++, remaining--) {
     const item = ranked[index % ranked.length];
@@ -93,10 +93,7 @@ export function redistributeSourceWeights(
   const otherKeys = SOURCE_KEYS.filter((key) => key !== changed);
   const fixedKeys = otherKeys.filter((key) => locked.has(key));
   const adjustableKeys = otherKeys.filter((key) => !locked.has(key));
-  const fixedCents = fixedKeys.reduce(
-    (sum, key) => sum + Math.round(current[key] * 100),
-    0,
-  );
+  const fixedCents = fixedKeys.reduce((sum, key) => sum + Math.round(current[key] * 100), 0);
   const availableCents = Math.max(0, 100 - fixedCents);
   const changedBounds = sourceWeightRange(current, changed, lockedKeys);
   const changedCents = Math.round(
@@ -104,13 +101,13 @@ export function redistributeSourceWeights(
   );
   const remaining = availableCents - changedCents;
   const priorTotal = adjustableKeys.reduce((sum, key) => sum + current[key], 0);
-  const desired = Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, 0]),
-  ) as Record<SourceWeightKey, number>;
+  const desired = Object.fromEntries(SOURCE_KEYS.map((key) => [key, 0])) as Record<
+    SourceWeightKey,
+    number
+  >;
   for (const key of adjustableKeys) {
-    desired[key] = priorTotal > 0
-      ? remaining * (current[key] / priorTotal)
-      : remaining / adjustableKeys.length;
+    desired[key] =
+      priorTotal > 0 ? remaining * (current[key] / priorTotal) : remaining / adjustableKeys.length;
   }
   const cents = allocateCents(adjustableKeys, desired, remaining);
   for (const key of fixedKeys) cents[key] = Math.round(current[key] * 100);
@@ -132,9 +129,7 @@ export function sourceWeightRange(
     .reduce((sum, key) => sum + Math.round(current[key] * 100), 0);
   const hasAdjustableSibling = otherKeys.some((key) => !locked.has(key));
   const available = fromCents(Math.max(0, 100 - fixedCents));
-  return hasAdjustableSibling
-    ? { min: 0, max: available }
-    : { min: available, max: available };
+  return hasAdjustableSibling ? { min: 0, max: available } : { min: available, max: available };
 }
 
 export function applySourceLocks(
@@ -148,9 +143,10 @@ export function applySourceLocks(
   const adjustableKeys = SOURCE_KEYS.filter((key) => !locked.has(key));
   if (adjustableKeys.length === 0) return quantizeWeights(current);
 
-  const cents = Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, 0]),
-  ) as Record<SourceWeightKey, number>;
+  const cents = Object.fromEntries(SOURCE_KEYS.map((key) => [key, 0])) as Record<
+    SourceWeightKey,
+    number
+  >;
   const fixedTotal = fixedKeys.reduce((sum, key) => {
     const value = Math.round(current[key] * 100);
     cents[key] = value;
@@ -159,15 +155,17 @@ export function applySourceLocks(
   const remaining = Math.max(0, 100 - fixedTotal);
   const targetTotal = adjustableKeys.reduce((sum, key) => sum + target[key], 0);
   const currentTotal = adjustableKeys.reduce((sum, key) => sum + current[key], 0);
-  const desired = Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, 0]),
-  ) as Record<SourceWeightKey, number>;
+  const desired = Object.fromEntries(SOURCE_KEYS.map((key) => [key, 0])) as Record<
+    SourceWeightKey,
+    number
+  >;
   for (const key of adjustableKeys) {
-    desired[key] = targetTotal > 0
-      ? remaining * (target[key] / targetTotal)
-      : currentTotal > 0
-        ? remaining * (current[key] / currentTotal)
-        : remaining / adjustableKeys.length;
+    desired[key] =
+      targetTotal > 0
+        ? remaining * (target[key] / targetTotal)
+        : currentTotal > 0
+          ? remaining * (current[key] / currentTotal)
+          : remaining / adjustableKeys.length;
   }
   const adjustableCents = allocateCents(adjustableKeys, desired, remaining);
   for (const key of adjustableKeys) cents[key] = adjustableCents[key];
@@ -215,9 +213,11 @@ export function sourceWeightsAtRank(requestedRank: number): SourceWeights {
   const lower = SOURCE_RANK_PRESETS[lowerIndex] ?? FRIENDS_PRESET;
   const upper = SOURCE_RANK_PRESETS[upperIndex] ?? EVERYONE_PRESET;
   const blend = rank - lowerIndex;
-  return quantizeWeights(Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, lower[key] + (upper[key] - lower[key]) * blend]),
-  ) as unknown as SourceWeights);
+  return quantizeWeights(
+    Object.fromEntries(
+      SOURCE_KEYS.map((key) => [key, lower[key] + (upper[key] - lower[key]) * blend]),
+    ) as unknown as SourceWeights,
+  );
 }
 
 export function blendSourceWeightsToRank(
@@ -232,16 +232,16 @@ export function blendSourceWeightsToRank(
   const boundary = movingTowardFriends
     ? Math.max(SOURCE_RANK_MIN, Math.ceil(startRank - 1e-9) - 1)
     : Math.min(SOURCE_RANK_MAX, Math.floor(startRank + 1e-9) + 1);
-  const betweenStartAndBoundary = movingTowardFriends
-    ? target >= boundary
-    : target <= boundary;
+  const betweenStartAndBoundary = movingTowardFriends ? target >= boundary : target <= boundary;
   if (!betweenStartAndBoundary || boundary === startRank) {
     return sourceWeightsAtRank(target);
   }
 
   const endpoint = SOURCE_RANK_PRESETS[boundary] ?? FRIENDS_PRESET;
   const blend = (target - startRank) / (boundary - startRank);
-  return quantizeWeights(Object.fromEntries(
-    SOURCE_KEYS.map((key) => [key, current[key] + (endpoint[key] - current[key]) * blend]),
-  ) as unknown as SourceWeights);
+  return quantizeWeights(
+    Object.fromEntries(
+      SOURCE_KEYS.map((key) => [key, current[key] + (endpoint[key] - current[key]) * blend]),
+    ) as unknown as SourceWeights,
+  );
 }

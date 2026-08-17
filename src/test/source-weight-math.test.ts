@@ -28,12 +28,9 @@ describe("source-weight math", () => {
       1,
     );
     expect(maximum).toEqual({ following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 });
-    expect(
-      maximum.following
-      + maximum.networkLikes
-      + maximum.authorsTopics
-      + maximum.popular,
-    ).toBe(1);
+    expect(maximum.following + maximum.networkLikes + maximum.authorsTopics + maximum.popular).toBe(
+      1,
+    );
 
     const quantized = redistributeSourceWeights(
       { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
@@ -43,10 +40,7 @@ describe("source-weight math", () => {
     expect(quantized.following).toBe(0.54);
     expect(Object.values(quantized).every((value) => Number.isInteger(value * 100))).toBe(true);
     expect(
-      quantized.following
-      + quantized.networkLikes
-      + quantized.authorsTopics
-      + quantized.popular,
+      quantized.following + quantized.networkLikes + quantized.authorsTopics + quantized.popular,
     ).toBe(1);
   });
 
@@ -67,12 +61,10 @@ describe("source-weight math", () => {
       authorsTopics: 0.25,
       popular: 0.25,
     };
-    const changed = redistributeSourceWeights(
-      current,
-      "following",
-      0.41,
-      ["networkLikes", "popular"],
-    );
+    const changed = redistributeSourceWeights(current, "following", 0.41, [
+      "networkLikes",
+      "popular",
+    ]);
     expect(changed).toEqual({
       following: 0.41,
       networkLikes: 0.2,
@@ -93,11 +85,9 @@ describe("source-weight math", () => {
       authorsTopics: 0.25,
       popular: 0.25,
     };
-    expect(sourceWeightRange(current, "popular", [
-      "following",
-      "networkLikes",
-      "authorsTopics",
-    ])).toEqual({ min: 0.25, max: 0.25 });
+    expect(
+      sourceWeightRange(current, "popular", ["following", "networkLikes", "authorsTopics"]),
+    ).toEqual({ min: 0.25, max: 0.25 });
     const friendsPreset = SOURCE_RANK_PRESETS[0];
     if (!friendsPreset) throw new Error("Expected Friends preset");
     expect(applySourceLocks(current, friendsPreset, ["networkLikes"])).toEqual({
@@ -109,9 +99,19 @@ describe("source-weight math", () => {
   });
 
   it("matches all five API presets and interpolates between them", () => {
+    expect(SOURCE_RANK_PRESETS).toEqual([
+      { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 },
+      { following: 0.7, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1 },
+      { following: 0.5, networkLikes: 0.2, authorsTopics: 0.15, popular: 0.15 },
+      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
+      { following: 0, networkLikes: 0.1, authorsTopics: 0.45, popular: 0.45 },
+    ]);
     SOURCE_RANK_PRESETS.forEach((preset, index) => {
       expect(sourceWeightsAtRank(index)).toEqual(preset);
       expect(sourceRankPosition(preset)).toBeCloseTo(index, 6);
+      const values = Object.values(preset) as number[];
+      expect(values.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 10);
+      expect(values.every((value) => Number.isInteger(value * 100))).toBe(true);
     });
     const halfway = sourceWeightsAtRank(2.5);
     expect(halfway).toEqual({
@@ -119,6 +119,27 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.2,
       popular: 0.2,
+    });
+  });
+
+  it("allows Following to reach zero while preserving unlocked and locked budgets", () => {
+    const current = {
+      following: 0.3,
+      networkLikes: 0.2,
+      authorsTopics: 0.25,
+      popular: 0.25,
+    };
+    expect(redistributeSourceWeights(current, "following", 0)).toEqual({
+      following: 0,
+      networkLikes: 0.28,
+      authorsTopics: 0.36,
+      popular: 0.36,
+    });
+    expect(redistributeSourceWeights(current, "following", 0, ["networkLikes"])).toEqual({
+      following: 0,
+      networkLikes: 0.2,
+      authorsTopics: 0.4,
+      popular: 0.4,
     });
   });
 

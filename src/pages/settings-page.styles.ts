@@ -109,8 +109,7 @@ export const settingsPageStyles = css`
   }
 
   .diagram-wrapper,
-  feedback-form,
-  .politics-card {
+  feedback-form {
     width: 100%;
     max-width: 560px;
     box-sizing: border-box;
@@ -546,7 +545,9 @@ export const settingsPageStyles = css`
   }
 
   .politics-card {
-    margin-top: 1.25rem;
+    grid-column: 1 / -1;
+    width: 100%;
+    box-sizing: border-box;
     padding: 1rem;
     border: 1px solid var(--bluesky-border);
     border-radius: 14px;
