@@ -1,10 +1,6 @@
 import type { AlgorithmId } from "../../constants/algorithms";
 
-export type FeedControlName =
-  | "source_weights"
-  | "freshness"
-  | "politics"
-  | "purpose";
+export type FeedControlName = "source_weights" | "freshness" | "politics" | "purpose";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 
@@ -20,12 +16,16 @@ export interface AnalyticsEventProperties {
       | "request_failed"
       | "missing_redirect_url"
       | "missing_token"
-      | "token_exchange_failed";
+      | "token_exchange_failed"
+      | "access_denied"
+      | "provider_error"
+      | "callback_failed";
   };
   feedControlChanged: FeedControlEventProperties & FeedAnalyticsProperties;
-  feedControlChangeFailed: FeedControlEventProperties & FeedAnalyticsProperties & {
-    error_category: "preferences_request_failed";
-  };
+  feedControlChangeFailed: FeedControlEventProperties &
+    FeedAnalyticsProperties & {
+      error_category: "preferences_request_failed";
+    };
   controlHelpOpened: FeedAnalyticsProperties & {
     control_name: FeedControlName;
   };

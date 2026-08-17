@@ -143,21 +143,22 @@ export class SettingsPage extends MobxLitElement {
       </div>
 
       <div class="page-content">
-        ${this.isLoading
-          ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
-              Loading your saved settings…
-            </div>`
-          : html`
-              ${
+        ${
+          this.isLoading
+            ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
+                Loading your saved settings…
+              </div>`
+            : html`
+                ${
                 this.showRefreshPopup
                   ? html`<div class="refresh-popup" role="status" aria-live="polite">
                       ${this.refreshPopupMessage}
                     </div>`
                   : ""
               }
-              <div class="diagram-wrapper">
-                ${this.#renderCandidateSection(weights, freshness)}
-                ${
+                <div class="diagram-wrapper">
+                  ${this.#renderCandidateSection(weights, freshness)}
+                  ${
                   this.selectedAlgorithm === "random"
                     ? ""
                     : html`
@@ -165,38 +166,39 @@ export class SettingsPage extends MobxLitElement {
                         ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                       `
                 }
-              </div>
+                </div>
 
-              ${this.#renderPolitics()}
-
-              <feedback-form
-                surface="controls"
-                .selectedFeed=${this.selectedAlgorithm}
-                prompt="Want to change something or learn more? Tell us!"
-                placeholder="Share your settings feedback or questions"
-              ></feedback-form>
-            `}
+                <feedback-form
+                  surface="controls"
+                  .selectedFeed=${this.selectedAlgorithm}
+                  prompt="Want to change something or learn more? Tell us!"
+                  placeholder="Share your settings feedback or questions"
+                ></feedback-form>
+              `
+        }
       </div>
 
-      ${this.isLoading
-        ? ""
-        : renderSettingsDetailDialog({
-            nodeId: this.selectedNode,
-            weights,
-            purpose,
-            freshness,
-            selectedAlgorithm: this.selectedAlgorithm,
-            onClose: () => {
-              this.selectedNode = null;
-            },
-          })}
+      ${
+        this.isLoading
+          ? ""
+          : renderSettingsDetailDialog({
+              nodeId: this.selectedNode,
+              weights,
+              purpose,
+              freshness,
+              selectedAlgorithm: this.selectedAlgorithm,
+              onClose: () => {
+                this.selectedNode = null;
+              },
+            })
+      }
     `;
   }
 
   #renderCandidateSection(weights: SourceWeights, freshness: number): TemplateResult {
     return html`
       <section class="section section-candidate">
-        <h2 class="section-title">Post Sources</h2>
+        <h2 class="section-title">Sources</h2>
         <div class="control-card config-card">
           ${this.#titleButton("time_window", "Time Window")}
           <icon-range-slider
@@ -451,6 +453,7 @@ export class SettingsPage extends MobxLitElement {
               }}
             ></icon-range-slider>
           </div>
+          ${this.#renderPolitics()}
         </div>
       </section>
     `;
@@ -488,7 +491,7 @@ export class SettingsPage extends MobxLitElement {
 
   #renderPolitics(): TemplateResult {
     return html`
-      <section class="politics-card">
+      <div class="politics-card">
         <div class="politics-heading">
           ${this.#titleButton("politics", "Politics")}
           <span class="coming-soon">Coming Soon!</span>
@@ -505,7 +508,7 @@ export class SettingsPage extends MobxLitElement {
             disabled
           ></icon-range-slider>
         </div>
-      </section>
+      </div>
     `;
   }
 

@@ -42,7 +42,7 @@ const testState = vi.hoisted(() => ({
       currentPage: 1,
       totalPages: 1,
       totalCount: 0,
-      postsPerPage: 10,
+      postsPerPage: 20,
       loadFeedList: vi.fn(),
       loadFeedDetail: vi.fn(),
       clearFeedDetail: vi.fn(),
@@ -129,7 +129,14 @@ describe("AppShell authentication UI", () => {
   });
 
   it("centers the completing-sign-in state without relying on global utility styles", async () => {
-    window.location.hash = "/auth/finish";
+    let finishSignIn: (() => void) | undefined;
+    testState.rootStore.authStore.signInWithCustomToken.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSignIn = resolve;
+        }),
+    );
+    window.location.hash = "/auth/finish?token=test-token";
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -139,6 +146,65 @@ describe("AppShell authentication UI", () => {
     );
     expect(AppShell.styles.cssText).toMatch(
       /\.auth-progress\s*\{[^}]*align-items:\s*center[^}]*justify-content:\s*center/s,
+    );
+    finishSignIn?.();
+  });
+
+  it("returns OAuth cancellation to the login form with a bounded message", async () => {
+    testState.rootStore.authStore.isSignedIn = false;
+    window.location.hash =
+      "/auth/finish?error=access_denied&error_description=raw-provider-description";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feed");
+      const feedPage = element.shadowRoot?.querySelector("feed-page");
+      expect(feedPage?.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+        "Sign in was canceled",
+      );
+    });
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+      "signInFailed",
+      { failure_stage: "callback", error_category: "access_denied" },
+    );
+    expect(window.location.href).not.toContain("raw-provider-description");
+  });
+
+  it.each(["provider_error", "callback_failed", "unknown_error"])(
+    "shows the generic login error for %s",
+    async (error) => {
+      testState.rootStore.authStore.isSignedIn = false;
+      window.location.hash = `/auth/finish?error=${error}`;
+      const element = document.createElement("app-shell");
+      document.body.appendChild(element);
+
+      await vi.waitFor(() => {
+        const feedPage = element.shadowRoot?.querySelector("feed-page");
+        expect(feedPage?.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+          "We couldn't sign you in",
+        );
+      });
+      expect(window.location.hash).toBe("#/feed");
+    },
+  );
+
+  it("recovers a callback with no token instead of spinning forever", async () => {
+    testState.rootStore.authStore.isSignedIn = false;
+    window.location.hash = "/auth/finish";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feed");
+      const feedPage = element.shadowRoot?.querySelector("feed-page");
+      expect(feedPage?.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+        "We couldn't sign you in",
+      );
+    });
+    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+      "signInFailed",
+      { failure_stage: "callback", error_category: "missing_token" },
     );
   });
 
@@ -408,6 +474,7 @@ describe("AppShell authentication UI", () => {
   });
 
   it("captures a bounded callback failure", async () => {
+    testState.rootStore.authStore.isSignedIn = false;
     testState.rootStore.authStore.signInWithCustomToken.mockRejectedValue(
       new Error("raw provider failure"),
     );
@@ -427,6 +494,30 @@ describe("AppShell authentication UI", () => {
     expect(
       JSON.stringify(testState.rootStore.services.analyticsService.capture.mock.calls),
     ).not.toContain("raw provider failure");
+    const feedPage = element.shadowRoot?.querySelector("feed-page");
+    expect(feedPage?.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+      "We couldn't sign you in",
+    );
+  });
+
+  it("does not process the same in-flight callback twice", async () => {
+    let finishSignIn: (() => void) | undefined;
+    testState.rootStore.authStore.signInWithCustomToken.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSignIn = resolve;
+        }),
+    );
+    window.location.hash = "/auth/finish?token=secret-token";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await vi.waitFor(() => {
+      expect(testState.rootStore.authStore.signInWithCustomToken).toHaveBeenCalledOnce();
+    });
+
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(testState.rootStore.authStore.signInWithCustomToken).toHaveBeenCalledOnce();
+    finishSignIn?.();
   });
 });
 

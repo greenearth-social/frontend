@@ -15,12 +15,14 @@ test.describe("feed-scoped navigation", () => {
 
     await expect(page).toHaveURL(/#\/settings\/best-of-friends$/);
     await expect(page.locator("settings-page")).toBeVisible();
-    await expect(
-      desktop.locator('.nav-link[aria-current="page"]'),
-    ).toHaveAttribute("href", "#/settings/best-of-friends");
-    await expect(
-      desktop.locator('.algo-btn[aria-label="Best of Friends"]'),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(desktop.locator('.nav-link[aria-current="page"]')).toHaveAttribute(
+      "href",
+      "#/settings/best-of-friends",
+    );
+    await expect(desktop.locator('.algo-btn[aria-label="Best of Friends"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     await desktop.locator('a[href="#/feedback/best-of-friends"]').click();
     await expect(page).toHaveURL(/#\/feedback\/best-of-friends$/);
@@ -92,6 +94,67 @@ test.describe("feed-scoped navigation", () => {
     await expect(activeGroup.locator('.algo-btn[aria-pressed="true"]')).toHaveCount(1);
   });
 
+  test("places Politics in Ranking and applies both source-rank endpoints", async ({ page }) => {
+    await page.evaluate(() => {
+      window.location.hash = "/settings/your-feed";
+    });
+    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
+    const settings = page.locator("settings-page");
+    const ranking = settings.locator(".section-ranking");
+    await expect(settings.getByRole("heading", { name: "Sources" })).toBeVisible();
+    const politics = ranking.locator(".ranking-grid > .politics-card");
+    await expect(politics).toBeVisible();
+    expect(
+      await politics.evaluate((element) => ({
+        start: getComputedStyle(element).gridColumnStart,
+        end: getComputedStyle(element).gridColumnEnd,
+      })),
+    ).toEqual({ start: "1", end: "-1" });
+
+    const sourceRank = page.getByRole("slider", { name: "Source rank" });
+    const setSourceRank = (value: string) =>
+      sourceRank.evaluate((input, nextValue) => {
+        if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
+        input.value = nextValue;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }, value);
+
+    await setSourceRank("4");
+    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
+      "0",
+    );
+    await expect(
+      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
+    ).toHaveValue("0.1");
+    await expect(
+      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
+    ).toHaveValue("0.45");
+    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
+      "0.45",
+    );
+
+    await setSourceRank("0");
+    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
+      "1",
+    );
+    await expect(
+      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
+    ).toHaveValue("0");
+    await expect(
+      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
+    ).toHaveValue("0");
+    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
+      "0",
+    );
+
+    await page.evaluate(() => {
+      window.location.hash = "/settings/random";
+    });
+    await expect(page).toHaveURL(/#\/settings\/random$/);
+    await expect(settings.locator(".politics-card")).toHaveCount(0);
+  });
+
   test("resets changed Settings controls to their defaults", async ({ page }) => {
     await page.evaluate(() => {
       window.location.hash = "/settings/your-feed";
@@ -131,10 +194,12 @@ test.describe("feed-scoped navigation", () => {
 
     await expect(constructive).toHaveValue("0.5");
     await expect(following).toHaveValue("0.3");
-    await expect(page.getByRole("slider", {
-      name: "Liked by Following amount",
-      exact: true,
-    })).toHaveValue("0.2");
+    await expect(
+      page.getByRole("slider", {
+        name: "Liked by Following amount",
+        exact: true,
+      }),
+    ).toHaveValue("0.2");
     await expect(page.getByRole("status")).toContainText(
       "Refresh your Bluesky feed to see updates",
     );
@@ -160,22 +225,28 @@ test.describe("feed-scoped navigation", () => {
     expect(trackBox).not.toBeNull();
     expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.8);
 
-    await expect(page.getByRole("spinbutton", {
-      name: "Following percentage",
-      exact: true,
-    })).toHaveValue("30");
+    await expect(
+      page.getByRole("spinbutton", {
+        name: "Following percentage",
+        exact: true,
+      }),
+    ).toHaveValue("30");
     const networkLock = page.getByRole("button", {
       name: "Lock Liked by Following weight",
     });
     await networkLock.click();
-    await expect(page.getByRole("button", {
-      name: "Unlock Liked by Following weight",
-    })).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("button", {
+        name: "Unlock Liked by Following weight",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(sourceRank).toBeDisabled();
-    await expect(page.getByRole("slider", {
-      name: "Following amount",
-      exact: true,
-    })).toHaveAttribute("aria-valuemax", "0.8");
+    await expect(
+      page.getByRole("slider", {
+        name: "Following amount",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-valuemax", "0.8");
     const followingPercentage = page.getByRole("spinbutton", {
       name: "Following percentage",
       exact: true,
@@ -183,23 +254,31 @@ test.describe("feed-scoped navigation", () => {
     await followingPercentage.fill("40");
     await followingPercentage.press("Enter");
     await expect(followingPercentage).toHaveValue("40");
-    await expect(page.getByRole("spinbutton", {
-      name: "Liked by Following percentage",
-    })).toHaveValue("20");
+    await expect(
+      page.getByRole("spinbutton", {
+        name: "Liked by Following percentage",
+      }),
+    ).toHaveValue("20");
 
-    await page.getByRole("button", {
-      name: "Lock Liked Authors/Topics weight",
-    }).click();
+    await page
+      .getByRole("button", {
+        name: "Lock Liked Authors/Topics weight",
+      })
+      .click();
     await page.getByRole("button", { name: "Lock Popular weight" }).click();
-    await expect(page.getByRole("slider", {
-      name: "Following amount",
-      exact: true,
-    })).toBeDisabled();
+    await expect(
+      page.getByRole("slider", {
+        name: "Following amount",
+        exact: true,
+      }),
+    ).toBeDisabled();
     await expect(followingPercentage).toBeDisabled();
     await expect(followingPercentage).toHaveValue("40");
-    await expect(page.getByRole("button", {
-      name: "Lock Following weight",
-    })).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: "Lock Following weight",
+      }),
+    ).toBeDisabled();
 
     const centeredHelp = await settings.evaluate((element) => {
       const root = element.shadowRoot;
@@ -258,9 +337,7 @@ for (const width of [240, 320, 375]) {
     const close = drawer.getByRole("button", { name: "Close navigation" });
     const closeBox = await close.boundingBox();
     expect(closeBox).not.toBeNull();
-    expect((closeBox?.x ?? 0) - (box?.x ?? 0)).toBeGreaterThan(
-      (box?.width ?? 0) / 2,
-    );
+    expect((closeBox?.x ?? 0) - (box?.x ?? 0)).toBeGreaterThan((box?.width ?? 0) / 2);
     await expect(close).toHaveCSS("border-top-style", "solid");
 
     const overflow = await drawer.evaluate((element) => ({
@@ -283,9 +360,7 @@ for (const width of [240, 320, 375]) {
     await expect(page).toHaveURL(/#\/settings\/your-feed$/);
     await expect(drawer).toBeVisible();
 
-    const name = drawer
-      .locator(".user-details-name, .user-details-handle--primary")
-      .first();
+    const name = drawer.locator(".user-details-name, .user-details-handle--primary").first();
     await name.evaluate((element) => {
       element.textContent = "A very long display name that must not leave the drawer";
     });

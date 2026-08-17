@@ -50,6 +50,22 @@ describe("FeedPage sign in", () => {
     ).toContain("Continue");
   });
 
+  it("renders and dismisses an auth callback failure through the login alert", async () => {
+    const element = document.createElement("feed-page");
+    element.authFailureMessage = "We couldn't sign you in. Please try again.";
+    const dismissed = vi.fn();
+    element.addEventListener("auth-failure-dismissed", dismissed);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector("[role=alert]")?.textContent).toContain(
+      "We couldn't sign you in",
+    );
+    const input = element.shadowRoot?.querySelector<HTMLInputElement>("#account-handle");
+    input?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    expect(dismissed).toHaveBeenCalledOnce();
+  });
+
   it("normalizes the handle and preserves the return route", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

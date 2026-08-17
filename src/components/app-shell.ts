@@ -24,6 +24,16 @@ const NAV_ITEMS = [
   { icon: "chat", label: "Feedback", page: "feedback" },
 ] satisfies { icon: string; label: string; page: AppPage }[];
 
+type AuthFailureCategory =
+  | "access_denied"
+  | "provider_error"
+  | "callback_failed"
+  | "missing_token"
+  | "token_exchange_failed";
+
+const AUTH_CANCELED_MESSAGE = "Sign in was canceled. You can try again when you're ready.";
+const AUTH_FAILED_MESSAGE = "We couldn't sign you in. Please try again.";
+
 @customElement("app-shell")
 export class AppShell extends MobxLitElement {
   private _currentRoute = "/feed";
@@ -32,9 +42,11 @@ export class AppShell extends MobxLitElement {
   private _drawerOpen = false;
   @state() private _showLogoutMenu = false;
   @state() private _expandedAlgorithms = new Set<AlgorithmId>();
+  @state() private _authFailureMessage = "";
   private _lastRouteFeed: AlgorithmId | null = null;
   private _lastSettingsViewedFeed: AlgorithmId | null = null;
   private _lastResolvedAuthState: boolean | null = null;
+  private _authFinishInFlight = false;
 
   static styles = css`
     :host {
@@ -727,7 +739,11 @@ export class AppShell extends MobxLitElement {
                     .onOpenMenu=${this.#openDrawer}
                     .selectedAlgorithm=${selectedAlgorithm}
                   ></feedback-page>`
-                : html`<feed-page .onOpenMenu=${this.#openDrawer}></feed-page>`
+                : html`<feed-page
+                    .onOpenMenu=${this.#openDrawer}
+                    .authFailureMessage=${this._authFailureMessage}
+                    @auth-failure-dismissed=${this.#dismissAuthFailure}
+                  ></feed-page>`
           }
         </main>
       </div>
@@ -873,9 +889,13 @@ export class AppShell extends MobxLitElement {
   #updateRoute() {
     const rawHash = window.location.hash.slice(1) || "/feed";
     if (rawHash.startsWith("/auth/finish")) {
+      if (this._authFinishInFlight) return;
       this._currentRoute = rawHash;
       this.requestUpdate();
-      void this.#handleAuthFinish();
+      this._authFinishInFlight = true;
+      void this.#handleAuthFinish().finally(() => {
+        this._authFinishInFlight = false;
+      });
       return;
     }
 
@@ -960,6 +980,10 @@ export class AppShell extends MobxLitElement {
     this.requestUpdate();
   };
 
+  #dismissAuthFailure = () => {
+    this._authFailureMessage = "";
+  };
+
   #toggleAlgorithmExpanded(id: AlgorithmId): void {
     const expanded = new Set(this._expandedAlgorithms);
     if (expanded.has(id)) {
@@ -1034,19 +1058,31 @@ export class AppShell extends MobxLitElement {
 
   async #handleAuthFinish() {
     const params = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+    const callbackError = params.get("error");
     const token = params.get("token");
     const returnUrl = params.get("return_url") ?? "/feed";
 
+    if (callbackError) {
+      const category: AuthFailureCategory =
+        callbackError === "access_denied"
+          ? "access_denied"
+          : callbackError === "provider_error"
+            ? "provider_error"
+            : "callback_failed";
+      this.#recoverFromAuthFailure(category);
+      return;
+    }
+
     if (!token) {
-      getRootStore()?.services.analyticsService.capture("signInFailed", {
-        failure_stage: "callback",
-        error_category: "missing_token",
-      });
+      this.#recoverFromAuthFailure("missing_token");
       return;
     }
 
     const store = getRootStore();
-    if (!store) return;
+    if (!store) {
+      this.#recoverFromAuthFailure("callback_failed");
+      return;
+    }
 
     try {
       await store.authStore.signInWithCustomToken(token);
@@ -1071,12 +1107,30 @@ export class AppShell extends MobxLitElement {
       );
       this.#updateRoute();
     } catch {
-      store.services.analyticsService.capture("signInFailed", {
-        failure_stage: "callback",
-        error_category: "token_exchange_failed",
-      });
-      window.location.hash = "/feed";
+      this.#recoverFromAuthFailure("token_exchange_failed");
     }
+  }
+
+  #recoverFromAuthFailure(category: AuthFailureCategory): void {
+    const store = getRootStore();
+    store?.services.analyticsService.capture("signInFailed", {
+      failure_stage: "callback",
+      error_category: category,
+    });
+    this._authFailureMessage = store?.authStore.isSignedIn
+      ? ""
+      : category === "access_denied"
+        ? AUTH_CANCELED_MESSAGE
+        : AUTH_FAILED_MESSAGE;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}#/feed`,
+    );
+    this._currentRoute = "/feed";
+    this._currentPage = "feed";
+    this._currentFeed = "your-feed";
+    this.#updateRoute();
   }
 }
 

@@ -1,14 +1,10 @@
 import { makeAutoObservable } from "mobx";
-import type {
-  FeedItemView,
-  FeedSummary,
-  FilteringCounts,
-} from "../models/feed-debug-snapshot";
+import type { FeedItemView, FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
 
-const DEFAULT_POSTS_PER_PAGE = 10;
+const DEFAULT_POSTS_PER_PAGE = 20;
 
 type FeedListLoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -129,10 +125,7 @@ export class FeedStore {
     this.filteringCountsByRequest = {};
   }
 
-  async loadFeedList(options?: {
-    feedName?: AlgorithmId;
-    force?: boolean;
-  }): Promise<void> {
+  async loadFeedList(options?: { feedName?: AlgorithmId; force?: boolean }): Promise<void> {
     if (this.isLoading && !options?.force) return;
 
     if (options?.force) {
@@ -153,19 +146,15 @@ export class FeedStore {
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
 
-      const currentAlgo = options?.feedName
-        ?? this.root.uiStore.selectedAlgorithm
-        ?? "your-feed";
+      const currentAlgo = options?.feedName ?? this.root.uiStore.selectedAlgorithm ?? "your-feed";
       if (this.root.uiStore.selectedAlgorithm === null) {
         this.root.uiStore.setSelectedAlgorithm(currentAlgo);
       }
 
       // A pull can finish after the user navigates to a different feed. Keep
       // the refreshed summaries, but never put the old feed's detail there.
-      if (
-        options?.feedName !== undefined
-        && this.root.uiStore.selectedAlgorithm !== currentAlgo
-      ) return;
+      if (options?.feedName !== undefined && this.root.uiStore.selectedAlgorithm !== currentAlgo)
+        return;
 
       const latestForAlgo = this.feedList
         .filter((f) => f.feedName === currentAlgo)
@@ -218,9 +207,9 @@ export class FeedStore {
         );
 
       if (
-        !latest
-        || latest.requestId === baselineRequestId
-        || this.root.uiStore.selectedAlgorithm !== feedName
+        !latest ||
+        latest.requestId === baselineRequestId ||
+        this.root.uiStore.selectedAlgorithm !== feedName
       ) {
         return false;
       }

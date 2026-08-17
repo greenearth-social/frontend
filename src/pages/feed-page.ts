@@ -21,6 +21,7 @@ const BLUESKY_REFRESH_TIMEOUT_MS = 45_000;
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
+  @property({ type: String }) authFailureMessage = "";
   @state() private _showEmptyInsteadOfLoading = false;
   @state() private _loadTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private _handle = "";
@@ -218,6 +219,7 @@ export class FeedPage extends MobxLitElement {
       </div>`;
 
     const { feedStore, uiStore, accountStore, authStore, preferencesStore } = store;
+    const signInError = this._signInError || this.authFailureMessage;
     if (!authStore.isSignedIn || !accountStore.activeAccount) {
       return html`
         <div class="logged-out-page">
@@ -239,16 +241,17 @@ export class FeedPage extends MobxLitElement {
                 placeholder="alice.bsky.social"
                 .value=${this._handle}
                 ?disabled=${this._signInPending}
-                aria-describedby=${this._signInError ? "sign-in-error" : undefined}
+                aria-describedby=${signInError ? "sign-in-error" : undefined}
                 @input=${(event: InputEvent) => {
                   this._handle = (event.currentTarget as HTMLInputElement).value;
                   this._signInError = "";
+                  this.#dismissAuthFailure();
                 }}
               />
               ${
-                this._signInError
+                signInError
                   ? html`<p id="sign-in-error" class="sign-in-error" role="alert">
-                      ${this._signInError}
+                      ${signInError}
                     </p>`
                   : ""
               }
@@ -467,7 +470,10 @@ export class FeedPage extends MobxLitElement {
 
           <feed-tabs
             .feeds=${[...feedStore.feedList]
-              .filter((f) => uiStore.selectedAlgorithm === null || f.feedName === uiStore.selectedAlgorithm)
+              .filter(
+                (f) =>
+                  uiStore.selectedAlgorithm === null || f.feedName === uiStore.selectedAlgorithm,
+              )
               .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
@@ -496,7 +502,9 @@ export class FeedPage extends MobxLitElement {
               ? html`<wa-spinner></wa-spinner><span>Refreshing snapshots…</span>`
               : html`
                   <svg viewBox="0 0 640 640" aria-hidden="true">
-                    <path d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"></path>
+                    <path
+                      d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
+                    ></path>
                   </svg>
                   <span>${pullReady ? "Release to refresh" : "Pull to refresh"}</span>
                 `
@@ -567,11 +575,11 @@ export class FeedPage extends MobxLitElement {
     const scrollContainer = this.parentElement;
     const feedStore = getRootStore()?.feedStore;
     if (
-      !touch
-      || window.innerWidth >= 1024
-      || (scrollContainer?.scrollTop ?? 0) > 0
-      || feedStore?.isLoading
-      || this._pullRefreshing
+      !touch ||
+      window.innerWidth >= 1024 ||
+      (scrollContainer?.scrollTop ?? 0) > 0 ||
+      feedStore?.isLoading ||
+      this._pullRefreshing
     ) {
       this._pullStart = null;
       return;
@@ -701,9 +709,9 @@ export class FeedPage extends MobxLitElement {
     const store = getRootStore();
     if (!session || !store || this._blueskyRefreshInFlight) return;
     if (
-      session.expiresAt === null
-      || Date.now() >= session.expiresAt
-      || store.uiStore.selectedAlgorithm !== session.feedName
+      session.expiresAt === null ||
+      Date.now() >= session.expiresAt ||
+      store.uiStore.selectedAlgorithm !== session.feedName
     ) {
       this.#cancelBlueskyRefresh();
       return;
@@ -732,6 +740,7 @@ export class FeedPage extends MobxLitElement {
   async #signIn(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (this._signInPending) return;
+    this.#dismissAuthFailure();
 
     const handle = this._handle.trim().replace(/^@/, "").toLowerCase();
     const validHandle =
@@ -783,6 +792,16 @@ export class FeedPage extends MobxLitElement {
           : "Could not find that account. Check the handle and try again.";
       this._signInPending = false;
     }
+  }
+
+  #dismissAuthFailure(): void {
+    if (!this.authFailureMessage) return;
+    this.dispatchEvent(
+      new CustomEvent("auth-failure-dismissed", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   #showSourceBreakdown(event: MouseEvent) {

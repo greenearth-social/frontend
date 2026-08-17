@@ -42,6 +42,7 @@ vi.mock("../main", () => ({
 
 import "../pages/settings-page";
 import type { IconRangeSlider } from "../components/icon-range-slider";
+import { settingsPageStyles } from "../pages/settings-page.styles";
 
 describe("SettingsPage", () => {
   beforeEach(() => {
@@ -80,9 +81,15 @@ describe("SettingsPage", () => {
     const sectionTitles = Array.from(
       element.shadowRoot?.querySelectorAll(".section-title") ?? [],
     ).map((title) => title.textContent.trim());
-    expect(sectionTitles).toEqual(["Post Sources", "Ranking", "Diversification"]);
-    expect(element.shadowRoot?.querySelector('.politics-card .coming-soon')?.textContent).toContain(
+    expect(sectionTitles).toEqual(["Sources", "Ranking", "Diversification"]);
+    expect(element.shadowRoot?.querySelector(".politics-card .coming-soon")?.textContent).toContain(
       "Coming Soon",
+    );
+    expect(
+      element.shadowRoot?.querySelector(".section-ranking .ranking-grid > .politics-card"),
+    ).not.toBeNull();
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.politics-card\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s,
     );
     const politics = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -105,9 +112,7 @@ describe("SettingsPage", () => {
     const sourceRows = element.shadowRoot?.querySelectorAll(".source-adjustment-row");
     expect(sourceRows).toHaveLength(4);
     for (const row of sourceRows ?? []) {
-      expect(Array.from(row.children)[0]?.classList.contains("source-slider-card")).toBe(
-        true,
-      );
+      expect(Array.from(row.children)[0]?.classList.contains("source-slider-card")).toBe(true);
       expect(Array.from(row.children)[1]?.classList.contains("source-editor")).toBe(true);
       expect(row.querySelector(".source-slider-card .percentage-field")).toBeNull();
     }
@@ -131,18 +136,17 @@ describe("SettingsPage", () => {
     expect(
       element.shadowRoot?.querySelector(".reset-defaults-btn > svg path")?.getAttribute("d"),
     ).toContain("M320 128C426 128");
-    expect(element.shadowRoot?.querySelector(".reset-label-short")?.textContent).toBe(
-      "Defaults",
-    );
+    expect(element.shadowRoot?.querySelector(".reset-label-short")?.textContent).toBe("Defaults");
   });
 
   it("waits for saved preferences instead of briefly showing fallback defaults", async () => {
     let finishLoad: (() => void) | undefined;
     testState.rootStore.preferencesStore.hasLoaded = false;
     testState.rootStore.preferencesStore.load.mockImplementation(
-      () => new Promise<void>((resolve) => {
-        finishLoad = resolve;
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          finishLoad = resolve;
+        }),
     );
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
@@ -201,17 +205,13 @@ describe("SettingsPage", () => {
     await Promise.resolve();
     await element.updateComplete;
 
-    const reset = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      ".reset-defaults-btn",
-    );
+    const reset = element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn");
     expect(reset?.disabled).toBe(false);
     reset?.click();
     await Promise.resolve();
     await element.updateComplete;
 
-    expect(testState.rootStore.preferencesStore.restoreDefaults).toHaveBeenCalledWith(
-      "your-feed",
-    );
+    expect(testState.rootStore.preferencesStore.restoreDefaults).toHaveBeenCalledWith("your-feed");
     expect(reset?.disabled).toBe(true);
     expect(element.shadowRoot?.querySelector(".refresh-popup")?.textContent).toContain(
       "Refresh your Bluesky feed",
@@ -245,9 +245,7 @@ describe("SettingsPage", () => {
     await Promise.resolve();
     await element.updateComplete;
 
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".reset-defaults-btn")
-      ?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.click();
     await Promise.resolve();
     await element.updateComplete;
 
@@ -273,6 +271,7 @@ describe("SettingsPage", () => {
 
     expect(element.shadowRoot?.querySelector(".section-ranking")).toBeNull();
     expect(element.shadowRoot?.querySelector(".section-diversification")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".politics-card")).toBeNull();
     expect(element.shadowRoot?.textContent).toContain("Random");
     expect(element.shadowRoot?.textContent).not.toContain("Fixed source");
   });
@@ -308,9 +307,7 @@ describe("SettingsPage", () => {
 
     const link = element.shadowRoot?.querySelector<HTMLAnchorElement>(".popup-more");
     expect(link?.textContent).toContain("More");
-    expect(link?.href).toBe(
-      "https://www.greenearth.social/p/what-does-constructive-mean",
-    );
+    expect(link?.href).toBe("https://www.greenearth.social/p/what-does-constructive-mean");
     expect(link?.target).toBe("_blank");
     const row = element.shadowRoot?.querySelector(".popup-detail-row");
     expect(row?.querySelector(".popup-metric-value")?.textContent).toBe("0.50");
@@ -360,6 +357,38 @@ describe("SettingsPage", () => {
     );
   });
 
+  it("commits Following at zero from its individual slider", async () => {
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const following = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Following amount");
+    following?.dispatchEvent(
+      new CustomEvent("slider-preview", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 0 },
+      }),
+    );
+    await element.updateComplete;
+    following?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 0 },
+      }),
+    );
+
+    expect(testState.rootStore.preferencesStore.save).toHaveBeenCalledWith(
+      "your-feed",
+      "source_weights",
+      { following: 0, networkLikes: 0.28, authorsTopics: 0.36, popular: 0.36 },
+      "following",
+    );
+  });
+
   it("edits whole percentages while preserving locked sources", async () => {
     testState.rootStore.preferencesStore.save.mockImplementation(
       (_feedName, control: string, value: unknown) => {
@@ -383,12 +412,11 @@ describe("SettingsPage", () => {
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
     );
     expect(
-      slidersAfterLock.find((slider) => slider.ariaLabel === "Liked by Following amount")
-        ?.disabled,
+      slidersAfterLock.find((slider) => slider.ariaLabel === "Liked by Following amount")?.disabled,
     ).toBe(true);
-    expect(
-      slidersAfterLock.find((slider) => slider.ariaLabel === "Source rank")?.disabled,
-    ).toBe(true);
+    expect(slidersAfterLock.find((slider) => slider.ariaLabel === "Source rank")?.disabled).toBe(
+      true,
+    );
     const cappedFollowing = slidersAfterLock.find(
       (slider) => slider.ariaLabel === "Following amount",
     );
@@ -424,9 +452,8 @@ describe("SettingsPage", () => {
       ?.click();
     await element.updateComplete;
     expect(
-      element.shadowRoot?.querySelector<HTMLButtonElement>(
-        '[aria-label="Lock Following weight"]',
-      )?.disabled,
+      element.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Lock Following weight"]')
+        ?.disabled,
     ).toBe(true);
     const derivedFollowing = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -440,9 +467,7 @@ describe("SettingsPage", () => {
     );
     expect(derivedInput?.disabled).toBe(true);
     expect(derivedInput?.value).toBe("40");
-    expect(derivedInput?.closest(".source-editor")?.classList.contains("is-derived")).toBe(
-      true,
-    );
+    expect(derivedInput?.closest(".source-editor")?.classList.contains("is-derived")).toBe(true);
 
     derivedFollowing?.dispatchEvent(
       new CustomEvent("slider-change", {
@@ -537,9 +562,7 @@ describe("SettingsPage", () => {
     await Promise.resolve();
     await element.updateComplete;
 
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".reset-defaults-btn")
-      ?.click();
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.click();
     await Promise.resolve();
     await element.updateComplete;
 
@@ -565,18 +588,14 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(
-        '[aria-label="Learn more about Liked by Following"]',
-      )
+      ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Liked by Following"]')
       ?.click();
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain(
       "liked by accounts you follow",
     );
-    expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe(
-      "0.20",
-    );
+    expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe("0.20");
   });
 
   it("keeps explanations clickable independently from controls", async () => {
