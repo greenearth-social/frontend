@@ -32,6 +32,7 @@ import {
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
+  @property({ type: String }) blueskyUrl: string = "";
   @state() private isLoading = false;
   @state() private selectedNode: string | null = null;
   @state() private previewSourceWeights: SourceWeights | null = null;
@@ -151,9 +152,17 @@ export class SettingsPage extends MobxLitElement {
             : html`
                 ${
                 this.showRefreshPopup
-                  ? html`<div class="refresh-popup" role="status" aria-live="polite">
+                  ? html`<a
+                      class="refresh-popup"
+                      href=${this.blueskyUrl || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      role="status"
+                      aria-live="polite"
+                      aria-label="Refresh your feed in Bluesky"
+                    >
                       ${this.refreshPopupMessage}
-                    </div>`
+                    </a>`
                   : ""
               }
                 <div class="diagram-wrapper">

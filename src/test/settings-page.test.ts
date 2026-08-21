@@ -598,6 +598,35 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe("0.20");
   });
 
+  it("renders refresh popup as a link to blueskyUrl when provided", async () => {
+    vi.useFakeTimers();
+    const element = document.createElement("settings-page");
+    element.blueskyUrl =
+      "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const freshness = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Time Window");
+    freshness?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 2 },
+      }),
+    );
+    await element.updateComplete;
+
+    const link = element.shadowRoot?.querySelector<HTMLAnchorElement>(".refresh-popup");
+    expect(link?.tagName.toLowerCase()).toBe("a");
+    expect(link?.href).toBe(
+      "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed",
+    );
+    expect(link?.target).toBe("_blank");
+    vi.useRealTimers();
+  });
+
   it("keeps explanations clickable independently from controls", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);

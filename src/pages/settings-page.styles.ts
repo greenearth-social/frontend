@@ -603,7 +603,13 @@ export const settingsPageStyles = css`
     text-align: center;
     white-space: normal;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    pointer-events: none;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .refresh-popup:hover {
+    background: rgba(30, 44, 58, 0.98);
   }
 
   @media (min-width: 768px) {

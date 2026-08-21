@@ -733,6 +733,7 @@ export class AppShell extends MobxLitElement {
               ? html`<settings-page
                   .onOpenMenu=${this.#openDrawer}
                   .selectedAlgorithm=${selectedAlgorithm}
+                  .blueskyUrl=${ALGORITHMS[selectedAlgorithm].blueskyUrl}
                 ></settings-page>`
               : activePage === "feedback"
                 ? html`<feedback-page
