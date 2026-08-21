@@ -40,10 +40,11 @@ const DEFAULT_STYLE = {
   border: "rgba(113, 118, 123, 0.4)",
 };
 
-const GENERATOR_LABELS: Record<string, string> = {
+export const GENERATOR_LABELS: Record<string, string> = {
   two_tower: "Author/Topic",
   followed_users: "Followed",
   popularity: "Popular",
+  network_likes: "Followed Likes",
   random_posts: "random",
 };
 

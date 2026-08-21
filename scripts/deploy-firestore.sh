@@ -44,6 +44,8 @@ readonly TTL_COLLECTIONS=(
   discarded_posts
   feed_debug
   feed_snapshots
+  followed_users_cache
+  user_history_cache
 )
 
 for collection in "${TTL_COLLECTIONS[@]}"; do

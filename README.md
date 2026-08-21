@@ -99,11 +99,12 @@ Hash-based SPA routing handled entirely in `app-shell.ts`:
 | Hash             | Page          | Description                                             |
 | ---------------- | ------------- | ------------------------------------------------------- |
 | `#/feed`         | Feed Page     | Default. Post observability feed with tabs + pagination |
-| `#/controls`     | Controls Page | Social Radius slider + future controls                  |
-| `#/how-it-works` | How It Works  | Interactive algorithm diagram                           |
 | `#/feedback`     | Feedback      | Custom PostHog-backed feedback form                     |
-| `#/settings`     | Settings      | Placeholder                                             |
-| `#/auth/finish?token=...` | (inline) | OAuth callback handler                            |
+| `#/settings`     | Settings      | Feed-specific controls and pipeline explanations        |
+| `#/controls`     | Redirect      | Legacy route; history-replaced with `#/settings`        |
+| `#/how-it-works` | Redirect      | Legacy route; history-replaced with `#/settings`        |
+| `#/auth/finish?token=...` | (inline) | Completes a successful OAuth callback             |
+| `#/auth/finish?error=...` | (inline) | Returns OAuth failures to the signed-out form     |
 
 ## Product analytics
 
@@ -155,6 +156,11 @@ User clicks "Sign in with Bluesky"
   → Redirect to #/feed
 ```
 
+If authorization is canceled or the callback fails, `oauthCallback` instead
+redirects with one of the bounded `access_denied`, `provider_error`, or
+`callback_failed` categories. The app replaces the callback URL with `#/feed`
+and displays a retryable message on the signed-out form.
+
 Cloud Functions live in `functions/src/auth/` and serve:
 
 - `oauthClientMetadata` → `/oauth-client-metadata.json`
@@ -178,7 +184,7 @@ The Bluesky dark theme variables are defined in `src/styles/index.css` and inclu
 | `feed-view`          | `<feed-view>`          | Renders list of `<feed-item-card>` components                      |
 | `feed-item-card`     | `<feed-item-card>`     | Single post: author, content, score chart, generator badges        |
 | `feed-tabs`          | `<feed-tabs>`          | Horizontal scrollable tab bar with gradient fade edges             |
-| `lifecycle-slider`   | `<lifecycle-slider>`   | 5-stage draggable slider (eggs → butterfly) for Social Radius      |
+| `icon-range-slider`  | `<icon-range-slider>`  | Accessible horizontal/vertical slider with a dynamic thumb icon    |
 | `rank-scores-chart`  | `<rank-scores-chart>`  | Score axis chart showing model scores on -1 to +1                  |
 | `generator-badge`    | `<generator-badge>`    | Colored pill badge for feed generator names + scores               |
 | `pagination-control` | `<pagination-control>` | Page buttons, ellipsis, per-page selector                          |

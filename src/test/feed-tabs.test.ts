@@ -49,7 +49,9 @@ describe("FeedTabs source breakdown", () => {
 
     expect(changed).not.toHaveBeenCalled();
     expect(element.shadowRoot?.querySelectorAll(".breakdown-button")).toHaveLength(0);
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("followed_users");
+    const dialogText = element.shadowRoot?.querySelector("dialog")?.textContent;
+    expect(dialogText).toContain("Followed");
+    expect(dialogText).not.toContain("followed_users");
     element.remove();
   });
 
@@ -65,10 +67,40 @@ describe("FeedTabs source breakdown", () => {
     externalButton.click();
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
-      "followed_users",
-    );
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Followed");
     externalButton.remove();
+    element.remove();
+  });
+
+  it("orders sources to match Settings", async () => {
+    const element = makeTabs();
+    const feed = element.feeds[0];
+    if (!feed) throw new Error("Expected feed fixture");
+    const diagnostic = feed.generatorDiagnostics[0];
+    if (!diagnostic) throw new Error("Expected diagnostic fixture");
+    element.feeds = [
+      {
+        ...feed,
+        generatorDiagnostics: [
+          { ...diagnostic, name: "popularity" },
+          { ...diagnostic, name: "two_tower" },
+          { ...diagnostic, name: "followed_users" },
+          { ...diagnostic, name: "network_likes" },
+        ],
+      },
+      ...element.feeds.slice(1),
+    ];
+    await element.updateComplete;
+
+    element.showActiveBreakdown();
+    await element.updateComplete;
+
+    const tableText = element.shadowRoot?.querySelector("tbody")?.textContent ?? "";
+    const sourceNames = Array.from(
+      tableText.matchAll(/(Followed Likes|Followed|Author\/Topic|Popular)\s+70%/g),
+      (match) => match[1],
+    );
+    expect(sourceNames).toEqual(["Followed", "Followed Likes", "Author/Topic", "Popular"]);
     element.remove();
   });
 
@@ -157,5 +189,21 @@ describe("FeedTabs source breakdown", () => {
 
     element.remove();
     expect(latestOptions).toHaveLength(0);
+  });
+
+  it("keeps the mobile feed switcher available when the selected feed has no snapshots", async () => {
+    const element = document.createElement("feed-tabs");
+    element.feeds = [];
+    element.selectedAlgorithm = "best-of-friends";
+    element.algorithmLabel = "Best of Friends";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".algo-trigger")?.textContent).toContain(
+      "Best of Friends",
+    );
+    expect(element.shadowRoot?.querySelectorAll(".tab")).toHaveLength(0);
+    expect(FeedTabs.styles.cssText).toContain("min-height: 2.75rem");
+    element.remove();
   });
 });

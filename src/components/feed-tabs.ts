@@ -3,11 +3,20 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
 import { ALGORITHMS, ALGORITHM_IDS, type AlgorithmId } from "../constants/algorithms";
 import { relativeTime } from "../utils/relative-time";
+import { GENERATOR_LABELS } from "./generator-badge";
 
 const ALGO_PNG: Record<string, string> = {
   "your-feed": "/assets/algo-greenearth.png",
   "best-of-friends": "/assets/algo-best-of-friends.png",
   "random": "/assets/algo-random.png",
+};
+
+const GENERATOR_ORDER: Record<string, number> = {
+  followed_users: 0,
+  network_likes: 1,
+  two_tower: 2,
+  two_tower_empty_history: 2,
+  popularity: 3,
 };
 
 @customElement("feed-tabs")
@@ -27,6 +36,7 @@ export class FeedTabs extends LitElement {
     .tabs-container {
       display: flex;
       align-items: stretch;
+      min-height: 2.75rem;
       background: rgba(21, 32, 43, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -49,6 +59,8 @@ export class FeedTabs extends LitElement {
       gap: 0.375rem;
       padding: 0 0.625rem 0 0.75rem;
       height: 100%;
+      min-height: 2.75rem;
+      box-sizing: border-box;
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--bluesky-text);
@@ -282,8 +294,6 @@ export class FeedTabs extends LitElement {
   }
 
   render() {
-    if (this.feeds.length === 0) return html``;
-
     const pngSrc = this.selectedAlgorithm ? (ALGO_PNG[this.selectedAlgorithm] ?? "") : "";
     const indicatorLabel = this.algorithmLabel;
 
@@ -368,6 +378,19 @@ export class FeedTabs extends LitElement {
     const radius = feed.appliedSocialRadius === null
       ? "Unknown"
       : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
+    const sourceNames: Record<string, string> = {
+      followed_users: "Following",
+      two_tower: "Authors/Topics",
+      two_tower_empty_history: "Authors/Topics",
+      popularity: "Popular",
+    };
+    const sourceMix = feed.generatorDiagnostics
+      .filter((diagnostic) => sourceNames[diagnostic.name] !== undefined)
+      .map(
+        (diagnostic) =>
+          `${sourceNames[diagnostic.name] ?? diagnostic.name} ${(diagnostic.weight * 100).toFixed(0)}%`,
+      )
+      .join(" · ");
     const filtering = this.filteringCountsByRequest[feed.requestId];
     return html`
       <dialog
@@ -380,7 +403,9 @@ export class FeedTabs extends LitElement {
         }}
       >
         <div class="popover-title">Source breakdown</div>
-        <div class="popover-subtitle">Applied social radius: ${radius}</div>
+        <div class="popover-subtitle">
+          ${sourceMix ? `Applied source mix: ${sourceMix}` : `Legacy social radius: ${radius}`}
+        </div>
         <div class="filter-summary">
           ${filtering
             ? html`
@@ -400,10 +425,14 @@ export class FeedTabs extends LitElement {
                   <tr><th>Source</th><th>Weight</th><th>Asked</th><th>Returned</th><th>Shown</th><th>Status</th></tr>
                 </thead>
                 <tbody>
-                  ${feed.generatorDiagnostics.map((diagnostic) => html`
+                  ${[...feed.generatorDiagnostics].sort(
+                    (a, b) =>
+                      (GENERATOR_ORDER[a.name] ?? Number.MAX_SAFE_INTEGER)
+                      - (GENERATOR_ORDER[b.name] ?? Number.MAX_SAFE_INTEGER),
+                  ).map((diagnostic) => html`
                     <tr>
                       <td>
-                        ${diagnostic.name}
+                        ${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}
                       </td>
                       <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
                       <td>${diagnostic.requestedCount}</td>

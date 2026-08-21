@@ -70,6 +70,7 @@ export class FeedView extends MobxLitElement {
                   href=${this.blueskyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  @click=${this.#notifyBlueskyFeedOpened}
                 >
                   Open Bluesky app
                 </a>`
@@ -94,6 +95,16 @@ export class FeedView extends MobxLitElement {
       </div>
     `;
   }
+
+  #notifyBlueskyFeedOpened = (): void => {
+    this.dispatchEvent(
+      new CustomEvent("bluesky-feed-opened", {
+        bubbles: true,
+        composed: true,
+        detail: { feedName: this.algorithmId },
+      }),
+    );
+  };
 }
 
 declare global {
