@@ -5,6 +5,324 @@ export const settingsPageStyles = css`
     display: block;
   }
 
+  .settings-layout {
+    min-height: 100dvh;
+  }
+
+  .controls-column {
+    min-width: 0;
+  }
+
+  .feed-column {
+    display: none;
+    min-width: 0;
+    background: var(--bluesky-bg, #0f1720);
+  }
+
+  .preview-header {
+    position: relative;
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--bluesky-border);
+    box-sizing: border-box;
+    background: rgba(21, 32, 43, 0.94);
+  }
+
+  .preview-header-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .preview-header h2 {
+    margin: 0.1rem 0 0;
+    color: var(--bluesky-text);
+    font-size: 0.9375rem;
+  }
+
+  .preview-eyebrow {
+    color: var(--bluesky-text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .preview-close,
+  .palette-button,
+  .preview-error button {
+    min-height: 36px;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 999px;
+    background: var(--bluesky-bg-card);
+    color: var(--bluesky-text);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .palette-button {
+    display: grid;
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    place-items: center;
+  }
+
+  .palette-button wa-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
+  }
+
+  .palette-button[aria-expanded="true"] {
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-bg-hover);
+    color: var(--bluesky-brand);
+  }
+
+  .preview-close:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  .palette-button:focus-visible,
+  .preview-close:focus-visible {
+    outline: 2px solid var(--bluesky-brand);
+    outline-offset: 2px;
+  }
+
+  .color-legend {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% - 0.25rem);
+    right: 1rem;
+    width: min(18rem, calc(100% - 2rem));
+    padding: 0.875rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 0.875rem;
+    box-sizing: border-box;
+    background: var(--bluesky-bg-card, #151f2b);
+    color: var(--bluesky-text);
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+  }
+
+  .color-legend > strong {
+    display: block;
+    margin-bottom: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .color-legend-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.75rem;
+  }
+
+  .color-legend-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--bluesky-text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+  }
+
+  .color-legend-swatch {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    border: 2px solid var(--legend-border);
+    border-radius: 0.3rem;
+    box-sizing: border-box;
+    background: var(--legend-background);
+  }
+
+  .feed-scroll {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .preview-warning,
+  .preview-error {
+    margin: 0;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--bluesky-border);
+    color: var(--bluesky-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .preview-actions {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem max(0.75rem, env(safe-area-inset-right, 0px))
+      max(0.75rem, env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-left, 0px));
+    border-top: 1px solid var(--bluesky-border);
+    background: rgba(21, 32, 43, 0.98);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.24);
+  }
+
+  .preview-actions button {
+    min-height: 44px;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--bluesky-text);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .preview-actions button.primary {
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-brand);
+    color: #fff;
+  }
+
+  .preview-actions button.danger {
+    color: #fca5a5;
+  }
+
+  .preview-actions button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  .preview-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-top: 1px solid var(--bluesky-border);
+    border-bottom: 0;
+  }
+
+  .preview-generating {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 999px;
+    background: rgba(21, 32, 43, 0.94);
+    color: var(--bluesky-text);
+    font-size: 0.75rem;
+    font-weight: 650;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .action-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(4px);
+    overscroll-behavior: contain;
+  }
+
+  .action-dialog {
+    width: min(25rem, calc(100vw - 2rem));
+    padding: 1.25rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 1rem;
+    box-sizing: border-box;
+    background: var(--bluesky-bg-card, #151f2b);
+    color: var(--bluesky-text);
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.5);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+
+  .action-dialog h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .action-dialog p {
+    margin: 0.6rem 0 1rem;
+    color: var(--bluesky-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .action-dialog .dialog-error {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(244, 33, 46, 0.55);
+    border-radius: 0.75rem;
+    background: rgba(244, 33, 46, 0.1);
+    color: #fca5a5;
+  }
+
+  .action-buttons {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .action-buttons button {
+    min-height: 44px;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--bluesky-text);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .action-buttons button.primary {
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-brand);
+    color: #fff;
+  }
+
+  .action-buttons button.danger {
+    color: #fca5a5;
+  }
+
+  .action-buttons button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 1199px) {
+    .action-overlay {
+      padding: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px))
+        max(1rem, env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
+    }
+
+    .action-dialog {
+      width: min(21.25rem, calc(100vw - 2rem));
+      max-height: calc(100dvh - 2rem);
+      padding: 1.1rem;
+      border-radius: 1rem;
+    }
+
+    .action-buttons button {
+      width: 100%;
+    }
+  }
+
   .sticky-header {
     position: sticky;
     top: 0;
@@ -775,6 +1093,57 @@ export const settingsPageStyles = css`
   @media (max-width: 1023px) {
     .hamburger-btn {
       display: flex;
+    }
+  }
+
+  @media (max-width: 1199px) {
+    .mobile-preview-open .controls-column {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mobile-preview-open .feed-column {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    .color-legend-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    :host,
+    .settings-layout {
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .settings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(23rem, 0.85fr);
+    }
+
+    .controls-column {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border-right: 1px solid var(--bluesky-border);
+    }
+
+    .feed-column {
+      position: relative;
+      display: flex;
+      min-height: 0;
+      flex-direction: column;
+    }
+
+    .preview-close {
+      display: none;
     }
   }
 

@@ -284,6 +284,50 @@ describe("AppShell authentication UI", () => {
     expect(drawerWheel.defaultPrevented).toBe(false);
   });
 
+  it("keeps navigation collapse state across pages and exposes compact logout", async () => {
+    window.location.hash = "/feed/your-feed";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const shell = element.shadowRoot?.querySelector(".shell-container");
+    const toggle = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      ".desktop-sidebar-toggle",
+    );
+    expect(toggle?.getAttribute("aria-label")).toBe("Collapse navigation");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(false);
+
+    toggle?.click();
+    await element.updateComplete;
+
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(true);
+    expect(toggle?.getAttribute("aria-label")).toBe("Expand navigation");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.left-sidebar-desktop a[href="#/feedback/your-feed"]')
+      ?.click();
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feedback/your-feed");
+    });
+    await element.updateComplete;
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(true);
+    expect(
+      element.shadowRoot?.querySelector(".desktop-sidebar-toggle")?.getAttribute("aria-label"),
+    ).toBe("Expand navigation");
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".left-sidebar-desktop .more-btn")
+      ?.click();
+    await element.updateComplete;
+    const compactLogout = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      ".left-sidebar-desktop .logout-btn.compact",
+    );
+    expect(compactLogout?.getAttribute("aria-label")).toBe("Log out");
+    expect(compactLogout?.querySelector("wa-icon")?.getAttribute("name")).toBe("lock");
+  });
+
   it("closes the mobile drawer before signing out", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
@@ -699,6 +743,38 @@ describe("AppShell algorithm selector", () => {
       (node) => node.id,
     );
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        '.left-sidebar-desktop .desktop-sidebar-toggle[aria-label="Collapse navigation"]',
+      )
+      ?.click();
+    await element.updateComplete;
+
+    const pages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
+    const collapseFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '.left-sidebar-desktop .algo-btn[aria-label="Collapse GreenEarth pages"]',
+    );
+    expect(collapseFeed?.getAttribute("aria-expanded")).toBe("true");
+    expect(collapseFeed?.getAttribute("aria-controls")).toBe("desktop-your-feed-pages");
+
+    collapseFeed?.click();
+    await element.updateComplete;
+    expect(pages?.hidden).toBe(true);
+    const expandFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '.left-sidebar-desktop .algo-btn[aria-label="Expand GreenEarth pages"]',
+    );
+    expect(expandFeed?.getAttribute("aria-expanded")).toBe("false");
+
+    expandFeed?.click();
+    await element.updateComplete;
+    expect(pages?.hidden).toBe(false);
   });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {

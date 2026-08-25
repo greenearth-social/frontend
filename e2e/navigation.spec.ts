@@ -37,6 +37,54 @@ test.describe("feed-scoped navigation", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("anchors the collapsible desktop navigation across every page", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 520 });
+    const desktop = page.locator(".left-sidebar-desktop");
+    const initialBox = await desktop.boundingBox();
+    expect(initialBox?.width).toBe(275);
+
+    await desktop.locator('a[href="#/settings/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
+    expect((await desktop.boundingBox())?.x).toBe(initialBox?.x);
+
+    await desktop.locator('a[href="#/feedback/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/feedback\/your-feed$/);
+    expect((await desktop.boundingBox())?.x).toBe(initialBox?.x);
+
+    await desktop.getByRole("button", { name: "Collapse navigation" }).click();
+    await expect(desktop).toHaveCSS("width", "72px");
+    await desktop.locator('a[href="#/feed/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+    await expect(desktop.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+
+    await desktop.getByRole("button", { name: "More options" }).click();
+    const logout = desktop.getByRole("button", { name: "Log out" });
+    await expect(logout.locator('wa-icon[name="lock"]')).toBeVisible();
+    const logoutBox = await logout.boundingBox();
+    expect(logoutBox).not.toBeNull();
+    expect((logoutBox?.y ?? -1) + (logoutBox?.height ?? 0)).toBeLessThanOrEqual(520);
+  });
+
+  test("active feed icon toggles its pages in the collapsed desktop rail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 720 });
+    const desktop = page.locator(".left-sidebar-desktop");
+    await desktop.getByRole("button", { name: "Collapse navigation" }).click();
+
+    const pages = desktop.locator("#desktop-your-feed-pages");
+    const collapseFeed = desktop.getByRole("button", { name: "Collapse GreenEarth pages" });
+    await expect(collapseFeed).toHaveAttribute("aria-expanded", "true");
+    await collapseFeed.click();
+    await expect(pages).toBeHidden();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+
+    const expandFeed = desktop.getByRole("button", { name: "Expand GreenEarth pages" });
+    await expandFeed.click();
+    await expect(pages).toBeVisible();
+    await expect(
+      desktop.getByRole("button", { name: "Collapse GreenEarth pages" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
   test("opens the same drawer from a nested Settings page", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 560 });
     await page.evaluate(() => {
@@ -134,6 +182,8 @@ test.describe("feed-scoped navigation", () => {
       "0.45",
     );
 
+    await page.getByRole("button", { name: "Continue Editing" }).click();
+
     await setSourceRank("0");
     await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
       "1",
@@ -147,6 +197,8 @@ test.describe("feed-scoped navigation", () => {
     await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
       "0",
     );
+
+    await page.getByRole("button", { name: "Discard Changes" }).click();
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -180,6 +232,7 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    await page.getByRole("button", { name: "Continue Editing" }).click();
     const constructive = page.getByRole("slider", { name: "Constructive weight" });
     await constructive.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
@@ -187,6 +240,7 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    await page.getByRole("button", { name: "Continue Editing" }).click();
 
     const reset = page.getByRole("button", { name: "Reset settings to defaults" });
     await expect(reset).toBeEnabled();
@@ -200,9 +254,8 @@ test.describe("feed-scoped navigation", () => {
         exact: true,
       }),
     ).toHaveValue("0.2");
-    await expect(page.getByRole("status")).toContainText(
-      "Refresh your Bluesky feed to see updates",
-    );
+    await expect(page.getByRole("dialog", { name: "Review this change" })).toHaveCount(0);
+    await expect(reset).toBeDisabled();
   });
 
   test("keeps the four-source Settings rail usable at 320px", async ({ page }) => {
@@ -254,6 +307,7 @@ test.describe("feed-scoped navigation", () => {
     await followingPercentage.fill("40");
     await followingPercentage.press("Enter");
     await expect(followingPercentage).toHaveValue("40");
+    await page.getByRole("button", { name: "Continue Editing" }).click();
     await expect(
       page.getByRole("spinbutton", {
         name: "Liked by Following percentage",

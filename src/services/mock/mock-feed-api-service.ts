@@ -1,4 +1,4 @@
-import type { IFeedApiService } from "../types";
+import type { FeedPreferences, IFeedApiService } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -209,6 +209,9 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
 };
 
 export class MockFeedApiService implements IFeedApiService {
+  private previewPreferences = new Map<string, FeedPreferences>();
+  private previewSequence = 0;
+
   listFeeds(): Promise<FeedListResponse> {
     return Promise.resolve({
       feeds: [
@@ -226,6 +229,99 @@ export class MockFeedApiService implements IFeedApiService {
 
   getFeedDetail(_requestId: string): Promise<FeedDetailResponse> {
     return Promise.resolve(MOCK_FEED_DETAIL);
+  }
+
+  createFeedPreview(
+    feedName: import("../../constants/algorithms").AlgorithmId,
+    prefs: FeedPreferences,
+  ): Promise<import("../types").FeedPreviewSession> {
+    const generatedAt = new Date().toISOString();
+    const requestId = `preview-${String(Date.now())}-${String(++this.previewSequence)}`;
+    this.previewPreferences.set(requestId, prefs);
+    return Promise.resolve({
+      requestId,
+      feedName,
+      generatedAt,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
+  }
+
+  async getFeedPreview(_requestId: string): Promise<FeedDetailResponse> {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const preferences = this.previewPreferences.get(_requestId);
+    if (preferences?.freshness === 5) {
+      return {
+        ...MOCK_FEED_DETAIL,
+        requestId: _requestId,
+        generatedAt: new Date().toISOString(),
+      };
+    }
+    const items = [...(MOCK_FEED_DETAIL.items ?? [])];
+    const newItem = items[3]
+      ? {
+          ...items[3],
+          atUri: "at://did:plc:new-author/app.bsky.feed.post/preview-new",
+          rank: 3,
+          author: {
+            handle: "new-author.bsky.social",
+            displayName: "New for this preview",
+            avatarUrl: null,
+          },
+          content: "A newly eligible post appears after applying this draft.",
+          generators: [{ name: "popularity", score: 0.74 }],
+        }
+      : undefined;
+    const reordered = [items[2], items[0], newItem, items[4], items[1], items[5]].filter(
+      (item): item is NonNullable<typeof item> => item !== undefined,
+    );
+    const additionalItems = Array.from({ length: 39 }, (_, index) => {
+      const template = items[index % items.length];
+      if (!template) throw new Error("Mock preview requires at least one template post");
+      return {
+        ...template,
+        atUri: `at://did:plc:preview-${String(index)}/app.bsky.feed.post/extra-${String(index)}`,
+        author: {
+          ...template.author,
+          handle: `preview-${String(index)}.test`,
+          displayName: `Preview author ${String(index + 1)}`,
+        },
+        content: `Additional full-slate preview post ${String(index + 1)}`,
+      };
+    });
+    const previewItems = [...reordered, ...additionalItems].map((item, index) => ({
+      ...item,
+      rank: index + 1,
+      afterRankPosition: index + 1,
+    }));
+    return {
+      ...MOCK_FEED_DETAIL,
+      requestId: _requestId,
+      generatedAt: new Date().toISOString(),
+      items: previewItems,
+      filteringCounts: {
+        storedItemCount: 48,
+        displayedItemCount: previewItems.length,
+        publiclyFilteredCount: 1,
+        unavailableCount: 2,
+      },
+    };
+  }
+
+  acceptFeedPreview(
+    _feedName: import("../../constants/algorithms").AlgorithmId,
+    requestId: string,
+    prefs: FeedPreferences,
+    _displayedItemUris: string[],
+  ): Promise<import("../types").AcceptedFeedPreview> {
+    if (!this.previewPreferences.has(requestId)) {
+      return Promise.reject(new Error("Mock preview expired"));
+    }
+    this.previewPreferences.delete(requestId);
+    return Promise.resolve({
+      requestId,
+      preferences: prefs,
+      acceptedUntil: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
   }
 
   getPreferences(): Promise<import("../types").FeedPreferencesByFeed> {

@@ -6,7 +6,10 @@ import type { AlgorithmId } from "../constants/algorithms";
 import { feedAnalyticsProperties } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { SourceWeights } from "../services/types";
+import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
+import type { SettingsPreviewStore } from "../stores/settings-preview-store";
+import type { RootStore } from "../stores/root-store";
 import {
   applySourceLocks,
   blendSourceWeightsToRank,
@@ -19,6 +22,9 @@ import {
 } from "../utils/source-weight-math";
 import "../components/icon-range-slider";
 import "../components/feedback-form";
+import "../components/settings-feed-preview";
+import type { SettingsFeedPreview } from "../components/settings-feed-preview";
+import { GENERATOR_LEGEND } from "../components/generator-presentation";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
 import { settingsPageStyles } from "./settings-page.styles";
 import {
@@ -27,6 +33,15 @@ import {
   SETTINGS_NODES,
   UNLOCKED_ICON_PATH,
 } from "./settings-page-config";
+
+function getSettingsPreviewStore(): SettingsPreviewStore | undefined {
+  const root = getRootStore() as
+    | (Omit<RootStore, "settingsPreviewStore"> & {
+        settingsPreviewStore?: SettingsPreviewStore;
+      })
+    | null;
+  return root?.settingsPreviewStore;
+}
 
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
@@ -38,24 +53,56 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
   @state() private previewFreshness: number | null = null;
-  @state() private showRefreshPopup = false;
-  @state() private refreshPopupMessage = "Refresh your Bluesky feed to see updates!";
+  @state() private showActionDialog = false;
+  @state() private showLeaveDialog = false;
+  @state() private mobilePreviewOpen = false;
+  @state() private previewActionsVisible = false;
+  @state() private isPreviewAnimating = false;
+  @state() private showColorLegend = false;
+  @state() private showLegacyRefreshPopup = false;
+  @state() private legacyRefreshMessage = "Refresh your Bluesky feed to see updates!";
   @state() private isResetting = false;
   @state() private lockedSources: SourceWeightKey[] = [];
   private masterStartWeights: SourceWeights | null = null;
   private sourceStartWeights: SourceWeights | null = null;
-  private refreshPopupTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastAdjustedControl: HTMLElement | null = null;
+  private leaveResolver: ((canLeave: boolean) => void) | null = null;
+  private legacyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly beforeUnloadHandler = (event: BeforeUnloadEvent): void => {
+    if (!getSettingsPreviewStore()?.hasDirtyChanges) return;
+    event.preventDefault();
+  };
+  private readonly colorLegendPointerHandler = (event: PointerEvent): void => {
+    if (!this.showColorLegend) return;
+    const path = event.composedPath();
+    const button = this.renderRoot.querySelector("#color-legend-button");
+    const legend = this.renderRoot.querySelector("#post-color-legend");
+    if ((button && path.includes(button)) || (legend && path.includes(legend))) return;
+    this.showColorLegend = false;
+  };
+  private readonly colorLegendKeyHandler = (event: KeyboardEvent): void => {
+    if (!this.showColorLegend || event.key !== "Escape") return;
+    event.preventDefault();
+    this.#closeColorLegend(true);
+  };
 
   static styles = settingsPageStyles;
 
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("beforeunload", this.beforeUnloadHandler);
+    document.addEventListener("pointerdown", this.colorLegendPointerHandler);
+    window.addEventListener("keydown", this.colorLegendKeyHandler);
     const root = getRootStore();
     this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
   }
 
   disconnectedCallback(): void {
-    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
+    window.removeEventListener("beforeunload", this.beforeUnloadHandler);
+    document.removeEventListener("pointerdown", this.colorLegendPointerHandler);
+    window.removeEventListener("keydown", this.colorLegendKeyHandler);
+    if (this.legacyRefreshTimer) clearTimeout(this.legacyRefreshTimer);
+    this.leaveResolver?.(false);
     super.disconnectedCallback();
   }
 
@@ -67,11 +114,13 @@ export class SettingsPage extends MobxLitElement {
     }
     if (root.preferencesStore.hasLoaded) {
       this.isLoading = false;
+      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
       return;
     }
     this.isLoading = true;
     void root.preferencesStore.load().finally(() => {
       this.isLoading = false;
+      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
     });
   }
 
@@ -84,107 +133,259 @@ export class SettingsPage extends MobxLitElement {
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
+      this.showActionDialog = false;
+      this.mobilePreviewOpen = false;
+      this.previewActionsVisible = false;
+      this.isPreviewAnimating = false;
+      this.showColorLegend = false;
+      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
     }
+  }
+
+  get hasUnsavedChanges(): boolean {
+    return getSettingsPreviewStore()?.hasDirtyChanges ?? false;
+  }
+
+  confirmLeave(): Promise<boolean> {
+    const store = getSettingsPreviewStore();
+    if (!this.hasUnsavedChanges) return Promise.resolve(true);
+    if (store?.isGenerating || store?.isSaving || this.isPreviewAnimating) {
+      return Promise.resolve(false);
+    }
+    this.showLeaveDialog = true;
+    this.#focusAfterUpdate("#leave-save");
+    return new Promise((resolve) => {
+      this.leaveResolver = resolve;
+    });
   }
 
   render() {
     const root = getRootStore();
-    const preferences = root?.preferencesStore.valuesFor(this.selectedAlgorithm) ?? {
-      sourceWeights: {
-        following: 0.3,
-        networkLikes: 0.2,
-        authorsTopics: 0.25,
-        popular: 0.25,
-      },
-      freshness: 5,
-      purpose: 0.5,
-      politics: 1,
-    };
+    const preferences = getSettingsPreviewStore()?.draft ??
+      root?.preferencesStore.valuesFor(this.selectedAlgorithm) ?? {
+        sourceWeights: {
+          following: 0.3,
+          networkLikes: 0.2,
+          authorsTopics: 0.25,
+          popular: 0.25,
+        },
+        freshness: 5,
+        purpose: 0.5,
+        politics: 1,
+      };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
+    const previewStore = getSettingsPreviewStore();
+    const previewBusy =
+      (previewStore?.isGenerating ?? false) ||
+      (previewStore?.isSaving ?? false) ||
+      this.isPreviewAnimating;
 
     return html`
-      <div class="sticky-header">
-        <div class="header-row">
-          <button
-            class="hamburger-btn"
-            type="button"
-            aria-label="Open navigation"
-            @click=${() => {
-              this.onOpenMenu?.();
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <h1>Settings</h1>
-          <button
-            class="reset-defaults-btn"
-            type="button"
-            aria-label="Reset settings to defaults"
-            ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
-            @click=${() => {
-              this.#restoreDefaults();
-            }}
-          >
-            <svg viewBox="0 0 640 640" aria-hidden="true">
-              <path
-                d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
-              ></path>
-            </svg>
-            <span class="reset-label-long">Reset defaults</span>
-            <span class="reset-label-short">Defaults</span>
-          </button>
+      <div class="settings-layout ${this.mobilePreviewOpen ? "mobile-preview-open" : ""}">
+        <div class="controls-column">
+          <div class="sticky-header">
+            <div class="header-row">
+              <button
+                class="hamburger-btn"
+                type="button"
+                aria-label="Open navigation"
+                @click=${() => {
+                  this.onOpenMenu?.();
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              </button>
+              <h1>Settings</h1>
+              <button
+                class="reset-defaults-btn"
+                type="button"
+                aria-label="Reset settings to defaults"
+                ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
+                @click=${() => {
+                  this.#restoreDefaults();
+                }}
+              >
+                <svg viewBox="0 0 640 640" aria-hidden="true">
+                  <path
+                    d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
+                  ></path>
+                </svg>
+                <span class="reset-label-long">Reset defaults</span>
+                <span class="reset-label-short">Defaults</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="page-content">
+            ${
+              this.isLoading
+                ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
+                    Loading your saved settings…
+                  </div>`
+                : html`
+                    ${
+                      this.showLegacyRefreshPopup
+                        ? html`<a
+                            class="refresh-popup"
+                            href=${this.blueskyUrl || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >${this.legacyRefreshMessage}</a
+                          >`
+                        : ""
+                    }
+                    <div class="diagram-wrapper">
+                      ${this.#renderCandidateSection(weights, freshness)}
+                      ${
+                        this.selectedAlgorithm === "random"
+                          ? ""
+                          : html`
+                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
+                              ${this.#renderArrow()} ${this.#renderDiversificationSection()}
+                            `
+                      }
+                    </div>
+
+                    <feedback-form
+                      surface="controls"
+                      .selectedFeed=${this.selectedAlgorithm}
+                      prompt="Want to change something or learn more? Tell us!"
+                      placeholder="Share your settings feedback or questions"
+                    ></feedback-form>
+                  `
+            }
+          </div>
         </div>
-      </div>
 
-      <div class="page-content">
-        ${
-          this.isLoading
-            ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
-                Loading your saved settings…
-              </div>`
-            : html`
-                ${
-                this.showRefreshPopup
-                  ? html`<a
-                      class="refresh-popup"
-                      href=${this.blueskyUrl || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      role="status"
-                      aria-live="polite"
-                      aria-label="Refresh your feed in Bluesky"
-                    >
-                      ${this.refreshPopupMessage}
-                    </a>`
-                  : ""
+        <aside class="feed-column" aria-label="Feed preview">
+          <div class="preview-header">
+            <div>
+              <span class="preview-eyebrow"
+                >${previewStore?.lastPreviewSignature ? "Preview" : "Current feed"}</span
+              >
+              <h2>${this.#activeControlLabel(previewStore?.activeControl ?? null)}</h2>
+            </div>
+            <div class="preview-header-actions">
+              <button
+                id="color-legend-button"
+                class="palette-button"
+                type="button"
+                aria-label="Show post color legend"
+                aria-controls="post-color-legend"
+                aria-expanded=${String(this.showColorLegend)}
+                title="Post color legend"
+                @click=${() => {
+                  this.showColorLegend = !this.showColorLegend;
+                }}
+              >
+                <wa-icon library="app" name="palette"></wa-icon>
+              </button>
+              <button
+                class="preview-close"
+                type="button"
+                ?disabled=${previewBusy}
+                @click=${() => {
+                  this.#closeMobilePreview();
+                }}
+              >
+                Back to settings
+              </button>
+            </div>
+            ${
+              this.showColorLegend
+                ? html`<div
+                    id="post-color-legend"
+                    class="color-legend"
+                    role="region"
+                    aria-label="Post color legend"
+                  >
+                    <strong>Post colors</strong>
+                    <div class="color-legend-list" role="list">
+                      ${GENERATOR_LEGEND.map(
+                        (entry) =>
+                          html`<div class="color-legend-row" role="listitem">
+                            <span
+                              class="color-legend-swatch"
+                              style="--legend-border:${entry.border};--legend-background:${entry.background}"
+                              aria-hidden="true"
+                            ></span>
+                            <span>${entry.label}</span>
+                          </div>`,
+                      )}
+                    </div>
+                  </div>`
+                : ""
+            }
+          </div>
+          ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
+          <div class="feed-scroll">
+            <settings-feed-preview
+              .items=${previewStore?.displayedItems ?? []}
+              .loading=${
+                (previewStore?.isLoadingBaseline ?? false) ||
+                (previewStore?.isGenerating ?? false) ||
+                (previewStore?.isSaving ?? false)
               }
-                <div class="diagram-wrapper">
-                  ${this.#renderCandidateSection(weights, freshness)}
-                  ${
-                  this.selectedAlgorithm === "random"
-                    ? ""
-                    : html`
-                        ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
-                        ${this.#renderArrow()} ${this.#renderDiversificationSection()}
-                      `
-                }
-                </div>
-
-                <feedback-form
-                  surface="controls"
-                  .selectedFeed=${this.selectedAlgorithm}
-                  prompt="Want to change something or learn more? Tell us!"
-                  placeholder="Share your settings feedback or questions"
-                ></feedback-form>
-              `
-        }
+              .error=${previewStore?.error ?? ""}
+              .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
+            ></settings-feed-preview>
+          </div>
+          ${
+            previewStore?.isGenerating || previewStore?.isSaving
+              ? html`<div class="preview-generating" role="status">
+                  ${previewStore.isSaving ? "Saving changes…" : "Generating preview…"}
+                </div>`
+              : ""
+          }
+          ${
+            previewStore?.error && previewStore.displayedItems.length > 0
+              ? html` <div class="preview-error" role="alert">
+                  <span>${previewStore.error}</span>
+                  <button
+                    type="button"
+                    @click=${() => {
+                      void this.#previewChanges();
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>`
+              : ""
+          }
+          ${
+            this.previewActionsVisible && previewStore?.hasDirtyChanges
+              ? html`<div class="preview-actions" aria-label="Preview actions">
+                  <button
+                    class="primary"
+                    type="button"
+                    ?disabled=${previewBusy}
+                    @click=${() => {
+                      void this.#saveChanges();
+                    }}
+                  >
+                    ${previewStore.isSaving ? "Saving…" : "Save Changes"}
+                  </button>
+                  <button
+                    class="danger"
+                    type="button"
+                    ?disabled=${previewBusy}
+                    @click=${() => {
+                      void this.#discardChanges();
+                    }}
+                  >
+                    Discard Changes
+                  </button>
+                </div>`
+              : ""
+          }
+        </aside>
       </div>
 
       ${
@@ -201,6 +402,7 @@ export class SettingsPage extends MobxLitElement {
               },
             })
       }
+      ${this.#renderActionDialogs()}
     `;
   }
 
@@ -386,7 +588,13 @@ export class SettingsPage extends MobxLitElement {
               }}
               @keydown=${(event: KeyboardEvent) => {
                 if (event.key === "Enter") {
-                  (event.currentTarget as HTMLInputElement).blur();
+                  event.preventDefault();
+                  const input = event.currentTarget as HTMLInputElement;
+                  const value = input.valueAsNumber;
+                  if (this.#validatePercentageInput(input)) {
+                    this.#commitSourceWeight(weights, key, nodeId, value / 100);
+                  }
+                  input.blur();
                 }
               }}
             />
@@ -582,29 +790,33 @@ export class SettingsPage extends MobxLitElement {
   }
 
   #restoreDefaults(): void {
-    const store = getRootStore()?.preferencesStore;
-    if (!store || this.isResetting) return;
-    const feedName = this.selectedAlgorithm;
+    const store = getSettingsPreviewStore();
+    if (!store || this.isResetting) {
+      if (!store) {
+        this.#showLegacyRefresh();
+        this.isResetting = true;
+        const reset = getRootStore()?.preferencesStore.restoreDefaults(this.selectedAlgorithm);
+        this.requestUpdate();
+        void reset
+          ?.then((succeeded) => {
+            if (!succeeded) this.#showLegacyRefresh("Couldn't reset settings. Please try again.");
+          })
+          .finally(() => {
+            this.isResetting = false;
+          });
+      }
+      return;
+    }
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewFreshness = null;
     this.masterStartWeights = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
-    this.isResetting = true;
-    const reset = store.restoreDefaults(feedName);
-    if (this.selectedAlgorithm === feedName) {
-      this.#showRefreshPopup();
-    }
-    void reset
-      .then((didReset) => {
-        if (!didReset && this.selectedAlgorithm === feedName) {
-          this.#showRefreshPopup("Couldn't reset settings. Please try again.");
-        }
-      })
-      .finally(() => {
-        this.isResetting = false;
-      });
+    const controls: FeedControlName[] = ["freshness"];
+    if (this.selectedAlgorithm !== "random") controls.push("purpose");
+    if (this.selectedAlgorithm === "your-feed") controls.unshift("source_weights");
+    if (store.resetDraftToDefaults(DEFAULT_PREFERENCES, controls)) this.#draftReleased();
   }
 
   #commitSourceWeights(
@@ -613,10 +825,18 @@ export class SettingsPage extends MobxLitElement {
   ): void {
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "source_weights", weights, origin);
+    const store = getSettingsPreviewStore();
+    if (!store) {
+      this.#showLegacyRefresh();
+      void getRootStore()?.preferencesStore.save(
+        this.selectedAlgorithm,
+        "source_weights",
+        weights,
+        origin,
+      );
+      return;
+    }
+    if (store.setControl("source_weights", weights, origin)) this.#draftReleased();
   }
 
   #validatePercentageInput(input: HTMLInputElement): boolean {
@@ -673,27 +893,302 @@ export class SettingsPage extends MobxLitElement {
 
   #commitFreshness(value: number): void {
     this.previewFreshness = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "freshness", value);
+    const store = getSettingsPreviewStore();
+    if (!store) {
+      this.#showLegacyRefresh();
+      void getRootStore()?.preferencesStore.save(this.selectedAlgorithm, "freshness", value);
+      return;
+    }
+    if (store.setControl("freshness", value)) this.#draftReleased();
   }
 
   #commitPurpose(value: number): void {
     this.previewPurpose = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "purpose", value);
+    const store = getSettingsPreviewStore();
+    if (!store) {
+      this.#showLegacyRefresh();
+      void getRootStore()?.preferencesStore.save(this.selectedAlgorithm, "purpose", value);
+      return;
+    }
+    if (store.setControl("purpose", value)) this.#draftReleased();
   }
 
-  #showRefreshPopup(message = "Refresh your Bluesky feed to see updates!"): void {
-    this.refreshPopupMessage = message;
-    this.showRefreshPopup = true;
-    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
-    this.refreshPopupTimer = setTimeout(() => {
-      this.showRefreshPopup = false;
+  #draftReleased(): void {
+    const store = getSettingsPreviewStore();
+    if (!store) return;
+    const activeElement = this.shadowRoot?.activeElement;
+    if (activeElement instanceof HTMLElement) this.lastAdjustedControl = activeElement;
+    this.previewActionsVisible = false;
+    this.showColorLegend = false;
+    this.showActionDialog = store.hasDirtyChanges;
+    this.dispatchEvent(
+      new CustomEvent("settings-dirty-change", {
+        bubbles: true,
+        composed: true,
+        detail: { dirty: store.hasDirtyChanges },
+      }),
+    );
+    if (store.hasDirtyChanges) {
+      this.#focusAfterUpdate("#draft-preview");
+      return;
+    }
+    void this.#restoreBaseline();
+  }
+
+  #showLegacyRefresh(message = "Refresh your Bluesky feed to see updates!"): void {
+    this.legacyRefreshMessage = message;
+    this.showLegacyRefreshPopup = true;
+    if (this.legacyRefreshTimer) clearTimeout(this.legacyRefreshTimer);
+    this.legacyRefreshTimer = setTimeout(() => {
+      this.showLegacyRefreshPopup = false;
     }, 3000);
+  }
+
+  async #previewChanges(): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
+    this.showActionDialog = false;
+    this.previewActionsVisible = false;
+    this.mobilePreviewOpen = true;
+    const generated = await store.preview();
+    if (!generated) {
+      this.previewActionsVisible = store.hasDirtyChanges;
+      this.#focusAfterUpdate(".preview-actions .primary");
+      return;
+    }
+    const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
+    this.isPreviewAnimating = true;
+    if (feed) await feed.animateTo(generated.items, store.baselineItems);
+    this.isPreviewAnimating = false;
+    store.acceptPreview(generated);
+    this.previewActionsVisible = store.hasDirtyChanges;
+    this.#focusAfterUpdate(".preview-actions .primary");
+  }
+
+  async #saveChanges(forLeave = false): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
+    const succeeded = await store.save();
+    if (!succeeded) {
+      this.previewActionsVisible = !this.showActionDialog && store.hasDirtyChanges;
+      this.#focusAfterUpdate(
+        forLeave
+          ? "#leave-save"
+          : this.showActionDialog
+            ? "#draft-save"
+            : ".preview-actions .primary",
+      );
+      return;
+    }
+    await this.updateComplete;
+    this.renderRoot
+      .querySelector<SettingsFeedPreview>("settings-feed-preview")
+      ?.settleAsOrigin(store.baselineItems);
+    this.showActionDialog = false;
+    this.showLeaveDialog = false;
+    this.previewActionsVisible = false;
+    this.dispatchEvent(
+      new CustomEvent("settings-dirty-change", {
+        bubbles: true,
+        composed: true,
+        detail: { dirty: false },
+      }),
+    );
+    if (forLeave) this.#resolveLeave(true);
+  }
+
+  async #discardChanges(forLeave = false): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
+    const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
+    const feedIsVisible =
+      this.mobilePreviewOpen || window.matchMedia("(min-width: 1200px)").matches;
+    if (!forLeave && !store.isDisplayingBaseline && feedIsVisible) {
+      this.isPreviewAnimating = true;
+      try {
+        if (feed) await feed.animateTo(store.baselineItems);
+      } finally {
+        this.isPreviewAnimating = false;
+      }
+    }
+    feed?.settleAsOrigin(store.baselineItems);
+    store.discard();
+    this.previewSourceWeights = null;
+    this.previewPurpose = null;
+    this.previewFreshness = null;
+    this.showActionDialog = false;
+    this.showLeaveDialog = false;
+    this.mobilePreviewOpen = false;
+    this.previewActionsVisible = false;
+    this.showColorLegend = false;
+    this.dispatchEvent(
+      new CustomEvent("settings-dirty-change", {
+        bubbles: true,
+        composed: true,
+        detail: { dirty: false },
+      }),
+    );
+    if (forLeave) this.#resolveLeave(true);
+  }
+
+  async #restoreBaseline(): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store || this.isPreviewAnimating) return;
+    if (!store.isDisplayingBaseline) {
+      const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
+      this.isPreviewAnimating = true;
+      try {
+        if (feed) await feed.animateTo(store.baselineItems);
+      } finally {
+        this.isPreviewAnimating = false;
+      }
+      feed?.settleAsOrigin(store.baselineItems);
+    }
+    store.discard();
+    this.previewActionsVisible = false;
+  }
+
+  #closeMobilePreview(): void {
+    const store = getSettingsPreviewStore();
+    if (store?.isGenerating || store?.isSaving || this.isPreviewAnimating) return;
+    this.mobilePreviewOpen = false;
+    this.showColorLegend = false;
+    if (!store?.hasDirtyChanges) return;
+    this.previewActionsVisible = false;
+    this.showActionDialog = true;
+    this.#focusAfterUpdate("#draft-preview");
+  }
+
+  #continueEditing(): void {
+    this.showActionDialog = false;
+    void this.updateComplete.then(() => {
+      this.lastAdjustedControl?.focus();
+    });
+  }
+
+  #focusAfterUpdate(selector: string): void {
+    void this.updateComplete.then(() => {
+      this.renderRoot.querySelector<HTMLElement>(selector)?.focus();
+    });
+  }
+
+  #closeColorLegend(returnFocus: boolean): void {
+    this.showColorLegend = false;
+    if (returnFocus) this.#focusAfterUpdate("#color-legend-button");
+  }
+
+  #resolveLeave(canLeave: boolean): void {
+    const resolver = this.leaveResolver;
+    this.leaveResolver = null;
+    this.showLeaveDialog = false;
+    resolver?.(canLeave);
+  }
+
+  #activeControlLabel(control: FeedControlName | null): string {
+    if (!this.mobilePreviewOpen) return "How your settings shape the feed";
+    const labels: Record<FeedControlName, string> = {
+      source_weights: "Sources",
+      freshness: "Time Window",
+      politics: "Politics",
+      purpose: "Ranking",
+    };
+    return control ? labels[control] : "Feed preview";
+  }
+
+  #renderActionDialogs(): TemplateResult {
+    const store = getSettingsPreviewStore();
+    const busy =
+      (store?.isGenerating ?? false) || (store?.isSaving ?? false) || this.isPreviewAnimating;
+    if (this.showLeaveDialog) {
+      return html` <div class="action-overlay" role="presentation">
+        <div class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-title">
+          <h2 id="leave-title">Save your settings?</h2>
+          <p>You have changes that haven’t been saved.</p>
+          ${store?.error ? html`<p class="dialog-error" role="alert">${store.error}</p>` : ""}
+          <div class="action-buttons">
+            <button
+              id="leave-save"
+              class="primary"
+              type="button"
+              ?disabled=${busy}
+              @click=${() => {
+                void this.#saveChanges(true);
+              }}
+            >
+              ${store?.isSaving ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              ?disabled=${busy}
+              @click=${() => {
+                void this.#discardChanges(true);
+              }}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              ?disabled=${busy}
+              @click=${() => {
+                this.#resolveLeave(false);
+              }}
+            >
+              Stay
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }
+    if (!this.showActionDialog || !store?.hasDirtyChanges) return html``;
+    return html` <div class="action-overlay" role="presentation">
+      <div class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-title">
+        <h2 id="draft-title">Review this change</h2>
+        <p>Preview how the draft changes your feed, save it now, or keep editing.</p>
+        ${store.error ? html`<p class="dialog-error" role="alert">${store.error}</p>` : ""}
+        <div class="action-buttons">
+          <button
+            id="draft-preview"
+            class="primary"
+            type="button"
+            ?disabled=${busy}
+            @click=${() => {
+              void this.#previewChanges();
+            }}
+          >
+            Preview
+          </button>
+          <button
+            id="draft-save"
+            type="button"
+            ?disabled=${busy}
+            @click=${() => {
+              void this.#saveChanges();
+            }}
+          >
+            ${store.isSaving ? "Saving…" : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            ?disabled=${busy}
+            @click=${() => {
+              this.#continueEditing();
+            }}
+          >
+            Continue Editing
+          </button>
+          <button
+            class="danger"
+            type="button"
+            ?disabled=${busy}
+            @click=${() => {
+              void this.#discardChanges();
+            }}
+          >
+            Discard Changes
+          </button>
+        </div>
+      </div>
+    </div>`;
   }
 }
 

@@ -56,6 +56,9 @@ describe("AuthStore account changes", () => {
       feedApiService: {
         listFeeds: vi.fn(),
         getFeedDetail: vi.fn(),
+        createFeedPreview: vi.fn(),
+        getFeedPreview: vi.fn(),
+        acceptFeedPreview: vi.fn(),
         getPreferences: vi.fn().mockResolvedValue({ "your-feed": preferences }),
         patchPreferences: vi.fn(),
       },
@@ -91,6 +94,9 @@ describe("AuthStore account changes", () => {
       feedApiService: {
         listFeeds: vi.fn(),
         getFeedDetail: vi.fn(),
+        createFeedPreview: vi.fn(),
+        getFeedPreview: vi.fn(),
+        acceptFeedPreview: vi.fn(),
         getPreferences: vi.fn().mockResolvedValue({}),
         patchPreferences: vi.fn(),
       },

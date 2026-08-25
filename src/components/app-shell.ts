@@ -2,7 +2,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
-import { html, css } from "lit";
+import { html, css, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import {
@@ -40,6 +40,7 @@ export class AppShell extends MobxLitElement {
   private _currentPage: AppPage = "feed";
   private _currentFeed: AlgorithmId = "your-feed";
   private _drawerOpen = false;
+  @state() private _desktopSidebarCollapsed = false;
   @state() private _showLogoutMenu = false;
   @state() private _expandedAlgorithms = new Set<AlgorithmId>();
   @state() private _authFailureMessage = "";
@@ -60,7 +61,7 @@ export class AppShell extends MobxLitElement {
     .shell-container {
       display: flex;
       width: 100%;
-      max-width: 875px;
+      max-width: 1275px;
       height: 100dvh;
       overflow: hidden;
     }
@@ -74,6 +75,7 @@ export class AppShell extends MobxLitElement {
     }
     .left-sidebar-desktop {
       width: 72px;
+      transition: width 0.2s ease;
     }
     @media (min-width: 1024px) {
       .left-sidebar-desktop {
@@ -229,13 +231,55 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       min-height: 0;
       width: 100%;
+      overflow: hidden;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      box-sizing: border-box;
+      min-height: 0;
+      width: 100%;
       padding: 0.75rem 0.5rem 0;
       overflow-x: hidden;
       overflow-y: auto;
     }
+
+    .desktop-sidebar-toggle {
+      display: none;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.625rem;
+      width: 100%;
+      min-height: 40px;
+      margin-bottom: 0.625rem;
+      padding: 0.5rem 0.625rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.75rem;
+      background: transparent;
+      color: var(--bluesky-text-secondary);
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .desktop-sidebar-toggle:hover {
+      background: var(--bluesky-bg-hover);
+      color: var(--bluesky-text);
+    }
+    .desktop-sidebar-toggle:focus-visible {
+      outline: 2px solid var(--bluesky-brand);
+      outline-offset: 2px;
+    }
+    .desktop-sidebar-toggle wa-icon {
+      flex-shrink: 0;
+      font-size: 1rem;
+    }
     @media (min-width: 1024px) {
-      .sidebar-nav-wrapper {
+      .sidebar-scroll {
         padding: 0.75rem 1.25rem 0 1rem;
+      }
+      .desktop-sidebar-toggle {
+        display: flex;
       }
     }
 
@@ -297,10 +341,13 @@ export class AppShell extends MobxLitElement {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      margin-top: auto;
-      margin-bottom: 0.5rem;
+      flex: 0 0 auto;
       min-width: 0;
       width: 100%;
+      padding: 0.5rem 0.75rem;
+      border-top: 1px solid var(--bluesky-border);
+      box-sizing: border-box;
+      background: var(--bluesky-nav-bg);
     }
     .user-btn {
       display: flex;
@@ -392,6 +439,11 @@ export class AppShell extends MobxLitElement {
       z-index: 100;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+    .logout-menu.compact {
+      right: 50%;
+      min-width: 0;
+      transform: translateX(50%);
+    }
     .logout-btn {
       display: flex;
       align-items: center;
@@ -413,6 +465,12 @@ export class AppShell extends MobxLitElement {
     .logout-btn wa-icon {
       font-size: 1rem;
     }
+    .logout-btn.compact {
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+    }
 
     /* ── Center column ─ */
     .center-column {
@@ -431,12 +489,49 @@ export class AppShell extends MobxLitElement {
     }
     @media (min-width: 768px) {
       .center-column {
-        max-width: 600px;
+        max-width: 900px;
       }
     }
+    @media (min-width: 1024px) {
+      .shell-container.sidebar-collapsed .left-sidebar-desktop {
+        width: 72px;
+      }
+
+      .shell-container.sidebar-collapsed .sidebar-scroll {
+        padding-inline: 0.5rem;
+      }
+
+      .shell-container.sidebar-collapsed .desktop-sidebar-toggle,
+      .shell-container.sidebar-collapsed .algo-btn,
+      .shell-container.sidebar-collapsed .nav-link {
+        justify-content: center;
+        padding-inline: 0.5rem;
+      }
+
+      .shell-container.sidebar-collapsed .sidebar-toggle-label,
+      .shell-container.sidebar-collapsed .algo-label,
+      .shell-container.sidebar-collapsed .algo-toggle,
+      .shell-container.sidebar-collapsed .nav-label,
+      .shell-container.sidebar-collapsed .user-details {
+        display: none;
+      }
+
+      .shell-container.sidebar-collapsed .user-section {
+        flex-direction: column;
+        padding-inline: 0.5rem;
+      }
+
+      .shell-container.sidebar-collapsed .user-btn {
+        flex: 0 0 auto;
+        justify-content: center;
+        padding-inline: 0;
+      }
+    }
+
     @media (min-width: 1200px) {
-      .center-column {
-        max-width: 600px;
+      .center-column.settings-active {
+        max-width: none;
+        overflow: hidden;
       }
     }
 
@@ -705,7 +800,9 @@ export class AppShell extends MobxLitElement {
         ${this.#renderSidebarContent("drawer", authorName, authorHandle, authorInitial, Boolean(showDisplayName))}
       </aside>
 
-      <div class="shell-container ${!authStore.isSignedIn ? "logged-out" : ""}">
+      <div
+        class="shell-container ${!authStore.isSignedIn ? "logged-out" : ""} ${activePage === "settings" ? "settings-active" : ""} ${this._desktopSidebarCollapsed ? "sidebar-collapsed" : ""}"
+      >
         ${
           authStore.isSignedIn
             ? html`
@@ -719,7 +816,7 @@ export class AppShell extends MobxLitElement {
         }
 
         <main
-          class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""}"
+          class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""} ${activePage === "settings" ? "settings-active" : ""}"
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
           @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId | null }>) => {
@@ -763,12 +860,40 @@ export class AppShell extends MobxLitElement {
 
     return html`
       <div class="sidebar-nav-wrapper">
-        <nav class="feed-groups" aria-label="Feed pages">
+        <div class="sidebar-scroll">
+          ${
+            surface === "desktop"
+            ? html`
+                <button
+                  class="desktop-sidebar-toggle"
+                  type="button"
+                  aria-controls="desktop-feed-navigation"
+                  aria-expanded=${!this._desktopSidebarCollapsed}
+                  aria-label=${this._desktopSidebarCollapsed
+                    ? "Expand navigation"
+                    : "Collapse navigation"}
+                  title=${this._desktopSidebarCollapsed
+                    ? "Expand navigation"
+                    : "Collapse navigation"}
+                  @click=${this.#toggleDesktopSidebar}
+                >
+                  <wa-icon
+                    name=${this._desktopSidebarCollapsed ? "chevron-right" : "chevron-left"}
+                    library="app"
+                  ></wa-icon>
+                  <span class="sidebar-toggle-label">Collapse navigation</span>
+                </button>
+              `
+              : ""
+          }
+          <nav id="${surface}-feed-navigation" class="feed-groups" aria-label="Feed pages">
           ${ALGORITHM_IDS.map((id) => {
             const algo = ALGORITHMS[id];
             const isActiveFeed = this._currentFeed === id;
             const isExpanded = this._expandedAlgorithms.has(id);
             const subnavId = `${surface}-${id}-pages`;
+            const togglesCollapsedActiveFeed =
+              surface === "desktop" && this._desktopSidebarCollapsed && isActiveFeed;
             return html`
               <div
                 class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
@@ -777,10 +902,21 @@ export class AppShell extends MobxLitElement {
                   <button
                     class="algo-btn"
                     @click=${() => {
-                      this.#navigateTo(this._currentPage, id);
+                      if (togglesCollapsedActiveFeed) {
+                        this.#toggleAlgorithmExpanded(id);
+                        return;
+                      }
+                      void this.#navigateTo(this._currentPage, id);
                     }}
-                    aria-label=${algo.label}
+                    aria-label=${togglesCollapsedActiveFeed
+                      ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                      : algo.label}
                     aria-pressed=${isActiveFeed}
+                    aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
+                    aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
+                    title=${togglesCollapsedActiveFeed
+                      ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                      : nothing}
                     type="button"
                   >
                     <wa-icon name=${algo.icon} library="app"></wa-icon>
@@ -810,7 +946,7 @@ export class AppShell extends MobxLitElement {
                         aria-current=${isActive ? "page" : "false"}
                         @click=${(event: MouseEvent) => {
                           event.preventDefault();
-                          this.#navigateTo(item.page, id);
+                          void this.#navigateTo(item.page, id);
                         }}
                       >
                         <wa-icon name=${item.icon} library="app"></wa-icon>
@@ -822,7 +958,8 @@ export class AppShell extends MobxLitElement {
               </div>
             `;
           })}
-        </nav>
+          </nav>
+        </div>
         ${
           store.authStore.isSignedIn
             ? html`
@@ -853,9 +990,23 @@ export class AppShell extends MobxLitElement {
                     ${
                       this._showLogoutMenu
                         ? html`
-                            <div class="logout-menu">
-                              <button class="logout-btn" @click=${this.#handleLogout} type="button">
-                                Log out
+                            <div
+                              class="logout-menu ${surface === "desktop" && this._desktopSidebarCollapsed
+                                ? "compact"
+                                : ""}"
+                            >
+                              <button
+                                class="logout-btn ${surface === "desktop" && this._desktopSidebarCollapsed
+                                  ? "compact"
+                                  : ""}"
+                                @click=${this.#handleLogout}
+                                aria-label="Log out"
+                                title="Log out"
+                                type="button"
+                              >
+                                ${surface === "desktop" && this._desktopSidebarCollapsed
+                                  ? html`<wa-icon name="lock" library="app"></wa-icon>`
+                                  : "Log out"}
                               </button>
                             </div>
                           `
@@ -871,8 +1022,26 @@ export class AppShell extends MobxLitElement {
   }
 
   #onHashChange = () => {
-    this.#updateRoute();
+    void this.#handleHashChange();
   };
+
+  async #handleHashChange(): Promise<void> {
+    const attemptedRoute = window.location.hash.slice(1) || "/feed";
+    const settingsPage = this.#dirtySettingsPage(attemptedRoute);
+    if (!settingsPage) {
+      this.#updateRoute();
+      return;
+    }
+    if (!(await settingsPage.confirmLeave())) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}#${this._currentRoute}`,
+      );
+      return;
+    }
+    this.#updateRoute();
+  }
 
   #onGlobalClick = (e: Event) => {
     const clickedLogoutControl = e
@@ -981,6 +1150,10 @@ export class AppShell extends MobxLitElement {
     this.requestUpdate();
   };
 
+  #toggleDesktopSidebar = () => {
+    this._desktopSidebarCollapsed = !this._desktopSidebarCollapsed;
+  };
+
   #dismissAuthFailure = () => {
     this._authFailureMessage = "";
   };
@@ -995,18 +1168,46 @@ export class AppShell extends MobxLitElement {
     this._expandedAlgorithms = expanded;
   }
 
-  #navigateTo(page: AppPage, id: AlgorithmId): void {
+  #navigateTo(page: AppPage, id: AlgorithmId): Promise<void> {
     this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
     const path = feedScopedPath(page, id);
+    const settingsPage = this.#dirtySettingsPage(path);
+    if (settingsPage) {
+      return settingsPage.confirmLeave().then((canLeave) => {
+        if (canLeave) this.#commitNavigation(path);
+      });
+    }
+    this.#commitNavigation(path);
+    return Promise.resolve();
+  }
+
+  #commitNavigation(path: string): void {
     if (window.location.hash.slice(1) !== path) {
       window.location.hash = path;
+      return;
     }
     this.#updateRoute();
   }
 
   #selectAlgorithm = (id: AlgorithmId) => {
-    this.#navigateTo(this._currentPage, id);
+    void this.#navigateTo(this._currentPage, id);
   };
+
+  #dirtySettingsPage(targetPath: string):
+    | (HTMLElement & {
+        hasUnsavedChanges: boolean;
+        confirmLeave(): Promise<boolean>;
+      })
+    | null {
+    if (this._currentPage !== "settings" || targetPath === this._currentRoute) return null;
+    const page = this.renderRoot.querySelector<
+      HTMLElement & {
+        hasUnsavedChanges: boolean;
+        confirmLeave(): Promise<boolean>;
+      }
+    >("settings-page");
+    return page?.hasUnsavedChanges ? page : null;
+  }
 
   #syncSelectedAlgorithm(id: AlgorithmId): void {
     const store = getRootStore();

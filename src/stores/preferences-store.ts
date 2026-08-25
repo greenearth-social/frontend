@@ -289,6 +289,132 @@ export class PreferencesStore {
     }
   }
 
+  async savePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): Promise<boolean> {
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const optimisticValues = clonePreferences(previousValues);
+    const changedControls = (Object.keys(patch) as Array<keyof Preferences>)
+      .map((property) => PROPERTY_CONTROLS[property])
+      .filter((control): control is FeedControlName => control !== undefined)
+      .filter((control) =>
+        controlChanged(control, previousValues, {
+          ...optimisticValues,
+          ...patch,
+          sourceWeights: patch.sourceWeights
+            ? { ...patch.sourceWeights }
+            : optimisticValues.sourceWeights,
+        }),
+      );
+    if (changedControls.length === 0) return true;
+
+    for (const control of changedControls) {
+      const property = CONTROL_PROPERTIES[control];
+      const value = patch[property];
+      if (value === undefined) continue;
+      Object.assign(optimisticValues, {
+        [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+      });
+    }
+
+    const version = ++this.saveSequence;
+    const generation = this.accountGeneration;
+    for (const control of changedControls) {
+      this.saveVersions[`${feedName}:${control}`] = version;
+    }
+    this.valuesByFeed[feedName] = optimisticValues;
+
+    try {
+      const saved = await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      if (generation !== this.accountGeneration) return false;
+      const finalValues = clonePreferences(this.valuesFor(feedName));
+      for (const control of changedControls) {
+        if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+        const property = CONTROL_PROPERTIES[control];
+        const value = saved[property] ?? optimisticValues[property];
+        Object.assign(finalValues, {
+          [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+        });
+      }
+      this.valuesByFeed[feedName] = finalValues;
+      for (const control of changedControls) {
+        if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+        if (!controlChanged(control, previousValues, finalValues)) continue;
+        this.root.services.analyticsService.capture("feedControlChanged", {
+          ...controlEventProperties(control, previousValues, finalValues, origins[control]),
+          ...feedAnalyticsProperties(feedName),
+        });
+      }
+      return true;
+    } catch (error) {
+      if (generation === this.accountGeneration) {
+        const currentValues = clonePreferences(this.valuesFor(feedName));
+        for (const control of changedControls) {
+          if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+          const property = CONTROL_PROPERTIES[control];
+          const previousValue = previousValues[property];
+          Object.assign(currentValues, {
+            [property]:
+              control === "source_weights"
+                ? { ...(previousValue as SourceWeights) }
+                : previousValue,
+          });
+          this.root.services.analyticsService.capture("feedControlChangeFailed", {
+            ...controlEventProperties(control, previousValues, optimisticValues, origins[control]),
+            ...feedAnalyticsProperties(feedName),
+            error_category: "preferences_request_failed",
+          });
+        }
+        this.valuesByFeed[feedName] = currentValues;
+      }
+      console.error("Failed to save preferences:", error);
+      return false;
+    }
+  }
+
+  applyAcceptedPatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    saved: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): void {
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const finalValues = clonePreferences(previousValues);
+    const changedControls = (Object.keys(patch) as Array<keyof Preferences>)
+      .map((property) => PROPERTY_CONTROLS[property])
+      .filter((control): control is FeedControlName => control !== undefined)
+      .filter((control) => {
+        const property = CONTROL_PROPERTIES[control];
+        const value = patch[property];
+        if (value === undefined) return false;
+        const candidate = clonePreferences(previousValues);
+        Object.assign(candidate, {
+          [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+        });
+        return controlChanged(control, previousValues, candidate);
+      });
+
+    for (const control of changedControls) {
+      const property = CONTROL_PROPERTIES[control];
+      const value = saved[property] ?? patch[property];
+      if (value === undefined) continue;
+      Object.assign(finalValues, {
+        [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+      });
+    }
+    this.valuesByFeed[feedName] = finalValues;
+
+    for (const control of changedControls) {
+      if (!controlChanged(control, previousValues, finalValues)) continue;
+      this.root.services.analyticsService.capture("feedControlChanged", {
+        ...controlEventProperties(control, previousValues, finalValues, origins[control]),
+        ...feedAnalyticsProperties(feedName),
+      });
+    }
+  }
+
   async restoreDefaults(feedName: AlgorithmId): Promise<boolean> {
     // Reset what the Settings page exposes, even if an older or partial load
     // did not populate the control metadata. This keeps Sources in

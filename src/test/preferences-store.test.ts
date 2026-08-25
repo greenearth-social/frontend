@@ -283,6 +283,56 @@ describe("PreferencesStore.save", () => {
   });
 });
 
+describe("PreferencesStore.savePatch", () => {
+  it("saves every dirty control through one request and emits analytics after success", async () => {
+    const patch = vi.fn().mockResolvedValue({ freshness: 2, purpose: 0.8 });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledOnce();
+    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 2, purpose: 0.8 });
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ control_name: "freshness", feed_name: "your-feed" }),
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ control_name: "purpose", feed_name: "your-feed" }),
+    );
+  });
+
+  it("applies an already-accepted patch and emits analytics without another request", async () => {
+    const patch = vi.fn();
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    store.applyAcceptedPatch(
+      "your-feed",
+      { freshness: 2, purpose: 0.8 },
+      { freshness: 2, purpose: 0.8 },
+    );
+
+    expect(patch).not.toHaveBeenCalled();
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
+    expect(capture).toHaveBeenCalledTimes(2);
+  });
+
+  it("rolls the whole optimistic patch back while leaving the caller's draft intact", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store, capture } = makeStore(vi.fn().mockRejectedValue(new Error("offline")));
+    await store.load();
+
+    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(false);
+
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(capture).not.toHaveBeenCalledWith("feedControlChanged", expect.anything());
+    consoleError.mockRestore();
+  });
+});
+
 describe("PreferencesStore.restoreDefaults", () => {
   it("persists all changed GreenEarth controls in one atomic patch", async () => {
     const defaults = {

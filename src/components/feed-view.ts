@@ -11,6 +11,7 @@ export class FeedView extends MobxLitElement {
   @property({ type: String }) blueskyUrl: string = "";
   @property({ type: String }) algorithmLabel: string = "";
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
+  @property({ type: String }) localUserDid = "";
   @property({ type: Number }) engagingInfluence = 0.5;
   @property({ type: Number }) constructiveInfluence = 0.5;
 
@@ -39,6 +40,23 @@ export class FeedView extends MobxLitElement {
       text-align: center;
       line-height: 1.5;
     }
+    .local-dev-hint {
+      max-width: 34rem;
+      margin: -0.25rem 0 0;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .local-dev-hint code {
+      display: inline-block;
+      max-width: 100%;
+      padding: 0.2rem 0.4rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.375rem;
+      color: var(--bluesky-text);
+      overflow-wrap: anywhere;
+    }
     .open-in-bluesky {
       display: inline-flex;
       align-items: center;
@@ -63,6 +81,15 @@ export class FeedView extends MobxLitElement {
       return html`
         <div class="empty-state">
           <p class="empty-state-text">You have not refreshed ${label} within the last 24 hours.</p>
+          ${
+            this.localUserDid
+              ? html`<p class="local-dev-hint">
+                  Local user <code>${this.localUserDid}</code><br />
+                  Generate a matching snapshot with
+                  <code>devctl feed --user ${this.localUserDid}</code>.
+                </p>`
+              : ""
+          }
           ${
             this.blueskyUrl
               ? html`<a

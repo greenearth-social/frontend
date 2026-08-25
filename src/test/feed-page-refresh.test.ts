@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FeedItemView } from "../models/feed-debug-snapshot";
 
 const testState = vi.hoisted(() => ({
   loadFeedList: vi.fn(),
@@ -12,10 +13,10 @@ const testState = vi.hoisted(() => ({
         generatedAt: string;
         feedName: "your-feed" | "best-of-friends" | "random";
       }>,
-      currentRequestId: null,
+      currentRequestId: null as string | null,
       filteringCountsByRequest: {},
-      error: null,
-      items: [],
+      error: null as string | null,
+      items: [] as FeedItemView[],
       currentPage: 1,
       totalPages: 0,
       totalCount: 0,
@@ -70,6 +71,9 @@ describe("FeedPage pull to refresh", () => {
     vi.stubGlobal("innerWidth", 375);
     testState.rootStore.feedStore.isLoading = false;
     testState.rootStore.feedStore.feedList = [];
+    testState.rootStore.feedStore.items = [];
+    testState.rootStore.feedStore.currentRequestId = null;
+    testState.rootStore.feedStore.error = null;
     testState.rootStore.uiStore.selectedAlgorithm = "random";
     testState.rootStore.feedStore.loadFeedList.mockReset();
     testState.rootStore.feedStore.refreshFeedIfNew.mockReset();
@@ -83,9 +87,10 @@ describe("FeedPage pull to refresh", () => {
   it("refreshes the feed selected by the current route after a downward pull", async () => {
     let finishRefresh: (() => void) | undefined;
     testState.rootStore.feedStore.loadFeedList.mockImplementation(
-      () => new Promise<void>((resolve) => {
-        finishRefresh = resolve;
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        }),
     );
     const scrollContainer = document.createElement("main");
     const element = document.createElement("feed-page");
@@ -112,9 +117,83 @@ describe("FeedPage pull to refresh", () => {
 
     finishRefresh?.();
     await vi.waitFor(() => {
-      expect(
-        element.shadowRoot?.querySelector<HTMLElement>(".pull-refresh")?.style.height,
-      ).toBe("0px");
+      expect(element.shadowRoot?.querySelector<HTMLElement>(".pull-refresh")?.style.height).toBe(
+        "0px",
+      );
+    });
+  });
+
+  it("checks for a newer served snapshot when the WAIST route mounts", async () => {
+    testState.rootStore.feedStore.feedList = [
+      {
+        requestId: "random-current",
+        generatedAt: "2026-08-24T12:00:00Z",
+        feedName: "random",
+      },
+    ];
+    testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(false);
+
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+        "random",
+        "random-current",
+      );
+    });
+  });
+
+  it("offers an explicit refresh without replacing already visible posts", async () => {
+    testState.rootStore.feedStore.items = [
+      {
+        atUri: "at://visible",
+        postUrl: null,
+        finalPosition: 1,
+        author: "@author.test",
+        displayName: "Author",
+        avatarUrl: null,
+        createdAt: "",
+        content: "Visible post",
+        mediaLabels: [],
+        imageUrls: [],
+        videoUrl: null,
+        linkCard: null,
+        generators: [],
+        rankPosition: null,
+        rankScore: null,
+        afterRankPosition: null,
+        modelScores: [],
+        diversification: null,
+        replyCount: 0,
+        repostCount: 0,
+        likeCount: 0,
+      },
+    ];
+    testState.rootStore.feedStore.currentRequestId = "random-old";
+    testState.rootStore.feedStore.loadFeedList.mockImplementation(() => {
+      testState.rootStore.feedStore.currentRequestId = "random-new";
+      return Promise.resolve();
+    });
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const refresh = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Refresh feed history"]',
+    );
+    refresh?.click();
+
+    await vi.waitFor(() => {
+      expect(testState.rootStore.feedStore.loadFeedList).toHaveBeenCalledWith({
+        feedName: "random",
+        force: true,
+      });
+      expect(element.shadowRoot?.querySelector("feed-view")).not.toBeNull();
+      expect(element.shadowRoot?.querySelector(".refresh-status")?.textContent).toContain(
+        "Feed history updated",
+      );
     });
   });
 
@@ -134,10 +213,7 @@ describe("FeedPage pull to refresh", () => {
     window.dispatchEvent(new Event("focus"));
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
-      "random",
-      null,
-    );
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith("random", null);
     vi.useRealTimers();
   });
 

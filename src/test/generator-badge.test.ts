@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import "../components/generator-badge";
+import {
+  GENERATOR_LEGEND,
+  generatorPresentation,
+} from "../components/generator-presentation";
 
 describe("GeneratorBadge", () => {
   it("renders the friendly generator label", async () => {
@@ -31,5 +35,19 @@ describe("GeneratorBadge", () => {
     await el.updateComplete;
     expect(el.shadowRoot?.textContent).not.toContain("%");
     document.body.removeChild(el);
+  });
+
+  it("defines every friendly legend entry and shares the Author/Topic alias", () => {
+    expect(GENERATOR_LEGEND.map(({ label }) => label)).toEqual([
+      "Author/Topic",
+      "Followed",
+      "Followed Likes",
+      "Popular",
+      "Similar",
+      "Random",
+    ]);
+    expect(generatorPresentation("two_tower_empty_history")).toBe(
+      generatorPresentation("two_tower"),
+    );
   });
 });

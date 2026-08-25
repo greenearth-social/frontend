@@ -30,6 +30,8 @@ export class FeedPage extends MobxLitElement {
   @state() private _pullDistance = 0;
   @state() private _pullTracking = false;
   @state() private _pullRefreshing = false;
+  @state() private _snapshotRefreshing = false;
+  @state() private _refreshStatus = "";
   private _pullStart: { x: number; y: number } | null = null;
   private _blueskyRefreshSession: {
     feedName: AlgorithmId;
@@ -38,6 +40,8 @@ export class FeedPage extends MobxLitElement {
   } | null = null;
   private _blueskyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _blueskyRefreshInFlight = false;
+  private _refreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private _refreshAccountDid: string | null = null;
 
   static styles = css`
     :host {
@@ -107,7 +111,8 @@ export class FeedPage extends MobxLitElement {
       gap: 0.75rem;
       padding: 0.75rem 1rem 0.5rem;
     }
-    .source-breakdown-button {
+    .source-breakdown-button,
+    .refresh-button {
       display: inline-grid;
       place-items: center;
       width: 2.5rem;
@@ -126,16 +131,21 @@ export class FeedPage extends MobxLitElement {
       flex-shrink: 0;
       white-space: nowrap;
     }
-    .source-breakdown-button wa-icon {
+    .source-breakdown-button wa-icon,
+    .refresh-button wa-icon,
+    .refresh-button wa-spinner {
       font-size: 1.25rem;
     }
     .source-breakdown-button:hover,
-    .source-breakdown-button:focus-visible {
+    .source-breakdown-button:focus-visible,
+    .refresh-button:hover,
+    .refresh-button:focus-visible {
       border-color: var(--bluesky-brand);
       background: rgba(16, 131, 254, 0.12);
       outline: none;
     }
-    .source-breakdown-button:disabled {
+    .source-breakdown-button:disabled,
+    .refresh-button:disabled {
       opacity: 0.5;
       cursor: default;
     }
@@ -148,12 +158,20 @@ export class FeedPage extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .refresh-status {
+      margin: -0.125rem 1rem 0.5rem;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.75rem;
+      line-height: 1.25;
+      text-align: right;
+    }
     @media (max-width: 480px) {
       .header-row {
         gap: 0.5rem;
         padding-inline: 0.75rem;
       }
-      .source-breakdown-button {
+      .source-breakdown-button,
+      .refresh-button {
         width: 2.5rem;
         height: 2.5rem;
         min-height: 2.5rem;
@@ -181,6 +199,7 @@ export class FeedPage extends MobxLitElement {
       clearTimeout(this._loadTimer);
       this._loadTimer = null;
     }
+    if (this._refreshStatusTimer) clearTimeout(this._refreshStatusTimer);
     super.disconnectedCallback();
   }
 
@@ -188,6 +207,15 @@ export class FeedPage extends MobxLitElement {
     super.updated(changedProperties);
     const store = getRootStore();
     const isLoading = store?.feedStore.isLoading ?? false;
+    const signedInDid =
+      store?.authStore.isSignedIn && store.accountStore.activeAccount
+        ? store.accountStore.activeAccount.did
+        : null;
+
+    if (signedInDid !== this._refreshAccountDid) {
+      this._refreshAccountDid = signedInDid;
+      if (signedInDid) void this.#checkForLatestSnapshot();
+    }
 
     if (
       changedProperties.has("_showEmptyInsteadOfLoading") ||
@@ -440,6 +468,22 @@ export class FeedPage extends MobxLitElement {
               <div style="flex: 1; min-width: 0;">
                 <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
+              <button
+                class="refresh-button"
+                type="button"
+                aria-label="Refresh feed history"
+                title="Refresh feed history"
+                ?disabled=${this._snapshotRefreshing || feedStore.isLoading}
+                @click=${() => {
+                  void this.#refreshFeedHistory();
+                }}
+              >
+                ${
+                  this._snapshotRefreshing
+                    ? html`<wa-spinner></wa-spinner>`
+                    : html`<wa-icon name="refresh" library="app"></wa-icon>`
+                }
+              </button>
               ${
                 uiStore.selectedAlgorithm !== "random"
                   ? html`
@@ -459,6 +503,13 @@ export class FeedPage extends MobxLitElement {
                   : ""
               }
             </div>
+            ${
+              this._refreshStatus
+                ? html`<p class="refresh-status" role="status" aria-live="polite">
+                    ${this._refreshStatus}
+                  </p>`
+                : ""
+            }
             <style>
               @media (max-width: 1023px) {
                 .hamburger-btn {
@@ -524,14 +575,14 @@ export class FeedPage extends MobxLitElement {
             : ""
         }
         ${
-          feedStore.isLoading && !this._showEmptyInsteadOfLoading
+          feedStore.isLoading && feedStore.items.length === 0 && !this._showEmptyInsteadOfLoading
             ? html`
                 <div class="loader-container" style="color: var(--bluesky-text-secondary)">
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
               `
-            : feedStore.isLoading && this._showEmptyInsteadOfLoading
+            : feedStore.isLoading && feedStore.items.length === 0 && this._showEmptyInsteadOfLoading
               ? html`
                   <div class="empty-state">
                     <p>No posts found</p>
@@ -546,6 +597,7 @@ export class FeedPage extends MobxLitElement {
                     .constructiveInfluence=${selectedPreferences.purpose}
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
+                    .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
                     @bluesky-feed-opened=${this.#handleBlueskyFeedOpened}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
@@ -644,6 +696,65 @@ export class FeedPage extends MobxLitElement {
     }
   }
 
+  async #refreshFeedHistory(): Promise<void> {
+    const store = getRootStore();
+    if (!store || this._snapshotRefreshing || store.feedStore.isLoading) return;
+    this.#cancelBlueskyRefresh();
+    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
+    const previousRequestId = store.feedStore.currentRequestId;
+    this._snapshotRefreshing = true;
+    this._refreshStatus = "Refreshing feed history…";
+    try {
+      await store.feedStore.loadFeedList({ feedName, force: true });
+      if (!store.feedStore.error) {
+        this.#showRefreshStatus(
+          store.feedStore.currentRequestId !== previousRequestId
+            ? "Feed history updated."
+            : "Feed history is up to date.",
+        );
+      }
+    } finally {
+      this._snapshotRefreshing = false;
+    }
+  }
+
+  async #checkForLatestSnapshot(): Promise<void> {
+    const store = getRootStore();
+    if (
+      !store ||
+      !store.authStore.isSignedIn ||
+      !store.accountStore.activeAccount ||
+      store.feedStore.isLoading ||
+      this._blueskyRefreshInFlight
+    )
+      return;
+    const refreshFeedIfNew = store.feedStore.refreshFeedIfNew;
+    if (typeof refreshFeedIfNew !== "function") return;
+    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
+    const feedList = Array.isArray(store.feedStore.feedList) ? store.feedStore.feedList : [];
+    const latestKnown = feedList
+      .filter((feed) => feed.feedName === feedName)
+      .reduce<(typeof feedList)[number] | undefined>(
+        (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
+        undefined,
+      );
+    this._blueskyRefreshInFlight = true;
+    try {
+      await refreshFeedIfNew.call(store.feedStore, feedName, latestKnown?.requestId ?? null);
+    } finally {
+      this._blueskyRefreshInFlight = false;
+    }
+  }
+
+  #showRefreshStatus(message: string): void {
+    this._refreshStatus = message;
+    if (this._refreshStatusTimer) clearTimeout(this._refreshStatusTimer);
+    this._refreshStatusTimer = setTimeout(() => {
+      this._refreshStatus = "";
+      this._refreshStatusTimer = null;
+    }, 4000);
+  }
+
   #handleBlueskyFeedOpened = (): void => {
     this.#armBlueskyRefresh(true);
   };
@@ -688,7 +799,11 @@ export class FeedPage extends MobxLitElement {
   }
 
   #resumeBlueskyRefresh = (): void => {
-    if (document.visibilityState === "hidden" || !this._blueskyRefreshSession) return;
+    if (document.visibilityState === "hidden") return;
+    if (!this._blueskyRefreshSession) {
+      void this.#checkForLatestSnapshot();
+      return;
+    }
     // Give every actual return from Bluesky a complete polling window, even
     // when the user spent several minutes away from the frontend.
     this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
