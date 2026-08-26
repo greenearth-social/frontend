@@ -10,7 +10,7 @@ export interface AlgorithmConfig {
 
 export const ALGORITHMS: Record<AlgorithmId, AlgorithmConfig> = {
   "your-feed": {
-    label: "GreenEarth",
+    label: "MySky by GreenEarth",
     get blueskyUrl() { return runtimeConfig.blueskyUrls["your-feed"]; },
     icon: "algo-greenearth",
   },
