@@ -36,7 +36,7 @@ export interface FeedPreviewSession {
 export interface AcceptedFeedPreview {
   requestId: string;
   preferences: FeedPreferences;
-  acceptedUntil: string;
+  acceptedUntil: string | null;
 }
 
 export class FeedApiError extends Error {

@@ -8,7 +8,10 @@ import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { SourceWeights } from "../services/types";
 import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
-import type { SettingsPreviewStore } from "../stores/settings-preview-store";
+import type {
+  BaselineRefreshOutcome,
+  SettingsPreviewStore,
+} from "../stores/settings-preview-store";
 import type { RootStore } from "../stores/root-store";
 import {
   applySourceLocks,
@@ -43,6 +46,9 @@ function getSettingsPreviewStore(): SettingsPreviewStore | undefined {
   return root?.settingsPreviewStore;
 }
 
+const BLUESKY_BASELINE_POLL_INTERVAL_MS = 2_500;
+const BLUESKY_BASELINE_POLL_TIMEOUT_MS = 45_000;
+
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
@@ -63,11 +69,16 @@ export class SettingsPage extends MobxLitElement {
   @state() private legacyRefreshMessage = "Refresh your Bluesky feed to see updates!";
   @state() private isResetting = false;
   @state() private lockedSources: SourceWeightKey[] = [];
+  @state() private baselineRefreshStatus = "";
   private masterStartWeights: SourceWeights | null = null;
   private sourceStartWeights: SourceWeights | null = null;
   private lastAdjustedControl: HTMLElement | null = null;
   private leaveResolver: ((canLeave: boolean) => void) | null = null;
   private legacyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineRefreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineRefreshExpiresAt: number | null = null;
+  private baselineRefreshInFlight = false;
   private readonly beforeUnloadHandler = (event: BeforeUnloadEvent): void => {
     if (!getSettingsPreviewStore()?.hasDirtyChanges) return;
     event.preventDefault();
@@ -85,6 +96,21 @@ export class SettingsPage extends MobxLitElement {
     event.preventDefault();
     this.#closeColorLegend(true);
   };
+  private readonly handleFrontendLeft = (): void => {
+    this.#cancelBaselinePolling();
+  };
+  private readonly resumeBaselineRefresh = (): void => {
+    if (document.visibilityState === "hidden") return;
+    this.baselineRefreshExpiresAt = Date.now() + BLUESKY_BASELINE_POLL_TIMEOUT_MS;
+    this.#scheduleBaselineRefresh(0);
+  };
+  private readonly handleVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") {
+      this.handleFrontendLeft();
+      return;
+    }
+    this.resumeBaselineRefresh();
+  };
 
   static styles = settingsPageStyles;
 
@@ -93,6 +119,11 @@ export class SettingsPage extends MobxLitElement {
     window.addEventListener("beforeunload", this.beforeUnloadHandler);
     document.addEventListener("pointerdown", this.colorLegendPointerHandler);
     window.addEventListener("keydown", this.colorLegendKeyHandler);
+    window.addEventListener("blur", this.handleFrontendLeft);
+    window.addEventListener("focus", this.resumeBaselineRefresh);
+    window.addEventListener("pagehide", this.handleFrontendLeft);
+    window.addEventListener("pageshow", this.resumeBaselineRefresh);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
     const root = getRootStore();
     this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
   }
@@ -101,7 +132,14 @@ export class SettingsPage extends MobxLitElement {
     window.removeEventListener("beforeunload", this.beforeUnloadHandler);
     document.removeEventListener("pointerdown", this.colorLegendPointerHandler);
     window.removeEventListener("keydown", this.colorLegendKeyHandler);
+    window.removeEventListener("blur", this.handleFrontendLeft);
+    window.removeEventListener("focus", this.resumeBaselineRefresh);
+    window.removeEventListener("pagehide", this.handleFrontendLeft);
+    window.removeEventListener("pageshow", this.resumeBaselineRefresh);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    this.#cancelBaselinePolling();
     if (this.legacyRefreshTimer) clearTimeout(this.legacyRefreshTimer);
+    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
     this.leaveResolver?.(false);
     super.disconnectedCallback();
   }
@@ -114,18 +152,19 @@ export class SettingsPage extends MobxLitElement {
     }
     if (root.preferencesStore.hasLoaded) {
       this.isLoading = false;
-      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
       return;
     }
     this.isLoading = true;
     void root.preferencesStore.load().finally(() => {
       this.isLoading = false;
-      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
     });
   }
 
   updated(changed: Map<string, unknown>): void {
     if (changed.has("selectedAlgorithm")) {
+      this.#cancelBaselinePolling();
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewFreshness = null;
@@ -138,7 +177,8 @@ export class SettingsPage extends MobxLitElement {
       this.previewActionsVisible = false;
       this.isPreviewAnimating = false;
       this.showColorLegend = false;
-      void getSettingsPreviewStore()?.activateFeed(this.selectedAlgorithm);
+      this.baselineRefreshStatus = "";
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
   }
 
@@ -181,6 +221,7 @@ export class SettingsPage extends MobxLitElement {
     const previewBusy =
       (previewStore?.isGenerating ?? false) ||
       (previewStore?.isSaving ?? false) ||
+      (previewStore?.isRefreshingBaseline ?? false) ||
       this.isPreviewAnimating;
 
     return html`
@@ -224,6 +265,13 @@ export class SettingsPage extends MobxLitElement {
           </div>
 
           <div class="page-content">
+            ${
+              previewStore?.warning
+                ? html`<p class="controls-preview-warning" role="status">
+                    ${previewStore.warning}
+                  </p>`
+                : ""
+            }
             ${
               this.isLoading
                 ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
@@ -273,6 +321,21 @@ export class SettingsPage extends MobxLitElement {
               <h2>${this.#activeControlLabel(previewStore?.activeControl ?? null)}</h2>
             </div>
             <div class="preview-header-actions">
+              <button
+                id="current-feed-refresh"
+                class="palette-button current-feed-refresh ${
+                  previewStore?.isRefreshingBaseline ? "is-refreshing" : ""
+                }"
+                type="button"
+                aria-label="Refresh current feed"
+                title="Refresh current feed"
+                ?disabled=${previewBusy}
+                @click=${() => {
+                  void this.#refreshCurrentFeed(true);
+                }}
+              >
+                <wa-icon library="app" name="refresh"></wa-icon>
+              </button>
               <button
                 id="color-legend-button"
                 class="palette-button"
@@ -325,6 +388,29 @@ export class SettingsPage extends MobxLitElement {
             }
           </div>
           ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
+          ${
+            this.baselineRefreshStatus
+              ? html`<p class="preview-sync-status" role="status" aria-live="polite">
+                  ${this.baselineRefreshStatus}
+                </p>`
+              : ""
+          }
+          ${
+            previewStore?.baselineRefreshError
+              ? html`<div class="preview-error baseline-refresh-error" role="alert">
+                  <span>Current feed could not be refreshed.</span>
+                  <button
+                    type="button"
+                    ?disabled=${previewBusy}
+                    @click=${() => {
+                      void this.#refreshCurrentFeed(true);
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>`
+              : ""
+          }
           <div class="feed-scroll">
             <settings-feed-preview
               .items=${previewStore?.displayedItems ?? []}
@@ -1046,6 +1132,106 @@ export class SettingsPage extends MobxLitElement {
     }
     store.discard();
     this.previewActionsVisible = false;
+  }
+
+  async #refreshCurrentFeed(manual: boolean): Promise<BaselineRefreshOutcome> {
+    const store = getSettingsPreviewStore();
+    if (!store || this.baselineRefreshInFlight) {
+      return { status: "deferred", hadDirtyChanges: false };
+    }
+
+    this.baselineRefreshInFlight = true;
+    const feedName = this.selectedAlgorithm;
+    const outcome = await store.refreshBaselineIfNew(feedName);
+    this.baselineRefreshInFlight = false;
+    if (!this.isConnected || feedName !== this.selectedAlgorithm) return outcome;
+
+    if (outcome.status === "updated") {
+      this.#cancelBaselinePolling();
+      this.mobilePreviewOpen = false;
+      this.previewActionsVisible = false;
+      this.showColorLegend = false;
+      this.showActionDialog = outcome.hadDirtyChanges;
+      await this.updateComplete;
+      this.renderRoot
+        .querySelector<SettingsFeedPreview>("settings-feed-preview")
+        ?.settleAsOrigin(store.baselineItems);
+      this.#showBaselineRefreshStatus("Current feed updated from Bluesky");
+      if (outcome.hadDirtyChanges) this.#focusAfterUpdate("#draft-preview");
+      return outcome;
+    }
+
+    if (manual) {
+      if (outcome.status === "unchanged") {
+        this.#showBaselineRefreshStatus("Current feed is up to date");
+      } else if (outcome.status === "deferred") {
+        this.#showBaselineRefreshStatus(
+          "Finish the current preview or save before refreshing the current feed",
+        );
+      } else {
+        this.#showBaselineRefreshStatus("Current feed could not be refreshed");
+      }
+    }
+    return outcome;
+  }
+
+  async #activateSelectedFeed(feedName: AlgorithmId): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store) return;
+    await store.activateFeed(feedName);
+    if (!this.isConnected || this.selectedAlgorithm !== feedName) return;
+    await this.#refreshCurrentFeed(false);
+  }
+
+  #scheduleBaselineRefresh(delay: number): void {
+    if (this.baselineRefreshTimer) clearTimeout(this.baselineRefreshTimer);
+    if (
+      !this.isConnected ||
+      document.visibilityState === "hidden" ||
+      this.baselineRefreshExpiresAt === null ||
+      Date.now() >= this.baselineRefreshExpiresAt
+    ) {
+      this.baselineRefreshTimer = null;
+      return;
+    }
+    this.baselineRefreshTimer = setTimeout(() => {
+      this.baselineRefreshTimer = null;
+      void this.#pollBaselineRefresh();
+    }, delay);
+  }
+
+  async #pollBaselineRefresh(): Promise<void> {
+    if (
+      this.baselineRefreshExpiresAt === null ||
+      Date.now() >= this.baselineRefreshExpiresAt ||
+      document.visibilityState === "hidden"
+    ) {
+      this.#cancelBaselinePolling();
+      return;
+    }
+    if (this.baselineRefreshInFlight) {
+      this.#scheduleBaselineRefresh(BLUESKY_BASELINE_POLL_INTERVAL_MS);
+      return;
+    }
+    const outcome = await this.#refreshCurrentFeed(false);
+    if (outcome.status !== "updated") {
+      this.#scheduleBaselineRefresh(BLUESKY_BASELINE_POLL_INTERVAL_MS);
+    }
+  }
+
+  #cancelBaselinePolling(): void {
+    if (this.baselineRefreshTimer) clearTimeout(this.baselineRefreshTimer);
+    this.baselineRefreshTimer = null;
+    this.baselineRefreshExpiresAt = null;
+  }
+
+  #showBaselineRefreshStatus(message: string): void {
+    this.baselineRefreshStatus = message;
+    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
+    this.baselineRefreshStatusTimer = setTimeout(() => {
+      this.baselineRefreshStatus = "";
+      this.baselineRefreshStatusTimer = null;
+    }, 4_000);
   }
 
   #closeMobilePreview(): void {

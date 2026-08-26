@@ -108,7 +108,7 @@ interface ApiFeedPreviewResponse {
 interface ApiAcceptedFeedPreviewResponse {
   request_id: string;
   preferences: ApiPreferences;
-  accepted_until: string;
+  accepted_until?: string | null;
 }
 
 function mapPreferences(prefs: ApiPreferences): FeedPreferences {
@@ -291,7 +291,7 @@ export class FeedApiService implements IFeedApiService {
     return {
       requestId: response.request_id,
       preferences: mapPreferences(response.preferences),
-      acceptedUntil: response.accepted_until,
+      acceptedUntil: response.accepted_until ?? null,
     };
   }
 

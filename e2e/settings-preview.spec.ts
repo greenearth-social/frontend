@@ -22,6 +22,67 @@ async function releaseFreshness(
   }, value);
 }
 
+async function publishNewServedSlate(
+  page: import("@playwright/test").Page,
+  requestId: string,
+): Promise<void> {
+  await page.evaluate(async (nextRequestId) => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        services: {
+          feedApiService: {
+            listFeeds: () => Promise<unknown>;
+            getFeedDetail: (requestId: string) => Promise<Record<string, unknown>>;
+          };
+        };
+      } | null;
+    };
+    const service = appModule.getRootStore()?.services.feedApiService;
+    if (!service) throw new Error("Mock feed service unavailable");
+    const originalGetDetail = service.getFeedDetail.bind(service);
+    const generatedAt = new Date(Date.now() + 1_000).toISOString();
+    service.listFeeds = () =>
+      Promise.resolve({
+        feeds: [
+          {
+            requestId: nextRequestId,
+            generatedAt,
+            feedName: "your-feed",
+            apiReleaseSha: "served-api-sha",
+            appliedSocialRadius: 2,
+            generatorDiagnostics: [],
+          },
+        ],
+      });
+    service.getFeedDetail = async (detailRequestId: string) => {
+      const current = await originalGetDetail(detailRequestId);
+      const rawItems = current["items"];
+      const items = Array.isArray(rawItems)
+        ? (rawItems as unknown[])
+            .filter(
+              (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+            )
+            .map((item) => ({ ...item }))
+        : [];
+      const first = items[1];
+      if (first) {
+        first.author = {
+          handle: "served-from-bluesky.test",
+          displayName: "Served from Bluesky",
+          avatarUrl: null,
+        };
+      }
+      return {
+        ...current,
+        requestId: nextRequestId,
+        generatedAt,
+        items: first ? [first, ...items.filter((item) => item !== first)] : items,
+      };
+    };
+  }, requestId);
+}
+
 test("desktop keeps current feed visible in an independently scrollable rail", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
@@ -100,6 +161,47 @@ test("desktop preview paginates the complete generated slate", async ({ page }) 
   await nextPage.click();
   await expect(settings.getByText("Page 3 of 3", { exact: true })).toBeVisible();
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(5);
+});
+
+test("manual refresh adopts a newer served Bluesky slate as the neutral baseline", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  await publishNewServedSlate(page, "served-after-bluesky-refresh");
+
+  const settings = page.locator("settings-page");
+  await settings.getByRole("button", { name: "Refresh current feed" }).click();
+
+  await expect(
+    settings.getByText("Current feed updated from Bluesky", { exact: true }),
+  ).toBeVisible();
+  await expect(settings.getByText("Served from Bluesky", { exact: true })).toBeVisible();
+  await expect(settings.locator("settings-feed-preview .movement")).toHaveCount(6);
+  await expect(
+    settings.locator('settings-feed-preview .movement wa-icon[name="minus"]'),
+  ).toHaveCount(6);
+});
+
+test("a newer Bluesky slate closes a dirty mobile preview without losing the draft", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openSettings(page);
+  await releaseFreshness(page, "2");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  const settings = page.locator("settings-page");
+  await expect(settings.locator(".feed-column")).toBeVisible();
+
+  await publishNewServedSlate(page, "served-while-draft-open");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+  await expect(settings.locator(".feed-column")).not.toBeVisible({ timeout: 5_000 });
+  await expect(page.getByRole("dialog", { name: "Review this change" })).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Time Window" })).toHaveValue("2");
+  await expect(
+    settings.getByRole("status").filter({ hasText: /draft is unchanged/i }),
+  ).toBeVisible();
 });
 
 test("saving an accepted preview promotes it to a neutral current baseline", async ({ page }) => {

@@ -348,27 +348,23 @@ describe("FeedApiService", () => {
       jsonResponse({
         request_id: "preview-1",
         preferences: { freshness: 2, purpose: 0.65 },
-        accepted_until: "2026-08-23T12:10:00Z",
+        accepted_until: null,
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(
-      service.acceptFeedPreview(
-        "your-feed",
-        "preview-1",
-        { freshness: 2, purpose: 0.65 },
-        ["at://post/2", "at://post/1"],
-      ),
+      service.acceptFeedPreview("your-feed", "preview-1", { freshness: 2, purpose: 0.65 }, [
+        "at://post/2",
+        "at://post/1",
+      ]),
     ).resolves.toEqual({
       requestId: "preview-1",
       preferences: { freshness: 2, purpose: 0.65 },
-      acceptedUntil: "2026-08-23T12:10:00Z",
+      acceptedUntil: null,
     });
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "/api/feeds/your-feed/previews/preview-1/accept",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/your-feed/previews/preview-1/accept");
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({

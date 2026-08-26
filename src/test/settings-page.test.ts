@@ -137,6 +137,13 @@ describe("SettingsPage", () => {
       element.shadowRoot?.querySelector(".reset-defaults-btn > svg path")?.getAttribute("d"),
     ).toContain("M320 128C426 128");
     expect(element.shadowRoot?.querySelector(".reset-label-short")?.textContent).toBe("Defaults");
+    const headerActions = element.shadowRoot?.querySelector(".preview-header-actions");
+    expect(
+      headerActions?.querySelector<HTMLButtonElement>('[aria-label="Refresh current feed"]'),
+    ).not.toBeNull();
+    expect(
+      Array.from(headerActions?.querySelectorAll("button") ?? []).map((button) => button.id),
+    ).toEqual(["current-feed-refresh", "color-legend-button", ""]);
   });
 
   it("waits for saved preferences instead of briefly showing fallback defaults", async () => {
@@ -601,8 +608,7 @@ describe("SettingsPage", () => {
   it("renders refresh popup as a link to blueskyUrl when provided", async () => {
     vi.useFakeTimers();
     const element = document.createElement("settings-page");
-    element.blueskyUrl =
-      "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed";
+    element.blueskyUrl = "https://bsky.app/profile/greenearth-social.bsky.social/feed/your-feed";
     document.body.appendChild(element);
     await element.updateComplete;
 

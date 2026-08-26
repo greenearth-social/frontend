@@ -47,10 +47,15 @@ function sameSlate(a: FeedItemView[], b: FeedItemView[]): boolean {
 
 export interface GeneratedSettingsPreview {
   requestId: string;
+  generatedAt: string;
   items: FeedItemView[];
   filteringCounts: FilteringCounts;
   signature: string;
 }
+
+export type BaselineRefreshOutcome =
+  | { status: "updated"; hadDirtyChanges: boolean }
+  | { status: "unchanged" | "deferred" | "error"; hadDirtyChanges: false };
 
 const EMPTY_FILTERING_COUNTS: FilteringCounts = {
   storedItemCount: 0,
@@ -70,15 +75,22 @@ export class SettingsPreviewStore {
   displayedItems: FeedItemView[] = [];
   baselineFilteringCounts: FilteringCounts = { ...EMPTY_FILTERING_COUNTS };
   displayedFilteringCounts: FilteringCounts = { ...EMPTY_FILTERING_COUNTS };
+  baselineRequestId: string | null = null;
+  baselineGeneratedAt: string | null = null;
   isLoadingBaseline = false;
+  isRefreshingBaseline = false;
   isGenerating = false;
   isSaving = false;
   error: string | null = null;
   warning: string | null = null;
+  baselineRefreshError: string | null = null;
   lastPreviewSignature: string | null = null;
   lastPreviewRequestId: string | null = null;
+  lastPreviewGeneratedAt: string | null = null;
   private sequence = 0;
+  private refreshSequence = 0;
   private accountId: string | null = null;
+  private lastObservedServedRequestId: string | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
@@ -93,6 +105,7 @@ export class SettingsPreviewStore {
 
   reset(): void {
     this.sequence++;
+    this.refreshSequence++;
     this.accountId = null;
     this.activeFeed = null;
     this.draft = null;
@@ -103,18 +116,25 @@ export class SettingsPreviewStore {
     this.displayedItems = [];
     this.baselineFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
     this.displayedFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
+    this.baselineRequestId = null;
+    this.baselineGeneratedAt = null;
     this.isLoadingBaseline = false;
+    this.isRefreshingBaseline = false;
     this.isGenerating = false;
     this.isSaving = false;
     this.error = null;
     this.warning = null;
+    this.baselineRefreshError = null;
     this.lastPreviewSignature = null;
     this.lastPreviewRequestId = null;
+    this.lastPreviewGeneratedAt = null;
+    this.lastObservedServedRequestId = null;
   }
 
   async activateFeed(feedName: AlgorithmId): Promise<void> {
     if (this.activeFeed === feedName && this.draft !== null) return;
     const requestSequence = ++this.sequence;
+    this.refreshSequence++;
     this.activeFeed = feedName;
     this.draft = clonePreferences(this.root.preferencesStore.valuesFor(feedName));
     this.dirtyControls = [];
@@ -124,10 +144,15 @@ export class SettingsPreviewStore {
     this.displayedItems = [];
     this.baselineFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
     this.displayedFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
+    this.baselineRequestId = null;
+    this.baselineGeneratedAt = null;
     this.error = null;
     this.warning = null;
+    this.baselineRefreshError = null;
     this.lastPreviewSignature = null;
     this.lastPreviewRequestId = null;
+    this.lastPreviewGeneratedAt = null;
+    this.lastObservedServedRequestId = null;
     this.isLoadingBaseline = true;
 
     let staleRequestId: string | null = null;
@@ -144,7 +169,13 @@ export class SettingsPreviewStore {
       if (latest && isFresh) {
         const detail = await this.root.services.feedApiService.getFeedDetail(latest.requestId);
         if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
-        this.setBaseline(transformFeedItems(detail.items), detail.filteringCounts);
+        this.setBaseline(
+          transformFeedItems(detail.items),
+          detail.filteringCounts,
+          latest.requestId,
+          latest.generatedAt,
+        );
+        this.lastObservedServedRequestId = latest.requestId;
         return;
       }
 
@@ -152,14 +183,26 @@ export class SettingsPreviewStore {
         const session = await this.root.services.feedApiService.createFeedPreview(feedName, {});
         const detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
         if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
-        this.setBaseline(transformFeedItems(detail.items), detail.filteringCounts);
+        this.setBaseline(
+          transformFeedItems(detail.items),
+          detail.filteringCounts,
+          null,
+          detail.generatedAt,
+        );
+        this.lastObservedServedRequestId = staleRequestId;
       } catch (refreshError) {
         if (!staleRequestId) throw refreshError;
         const staleDetail = await this.root.services.feedApiService.getFeedDetail(staleRequestId);
         if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
         this.warning =
           "The current feed is older than 10 minutes. Preview changes may include newer posts.";
-        this.setBaseline(transformFeedItems(staleDetail.items), staleDetail.filteringCounts);
+        this.setBaseline(
+          transformFeedItems(staleDetail.items),
+          staleDetail.filteringCounts,
+          staleRequestId,
+          staleDetail.generatedAt,
+        );
+        this.lastObservedServedRequestId = staleRequestId;
       }
     } catch (error) {
       if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
@@ -168,6 +211,83 @@ export class SettingsPreviewStore {
       if (requestSequence === this.sequence && this.activeFeed === feedName) {
         this.isLoadingBaseline = false;
       }
+    }
+  }
+
+  async refreshBaselineIfNew(feedName: AlgorithmId): Promise<BaselineRefreshOutcome> {
+    if (this.activeFeed !== feedName) return { status: "unchanged", hadDirtyChanges: false };
+    if (this.isLoadingBaseline || this.isGenerating || this.isSaving || this.isRefreshingBaseline) {
+      return { status: "deferred", hadDirtyChanges: false };
+    }
+
+    const refreshSequence = ++this.refreshSequence;
+    const operationSequence = this.sequence;
+    this.isRefreshingBaseline = true;
+    this.baselineRefreshError = null;
+    try {
+      const feedList = await this.root.services.feedApiService.listFeeds();
+      if (
+        refreshSequence !== this.refreshSequence ||
+        operationSequence !== this.sequence ||
+        this.activeFeed !== feedName
+      ) {
+        return { status: "deferred", hadDirtyChanges: false };
+      }
+      const latest = (feedList.feeds ?? [])
+        .filter((feed) => feed.feedName === feedName)
+        .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))[0];
+      if (!latest) return { status: "unchanged", hadDirtyChanges: false };
+      if (
+        latest.requestId === this.baselineRequestId ||
+        latest.requestId === this.lastObservedServedRequestId
+      ) {
+        this.lastObservedServedRequestId = latest.requestId;
+        return { status: "unchanged", hadDirtyChanges: false };
+      }
+
+      const latestTime = Date.parse(latest.generatedAt);
+      const baselineTime = this.baselineGeneratedAt ? Date.parse(this.baselineGeneratedAt) : NaN;
+      if (
+        Number.isFinite(latestTime) &&
+        Number.isFinite(baselineTime) &&
+        latestTime <= baselineTime
+      ) {
+        this.lastObservedServedRequestId = latest.requestId;
+        return { status: "unchanged", hadDirtyChanges: false };
+      }
+
+      const detail = await this.root.services.feedApiService.getFeedDetail(latest.requestId);
+      if (
+        refreshSequence !== this.refreshSequence ||
+        operationSequence !== this.sequence ||
+        this.activeFeed !== feedName
+      ) {
+        return { status: "deferred", hadDirtyChanges: false };
+      }
+
+      const hadDirtyChanges = this.hasDirtyChanges;
+      this.lastObservedServedRequestId = latest.requestId;
+      this.setBaseline(
+        transformFeedItems(detail.items),
+        detail.filteringCounts,
+        latest.requestId,
+        latest.generatedAt,
+      );
+      this.lastPreviewSignature = null;
+      this.lastPreviewRequestId = null;
+      this.lastPreviewGeneratedAt = null;
+      this.warning = hadDirtyChanges
+        ? "Bluesky loaded a newer feed. Your draft is unchanged; preview or save it again."
+        : null;
+      return { status: "updated", hadDirtyChanges };
+    } catch (error) {
+      if (refreshSequence === this.refreshSequence && this.activeFeed === feedName) {
+        this.baselineRefreshError =
+          error instanceof Error ? error.message : "Could not refresh the current feed";
+      }
+      return { status: "error", hadDirtyChanges: false };
+    } finally {
+      if (refreshSequence === this.refreshSequence) this.isRefreshingBaseline = false;
     }
   }
 
@@ -240,6 +360,7 @@ export class SettingsPreviewStore {
     this.displayedFilteringCounts = preview.filteringCounts;
     this.lastPreviewSignature = preview.signature;
     this.lastPreviewRequestId = preview.requestId;
+    this.lastPreviewGeneratedAt = preview.generatedAt;
   }
 
   async save(): Promise<boolean> {
@@ -258,6 +379,7 @@ export class SettingsPreviewStore {
         this.lastPreviewSignature === savedSignature && this.lastPreviewRequestId !== null
           ? {
               requestId: this.lastPreviewRequestId,
+              generatedAt: this.lastPreviewGeneratedAt ?? new Date().toISOString(),
               items: [...this.displayedItems],
               filteringCounts: { ...this.displayedFilteringCounts },
               signature: savedSignature,
@@ -309,10 +431,17 @@ export class SettingsPreviewStore {
       this.draft = clonePreferences(this.root.preferencesStore.valuesFor(feedName));
       this.dirtyControls = [];
       this.origins = {};
-      this.setBaseline(acceptedSlate.items, acceptedSlate.filteringCounts);
+      this.setBaseline(
+        acceptedSlate.items,
+        acceptedSlate.filteringCounts,
+        accepted.requestId,
+        acceptedSlate.generatedAt,
+      );
       this.lastPreviewSignature = null;
       this.lastPreviewRequestId = null;
+      this.lastPreviewGeneratedAt = null;
       this.warning = null;
+      this.baselineRefreshError = null;
       return true;
     } catch {
       if (requestSequence === this.sequence && this.activeFeed === feedName) {
@@ -333,6 +462,7 @@ export class SettingsPreviewStore {
     this.displayedFilteringCounts = this.baselineFilteringCounts;
     this.lastPreviewSignature = null;
     this.lastPreviewRequestId = null;
+    this.lastPreviewGeneratedAt = null;
     this.error = null;
   }
 
@@ -357,11 +487,18 @@ export class SettingsPreviewStore {
     return patch;
   }
 
-  private setBaseline(items: FeedItemView[], filteringCounts: FilteringCounts): void {
+  private setBaseline(
+    items: FeedItemView[],
+    filteringCounts: FilteringCounts,
+    requestId: string | null,
+    generatedAt: string | null,
+  ): void {
     this.baselineItems = [...items];
     this.displayedItems = [...items];
     this.baselineFilteringCounts = { ...filteringCounts };
     this.displayedFilteringCounts = { ...filteringCounts };
+    this.baselineRequestId = requestId;
+    this.baselineGeneratedAt = generatedAt;
   }
 
   private async generatePreview(
@@ -373,6 +510,7 @@ export class SettingsPreviewStore {
     const detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
     return {
       requestId: session.requestId,
+      generatedAt: detail.generatedAt,
       items: transformFeedItems(detail.items),
       filteringCounts: detail.filteringCounts,
       signature: previewSignature,

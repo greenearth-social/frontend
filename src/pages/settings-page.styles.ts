@@ -88,9 +88,20 @@ export const settingsPageStyles = css`
     color: var(--bluesky-brand);
   }
 
-  .preview-close:disabled {
+  .preview-close:disabled,
+  .palette-button:disabled {
     cursor: wait;
     opacity: 0.55;
+  }
+
+  .current-feed-refresh.is-refreshing wa-icon {
+    animation: settings-refresh-spin 850ms linear infinite;
+  }
+
+  @keyframes settings-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .palette-button:focus-visible,
@@ -154,6 +165,7 @@ export const settingsPageStyles = css`
   }
 
   .preview-warning,
+  .preview-sync-status,
   .preview-error {
     margin: 0;
     padding: 0.6rem 0.9rem;
@@ -161,6 +173,32 @@ export const settingsPageStyles = css`
     color: var(--bluesky-text-secondary);
     font-size: 0.75rem;
     line-height: 1.35;
+  }
+
+  .preview-sync-status {
+    margin: 0;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--bluesky-border);
+    color: var(--bluesky-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .controls-preview-warning {
+    margin: 0.75rem 1rem 0;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 0.75rem;
+    background: var(--bluesky-bg-card);
+    color: var(--bluesky-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  @media (min-width: 1200px) {
+    .controls-preview-warning {
+      display: none;
+    }
   }
 
   .preview-actions {

@@ -24,10 +24,14 @@ function apiItem(atUri: string): ApiFeedItem {
   };
 }
 
-function detail(requestId: string, uris: string[]): FeedDetailResponse {
+function detail(
+  requestId: string,
+  uris: string[],
+  generatedAt = new Date().toISOString(),
+): FeedDetailResponse {
   return {
     requestId,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     apiReleaseSha: null,
     items: uris.map(apiItem),
     filteringCounts: {
@@ -63,14 +67,26 @@ function harness(generatedAt = new Date().toISOString()) {
   const getFeedPreview = vi.fn().mockResolvedValue(detail("preview-1", ["b", "a", "new"]));
   const acceptFeedPreview = vi
     .fn()
-    .mockImplementation(
-      (_feedName: AlgorithmId, requestId: string, prefs: FeedPreferences) =>
-        Promise.resolve({
-          requestId,
-          preferences: prefs,
-          acceptedUntil: new Date(Date.now() + 600_000).toISOString(),
-        }),
+    .mockImplementation((_feedName: AlgorithmId, requestId: string, prefs: FeedPreferences) =>
+      Promise.resolve({
+        requestId,
+        preferences: prefs,
+        acceptedUntil: null,
+      }),
     );
+  const listFeeds = vi.fn().mockResolvedValue({
+    feeds: [
+      {
+        requestId: "baseline-1",
+        generatedAt,
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ],
+  });
+  const getFeedDetail = vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"]));
   const root = {
     preferencesStore: {
       valuesFor: vi.fn(() => ({
@@ -81,19 +97,8 @@ function harness(generatedAt = new Date().toISOString()) {
     },
     services: {
       feedApiService: {
-        listFeeds: vi.fn().mockResolvedValue({
-          feeds: [
-            {
-              requestId: "baseline-1",
-              generatedAt,
-              feedName: "your-feed",
-              apiReleaseSha: null,
-              appliedSocialRadius: null,
-              generatorDiagnostics: [],
-            },
-          ],
-        }),
-        getFeedDetail: vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"])),
+        listFeeds,
+        getFeedDetail,
         createFeedPreview,
         getFeedPreview,
         acceptFeedPreview,
@@ -105,7 +110,9 @@ function harness(generatedAt = new Date().toISOString()) {
     acceptFeedPreview,
     applyAcceptedPatch,
     createFeedPreview,
+    getFeedDetail,
     getFeedPreview,
+    listFeeds,
   };
 }
 
@@ -320,5 +327,110 @@ describe("SettingsPreviewStore", () => {
 
     expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
     expect(store.warning).toContain("older than 10 minutes");
+  });
+
+  it("replaces a clean baseline with a newer served Bluesky snapshot", async () => {
+    const baselineGeneratedAt = new Date(Date.now() - 60_000).toISOString();
+    const newerGeneratedAt = new Date().toISOString();
+    const { root, listFeeds, getFeedDetail } = harness(baselineGeneratedAt);
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+
+    listFeeds.mockResolvedValueOnce({
+      feeds: [
+        {
+          requestId: "served-2",
+          generatedAt: newerGeneratedAt,
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    getFeedDetail.mockResolvedValueOnce(detail("served-2", ["new-a", "new-b"], newerGeneratedAt));
+
+    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
+      status: "updated",
+      hadDirtyChanges: false,
+    });
+    expect(store.baselineRequestId).toBe("served-2");
+    expect(store.baselineGeneratedAt).toBe(newerGeneratedAt);
+    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["new-a", "new-b"]);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["new-a", "new-b"]);
+    expect(store.warning).toBeNull();
+  });
+
+  it("rebases a dirty draft and invalidates its hypothetical preview without losing controls", async () => {
+    const baselineGeneratedAt = new Date(Date.now() - 60_000).toISOString();
+    const newerGeneratedAt = new Date().toISOString();
+    const { root, listFeeds, getFeedDetail } = harness(baselineGeneratedAt);
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    store.setControl(
+      "source_weights",
+      {
+        following: 0.4,
+        networkLikes: 0.2,
+        authorsTopics: 0.2,
+        popular: 0.2,
+      },
+      "following",
+    );
+    store.setControl("freshness", 2);
+    const preview = await store.preview();
+    expect(preview).not.toBeNull();
+    if (preview) store.acceptPreview(preview);
+
+    listFeeds.mockResolvedValueOnce({
+      feeds: [
+        {
+          requestId: "served-2",
+          generatedAt: newerGeneratedAt,
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    getFeedDetail.mockResolvedValueOnce(
+      detail("served-2", ["fresh-1", "fresh-2"], newerGeneratedAt),
+    );
+
+    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
+      status: "updated",
+      hadDirtyChanges: true,
+    });
+    expect(store.dirtyControls).toEqual(["source_weights", "freshness"]);
+    expect(store.dirtyPatch).toEqual({
+      sourceWeights: {
+        following: 0.4,
+        networkLikes: 0.2,
+        authorsTopics: 0.2,
+        popular: 0.2,
+      },
+      freshness: 2,
+    });
+    expect(store.origins.source_weights).toBe("following");
+    expect(store.activeControl).toBe("freshness");
+    expect(store.lastPreviewRequestId).toBeNull();
+    expect(store.lastPreviewSignature).toBeNull();
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["fresh-1", "fresh-2"]);
+    expect(store.warning).toContain("draft is unchanged");
+  });
+
+  it("retains the current baseline and exposes refresh errors for retry", async () => {
+    const { root, listFeeds } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    listFeeds.mockRejectedValueOnce(new Error("history unavailable"));
+
+    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
+      status: "error",
+      hadDirtyChanges: false,
+    });
+    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
+    expect(store.baselineRefreshError).toBe("history unavailable");
   });
 });

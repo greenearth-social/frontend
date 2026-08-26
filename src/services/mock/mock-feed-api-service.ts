@@ -320,7 +320,7 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve({
       requestId,
       preferences: prefs,
-      acceptedUntil: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      acceptedUntil: null,
     });
   }
 
