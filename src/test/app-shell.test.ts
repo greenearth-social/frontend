@@ -410,7 +410,7 @@ describe("AppShell authentication UI", () => {
     await page?.updateComplete;
     const form = page?.shadowRoot?.querySelector("feedback-form");
 
-    expect(form?.prompt).toBe("We'd love to know what you think of GreenEarth");
+    expect(form?.prompt).toBe("We'd love to know what you think of MySky by GreenEarth");
     expect(form?.selectedFeed).toBe("your-feed");
   });
 
@@ -425,7 +425,7 @@ describe("AppShell authentication UI", () => {
       "settingsViewed",
       {
         feed_name: "your-feed",
-        feed_label: "GreenEarth",
+        feed_label: "MySky by GreenEarth",
       },
     );
 
@@ -687,7 +687,7 @@ describe("AppShell algorithm selector", () => {
 
     root
       ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse GreenEarth pages"]',
+        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky by GreenEarth pages"]',
       )
       ?.click();
     await element.updateComplete;
@@ -727,12 +727,12 @@ describe("AppShell algorithm selector", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    // click the "your-feed" algorithm button (labeled "GreenEarth")
+    // click the "your-feed" algorithm button (labeled "MySky by GreenEarth")
     const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
       ".left-sidebar-desktop .algo-btn",
     );
     const yourFeedBtn = Array.from(buttons ?? []).find(
-      (b) => b.getAttribute("aria-label") === "GreenEarth",
+      (b) => b.getAttribute("aria-label") === "MySky by GreenEarth",
     );
     yourFeedBtn?.click();
     await element.updateComplete;
