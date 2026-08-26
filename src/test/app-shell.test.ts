@@ -744,9 +744,19 @@ describe("AppShell algorithm selector", () => {
   });
 
   it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}#/feed/your-feed`,
+    );
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
+
+    const pages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
+    const feedGroup = pages?.closest<HTMLElement>(".feed-group");
+    expect(feedGroup?.classList.contains("active-feed")).toBe(true);
+    expect(pages?.hidden).toBe(false);
 
     element.shadowRoot
       ?.querySelector<HTMLButtonElement>(
@@ -759,32 +769,25 @@ describe("AppShell algorithm selector", () => {
           ?.querySelector(".shell-container")
           ?.classList.contains("sidebar-collapsed"),
       ).toBe(true);
-      const collapseFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-btn[aria-label="Collapse GreenEarth pages"]',
-      );
+      const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
       expect(collapseFeed).not.toBeNull();
+      expect(collapseFeed?.getAttribute("aria-label")).toBe("Collapse GreenEarth pages");
       expect(collapseFeed?.getAttribute("aria-expanded")).toBe("true");
       expect(collapseFeed?.getAttribute("aria-controls")).toBe("desktop-your-feed-pages");
     });
 
-    const pages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
-    const collapseFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '.left-sidebar-desktop .algo-btn[aria-label="Collapse GreenEarth pages"]',
-    );
+    const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
 
     collapseFeed?.click();
     await vi.waitFor(() => {
       expect(pages?.hidden).toBe(true);
-      const expandFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-btn[aria-label="Expand GreenEarth pages"]',
-      );
+      const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
       expect(expandFeed).not.toBeNull();
+      expect(expandFeed?.getAttribute("aria-label")).toBe("Expand GreenEarth pages");
       expect(expandFeed?.getAttribute("aria-expanded")).toBe("false");
     });
 
-    const expandFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '.left-sidebar-desktop .algo-btn[aria-label="Expand GreenEarth pages"]',
-    );
+    const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
     expandFeed?.click();
     await vi.waitFor(() => {
       expect(pages?.hidden).toBe(false);
