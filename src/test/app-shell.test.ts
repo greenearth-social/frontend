@@ -111,6 +111,7 @@ vi.mock("../main", () => ({
 }));
 
 import { AppShell } from "../components/app-shell";
+import { ALGORITHMS } from "../constants/algorithms";
 
 describe("AppShell authentication UI", () => {
   beforeEach(() => {
@@ -744,6 +745,7 @@ describe("AppShell algorithm selector", () => {
   });
 
   it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
+    const feedLabel = ALGORITHMS["your-feed"].label;
     window.history.replaceState(
       window.history.state,
       "",
@@ -771,7 +773,7 @@ describe("AppShell algorithm selector", () => {
       ).toBe(true);
       const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
       expect(collapseFeed).not.toBeNull();
-      expect(collapseFeed?.getAttribute("aria-label")).toBe("Collapse GreenEarth pages");
+      expect(collapseFeed?.getAttribute("aria-label")).toBe(`Collapse ${feedLabel} pages`);
       expect(collapseFeed?.getAttribute("aria-expanded")).toBe("true");
       expect(collapseFeed?.getAttribute("aria-controls")).toBe("desktop-your-feed-pages");
     });
@@ -783,7 +785,7 @@ describe("AppShell algorithm selector", () => {
       expect(pages?.hidden).toBe(true);
       const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
       expect(expandFeed).not.toBeNull();
-      expect(expandFeed?.getAttribute("aria-label")).toBe("Expand GreenEarth pages");
+      expect(expandFeed?.getAttribute("aria-label")).toBe(`Expand ${feedLabel} pages`);
       expect(expandFeed?.getAttribute("aria-expanded")).toBe("false");
     });
 
