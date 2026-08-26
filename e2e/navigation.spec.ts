@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ALGORITHMS } from "../src/constants/algorithms";
 
 test.describe("feed-scoped navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -67,21 +68,24 @@ test.describe("feed-scoped navigation", () => {
 
   test("active feed icon toggles its pages in the collapsed desktop rail", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 720 });
+    const feedLabel = ALGORITHMS["your-feed"].label;
     const desktop = page.locator(".left-sidebar-desktop");
     await desktop.getByRole("button", { name: "Collapse navigation" }).click();
 
     const pages = desktop.locator("#desktop-your-feed-pages");
-    const collapseFeed = desktop.getByRole("button", { name: "Collapse GreenEarth pages" });
+    const collapseFeed = desktop.getByRole("button", {
+      name: `Collapse ${feedLabel} pages`,
+    });
     await expect(collapseFeed).toHaveAttribute("aria-expanded", "true");
     await collapseFeed.click();
     await expect(pages).toBeHidden();
     await expect(page).toHaveURL(/#\/feed\/your-feed$/);
 
-    const expandFeed = desktop.getByRole("button", { name: "Expand GreenEarth pages" });
+    const expandFeed = desktop.getByRole("button", { name: `Expand ${feedLabel} pages` });
     await expandFeed.click();
     await expect(pages).toBeVisible();
     await expect(
-      desktop.getByRole("button", { name: "Collapse GreenEarth pages" }),
+      desktop.getByRole("button", { name: `Collapse ${feedLabel} pages` }),
     ).toHaveAttribute("aria-expanded", "true");
   });
 
