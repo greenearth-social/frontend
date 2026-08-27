@@ -273,7 +273,14 @@ test.describe("feed-scoped navigation", () => {
     const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
     expect(cardBox).not.toBeNull();
     expect(trackBox).not.toBeNull();
-    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.8);
+    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.75);
+    if (cardBox && trackBox) {
+      const narrowThumbRadius = 16;
+      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(cardBox.x);
+      expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
+        cardBox.x + cardBox.width,
+      );
+    }
 
     await expect(
       page.getByRole("spinbutton", {
