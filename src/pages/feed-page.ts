@@ -233,8 +233,8 @@ export class FeedPage extends MobxLitElement {
       return html`
         <div class="logged-out-page">
           <div class="logged-out-content">
-            <img src="/assets/caterpillar.png" alt="GreenEarth" class="logged-out-logo" />
-            <h1 class="logged-out-title">GreenEarth</h1>
+            <img src="/assets/caterpillar.png" alt="MySky by GreenEarth" class="logged-out-logo" />
+            <h1 class="logged-out-title">MySky by GreenEarth</h1>
             <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>
             <form class="sign-in-form" @submit=${this.#signIn}>
               <label class="handle-label" for="account-handle">Account handle</label>
