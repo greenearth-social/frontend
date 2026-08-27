@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 import {
+  deletionCascadeDelay,
   previewPageTransition,
+  PREVIEW_ANIMATION_TIMINGS,
   rankMovement,
+  revealCascadeDelay,
   SettingsFeedPreview,
 } from "../components/settings-feed-preview";
 import { countedMediaLabels } from "../utils/media-labels";
@@ -83,7 +86,7 @@ describe("settings feed content badges", () => {
     expect(countedMediaLabels(item("text"))).toEqual([]);
   });
 
-  it("renders neutral content pills instead of generator names", async () => {
+  it("renders the candidate before movement and content pills below post text", async () => {
     const mediaItem = item("media-card");
     mediaItem.mediaLabels = ["image"];
     mediaItem.imageUrls = ["one.jpg"];
@@ -92,15 +95,120 @@ describe("settings feed content badges", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
+    const metadata = element.shadowRoot?.querySelector(".metadata");
+    const candidate = metadata?.querySelector(".candidate-pill");
+    const movement = metadata?.querySelector(".movement");
+    expect(candidate?.textContent).toBe("Author/Topic");
+    expect(candidate?.nextElementSibling).toBe(movement);
     expect(element.shadowRoot?.querySelector(".content-pill")?.textContent).toBe("1 image");
-    expect(element.shadowRoot?.textContent).not.toContain("two_tower");
+    const snippet = element.shadowRoot?.querySelector(".snippet");
+    expect(snippet?.nextElementSibling?.classList.contains("content-row")).toBe(true);
     expect(SettingsFeedPreview.styles.cssText).toContain("border: 1px solid var(--source-border)");
     expect(SettingsFeedPreview.styles.cssText).toContain("color: var(--source-color)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("max-height: 8rem");
     element.remove();
   });
 });
 
 describe("settings feed movement presentation", () => {
+  it("uses the 1.5x animation timings and reduced-motion crossfade", () => {
+    expect(PREVIEW_ANIMATION_TIMINGS).toEqual({
+      fadeOut: 450,
+      fadeOutStagger: 225,
+      removeSpace: 160,
+      rerank: 775,
+      insertSpace: 160,
+      fadeIn: 450,
+      fadeInStagger: 225,
+      reducedMotion: 160,
+    });
+    expect(SettingsFeedPreview.styles.cssText).toContain("min-height 160ms ease");
+    expect(SettingsFeedPreview.styles.cssText).toContain("opacity 450ms ease");
+    expect(SettingsFeedPreview.styles.cssText).toContain(
+      "transition-delay: var(--removal-delay, 0ms)",
+    );
+    expect(SettingsFeedPreview.styles.cssText).toContain("animation: open-card 160ms ease both");
+    expect(SettingsFeedPreview.styles.cssText).toContain("animation: reveal-card 450ms ease both");
+    expect(SettingsFeedPreview.styles.cssText).toContain(
+      "animation-delay: var(--reveal-delay, 0ms)",
+    );
+  });
+
+  it("starts each top-to-bottom deletion fade when the previous fade is halfway done", () => {
+    expect(deletionCascadeDelay(0, 4)).toBe(0);
+    expect(deletionCascadeDelay(1, 4)).toBe(225);
+    expect(deletionCascadeDelay(2, 4)).toBe(450);
+    expect(deletionCascadeDelay(3, 4)).toBe(675);
+  });
+
+  it("starts each top-to-bottom reveal when the previous reveal is halfway done", () => {
+    expect(revealCascadeDelay(0, 4)).toBe(0);
+    expect(revealCascadeDelay(1, 4)).toBe(225);
+    expect(revealCascadeDelay(2, 4)).toBe(450);
+    expect(revealCascadeDelay(3, 4)).toBe(675);
+  });
+
+  it("fades departures before compacting and reordering the remaining cards", async () => {
+    vi.useFakeTimers();
+    const animationResolvers: Array<() => void> = [];
+    const originalAnimate = HTMLElement.prototype.animate;
+    Object.defineProperty(HTMLElement.prototype, "animate", {
+      configurable: true,
+      value: vi.fn(() => ({
+        finished: new Promise<void>((resolve) => animationResolvers.push(resolve)),
+      })),
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = ["a", "b", "c"].map(item);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const finished = element.animateTo(["b", "c", "new"].map(item));
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-out");
+      expect(element.shadowRoot?.querySelectorAll(".fade-out .card.removed")).toHaveLength(1);
+      expect(element.shadowRoot?.querySelectorAll(".fade-out .card:not(.removed)")).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeOut);
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("compact");
+      expect(element.shadowRoot?.querySelectorAll(".compact .card")).toHaveLength(3);
+      expect(SettingsFeedPreview.styles.cssText).toContain("min-height: 2.875rem");
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.removeSpace);
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("rerank");
+      expect(HTMLElement.prototype.animate).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ duration: PREVIEW_ANIMATION_TIMINGS.rerank }),
+      );
+
+      animationResolvers.splice(0).forEach((resolve) => {
+        resolve();
+      });
+      for (let index = 0; index < 4; index++) await Promise.resolve();
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("insert-space");
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.insertSpace);
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-in");
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeIn);
+      await finished;
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("idle");
+    } finally {
+      element.remove();
+      Object.defineProperty(HTMLElement.prototype, "animate", {
+        configurable: true,
+        value: originalAnimate,
+      });
+      vi.useRealTimers();
+    }
+  });
+
   it("settles an incoming feed baseline after the previous feed is cleared", async () => {
     const element = document.createElement("settings-feed-preview");
     element.items = ["feed-a-1", "feed-a-2"].map(item);
@@ -160,6 +268,65 @@ describe("settings feed movement presentation", () => {
       enteringPage: ["post-21", "post-22"],
       added: ["brand-new"],
     });
+  });
+
+  it("limits transitions to the currently visible preview page", () => {
+    const before = Array.from({ length: 40 }, (_, index) => item(`post-${String(index + 1)}`));
+    const after = [
+      ...before.slice(0, 19),
+      item("first-page-new"),
+      ...before.slice(20, 39),
+      item("second-page-new"),
+    ];
+
+    expect(previewPageTransition(before, after, 2)).toEqual({
+      removed: ["post-40"],
+      leavingPage: [],
+      enteringPage: [],
+      added: ["second-page-new"],
+    });
+  });
+
+  it("adopts off-page changes without animating them", async () => {
+    const before = Array.from({ length: 40 }, (_, index) => item(`post-${String(index + 1)}`));
+    const after = [item("off-page-new"), ...before.slice(1)];
+    const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = before;
+    document.body.appendChild(element);
+    await element.updateComplete;
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('button[aria-label="Next preview page"]')
+      ?.click();
+    await element.updateComplete;
+    const animation = vi.spyOn(element, "animate").mockReturnValue({
+      finished: Promise.resolve(),
+    } as unknown as Animation);
+
+    try {
+      await element.animateTo(after);
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Previous preview page"]')
+        ?.click();
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector<HTMLElement>(".card")?.dataset.uri).toBe(
+        "off-page-new",
+      );
+    } finally {
+      animation.mockRestore();
+      matchMedia.mockRestore();
+      element.remove();
+    }
   });
 
   it("paginates every returned item and shows hydration counts", async () => {

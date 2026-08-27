@@ -28,7 +28,7 @@ export const GENERATOR_PRESENTATIONS = {
     background: "rgba(52, 211, 153, 0.12)",
     color: "#34d399",
     border: "rgba(52, 211, 153, 0.8)",
-    label: "Followed",
+    label: "Following",
   },
   popularity: {
     background: "rgba(244, 114, 182, 0.12)",

@@ -39,6 +39,92 @@ export const settingsPageStyles = css`
     gap: 0.5rem;
   }
 
+  .update-preview-btn,
+  .mobile-preview-btn,
+  .history-btn {
+    min-height: 36px;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 999px;
+    background: var(--bluesky-bg-card);
+    color: var(--bluesky-text);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .update-preview-btn {
+    display: none;
+  }
+
+  .mobile-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .history-btn {
+    display: inline-flex;
+    width: auto;
+    min-width: 0;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.55rem;
+    border-color: var(--bluesky-border);
+    background: transparent;
+  }
+
+  .history-btn wa-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: none;
+    font-size: 1.125rem;
+  }
+
+  .preview-mobile-primary-actions {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .preview-header .mobile-preview-title {
+    margin: 0;
+    color: var(--bluesky-text);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .update-preview-btn:hover:not(:disabled),
+  .mobile-preview-btn:hover:not(:disabled) {
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-bg-hover);
+  }
+
+  .history-btn:hover:not(:disabled) {
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-bg-hover);
+  }
+
+  .update-preview-btn:focus-visible,
+  .mobile-preview-btn:focus-visible,
+  .history-btn:focus-visible {
+    outline: 2px solid var(--bluesky-brand);
+    outline-offset: 2px;
+  }
+
+  .update-preview-btn:disabled,
+  .mobile-preview-btn:disabled,
+  .history-btn:disabled {
+    color: var(--bluesky-text-secondary);
+    cursor: default;
+    opacity: 0.5;
+  }
+
   .preview-header h2 {
     margin: 0.1rem 0 0;
     color: var(--bluesky-text);
@@ -94,14 +180,20 @@ export const settingsPageStyles = css`
     opacity: 0.55;
   }
 
-  .current-feed-refresh.is-refreshing wa-icon {
-    animation: settings-refresh-spin 850ms linear infinite;
+  .preview-close {
+    display: inline-grid;
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    place-items: center;
   }
 
-  @keyframes settings-refresh-spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .preview-close wa-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    font-size: 1.125rem;
   }
 
   .palette-button:focus-visible,
@@ -195,51 +287,10 @@ export const settingsPageStyles = css`
     line-height: 1.4;
   }
 
-  @media (min-width: 1200px) {
+  @media (min-width: 1024px) {
     .controls-preview-warning {
       display: none;
     }
-  }
-
-  .preview-actions {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.5rem;
-    padding: 0.75rem max(0.75rem, env(safe-area-inset-right, 0px))
-      max(0.75rem, env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-left, 0px));
-    border-top: 1px solid var(--bluesky-border);
-    background: rgba(21, 32, 43, 0.98);
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.24);
-  }
-
-  .preview-actions button {
-    min-height: 44px;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--bluesky-text);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 750;
-    cursor: pointer;
-  }
-
-  .preview-actions button.primary {
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-brand);
-    color: #fff;
-  }
-
-  .preview-actions button.danger {
-    color: #fca5a5;
-  }
-
-  .preview-actions button:disabled {
-    cursor: wait;
-    opacity: 0.55;
   }
 
   .preview-error {
@@ -265,102 +316,6 @@ export const settingsPageStyles = css`
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
 
-  .action-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.62);
-    backdrop-filter: blur(4px);
-    overscroll-behavior: contain;
-  }
-
-  .action-dialog {
-    width: min(25rem, calc(100vw - 2rem));
-    padding: 1.25rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 1rem;
-    box-sizing: border-box;
-    background: var(--bluesky-bg-card, #151f2b);
-    color: var(--bluesky-text);
-    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.5);
-    max-height: calc(100dvh - 2rem);
-    overflow-y: auto;
-  }
-
-  .action-dialog h2 {
-    margin: 0;
-    font-size: 1.1rem;
-  }
-
-  .action-dialog p {
-    margin: 0.6rem 0 1rem;
-    color: var(--bluesky-text-secondary);
-    font-size: 0.875rem;
-    line-height: 1.45;
-  }
-
-  .action-dialog .dialog-error {
-    padding: 0.65rem 0.75rem;
-    border: 1px solid rgba(244, 33, 46, 0.55);
-    border-radius: 0.75rem;
-    background: rgba(244, 33, 46, 0.1);
-    color: #fca5a5;
-  }
-
-  .action-buttons {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  .action-buttons button {
-    min-height: 44px;
-    padding: 0.55rem 0.9rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--bluesky-text);
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .action-buttons button.primary {
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-brand);
-    color: #fff;
-  }
-
-  .action-buttons button.danger {
-    color: #fca5a5;
-  }
-
-  .action-buttons button:disabled {
-    cursor: wait;
-    opacity: 0.55;
-  }
-
-  @media (max-width: 1199px) {
-    .action-overlay {
-      padding: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px))
-        max(1rem, env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
-    }
-
-    .action-dialog {
-      width: min(21.25rem, calc(100vw - 2rem));
-      max-height: calc(100dvh - 2rem);
-      padding: 1.1rem;
-      border-radius: 1rem;
-    }
-
-    .action-buttons button {
-      width: 100%;
-    }
-  }
-
   .sticky-header {
     position: sticky;
     top: 0;
@@ -384,6 +339,18 @@ export const settingsPageStyles = css`
     color: var(--bluesky-text);
     font-size: 1.25rem;
     font-weight: 700;
+  }
+
+  .page-title-short {
+    display: none;
+  }
+
+  .settings-header-actions {
+    display: flex;
+    min-width: 0;
+    flex: none;
+    align-items: center;
+    gap: 0.4rem;
   }
 
   .reset-defaults-btn {
@@ -429,10 +396,6 @@ export const settingsPageStyles = css`
     height: 1rem;
     flex-shrink: 0;
     fill: currentColor;
-  }
-
-  .reset-label-short {
-    display: none;
   }
 
   .hamburger-btn {
@@ -939,50 +902,6 @@ export const settingsPageStyles = css`
     margin-top: 1.5rem;
   }
 
-  .refresh-popup {
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
-    left: 0.75rem;
-    right: 0.75rem;
-    z-index: 200;
-    width: min(32rem, calc(100vw - 1.5rem));
-    margin-inline: auto;
-    padding: clamp(0.55rem, 1vw, 0.75rem) clamp(0.9rem, 2vw, 1.25rem);
-    border: 1px solid var(--bluesky-border);
-    border-radius: 12px;
-    background: rgba(21, 32, 43, 0.98);
-    color: var(--bluesky-brand);
-    font-size: clamp(0.8125rem, calc(0.72rem + 0.3vw), 1rem);
-    font-weight: 600;
-    box-sizing: border-box;
-    line-height: 1.2;
-    text-align: center;
-    white-space: normal;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .refresh-popup:hover {
-    background: rgba(30, 44, 58, 0.98);
-  }
-
-  @media (min-width: 768px) {
-    .refresh-popup {
-      top: calc(env(safe-area-inset-top, 0px) + 5.5rem);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .refresh-popup {
-      right: auto;
-      left: calc(50% + 137.5px);
-      margin-inline: 0;
-      transform: translateX(-50%);
-    }
-  }
-
   .popup-overlay {
     position: fixed;
     inset: 0;
@@ -1132,9 +1051,91 @@ export const settingsPageStyles = css`
     .hamburger-btn {
       display: flex;
     }
+
+    .header-row {
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+
+    h1 {
+      min-width: max-content;
+      overflow: visible;
+      font-size: 0.875rem;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+
+    .settings-header-actions {
+      gap: 0.375rem;
+    }
+
+    .settings-header-actions .history-btn {
+      height: 36px;
+      gap: 0.2rem;
+      padding-inline: 0.6rem;
+      font-size: 0.75rem;
+    }
+
+    .settings-header-actions .history-btn wa-icon {
+      width: 1rem;
+      height: 1rem;
+      font-size: 1rem;
+    }
+
+    .mobile-preview-btn,
+    .reset-defaults-btn {
+      min-height: 36px;
+      padding-inline: 0.7rem;
+      font-size: 0.75rem;
+    }
+
+    .reset-defaults-btn {
+      gap: 0.35rem;
+    }
   }
 
-  @media (max-width: 1199px) {
+  @media (max-width: 479px) {
+    .header-row {
+      gap: 0.25rem;
+      padding-inline: 0.5rem;
+    }
+
+    .page-title-full {
+      display: none;
+    }
+
+    .page-title-short {
+      display: inline;
+    }
+
+    .settings-header-actions {
+      gap: 0.2rem;
+    }
+
+    .settings-header-actions .history-btn {
+      padding-inline: 0.45rem;
+      font-size: 0.6875rem;
+    }
+
+    .mobile-preview-btn,
+    .reset-defaults-btn {
+      padding-inline: 0.5rem;
+      font-size: 0.6875rem;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .header-row {
+      flex-wrap: wrap;
+    }
+
+    .settings-header-actions {
+      flex: 1 0 100%;
+      justify-content: flex-end;
+    }
+  }
+
+  @media (max-width: 1023px) {
     .mobile-preview-open .controls-column {
       opacity: 0;
       pointer-events: none;
@@ -1154,7 +1155,7 @@ export const settingsPageStyles = css`
     }
   }
 
-  @media (min-width: 1200px) {
+  @media (min-width: 1024px) {
     :host,
     .settings-layout {
       height: 100dvh;
@@ -1164,7 +1165,7 @@ export const settingsPageStyles = css`
 
     .settings-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(23rem, 0.85fr);
+      grid-template-columns: minmax(28rem, 1.15fr) minmax(18rem, 0.85fr);
     }
 
     .controls-column {
@@ -1183,16 +1184,42 @@ export const settingsPageStyles = css`
     .preview-close {
       display: none;
     }
+
+    .preview-mobile-primary-actions,
+    .mobile-preview-btn {
+      display: none;
+    }
+
+    .update-preview-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   @media (max-width: 340px) {
     .header-row {
-      gap: 0.5rem;
-      padding-inline: 0.75rem;
+      gap: 0.25rem;
+      padding-inline: 0.5rem;
     }
 
     h1 {
-      font-size: 1.125rem;
+      font-size: 0.875rem;
+    }
+
+    .settings-header-actions {
+      gap: 0.15rem;
+    }
+
+    .settings-header-actions .history-btn {
+      gap: 0.2rem;
+      padding-inline: 0.25rem;
+      font-size: 0.65rem;
+    }
+
+    .mobile-preview-btn {
+      padding-inline: 0.45rem;
+      font-size: 0.65rem;
     }
 
     .reset-defaults-btn {
@@ -1200,12 +1227,8 @@ export const settingsPageStyles = css`
       padding-inline: 0.6rem;
     }
 
-    .reset-label-long {
+    .reset-defaults-btn .reset-label {
       display: none;
-    }
-
-    .reset-label-short {
-      display: inline;
     }
 
     .page-content {

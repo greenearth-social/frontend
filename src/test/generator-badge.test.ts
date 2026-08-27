@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import "../components/generator-badge";
-import {
-  GENERATOR_LEGEND,
-  generatorPresentation,
-} from "../components/generator-presentation";
+import { GENERATOR_LEGEND, generatorPresentation } from "../components/generator-presentation";
 
 describe("GeneratorBadge", () => {
   it("renders the friendly generator label", async () => {
@@ -16,7 +13,7 @@ describe("GeneratorBadge", () => {
   });
 
   it.each([
-    ["followed_users", "Followed"],
+    ["followed_users", "Following"],
     ["popularity", "Popular"],
     ["network_likes", "Followed Likes"],
   ])("maps %s to %s", async (name, label) => {
@@ -40,7 +37,7 @@ describe("GeneratorBadge", () => {
   it("defines every friendly legend entry and shares the Author/Topic alias", () => {
     expect(GENERATOR_LEGEND.map(({ label }) => label)).toEqual([
       "Author/Topic",
-      "Followed",
+      "Following",
       "Followed Likes",
       "Popular",
       "Similar",

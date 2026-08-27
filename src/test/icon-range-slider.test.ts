@@ -12,6 +12,10 @@ describe("IconRangeSlider", () => {
     expect(styles).toContain("var(--icon-tick-color)");
     expect(styles).toContain("touch-action: pan-y");
     expect(styles).toContain("touch-action: pan-x");
+    expect(styles).toContain("--icon-endpoint-inset: 3px");
+    expect(styles).toContain(
+      "margin-inline: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset))",
+    );
     expect(styles).not.toContain("transition: left");
   });
 

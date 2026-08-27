@@ -74,7 +74,10 @@ export class AppShell extends MobxLitElement {
       background: var(--bluesky-nav-bg);
     }
     .left-sidebar-desktop {
+      position: relative;
+      z-index: 40;
       width: 72px;
+      overflow: visible;
       transition: width 0.2s ease;
     }
     @media (min-width: 1024px) {
@@ -246,21 +249,21 @@ export class AppShell extends MobxLitElement {
 
     .desktop-sidebar-toggle {
       display: none;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 0.625rem;
-      width: 100%;
-      min-height: 40px;
-      margin-bottom: 0.625rem;
-      padding: 0.5rem 0.625rem;
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
-      background: transparent;
-      color: var(--bluesky-text-secondary);
-      font: inherit;
-      font-size: 0.8125rem;
-      font-weight: 650;
+      position: absolute;
+      z-index: 20;
+      top: 50%;
+      right: -14px;
+      width: 28px;
+      height: 52px;
+      padding: 0;
+      border: 1px solid var(--bluesky-text-secondary);
+      border-radius: 6px;
+      background: var(--bluesky-bg-card);
+      color: var(--bluesky-text);
+      place-items: center;
       cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+      transform: translateY(-50%);
     }
     .desktop-sidebar-toggle:hover {
       background: var(--bluesky-bg-hover);
@@ -271,15 +274,16 @@ export class AppShell extends MobxLitElement {
       outline-offset: 2px;
     }
     .desktop-sidebar-toggle wa-icon {
-      flex-shrink: 0;
-      font-size: 1rem;
+      width: 0.875rem;
+      height: 0.875rem;
+      font-size: 0.875rem;
     }
     @media (min-width: 1024px) {
       .sidebar-scroll {
         padding: 0.75rem 1.25rem 0 1rem;
       }
       .desktop-sidebar-toggle {
-        display: flex;
+        display: grid;
       }
     }
 
@@ -501,14 +505,12 @@ export class AppShell extends MobxLitElement {
         padding-inline: 0.5rem;
       }
 
-      .shell-container.sidebar-collapsed .desktop-sidebar-toggle,
       .shell-container.sidebar-collapsed .algo-btn,
       .shell-container.sidebar-collapsed .nav-link {
         justify-content: center;
         padding-inline: 0.5rem;
       }
 
-      .shell-container.sidebar-collapsed .sidebar-toggle-label,
       .shell-container.sidebar-collapsed .algo-label,
       .shell-container.sidebar-collapsed .algo-toggle,
       .shell-container.sidebar-collapsed .nav-label,
@@ -528,7 +530,7 @@ export class AppShell extends MobxLitElement {
       }
     }
 
-    @media (min-width: 1200px) {
+    @media (min-width: 1024px) {
       .center-column.settings-active {
         max-width: none;
         overflow: hidden;
@@ -810,6 +812,24 @@ export class AppShell extends MobxLitElement {
                   <div class="left-sidebar-inner">
                     ${this.#renderSidebarContent("desktop", authorName, authorHandle, authorInitial, Boolean(showDisplayName))}
                   </div>
+                  <button
+                    class="desktop-sidebar-toggle"
+                    type="button"
+                    aria-controls="desktop-feed-navigation"
+                    aria-expanded=${!this._desktopSidebarCollapsed}
+                    aria-label=${
+                      this._desktopSidebarCollapsed ? "Expand navigation" : "Collapse navigation"
+                    }
+                    title=${
+                      this._desktopSidebarCollapsed ? "Expand navigation" : "Collapse navigation"
+                    }
+                    @click=${this.#toggleDesktopSidebar}
+                  >
+                    <wa-icon
+                      name=${this._desktopSidebarCollapsed ? "chevron-right" : "chevron-left"}
+                      library="app"
+                    ></wa-icon>
+                  </button>
                 </aside>
               `
             : ""
@@ -830,7 +850,6 @@ export class AppShell extends MobxLitElement {
               ? html`<settings-page
                   .onOpenMenu=${this.#openDrawer}
                   .selectedAlgorithm=${selectedAlgorithm}
-                  .blueskyUrl=${ALGORITHMS[selectedAlgorithm].blueskyUrl}
                 ></settings-page>`
               : activePage === "feedback"
                 ? html`<feedback-page
@@ -861,33 +880,8 @@ export class AppShell extends MobxLitElement {
     return html`
       <div class="sidebar-nav-wrapper">
         <div class="sidebar-scroll">
-          ${
-            surface === "desktop"
-            ? html`
-                <button
-                  class="desktop-sidebar-toggle"
-                  type="button"
-                  aria-controls="desktop-feed-navigation"
-                  aria-expanded=${!this._desktopSidebarCollapsed}
-                  aria-label=${this._desktopSidebarCollapsed
-                    ? "Expand navigation"
-                    : "Collapse navigation"}
-                  title=${this._desktopSidebarCollapsed
-                    ? "Expand navigation"
-                    : "Collapse navigation"}
-                  @click=${this.#toggleDesktopSidebar}
-                >
-                  <wa-icon
-                    name=${this._desktopSidebarCollapsed ? "chevron-right" : "chevron-left"}
-                    library="app"
-                  ></wa-icon>
-                  <span class="sidebar-toggle-label">Collapse navigation</span>
-                </button>
-              `
-              : ""
-          }
           <nav id="${surface}-feed-navigation" class="feed-groups" aria-label="Feed pages">
-          ${ALGORITHM_IDS.map((id) => {
+            ${ALGORITHM_IDS.map((id) => {
             const algo = ALGORITHMS[id];
             const isActiveFeed = this._currentFeed === id;
             const isExpanded = this._expandedAlgorithms.has(id);
@@ -908,15 +902,19 @@ export class AppShell extends MobxLitElement {
                       }
                       void this.#navigateTo(this._currentPage, id);
                     }}
-                    aria-label=${togglesCollapsedActiveFeed
-                      ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                      : algo.label}
+                    aria-label=${
+                      togglesCollapsedActiveFeed
+                        ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                        : algo.label
+                    }
                     aria-pressed=${isActiveFeed}
                     aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
                     aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
-                    title=${togglesCollapsedActiveFeed
-                      ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                      : nothing}
+                    title=${
+                      togglesCollapsedActiveFeed
+                        ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                        : nothing
+                    }
                     type="button"
                   >
                     <wa-icon name=${algo.icon} library="app"></wa-icon>
@@ -991,22 +989,28 @@ export class AppShell extends MobxLitElement {
                       this._showLogoutMenu
                         ? html`
                             <div
-                              class="logout-menu ${surface === "desktop" && this._desktopSidebarCollapsed
-                                ? "compact"
-                                : ""}"
+                              class="logout-menu ${
+                                surface === "desktop" && this._desktopSidebarCollapsed
+                                  ? "compact"
+                                  : ""
+                              }"
                             >
                               <button
-                                class="logout-btn ${surface === "desktop" && this._desktopSidebarCollapsed
-                                  ? "compact"
-                                  : ""}"
+                                class="logout-btn ${
+                                  surface === "desktop" && this._desktopSidebarCollapsed
+                                    ? "compact"
+                                    : ""
+                                }"
                                 @click=${this.#handleLogout}
                                 aria-label="Log out"
                                 title="Log out"
                                 type="button"
                               >
-                                ${surface === "desktop" && this._desktopSidebarCollapsed
-                                  ? html`<wa-icon name="lock" library="app"></wa-icon>`
-                                  : "Log out"}
+                                ${
+                                  surface === "desktop" && this._desktopSidebarCollapsed
+                                    ? html`<wa-icon name="lock" library="app"></wa-icon>`
+                                    : "Log out"
+                                }
                               </button>
                             </div>
                           `
@@ -1022,26 +1026,8 @@ export class AppShell extends MobxLitElement {
   }
 
   #onHashChange = () => {
-    void this.#handleHashChange();
-  };
-
-  async #handleHashChange(): Promise<void> {
-    const attemptedRoute = window.location.hash.slice(1) || "/feed";
-    const settingsPage = this.#dirtySettingsPage(attemptedRoute);
-    if (!settingsPage) {
-      this.#updateRoute();
-      return;
-    }
-    if (!(await settingsPage.confirmLeave())) {
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `${window.location.pathname}${window.location.search}#${this._currentRoute}`,
-      );
-      return;
-    }
     this.#updateRoute();
-  }
+  };
 
   #onGlobalClick = (e: Event) => {
     const clickedLogoutControl = e
@@ -1171,12 +1157,6 @@ export class AppShell extends MobxLitElement {
   #navigateTo(page: AppPage, id: AlgorithmId): Promise<void> {
     this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
     const path = feedScopedPath(page, id);
-    const settingsPage = this.#dirtySettingsPage(path);
-    if (settingsPage) {
-      return settingsPage.confirmLeave().then((canLeave) => {
-        if (canLeave) this.#commitNavigation(path);
-      });
-    }
     this.#commitNavigation(path);
     return Promise.resolve();
   }
@@ -1192,22 +1172,6 @@ export class AppShell extends MobxLitElement {
   #selectAlgorithm = (id: AlgorithmId) => {
     void this.#navigateTo(this._currentPage, id);
   };
-
-  #dirtySettingsPage(targetPath: string):
-    | (HTMLElement & {
-        hasUnsavedChanges: boolean;
-        confirmLeave(): Promise<boolean>;
-      })
-    | null {
-    if (this._currentPage !== "settings" || targetPath === this._currentRoute) return null;
-    const page = this.renderRoot.querySelector<
-      HTMLElement & {
-        hasUnsavedChanges: boolean;
-        confirmLeave(): Promise<boolean>;
-      }
-    >("settings-page");
-    return page?.hasUnsavedChanges ? page : null;
-  }
 
   #syncSelectedAlgorithm(id: AlgorithmId): void {
     const store = getRootStore();

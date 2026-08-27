@@ -3,11 +3,12 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import type { AlgorithmId } from "../constants/algorithms";
-import { feedAnalyticsProperties } from "../constants/algorithms";
+import { ALGORITHMS, feedAnalyticsProperties } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
-import type { SourceWeights } from "../services/types";
+import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
 import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
+import type { SourceWeightChangeOrigin } from "../stores/preferences-store";
 import type {
   BaselineRefreshOutcome,
   SettingsPreviewStore,
@@ -46,43 +47,58 @@ function getSettingsPreviewStore(): SettingsPreviewStore | undefined {
   return root?.settingsPreviewStore;
 }
 
-const BLUESKY_BASELINE_POLL_INTERVAL_MS = 2_500;
-const BLUESKY_BASELINE_POLL_TIMEOUT_MS = 45_000;
+interface SettingsHistoryEntry {
+  id: number;
+  before: FeedPreferences;
+  after: FeedPreferences;
+  mode: "undo" | "redo";
+  previewNeededBefore: boolean;
+}
+
+function clonePatch(patch: FeedPreferences): FeedPreferences {
+  return {
+    ...patch,
+    ...(patch.sourceWeights ? { sourceWeights: { ...patch.sourceWeights } } : {}),
+  };
+}
+
+function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
+  return (
+    a.following === b.following &&
+    a.networkLikes === b.networkLikes &&
+    a.authorsTopics === b.authorsTopics &&
+    a.popular === b.popular
+  );
+}
 
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
-  @property({ type: String }) blueskyUrl: string = "";
   @state() private isLoading = false;
   @state() private selectedNode: string | null = null;
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
   @state() private previewFreshness: number | null = null;
-  @state() private showActionDialog = false;
-  @state() private showLeaveDialog = false;
   @state() private mobilePreviewOpen = false;
-  @state() private previewActionsVisible = false;
   @state() private isPreviewAnimating = false;
   @state() private showColorLegend = false;
-  @state() private showLegacyRefreshPopup = false;
-  @state() private legacyRefreshMessage = "Refresh your Bluesky feed to see updates!";
   @state() private isResetting = false;
+  @state() private isApplyingHistory = false;
+  @state() private previewNeeded = false;
+  @state() private historyEntry: SettingsHistoryEntry | null = null;
+  @state() private settingsError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
   @state() private baselineRefreshStatus = "";
   private masterStartWeights: SourceWeights | null = null;
   private sourceStartWeights: SourceWeights | null = null;
-  private lastAdjustedControl: HTMLElement | null = null;
-  private leaveResolver: ((canLeave: boolean) => void) | null = null;
-  private legacyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  private baselineRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineSyncPromise: Promise<void> | null = null;
+  private baselineSyncPending = false;
   private baselineRefreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
-  private baselineRefreshExpiresAt: number | null = null;
-  private baselineRefreshInFlight = false;
-  private readonly beforeUnloadHandler = (event: BeforeUnloadEvent): void => {
-    if (!getSettingsPreviewStore()?.hasDirtyChanges) return;
-    event.preventDefault();
-  };
+  private changeSequence = 0;
+  private settingsRevision = 0;
+  private previewAnimationOperation = 0;
   private readonly colorLegendPointerHandler = (event: PointerEvent): void => {
     if (!this.showColorLegend) return;
     const path = event.composedPath();
@@ -97,50 +113,43 @@ export class SettingsPage extends MobxLitElement {
     this.#closeColorLegend(true);
   };
   private readonly handleFrontendLeft = (): void => {
-    this.#cancelBaselinePolling();
+    this.#cancelScheduledBaselineSync();
   };
-  private readonly resumeBaselineRefresh = (): void => {
+  private readonly requestLifecycleBaselineSync = (): void => {
     if (document.visibilityState === "hidden") return;
-    this.baselineRefreshExpiresAt = Date.now() + BLUESKY_BASELINE_POLL_TIMEOUT_MS;
-    this.#scheduleBaselineRefresh(0);
+    this.#scheduleBaselineSync();
   };
   private readonly handleVisibilityChange = (): void => {
     if (document.visibilityState === "hidden") {
       this.handleFrontendLeft();
       return;
     }
-    this.resumeBaselineRefresh();
+    this.requestLifecycleBaselineSync();
   };
 
   static styles = settingsPageStyles;
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener("beforeunload", this.beforeUnloadHandler);
     document.addEventListener("pointerdown", this.colorLegendPointerHandler);
     window.addEventListener("keydown", this.colorLegendKeyHandler);
-    window.addEventListener("blur", this.handleFrontendLeft);
-    window.addEventListener("focus", this.resumeBaselineRefresh);
+    window.addEventListener("focus", this.requestLifecycleBaselineSync);
     window.addEventListener("pagehide", this.handleFrontendLeft);
-    window.addEventListener("pageshow", this.resumeBaselineRefresh);
+    window.addEventListener("pageshow", this.requestLifecycleBaselineSync);
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
     const root = getRootStore();
     this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener("beforeunload", this.beforeUnloadHandler);
     document.removeEventListener("pointerdown", this.colorLegendPointerHandler);
     window.removeEventListener("keydown", this.colorLegendKeyHandler);
-    window.removeEventListener("blur", this.handleFrontendLeft);
-    window.removeEventListener("focus", this.resumeBaselineRefresh);
+    window.removeEventListener("focus", this.requestLifecycleBaselineSync);
     window.removeEventListener("pagehide", this.handleFrontendLeft);
-    window.removeEventListener("pageshow", this.resumeBaselineRefresh);
+    window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-    this.#cancelBaselinePolling();
-    if (this.legacyRefreshTimer) clearTimeout(this.legacyRefreshTimer);
+    this.#cancelScheduledBaselineSync();
     if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
-    this.leaveResolver?.(false);
     super.disconnectedCallback();
   }
 
@@ -164,7 +173,8 @@ export class SettingsPage extends MobxLitElement {
 
   updated(changed: Map<string, unknown>): void {
     if (changed.has("selectedAlgorithm")) {
-      this.#cancelBaselinePolling();
+      this.#cancelScheduledBaselineSync();
+      this.baselineSyncPending = false;
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewFreshness = null;
@@ -172,57 +182,42 @@ export class SettingsPage extends MobxLitElement {
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
-      this.showActionDialog = false;
       this.mobilePreviewOpen = false;
-      this.previewActionsVisible = false;
+      this.previewAnimationOperation++;
       this.isPreviewAnimating = false;
       this.showColorLegend = false;
+      this.previewNeeded = false;
+      this.historyEntry = null;
+      this.settingsError = "";
+      this.isApplyingHistory = false;
+      this.settingsRevision++;
       this.baselineRefreshStatus = "";
       void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
   }
 
-  get hasUnsavedChanges(): boolean {
-    return getSettingsPreviewStore()?.hasDirtyChanges ?? false;
-  }
-
-  confirmLeave(): Promise<boolean> {
-    const store = getSettingsPreviewStore();
-    if (!this.hasUnsavedChanges) return Promise.resolve(true);
-    if (store?.isGenerating || store?.isSaving || this.isPreviewAnimating) {
-      return Promise.resolve(false);
-    }
-    this.showLeaveDialog = true;
-    this.#focusAfterUpdate("#leave-save");
-    return new Promise((resolve) => {
-      this.leaveResolver = resolve;
-    });
-  }
-
   render() {
     const root = getRootStore();
-    const preferences = getSettingsPreviewStore()?.draft ??
-      root?.preferencesStore.valuesFor(this.selectedAlgorithm) ?? {
-        sourceWeights: {
-          following: 0.3,
-          networkLikes: 0.2,
-          authorsTopics: 0.25,
-          popular: 0.25,
-        },
-        freshness: 5,
-        purpose: 0.5,
-        politics: 1,
-      };
+    const preferences = root?.preferencesStore.valuesFor(this.selectedAlgorithm) ?? {
+      sourceWeights: {
+        following: 0.3,
+        networkLikes: 0.2,
+        authorsTopics: 0.25,
+        popular: 0.25,
+      },
+      freshness: 5,
+      purpose: 0.5,
+      politics: 1,
+    };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
-    const previewBusy =
-      (previewStore?.isGenerating ?? false) ||
-      (previewStore?.isSaving ?? false) ||
-      (previewStore?.isRefreshingBaseline ?? false) ||
-      this.isPreviewAnimating;
+    const previewBusy = (previewStore?.isGenerating ?? false) || this.isPreviewAnimating;
+    const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
+    const historyLabel = `${historyAction} last settings change`;
+    const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
 
     return html`
       <div class="settings-layout ${this.mobilePreviewOpen ? "mobile-preview-open" : ""}">
@@ -243,24 +238,56 @@ export class SettingsPage extends MobxLitElement {
                   <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
               </button>
-              <h1>Settings</h1>
-              <button
-                class="reset-defaults-btn"
-                type="button"
-                aria-label="Reset settings to defaults"
-                ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
-                @click=${() => {
-                  this.#restoreDefaults();
-                }}
-              >
-                <svg viewBox="0 0 640 640" aria-hidden="true">
-                  <path
-                    d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
-                  ></path>
-                </svg>
-                <span class="reset-label-long">Reset defaults</span>
-                <span class="reset-label-short">Defaults</span>
-              </button>
+              <h1 aria-label=${settingsTitle}>
+                <span class="page-title-full">${settingsTitle}</span>
+                <span class="page-title-short" aria-hidden="true">Settings</span>
+              </h1>
+              <div class="settings-header-actions">
+                <button
+                  class="history-btn"
+                  type="button"
+                  aria-label=${historyLabel}
+                  title=${historyLabel}
+                  ?disabled=${
+                    this.isLoading || this.isApplyingHistory || this.historyEntry === null
+                  }
+                  @click=${() => {
+                    void this.#toggleHistory();
+                  }}
+                >
+                  <wa-icon
+                    library="app"
+                    name=${this.historyEntry?.mode === "redo" ? "redo" : "undo"}
+                  ></wa-icon>
+                  <span>${historyAction}</span>
+                </button>
+                <button
+                  class="mobile-preview-btn"
+                  type="button"
+                  ?disabled=${!this.previewNeeded || previewBusy}
+                  @click=${() => {
+                    void this.#previewChanges();
+                  }}
+                >
+                  Preview
+                </button>
+                <button
+                  class="reset-defaults-btn"
+                  type="button"
+                  aria-label="Reset settings to defaults"
+                  ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
+                  @click=${() => {
+                    void this.#restoreDefaults();
+                  }}
+                >
+                  <svg viewBox="0 0 640 640" aria-hidden="true">
+                    <path
+                      d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
+                    ></path>
+                  </svg>
+                  <span class="reset-label">Defaults</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -273,22 +300,18 @@ export class SettingsPage extends MobxLitElement {
                 : ""
             }
             ${
+              this.settingsError
+                ? html`<p class="controls-preview-warning settings-error" role="alert">
+                    ${this.settingsError}
+                  </p>`
+                : ""
+            }
+            ${
               this.isLoading
                 ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
                     Loading your saved settings…
                   </div>`
                 : html`
-                    ${
-                      this.showLegacyRefreshPopup
-                        ? html`<a
-                            class="refresh-popup"
-                            href=${this.blueskyUrl || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            >${this.legacyRefreshMessage}</a
-                          >`
-                        : ""
-                    }
                     <div class="diagram-wrapper">
                       ${this.#renderCandidateSection(weights, freshness)}
                       ${
@@ -314,28 +337,33 @@ export class SettingsPage extends MobxLitElement {
 
         <aside class="feed-column" aria-label="Feed preview">
           <div class="preview-header">
-            <div>
-              <span class="preview-eyebrow"
-                >${previewStore?.lastPreviewSignature ? "Preview" : "Current feed"}</span
-              >
-              <h2>${this.#activeControlLabel(previewStore?.activeControl ?? null)}</h2>
-            </div>
-            <div class="preview-header-actions">
+            <button
+              id="update-preview"
+              class="update-preview-btn"
+              type="button"
+              ?disabled=${!this.previewNeeded || previewBusy}
+              @click=${() => {
+                void this.#previewChanges();
+              }}
+            >
+              Update Preview
+            </button>
+            <div class="preview-mobile-primary-actions">
               <button
-                id="current-feed-refresh"
-                class="palette-button current-feed-refresh ${
-                  previewStore?.isRefreshingBaseline ? "is-refreshing" : ""
-                }"
+                class="preview-close"
                 type="button"
-                aria-label="Refresh current feed"
-                title="Refresh current feed"
+                aria-label="Back to settings"
+                title="Back to settings"
                 ?disabled=${previewBusy}
                 @click=${() => {
-                  void this.#refreshCurrentFeed(true);
+                  this.#closeMobilePreview();
                 }}
               >
-                <wa-icon library="app" name="refresh"></wa-icon>
+                <wa-icon library="app" name="chevron-left"></wa-icon>
               </button>
+              <h2 class="mobile-preview-title">Preview</h2>
+            </div>
+            <div class="preview-header-actions">
               <button
                 id="color-legend-button"
                 class="palette-button"
@@ -349,16 +377,6 @@ export class SettingsPage extends MobxLitElement {
                 }}
               >
                 <wa-icon library="app" name="palette"></wa-icon>
-              </button>
-              <button
-                class="preview-close"
-                type="button"
-                ?disabled=${previewBusy}
-                @click=${() => {
-                  this.#closeMobilePreview();
-                }}
-              >
-                Back to settings
               </button>
             </div>
             ${
@@ -397,17 +415,8 @@ export class SettingsPage extends MobxLitElement {
           }
           ${
             previewStore?.baselineRefreshError
-              ? html`<div class="preview-error baseline-refresh-error" role="alert">
-                  <span>Current feed could not be refreshed.</span>
-                  <button
-                    type="button"
-                    ?disabled=${previewBusy}
-                    @click=${() => {
-                      void this.#refreshCurrentFeed(true);
-                    }}
-                  >
-                    Retry
-                  </button>
+              ? html`<div class="preview-error baseline-refresh-error" role="status">
+                  <span>Current feed could not be refreshed. We’ll check again when you return.</span>
                 </div>`
               : ""
           }
@@ -415,19 +424,15 @@ export class SettingsPage extends MobxLitElement {
             <settings-feed-preview
               .items=${previewStore?.displayedItems ?? []}
               .loading=${
-                (previewStore?.isLoadingBaseline ?? false) ||
-                (previewStore?.isGenerating ?? false) ||
-                (previewStore?.isSaving ?? false)
+                (previewStore?.isLoadingBaseline ?? false) || (previewStore?.isGenerating ?? false)
               }
               .error=${previewStore?.error ?? ""}
               .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
             ></settings-feed-preview>
           </div>
           ${
-            previewStore?.isGenerating || previewStore?.isSaving
-              ? html`<div class="preview-generating" role="status">
-                  ${previewStore.isSaving ? "Saving changes…" : "Generating preview…"}
-                </div>`
+            previewStore?.isGenerating
+              ? html`<div class="preview-generating" role="status">Generating preview…</div>`
               : ""
           }
           ${
@@ -441,32 +446,6 @@ export class SettingsPage extends MobxLitElement {
                     }}
                   >
                     Retry
-                  </button>
-                </div>`
-              : ""
-          }
-          ${
-            this.previewActionsVisible && previewStore?.hasDirtyChanges
-              ? html`<div class="preview-actions" aria-label="Preview actions">
-                  <button
-                    class="primary"
-                    type="button"
-                    ?disabled=${previewBusy}
-                    @click=${() => {
-                      void this.#saveChanges();
-                    }}
-                  >
-                    ${previewStore.isSaving ? "Saving…" : "Save Changes"}
-                  </button>
-                  <button
-                    class="danger"
-                    type="button"
-                    ?disabled=${previewBusy}
-                    @click=${() => {
-                      void this.#discardChanges();
-                    }}
-                  >
-                    Discard Changes
                   </button>
                 </div>`
               : ""
@@ -488,7 +467,6 @@ export class SettingsPage extends MobxLitElement {
               },
             })
       }
-      ${this.#renderActionDialogs()}
     `;
   }
 
@@ -875,34 +853,25 @@ export class SettingsPage extends MobxLitElement {
     );
   }
 
-  #restoreDefaults(): void {
-    const store = getSettingsPreviewStore();
-    if (!store || this.isResetting) {
-      if (!store) {
-        this.#showLegacyRefresh();
-        this.isResetting = true;
-        const reset = getRootStore()?.preferencesStore.restoreDefaults(this.selectedAlgorithm);
-        this.requestUpdate();
-        void reset
-          ?.then((succeeded) => {
-            if (!succeeded) this.#showLegacyRefresh("Couldn't reset settings. Please try again.");
-          })
-          .finally(() => {
-            this.isResetting = false;
-          });
-      }
-      return;
-    }
+  async #restoreDefaults(): Promise<void> {
+    if (this.isResetting) return;
+    const root = getRootStore();
+    if (!root) return;
+    const before = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
+    const after = this.#settingsPatch(DEFAULT_PREFERENCES);
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewFreshness = null;
     this.masterStartWeights = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
-    const controls: FeedControlName[] = ["freshness"];
-    if (this.selectedAlgorithm !== "random") controls.push("purpose");
-    if (this.selectedAlgorithm === "your-feed") controls.unshift("source_weights");
-    if (store.resetDraftToDefaults(DEFAULT_PREFERENCES, controls)) this.#draftReleased();
+    this.isResetting = true;
+    await this.#applyImmediateChange(before, after, {
+      ...(after.sourceWeights ? { source_weights: "reset_defaults" as const } : {}),
+    });
+    this.isResetting = false;
   }
 
   #commitSourceWeights(
@@ -911,18 +880,15 @@ export class SettingsPage extends MobxLitElement {
   ): void {
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
-    const store = getSettingsPreviewStore();
-    if (!store) {
-      this.#showLegacyRefresh();
-      void getRootStore()?.preferencesStore.save(
-        this.selectedAlgorithm,
-        "source_weights",
-        weights,
-        origin,
-      );
-      return;
-    }
-    if (store.setControl("source_weights", weights, origin)) this.#draftReleased();
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).sourceWeights;
+    if (!current || sourceWeightsEqual(current, weights)) return;
+    void this.#applyImmediateChange(
+      { sourceWeights: { ...current } },
+      { sourceWeights: { ...weights } },
+      { source_weights: origin },
+    );
   }
 
   #validatePercentageInput(input: HTMLInputElement): boolean {
@@ -979,198 +945,156 @@ export class SettingsPage extends MobxLitElement {
 
   #commitFreshness(value: number): void {
     this.previewFreshness = null;
-    const store = getSettingsPreviewStore();
-    if (!store) {
-      this.#showLegacyRefresh();
-      void getRootStore()?.preferencesStore.save(this.selectedAlgorithm, "freshness", value);
-      return;
-    }
-    if (store.setControl("freshness", value)) this.#draftReleased();
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).freshness;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ freshness: current }, { freshness: value });
   }
 
   #commitPurpose(value: number): void {
     this.previewPurpose = null;
-    const store = getSettingsPreviewStore();
-    if (!store) {
-      this.#showLegacyRefresh();
-      void getRootStore()?.preferencesStore.save(this.selectedAlgorithm, "purpose", value);
-      return;
-    }
-    if (store.setControl("purpose", value)) this.#draftReleased();
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).purpose;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ purpose: current }, { purpose: value });
   }
 
-  #draftReleased(): void {
-    const store = getSettingsPreviewStore();
-    if (!store) return;
-    const activeElement = this.shadowRoot?.activeElement;
-    if (activeElement instanceof HTMLElement) this.lastAdjustedControl = activeElement;
-    this.previewActionsVisible = false;
+  #settingsPatch(values: Preferences): FeedPreferences {
+    const patch: FeedPreferences = { freshness: values.freshness };
+    if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
+    if (this.selectedAlgorithm === "your-feed") {
+      patch.sourceWeights = { ...values.sourceWeights };
+    }
+    return patch;
+  }
+
+  async #applyImmediateChange(
+    before: FeedPreferences,
+    after: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): Promise<boolean> {
+    const root = getRootStore();
+    if (!root || JSON.stringify(before) === JSON.stringify(after)) return false;
+    const previousHistory = this.historyEntry;
+    const entry: SettingsHistoryEntry = {
+      id: ++this.changeSequence,
+      before: clonePatch(before),
+      after: clonePatch(after),
+      mode: "undo",
+      previewNeededBefore: this.previewNeeded,
+    };
+    this.historyEntry = entry;
+    this.previewNeeded = true;
     this.showColorLegend = false;
-    this.showActionDialog = store.hasDirtyChanges;
-    this.dispatchEvent(
-      new CustomEvent("settings-dirty-change", {
-        bubbles: true,
-        composed: true,
-        detail: { dirty: store.hasDirtyChanges },
-      }),
+    this.settingsError = "";
+    this.settingsRevision++;
+
+    const succeeded = await root.preferencesStore.savePatch(
+      this.selectedAlgorithm,
+      clonePatch(after),
+      origins,
     );
-    if (store.hasDirtyChanges) {
-      this.#focusAfterUpdate("#draft-preview");
-      return;
+    const currentHistory = this.#currentHistoryEntry();
+    if (!succeeded && currentHistory?.id === entry.id && currentHistory.mode === "undo") {
+      this.historyEntry = previousHistory;
+      this.previewNeeded = entry.previewNeededBefore;
+      this.settingsError = "Settings could not be updated. Please try again.";
     }
-    void this.#restoreBaseline();
+    return succeeded;
   }
 
-  #showLegacyRefresh(message = "Refresh your Bluesky feed to see updates!"): void {
-    this.legacyRefreshMessage = message;
-    this.showLegacyRefreshPopup = true;
-    if (this.legacyRefreshTimer) clearTimeout(this.legacyRefreshTimer);
-    this.legacyRefreshTimer = setTimeout(() => {
-      this.showLegacyRefreshPopup = false;
-    }, 3000);
+  async #toggleHistory(): Promise<void> {
+    const root = getRootStore();
+    const entry = this.historyEntry;
+    if (!root || !entry || this.isApplyingHistory) return;
+    const previousMode = entry.mode;
+    const nextMode = previousMode === "undo" ? "redo" : "undo";
+    const patch = previousMode === "undo" ? entry.before : entry.after;
+    const previewNeededBefore = this.previewNeeded;
+    this.historyEntry = { ...entry, mode: nextMode };
+    this.previewNeeded = true;
+    this.settingsError = "";
+    this.settingsRevision++;
+    this.isApplyingHistory = true;
+    const origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = patch.sourceWeights
+      ? { source_weights: previousMode }
+      : {};
+    const succeeded = await root.preferencesStore.savePatch(
+      this.selectedAlgorithm,
+      clonePatch(patch),
+      origins,
+    );
+    const currentHistory = this.#currentHistoryEntry();
+    if (!succeeded && currentHistory?.id === entry.id && currentHistory.mode === nextMode) {
+      this.historyEntry = entry;
+      this.previewNeeded = previewNeededBefore;
+      this.settingsError = `${previousMode === "undo" ? "Undo" : "Redo"} could not be applied. Please try again.`;
+    }
+    this.isApplyingHistory = false;
+  }
+
+  #currentHistoryEntry(): SettingsHistoryEntry | null {
+    return this.historyEntry;
   }
 
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
-    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
-    this.showActionDialog = false;
-    this.previewActionsVisible = false;
-    this.mobilePreviewOpen = true;
-    const generated = await store.preview();
-    if (!generated) {
-      this.previewActionsVisible = store.hasDirtyChanges;
-      this.#focusAfterUpdate(".preview-actions .primary");
+    const root = getRootStore();
+    if (!store || !root || !this.previewNeeded || store.isGenerating || this.isPreviewAnimating) {
+      return;
+    }
+    if (store.isRefreshingBaseline) this.baselineSyncPending = true;
+    if (window.matchMedia("(max-width: 1023px)").matches) this.mobilePreviewOpen = true;
+    const feedName = this.selectedAlgorithm;
+    const revision = this.settingsRevision;
+    const animationOperation = ++this.previewAnimationOperation;
+    const patch = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
+    const generated = await store.preview(patch);
+    if (
+      !generated ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      this.#drainBaselineSyncQueue();
       return;
     }
     const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
     this.isPreviewAnimating = true;
-    if (feed) await feed.animateTo(generated.items, store.baselineItems);
-    this.isPreviewAnimating = false;
-    store.acceptPreview(generated);
-    this.previewActionsVisible = store.hasDirtyChanges;
-    this.#focusAfterUpdate(".preview-actions .primary");
-  }
-
-  async #saveChanges(forLeave = false): Promise<void> {
-    const store = getSettingsPreviewStore();
-    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
-    const succeeded = await store.save();
-    if (!succeeded) {
-      this.previewActionsVisible = !this.showActionDialog && store.hasDirtyChanges;
-      this.#focusAfterUpdate(
-        forLeave
-          ? "#leave-save"
-          : this.showActionDialog
-            ? "#draft-save"
-            : ".preview-actions .primary",
-      );
-      return;
-    }
-    await this.updateComplete;
-    this.renderRoot
-      .querySelector<SettingsFeedPreview>("settings-feed-preview")
-      ?.settleAsOrigin(store.baselineItems);
-    this.showActionDialog = false;
-    this.showLeaveDialog = false;
-    this.previewActionsVisible = false;
-    this.dispatchEvent(
-      new CustomEvent("settings-dirty-change", {
-        bubbles: true,
-        composed: true,
-        detail: { dirty: false },
-      }),
-    );
-    if (forLeave) this.#resolveLeave(true);
-  }
-
-  async #discardChanges(forLeave = false): Promise<void> {
-    const store = getSettingsPreviewStore();
-    if (!store || store.isGenerating || store.isSaving || this.isPreviewAnimating) return;
-    const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
-    const feedIsVisible =
-      this.mobilePreviewOpen || window.matchMedia("(min-width: 1200px)").matches;
-    if (!forLeave && !store.isDisplayingBaseline && feedIsVisible) {
-      this.isPreviewAnimating = true;
-      try {
-        if (feed) await feed.animateTo(store.baselineItems);
-      } finally {
+    try {
+      if (feed) await feed.animateTo(generated.items);
+      if (
+        revision !== this.settingsRevision ||
+        feedName !== this.selectedAlgorithm ||
+        animationOperation !== this.previewAnimationOperation
+      ) {
+        return;
+      }
+      store.acceptPreview(generated);
+      this.previewNeeded = false;
+    } finally {
+      if (animationOperation === this.previewAnimationOperation) {
         this.isPreviewAnimating = false;
       }
+      this.#drainBaselineSyncQueue();
     }
-    feed?.settleAsOrigin(store.baselineItems);
-    store.discard();
-    this.previewSourceWeights = null;
-    this.previewPurpose = null;
-    this.previewFreshness = null;
-    this.showActionDialog = false;
-    this.showLeaveDialog = false;
-    this.mobilePreviewOpen = false;
-    this.previewActionsVisible = false;
-    this.showColorLegend = false;
-    this.dispatchEvent(
-      new CustomEvent("settings-dirty-change", {
-        bubbles: true,
-        composed: true,
-        detail: { dirty: false },
-      }),
-    );
-    if (forLeave) this.#resolveLeave(true);
   }
 
-  async #restoreBaseline(): Promise<void> {
+  async #refreshCurrentFeed(): Promise<BaselineRefreshOutcome> {
     const store = getSettingsPreviewStore();
-    if (!store || this.isPreviewAnimating) return;
-    if (!store.isDisplayingBaseline) {
-      const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
-      this.isPreviewAnimating = true;
-      try {
-        if (feed) await feed.animateTo(store.baselineItems);
-      } finally {
-        this.isPreviewAnimating = false;
-      }
-      feed?.settleAsOrigin(store.baselineItems);
-    }
-    store.discard();
-    this.previewActionsVisible = false;
-  }
-
-  async #refreshCurrentFeed(manual: boolean): Promise<BaselineRefreshOutcome> {
-    const store = getSettingsPreviewStore();
-    if (!store || this.baselineRefreshInFlight) {
-      return { status: "deferred", hadDirtyChanges: false };
+    if (!store) {
+      return { status: "deferred" };
     }
 
-    this.baselineRefreshInFlight = true;
     const feedName = this.selectedAlgorithm;
     const outcome = await store.refreshBaselineIfNew(feedName);
-    this.baselineRefreshInFlight = false;
     if (!this.isConnected || feedName !== this.selectedAlgorithm) return outcome;
 
     if (outcome.status === "updated") {
-      this.#cancelBaselinePolling();
-      this.mobilePreviewOpen = false;
-      this.previewActionsVisible = false;
       this.showColorLegend = false;
-      this.showActionDialog = outcome.hadDirtyChanges;
       await this.updateComplete;
       this.renderRoot
         .querySelector<SettingsFeedPreview>("settings-feed-preview")
         ?.settleAsOrigin(store.baselineItems);
       this.#showBaselineRefreshStatus("Current feed updated from Bluesky");
-      if (outcome.hadDirtyChanges) this.#focusAfterUpdate("#draft-preview");
-      return outcome;
-    }
-
-    if (manual) {
-      if (outcome.status === "unchanged") {
-        this.#showBaselineRefreshStatus("Current feed is up to date");
-      } else if (outcome.status === "deferred") {
-        this.#showBaselineRefreshStatus(
-          "Finish the current preview or save before refreshing the current feed",
-        );
-      } else {
-        this.#showBaselineRefreshStatus("Current feed could not be refreshed");
-      }
     }
     return outcome;
   }
@@ -1180,49 +1104,63 @@ export class SettingsPage extends MobxLitElement {
     if (!store) return;
     await store.activateFeed(feedName);
     if (!this.isConnected || this.selectedAlgorithm !== feedName) return;
-    await this.#refreshCurrentFeed(false);
+    this.#drainBaselineSyncQueue();
   }
 
-  #scheduleBaselineRefresh(delay: number): void {
-    if (this.baselineRefreshTimer) clearTimeout(this.baselineRefreshTimer);
+  #scheduleBaselineSync(): void {
+    if (this.baselineSyncTimer || !this.isConnected || document.visibilityState === "hidden") {
+      return;
+    }
+    this.baselineSyncTimer = setTimeout(() => {
+      this.baselineSyncTimer = null;
+      void this.#requestBaselineSync();
+    }, 0);
+  }
+
+  async #requestBaselineSync(): Promise<void> {
+    if (!this.isConnected || document.visibilityState === "hidden") return;
+    const store = getSettingsPreviewStore();
+    if (!store) return;
+    if (store.isLoadingBaseline || store.isGenerating || this.isPreviewAnimating) {
+      this.baselineSyncPending = true;
+      return;
+    }
+    if (this.baselineSyncPromise) {
+      this.baselineSyncPending = true;
+      await this.baselineSyncPromise;
+      return;
+    }
+
+    this.baselineSyncPending = false;
+    const sync = this.#refreshCurrentFeed().then(() => undefined);
+    this.baselineSyncPromise = sync;
+    try {
+      await sync;
+    } finally {
+      if (this.baselineSyncPromise === sync) this.baselineSyncPromise = null;
+      this.#drainBaselineSyncQueue();
+    }
+  }
+
+  #drainBaselineSyncQueue(): void {
+    if (!this.baselineSyncPending) return;
+    const store = getSettingsPreviewStore();
     if (
-      !this.isConnected ||
-      document.visibilityState === "hidden" ||
-      this.baselineRefreshExpiresAt === null ||
-      Date.now() >= this.baselineRefreshExpiresAt
+      !store ||
+      store.isLoadingBaseline ||
+      store.isGenerating ||
+      this.isPreviewAnimating ||
+      this.baselineSyncPromise
     ) {
-      this.baselineRefreshTimer = null;
       return;
     }
-    this.baselineRefreshTimer = setTimeout(() => {
-      this.baselineRefreshTimer = null;
-      void this.#pollBaselineRefresh();
-    }, delay);
+    this.baselineSyncPending = false;
+    this.#scheduleBaselineSync();
   }
 
-  async #pollBaselineRefresh(): Promise<void> {
-    if (
-      this.baselineRefreshExpiresAt === null ||
-      Date.now() >= this.baselineRefreshExpiresAt ||
-      document.visibilityState === "hidden"
-    ) {
-      this.#cancelBaselinePolling();
-      return;
-    }
-    if (this.baselineRefreshInFlight) {
-      this.#scheduleBaselineRefresh(BLUESKY_BASELINE_POLL_INTERVAL_MS);
-      return;
-    }
-    const outcome = await this.#refreshCurrentFeed(false);
-    if (outcome.status !== "updated") {
-      this.#scheduleBaselineRefresh(BLUESKY_BASELINE_POLL_INTERVAL_MS);
-    }
-  }
-
-  #cancelBaselinePolling(): void {
-    if (this.baselineRefreshTimer) clearTimeout(this.baselineRefreshTimer);
-    this.baselineRefreshTimer = null;
-    this.baselineRefreshExpiresAt = null;
+  #cancelScheduledBaselineSync(): void {
+    if (this.baselineSyncTimer) clearTimeout(this.baselineSyncTimer);
+    this.baselineSyncTimer = null;
   }
 
   #showBaselineRefreshStatus(message: string): void {
@@ -1236,20 +1174,9 @@ export class SettingsPage extends MobxLitElement {
 
   #closeMobilePreview(): void {
     const store = getSettingsPreviewStore();
-    if (store?.isGenerating || store?.isSaving || this.isPreviewAnimating) return;
+    if (store?.isGenerating || this.isPreviewAnimating) return;
     this.mobilePreviewOpen = false;
     this.showColorLegend = false;
-    if (!store?.hasDirtyChanges) return;
-    this.previewActionsVisible = false;
-    this.showActionDialog = true;
-    this.#focusAfterUpdate("#draft-preview");
-  }
-
-  #continueEditing(): void {
-    this.showActionDialog = false;
-    void this.updateComplete.then(() => {
-      this.lastAdjustedControl?.focus();
-    });
   }
 
   #focusAfterUpdate(selector: string): void {
@@ -1261,120 +1188,6 @@ export class SettingsPage extends MobxLitElement {
   #closeColorLegend(returnFocus: boolean): void {
     this.showColorLegend = false;
     if (returnFocus) this.#focusAfterUpdate("#color-legend-button");
-  }
-
-  #resolveLeave(canLeave: boolean): void {
-    const resolver = this.leaveResolver;
-    this.leaveResolver = null;
-    this.showLeaveDialog = false;
-    resolver?.(canLeave);
-  }
-
-  #activeControlLabel(control: FeedControlName | null): string {
-    if (!this.mobilePreviewOpen) return "How your settings shape the feed";
-    const labels: Record<FeedControlName, string> = {
-      source_weights: "Sources",
-      freshness: "Time Window",
-      politics: "Politics",
-      purpose: "Ranking",
-    };
-    return control ? labels[control] : "Feed preview";
-  }
-
-  #renderActionDialogs(): TemplateResult {
-    const store = getSettingsPreviewStore();
-    const busy =
-      (store?.isGenerating ?? false) || (store?.isSaving ?? false) || this.isPreviewAnimating;
-    if (this.showLeaveDialog) {
-      return html` <div class="action-overlay" role="presentation">
-        <div class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-title">
-          <h2 id="leave-title">Save your settings?</h2>
-          <p>You have changes that haven’t been saved.</p>
-          ${store?.error ? html`<p class="dialog-error" role="alert">${store.error}</p>` : ""}
-          <div class="action-buttons">
-            <button
-              id="leave-save"
-              class="primary"
-              type="button"
-              ?disabled=${busy}
-              @click=${() => {
-                void this.#saveChanges(true);
-              }}
-            >
-              ${store?.isSaving ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              ?disabled=${busy}
-              @click=${() => {
-                void this.#discardChanges(true);
-              }}
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              ?disabled=${busy}
-              @click=${() => {
-                this.#resolveLeave(false);
-              }}
-            >
-              Stay
-            </button>
-          </div>
-        </div>
-      </div>`;
-    }
-    if (!this.showActionDialog || !store?.hasDirtyChanges) return html``;
-    return html` <div class="action-overlay" role="presentation">
-      <div class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-title">
-        <h2 id="draft-title">Review this change</h2>
-        <p>Preview how the draft changes your feed, save it now, or keep editing.</p>
-        ${store.error ? html`<p class="dialog-error" role="alert">${store.error}</p>` : ""}
-        <div class="action-buttons">
-          <button
-            id="draft-preview"
-            class="primary"
-            type="button"
-            ?disabled=${busy}
-            @click=${() => {
-              void this.#previewChanges();
-            }}
-          >
-            Preview
-          </button>
-          <button
-            id="draft-save"
-            type="button"
-            ?disabled=${busy}
-            @click=${() => {
-              void this.#saveChanges();
-            }}
-          >
-            ${store.isSaving ? "Saving…" : "Save Changes"}
-          </button>
-          <button
-            type="button"
-            ?disabled=${busy}
-            @click=${() => {
-              this.#continueEditing();
-            }}
-          >
-            Continue Editing
-          </button>
-          <button
-            class="danger"
-            type="button"
-            ?disabled=${busy}
-            @click=${() => {
-              void this.#discardChanges();
-            }}
-          >
-            Discard Changes
-          </button>
-        </div>
-      </div>
-    </div>`;
   }
 }
 

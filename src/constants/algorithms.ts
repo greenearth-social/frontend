@@ -4,24 +4,34 @@ export type AlgorithmId = "your-feed" | "best-of-friends" | "random";
 
 export interface AlgorithmConfig {
   label: string;
+  analyticsLabel: string;
   blueskyUrl: string;
   icon: string;
 }
 
 export const ALGORITHMS: Record<AlgorithmId, AlgorithmConfig> = {
   "your-feed": {
-    label: "GreenEarth",
-    get blueskyUrl() { return runtimeConfig.blueskyUrls["your-feed"]; },
+    label: "MySky",
+    analyticsLabel: "GreenEarth",
+    get blueskyUrl() {
+      return runtimeConfig.blueskyUrls["your-feed"];
+    },
     icon: "algo-greenearth",
   },
   "best-of-friends": {
     label: "Best of Friends",
-    get blueskyUrl() { return runtimeConfig.blueskyUrls["best-of-friends"]; },
+    analyticsLabel: "Best of Friends",
+    get blueskyUrl() {
+      return runtimeConfig.blueskyUrls["best-of-friends"];
+    },
     icon: "algo-best-of-friends",
   },
   random: {
     label: "Random",
-    get blueskyUrl() { return runtimeConfig.blueskyUrls["random"]; },
+    analyticsLabel: "Random",
+    get blueskyUrl() {
+      return runtimeConfig.blueskyUrls["random"];
+    },
     icon: "algo-random",
   },
 };
@@ -53,6 +63,6 @@ export function feedAnalyticsProperties(feedName: AlgorithmId): {
 } {
   return {
     feed_name: feedName,
-    feed_label: ALGORITHMS[feedName].label,
+    feed_label: ALGORITHMS[feedName].analyticsLabel,
   };
 }

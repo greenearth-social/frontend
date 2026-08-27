@@ -186,8 +186,6 @@ test.describe("feed-scoped navigation", () => {
       "0.45",
     );
 
-    await page.getByRole("button", { name: "Continue Editing" }).click();
-
     await setSourceRank("0");
     await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
       "1",
@@ -201,8 +199,6 @@ test.describe("feed-scoped navigation", () => {
     await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
       "0",
     );
-
-    await page.getByRole("button", { name: "Discard Changes" }).click();
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -236,7 +232,6 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await page.getByRole("button", { name: "Continue Editing" }).click();
     const constructive = page.getByRole("slider", { name: "Constructive weight" });
     await constructive.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
@@ -244,8 +239,6 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await page.getByRole("button", { name: "Continue Editing" }).click();
-
     const reset = page.getByRole("button", { name: "Reset settings to defaults" });
     await expect(reset).toBeEnabled();
     await reset.click();
@@ -311,7 +304,6 @@ test.describe("feed-scoped navigation", () => {
     await followingPercentage.fill("40");
     await followingPercentage.press("Enter");
     await expect(followingPercentage).toHaveValue("40");
-    await page.getByRole("button", { name: "Continue Editing" }).click();
     await expect(
       page.getByRole("spinbutton", {
         name: "Liked by Following percentage",

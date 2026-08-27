@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ApiFeedItem, FeedDetailResponse } from "../models/feed-debug-snapshot";
+import type { FeedPreferences } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { SettingsPreviewStore } from "../stores/settings-preview-store";
-import type { ApiFeedItem, FeedDetailResponse } from "../models/feed-debug-snapshot";
-import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
-import { FeedApiError, type FeedPreferences, type Preferences } from "../services/types";
-import type { AlgorithmId } from "../constants/algorithms";
 
 function apiItem(atUri: string): ApiFeedItem {
   return {
@@ -44,20 +42,6 @@ function detail(
 }
 
 function harness(generatedAt = new Date().toISOString()) {
-  let savedPreferences: Preferences = {
-    ...DEFAULT_PREFERENCES,
-    sourceWeights: { ...DEFAULT_PREFERENCES.sourceWeights },
-  };
-  const applyAcceptedPatch = vi.fn(
-    (_feedName: AlgorithmId, patch: FeedPreferences, saved: FeedPreferences) => {
-      savedPreferences = {
-        ...savedPreferences,
-        ...patch,
-        ...saved,
-        sourceWeights: saved.sourceWeights ?? patch.sourceWeights ?? savedPreferences.sourceWeights,
-      };
-    },
-  );
   const createFeedPreview = vi.fn().mockResolvedValue({
     requestId: "preview-1",
     feedName: "your-feed",
@@ -65,15 +49,7 @@ function harness(generatedAt = new Date().toISOString()) {
     expiresAt: new Date(Date.now() + 600_000).toISOString(),
   });
   const getFeedPreview = vi.fn().mockResolvedValue(detail("preview-1", ["b", "a", "new"]));
-  const acceptFeedPreview = vi
-    .fn()
-    .mockImplementation((_feedName: AlgorithmId, requestId: string, prefs: FeedPreferences) =>
-      Promise.resolve({
-        requestId,
-        preferences: prefs,
-        acceptedUntil: null,
-      }),
-    );
+  const acceptFeedPreview = vi.fn();
   const listFeeds = vi.fn().mockResolvedValue({
     feeds: [
       {
@@ -88,13 +64,6 @@ function harness(generatedAt = new Date().toISOString()) {
   });
   const getFeedDetail = vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"]));
   const root = {
-    preferencesStore: {
-      valuesFor: vi.fn(() => ({
-        ...savedPreferences,
-        sourceWeights: { ...savedPreferences.sourceWeights },
-      })),
-      applyAcceptedPatch,
-    },
     services: {
       feedApiService: {
         listFeeds,
@@ -108,7 +77,6 @@ function harness(generatedAt = new Date().toISOString()) {
   return {
     root,
     acceptFeedPreview,
-    applyAcceptedPatch,
     createFeedPreview,
     getFeedDetail,
     getFeedPreview,
@@ -116,194 +84,69 @@ function harness(generatedAt = new Date().toISOString()) {
   };
 }
 
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+}
+
 describe("SettingsPreviewStore", () => {
-  it("accumulates a draft without autosaving and persists it in one atomic patch", async () => {
-    const { root, acceptFeedPreview, applyAcceptedPatch, createFeedPreview } = harness();
+  it("loads a fresh served slate as the neutral baseline", async () => {
+    const { root, getFeedDetail } = harness();
     const store = new SettingsPreviewStore(root);
 
     await store.activateFeed("your-feed");
-    store.setControl("freshness", 2);
-    store.setControl("purpose", 0.65);
 
-    expect(acceptFeedPreview).not.toHaveBeenCalled();
-    expect(store.dirtyPatch).toEqual({ freshness: 2, purpose: 0.65 });
-
-    const preview = await store.preview();
-    expect(createFeedPreview).toHaveBeenCalledWith("your-feed", {
-      freshness: 2,
-      purpose: 0.65,
-    });
-    expect(preview?.items.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    if (preview) store.acceptPreview(preview);
-    expect(store.displayedFilteringCounts).toEqual({
-      storedItemCount: 3,
-      displayedItemCount: 3,
-      publiclyFilteredCount: 0,
-      unavailableCount: 0,
-    });
+    expect(getFeedDetail).toHaveBeenCalledWith("baseline-1");
     expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.isDisplayingBaseline).toBe(false);
-
-    await expect(store.save()).resolves.toBe(true);
-    expect(createFeedPreview).toHaveBeenCalledTimes(1);
-    expect(acceptFeedPreview).toHaveBeenCalledTimes(1);
-    expect(acceptFeedPreview).toHaveBeenCalledWith(
-      "your-feed",
-      "preview-1",
-      { freshness: 2, purpose: 0.65 },
-      ["b", "a", "new"],
-    );
-    expect(applyAcceptedPatch).toHaveBeenCalledWith(
-      "your-feed",
-      { freshness: 2, purpose: 0.65 },
-      { freshness: 2, purpose: 0.65 },
-      {},
-    );
-    expect(store.hasDirtyChanges).toBe(false);
-    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    expect(store.baselineFilteringCounts).toEqual(store.displayedFilteringCounts);
-    expect(store.isDisplayingBaseline).toBe(true);
-    expect(store.lastPreviewSignature).toBeNull();
-  });
-
-  it("generates a matching slate before a direct save and promotes it without exposing it early", async () => {
-    const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
-    const store = new SettingsPreviewStore(root);
-    await store.activateFeed("your-feed");
-    store.setControl("freshness", 2);
-
-    let resolveSession:
-      ((value: Awaited<ReturnType<typeof createFeedPreview>>) => void) | undefined;
-    createFeedPreview.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveSession = resolve;
-        }),
-    );
-    const saving = store.save();
-
-    expect(store.isSaving).toBe(true);
     expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(acceptFeedPreview).not.toHaveBeenCalled();
-
-    resolveSession?.({
-      requestId: "preview-1",
-      feedName: "your-feed",
-      generatedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 600_000).toISOString(),
-    });
-    await expect(saving).resolves.toBe(true);
-
-    expect(createFeedPreview).toHaveBeenCalledWith("your-feed", { freshness: 2 });
-    expect(getFeedPreview).toHaveBeenCalledWith("preview-1");
-    expect(createFeedPreview.mock.invocationCallOrder[0]).toBeLessThan(
-      acceptFeedPreview.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
-    );
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    expect(store.hasDirtyChanges).toBe(false);
-    expect(store.isSaving).toBe(false);
+    expect(store.isDisplayingBaseline).toBe(true);
   });
 
-  it("does not persist or replace the baseline when direct-save generation fails", async () => {
+  it("generates from the supplied saved-settings snapshot without accepting it", async () => {
     const { root, acceptFeedPreview, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
-    store.setControl("freshness", 2);
-    createFeedPreview.mockRejectedValueOnce(new Error("generation unavailable"));
+    const patch: FeedPreferences = {
+      sourceWeights: {
+        following: 0.4,
+        networkLikes: 0.2,
+        authorsTopics: 0.2,
+        popular: 0.2,
+      },
+      freshness: 2,
+      purpose: 0.65,
+    };
 
-    await expect(store.save()).resolves.toBe(false);
+    const preview = await store.preview(patch);
 
-    expect(acceptFeedPreview).not.toHaveBeenCalled();
-    expect(store.hasDirtyChanges).toBe(true);
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.error).toContain("have not been saved");
-    expect(store.isSaving).toBe(false);
-  });
-
-  it("does not promote a generated slate when preview acceptance fails", async () => {
-    const { root, acceptFeedPreview } = harness();
-    const store = new SettingsPreviewStore(root);
-    await store.activateFeed("your-feed");
-    store.setControl("freshness", 2);
-    acceptFeedPreview.mockRejectedValueOnce(new Error("acceptance unavailable"));
-
-    await expect(store.save()).resolves.toBe(false);
-
-    expect(store.hasDirtyChanges).toBe(true);
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.error).toContain("draft is still here");
-  });
-
-  it("regenerates once when a matching preview expires before acceptance", async () => {
-    const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
-    const store = new SettingsPreviewStore(root);
-    await store.activateFeed("your-feed");
-    store.setControl("freshness", 2);
-    const preview = await store.preview();
-    expect(preview).not.toBeNull();
+    expect(createFeedPreview).toHaveBeenCalledWith("your-feed", patch);
+    expect(preview?.items.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
     if (preview) store.acceptPreview(preview);
-
-    acceptFeedPreview
-      .mockRejectedValueOnce(new FeedApiError(409, "Preview changed"))
-      .mockResolvedValueOnce({
-        requestId: "preview-2",
-        preferences: { freshness: 2 },
-        acceptedUntil: new Date(Date.now() + 600_000).toISOString(),
-      });
-    createFeedPreview.mockResolvedValueOnce({
-      requestId: "preview-2",
-      feedName: "your-feed",
-      generatedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 600_000).toISOString(),
-    });
-    getFeedPreview.mockResolvedValueOnce(detail("preview-2", ["new", "b", "a"]));
-
-    await expect(store.save()).resolves.toBe(true);
-
-    expect(createFeedPreview).toHaveBeenCalledTimes(2);
-    expect(acceptFeedPreview).toHaveBeenCalledTimes(2);
-    expect(acceptFeedPreview.mock.calls[1]?.[1]).toBe("preview-2");
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["new", "b", "a"]);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
+    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
+    expect(store.isDisplayingBaseline).toBe(false);
+    expect(acceptFeedPreview).not.toHaveBeenCalled();
   });
 
-  it("clears only controls returned to saved values and never previews a clean draft", async () => {
+  it("keeps the current posts visible when preview generation fails", async () => {
     const { root, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
+    createFeedPreview.mockRejectedValueOnce(new Error("preview unavailable"));
 
-    store.setControl("freshness", 2);
-    store.setControl("purpose", 0.65);
-    store.setControl("freshness", DEFAULT_PREFERENCES.freshness);
+    await expect(store.preview({ freshness: 2 })).resolves.toBeNull();
 
-    expect(store.dirtyControls).toEqual(["purpose"]);
-    expect(store.dirtyPatch).toEqual({ purpose: 0.65 });
-
-    store.setControl("purpose", DEFAULT_PREFERENCES.purpose);
-    expect(store.hasDirtyChanges).toBe(false);
-    await expect(store.preview()).resolves.toBeNull();
-    expect(createFeedPreview).not.toHaveBeenCalled();
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
+    expect(store.error).toBe("preview unavailable");
   });
 
-  it("reports an actual Reset Defaults change even when it restores a clean draft", async () => {
-    const { root } = harness();
-    const store = new SettingsPreviewStore(root);
-    await store.activateFeed("your-feed");
-
-    store.setControl("freshness", 2);
-    expect(
-      store.resetDraftToDefaults(DEFAULT_PREFERENCES, ["source_weights", "freshness", "purpose"]),
-    ).toBe(true);
-    expect(store.hasDirtyChanges).toBe(false);
-    expect(
-      store.resetDraftToDefaults(DEFAULT_PREFERENCES, ["source_weights", "freshness", "purpose"]),
-    ).toBe(false);
-  });
-
-  it("refreshes an old baseline with an empty hypothetical request", async () => {
+  it("uses an empty hypothetical request to replace an old baseline", async () => {
     const { root, createFeedPreview, getFeedPreview } = harness(
       new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     );
@@ -316,26 +159,12 @@ describe("SettingsPreviewStore", () => {
     expect(store.baselineItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
   });
 
-  it("keeps an old real slate and warns when baseline regeneration fails", async () => {
-    const { root, createFeedPreview } = harness(
-      new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    );
-    createFeedPreview.mockRejectedValueOnce(new Error("generation unavailable"));
-    const store = new SettingsPreviewStore(root);
-
-    await store.activateFeed("your-feed");
-
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
-    expect(store.warning).toContain("older than 10 minutes");
-  });
-
-  it("replaces a clean baseline with a newer served Bluesky snapshot", async () => {
+  it("adopts a newer served slate and resets the displayed comparison", async () => {
     const baselineGeneratedAt = new Date(Date.now() - 60_000).toISOString();
     const newerGeneratedAt = new Date().toISOString();
     const { root, listFeeds, getFeedDetail } = harness(baselineGeneratedAt);
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
-
     listFeeds.mockResolvedValueOnce({
       feeds: [
         {
@@ -352,72 +181,9 @@ describe("SettingsPreviewStore", () => {
 
     await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
       status: "updated",
-      hadDirtyChanges: false,
     });
-    expect(store.baselineRequestId).toBe("served-2");
-    expect(store.baselineGeneratedAt).toBe(newerGeneratedAt);
-    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["new-a", "new-b"]);
     expect(store.displayedItems.map((item) => item.atUri)).toEqual(["new-a", "new-b"]);
-    expect(store.warning).toBeNull();
-  });
-
-  it("rebases a dirty draft and invalidates its hypothetical preview without losing controls", async () => {
-    const baselineGeneratedAt = new Date(Date.now() - 60_000).toISOString();
-    const newerGeneratedAt = new Date().toISOString();
-    const { root, listFeeds, getFeedDetail } = harness(baselineGeneratedAt);
-    const store = new SettingsPreviewStore(root);
-    await store.activateFeed("your-feed");
-    store.setControl(
-      "source_weights",
-      {
-        following: 0.4,
-        networkLikes: 0.2,
-        authorsTopics: 0.2,
-        popular: 0.2,
-      },
-      "following",
-    );
-    store.setControl("freshness", 2);
-    const preview = await store.preview();
-    expect(preview).not.toBeNull();
-    if (preview) store.acceptPreview(preview);
-
-    listFeeds.mockResolvedValueOnce({
-      feeds: [
-        {
-          requestId: "served-2",
-          generatedAt: newerGeneratedAt,
-          feedName: "your-feed",
-          apiReleaseSha: null,
-          appliedSocialRadius: null,
-          generatorDiagnostics: [],
-        },
-      ],
-    });
-    getFeedDetail.mockResolvedValueOnce(
-      detail("served-2", ["fresh-1", "fresh-2"], newerGeneratedAt),
-    );
-
-    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
-      status: "updated",
-      hadDirtyChanges: true,
-    });
-    expect(store.dirtyControls).toEqual(["source_weights", "freshness"]);
-    expect(store.dirtyPatch).toEqual({
-      sourceWeights: {
-        following: 0.4,
-        networkLikes: 0.2,
-        authorsTopics: 0.2,
-        popular: 0.2,
-      },
-      freshness: 2,
-    });
-    expect(store.origins.source_weights).toBe("following");
-    expect(store.activeControl).toBe("freshness");
-    expect(store.lastPreviewRequestId).toBeNull();
-    expect(store.lastPreviewSignature).toBeNull();
-    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["fresh-1", "fresh-2"]);
-    expect(store.warning).toContain("draft is unchanged");
+    expect(store.isDisplayingBaseline).toBe(true);
   });
 
   it("retains the current baseline and exposes refresh errors for retry", async () => {
@@ -426,11 +192,144 @@ describe("SettingsPreviewStore", () => {
     await store.activateFeed("your-feed");
     listFeeds.mockRejectedValueOnce(new Error("history unavailable"));
 
-    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({
-      status: "error",
-      hadDirtyChanges: false,
-    });
+    await expect(store.refreshBaselineIfNew("your-feed")).resolves.toEqual({ status: "error" });
     expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
     expect(store.baselineRefreshError).toBe("history unavailable");
+  });
+
+  it("shares duplicate activation work for the same feed", async () => {
+    const { root, listFeeds } = harness();
+    const pendingList = deferred<Awaited<ReturnType<typeof listFeeds>>>();
+    listFeeds.mockReturnValueOnce(pendingList.promise);
+    const store = new SettingsPreviewStore(root);
+
+    const first = store.activateFeed("your-feed");
+    const second = store.activateFeed("your-feed");
+
+    expect(listFeeds).toHaveBeenCalledTimes(1);
+    pendingList.resolve({
+      feeds: [
+        {
+          requestId: "baseline-1",
+          generatedAt: new Date().toISOString(),
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    await Promise.all([first, second]);
+    expect(store.isLoadingBaseline).toBe(false);
+  });
+
+  it("shares duplicate baseline synchronization for the same feed", async () => {
+    const { root, listFeeds } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    listFeeds.mockClear();
+    const pendingList = deferred<Awaited<ReturnType<typeof listFeeds>>>();
+    listFeeds.mockReturnValueOnce(pendingList.promise);
+
+    const first = store.refreshBaselineIfNew("your-feed");
+    const second = store.refreshBaselineIfNew("your-feed");
+
+    expect(listFeeds).toHaveBeenCalledTimes(1);
+    pendingList.resolve({ feeds: [] });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { status: "unchanged" },
+      { status: "unchanged" },
+    ]);
+    expect(store.isRefreshingBaseline).toBe(false);
+  });
+
+  it("clears stale preview state immediately when switching feeds", async () => {
+    const { root, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const pendingPreview = deferred<Awaited<ReturnType<typeof createFeedPreview>>>();
+    createFeedPreview.mockReturnValueOnce(pendingPreview.promise);
+
+    const preview = store.preview({ freshness: 2 });
+    expect(store.isGenerating).toBe(true);
+    await store.activateFeed("random");
+
+    expect(store.activeFeed).toBe("random");
+    expect(store.isGenerating).toBe(false);
+    expect(store.isLoadingBaseline).toBe(false);
+    pendingPreview.resolve({
+      requestId: "stale-preview",
+      feedName: "your-feed",
+      generatedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+    });
+    await expect(preview).resolves.toBeNull();
+    expect(store.isGenerating).toBe(false);
+  });
+
+  it("clears stale refresh state immediately when switching feeds", async () => {
+    const { root, listFeeds } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const pendingRefresh = deferred<Awaited<ReturnType<typeof listFeeds>>>();
+    listFeeds.mockReturnValueOnce(pendingRefresh.promise);
+
+    const refresh = store.refreshBaselineIfNew("your-feed");
+    expect(store.isRefreshingBaseline).toBe(true);
+    await store.activateFeed("best-of-friends");
+
+    expect(store.activeFeed).toBe("best-of-friends");
+    expect(store.isRefreshingBaseline).toBe(false);
+    expect(store.isLoadingBaseline).toBe(false);
+    pendingRefresh.resolve({ feeds: [] });
+    await expect(refresh).resolves.toEqual({ status: "deferred" });
+    expect(store.isRefreshingBaseline).toBe(false);
+  });
+
+  it("allows preview during baseline loading and ignores a late baseline display", async () => {
+    const { root, listFeeds } = harness();
+    const pendingBaseline = deferred<Awaited<ReturnType<typeof listFeeds>>>();
+    listFeeds.mockReturnValueOnce(pendingBaseline.promise);
+    const store = new SettingsPreviewStore(root);
+
+    const activation = store.activateFeed("your-feed");
+    expect(store.isLoadingBaseline).toBe(true);
+    const preview = await store.preview({ freshness: 2 });
+    expect(preview).not.toBeNull();
+    if (preview) store.acceptPreview(preview);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
+
+    pendingBaseline.resolve({
+      feeds: [
+        {
+          requestId: "baseline-1",
+          generatedAt: new Date().toISOString(),
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    await activation;
+
+    expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
+    expect(store.isLoadingBaseline).toBe(false);
+  });
+
+  it("does not accept a generated slate after its feed generation changes", async () => {
+    const { root } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const preview = await store.preview({ freshness: 2 });
+    expect(preview).not.toBeNull();
+
+    await store.activateFeed("random");
+    const randomItems = store.displayedItems.map((item) => item.atUri);
+    if (preview) store.acceptPreview(preview);
+
+    expect(store.activeFeed).toBe("random");
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(randomItems);
   });
 });

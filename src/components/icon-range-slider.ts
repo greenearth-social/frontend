@@ -37,6 +37,7 @@ export class IconRangeSlider extends LitElement {
     :host {
       --icon-thumb-size: 40px;
       --icon-thumb-overhang: 20px;
+      --icon-endpoint-inset: 3px;
       --icon-track-color: rgba(148, 163, 184, 0.3);
       --icon-fill-color: var(--bluesky-brand);
       --icon-tick-color: rgba(255, 255, 255, 0.35);
@@ -62,8 +63,11 @@ export class IconRangeSlider extends LitElement {
 
     .range-shell {
       position: relative;
-      width: calc(100% - var(--icon-thumb-size));
-      margin-inline: var(--icon-thumb-overhang);
+      width: calc(
+        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) -
+          var(--icon-endpoint-inset)
+      );
+      margin-inline: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset));
       min-width: 0;
       height: 44px;
     }
@@ -170,9 +174,12 @@ export class IconRangeSlider extends LitElement {
 
     .vertical .range-shell {
       width: 44px;
-      height: calc(100% - var(--icon-thumb-size));
+      height: calc(
+        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) -
+          var(--icon-endpoint-inset)
+      );
       min-height: 180px;
-      margin: var(--icon-thumb-overhang) 0;
+      margin: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset)) 0;
       grid-row: 1;
     }
 

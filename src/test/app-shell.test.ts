@@ -296,6 +296,9 @@ describe("AppShell authentication UI", () => {
     expect(toggle?.getAttribute("aria-label")).toBe("Collapse navigation");
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
     expect(shell?.classList.contains("sidebar-collapsed")).toBe(false);
+    expect(AppShell.styles.cssText).toMatch(
+      /\.desktop-sidebar-toggle\s*\{[^}]*top:\s*50%[^}]*height:\s*52px[^}]*border-radius:\s*6px[^}]*transform:\s*translateY\(-50%\)/s,
+    );
 
     toggle?.click();
     await element.updateComplete;
@@ -730,7 +733,7 @@ describe("AppShell algorithm selector", () => {
 
     root
       ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse GreenEarth pages"]',
+        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky pages"]',
       )
       ?.click();
     await element.updateComplete;
@@ -822,12 +825,12 @@ describe("AppShell algorithm selector", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    // click the "your-feed" algorithm button (labeled "GreenEarth")
+    // click the "your-feed" algorithm button (labeled "MySky")
     const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
       ".left-sidebar-desktop .algo-btn",
     );
     const yourFeedBtn = Array.from(buttons ?? []).find(
-      (b) => b.getAttribute("aria-label") === "GreenEarth",
+      (b) => b.getAttribute("aria-label") === "MySky",
     );
     yourFeedBtn?.click();
     await element.updateComplete;

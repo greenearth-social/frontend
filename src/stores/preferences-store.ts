@@ -11,7 +11,9 @@ export type SourceWeightChangeOrigin =
   | "authors_topics"
   | "popular"
   | "source_mix_master"
-  | "reset_defaults";
+  | "reset_defaults"
+  | "undo"
+  | "redo";
 
 export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
   following: 0.3,

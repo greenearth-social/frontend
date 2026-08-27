@@ -14,9 +14,6 @@ import type { FeedTabs } from "../components/feed-tabs";
 
 const PULL_REFRESH_THRESHOLD = 56;
 const PULL_REFRESH_MAX_DISTANCE = 88;
-const BLUESKY_REFRESH_INITIAL_DELAY_MS = 1_000;
-const BLUESKY_REFRESH_POLL_INTERVAL_MS = 2_500;
-const BLUESKY_REFRESH_TIMEOUT_MS = 45_000;
 
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
@@ -30,18 +27,11 @@ export class FeedPage extends MobxLitElement {
   @state() private _pullDistance = 0;
   @state() private _pullTracking = false;
   @state() private _pullRefreshing = false;
-  @state() private _snapshotRefreshing = false;
-  @state() private _refreshStatus = "";
   private _pullStart: { x: number; y: number } | null = null;
-  private _blueskyRefreshSession: {
-    feedName: AlgorithmId;
-    baselineRequestId: string | null;
-    expiresAt: number | null;
-  } | null = null;
-  private _blueskyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  private _blueskyRefreshInFlight = false;
-  private _refreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
-  private _refreshAccountDid: string | null = null;
+  private _lifecycleSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private _lifecycleSyncPromise: Promise<void> | null = null;
+  private _lifecycleSyncPending = false;
+  private _lifecycleSyncKey: string | null = null;
 
   static styles = css`
     :host {
@@ -111,8 +101,7 @@ export class FeedPage extends MobxLitElement {
       gap: 0.75rem;
       padding: 0.75rem 1rem 0.5rem;
     }
-    .source-breakdown-button,
-    .refresh-button {
+    .source-breakdown-button {
       display: inline-grid;
       place-items: center;
       width: 2.5rem;
@@ -131,21 +120,16 @@ export class FeedPage extends MobxLitElement {
       flex-shrink: 0;
       white-space: nowrap;
     }
-    .source-breakdown-button wa-icon,
-    .refresh-button wa-icon,
-    .refresh-button wa-spinner {
+    .source-breakdown-button wa-icon {
       font-size: 1.25rem;
     }
     .source-breakdown-button:hover,
-    .source-breakdown-button:focus-visible,
-    .refresh-button:hover,
-    .refresh-button:focus-visible {
+    .source-breakdown-button:focus-visible {
       border-color: var(--bluesky-brand);
       background: rgba(16, 131, 254, 0.12);
       outline: none;
     }
-    .source-breakdown-button:disabled,
-    .refresh-button:disabled {
+    .source-breakdown-button:disabled {
       opacity: 0.5;
       cursor: default;
     }
@@ -158,20 +142,12 @@ export class FeedPage extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .refresh-status {
-      margin: -0.125rem 1rem 0.5rem;
-      color: var(--bluesky-text-secondary);
-      font-size: 0.75rem;
-      line-height: 1.25;
-      text-align: right;
-    }
     @media (max-width: 480px) {
       .header-row {
         gap: 0.5rem;
         padding-inline: 0.75rem;
       }
-      .source-breakdown-button,
-      .refresh-button {
+      .source-breakdown-button {
         width: 2.5rem;
         height: 2.5rem;
         min-height: 2.5rem;
@@ -181,25 +157,22 @@ export class FeedPage extends MobxLitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener("blur", this.#handleFrontendLeft);
-    window.addEventListener("focus", this.#resumeBlueskyRefresh);
+    window.addEventListener("focus", this.#requestLifecycleSync);
     window.addEventListener("pagehide", this.#handleFrontendLeft);
-    window.addEventListener("pageshow", this.#resumeBlueskyRefresh);
+    window.addEventListener("pageshow", this.#requestLifecycleSync);
     document.addEventListener("visibilitychange", this.#handleVisibilityChange);
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener("blur", this.#handleFrontendLeft);
-    window.removeEventListener("focus", this.#resumeBlueskyRefresh);
+    window.removeEventListener("focus", this.#requestLifecycleSync);
     window.removeEventListener("pagehide", this.#handleFrontendLeft);
-    window.removeEventListener("pageshow", this.#resumeBlueskyRefresh);
+    window.removeEventListener("pageshow", this.#requestLifecycleSync);
     document.removeEventListener("visibilitychange", this.#handleVisibilityChange);
-    this.#cancelBlueskyRefresh();
+    this.#cancelScheduledLifecycleSync();
     if (this._loadTimer) {
       clearTimeout(this._loadTimer);
       this._loadTimer = null;
     }
-    if (this._refreshStatusTimer) clearTimeout(this._refreshStatusTimer);
     super.disconnectedCallback();
   }
 
@@ -212,10 +185,18 @@ export class FeedPage extends MobxLitElement {
         ? store.accountStore.activeAccount.did
         : null;
 
-    if (signedInDid !== this._refreshAccountDid) {
-      this._refreshAccountDid = signedInDid;
-      if (signedInDid) void this.#checkForLatestSnapshot();
+    const feedName = store?.uiStore.selectedAlgorithm ?? "your-feed";
+    const lifecycleSyncKey = signedInDid ? `${signedInDid}:${feedName}` : null;
+    if (lifecycleSyncKey !== this._lifecycleSyncKey) {
+      this._lifecycleSyncKey = lifecycleSyncKey;
+      this.#cancelScheduledLifecycleSync();
+      this._lifecycleSyncPending = false;
+      // An activation load already fetches the newest list. Only add a
+      // lifecycle check when the page becomes active with no visible load.
+      if (lifecycleSyncKey && !isLoading) this.#scheduleLifecycleSync();
     }
+
+    this.#drainLifecycleSyncQueue();
 
     if (
       changedProperties.has("_showEmptyInsteadOfLoading") ||
@@ -468,22 +449,6 @@ export class FeedPage extends MobxLitElement {
               <div style="flex: 1; min-width: 0;">
                 <h1 class="header-title">Why Am I Seeing This?</h1>
               </div>
-              <button
-                class="refresh-button"
-                type="button"
-                aria-label="Refresh feed history"
-                title="Refresh feed history"
-                ?disabled=${this._snapshotRefreshing || feedStore.isLoading}
-                @click=${() => {
-                  void this.#refreshFeedHistory();
-                }}
-              >
-                ${
-                  this._snapshotRefreshing
-                    ? html`<wa-spinner></wa-spinner>`
-                    : html`<wa-icon name="refresh" library="app"></wa-icon>`
-                }
-              </button>
               ${
                 uiStore.selectedAlgorithm !== "random"
                   ? html`
@@ -503,13 +468,6 @@ export class FeedPage extends MobxLitElement {
                   : ""
               }
             </div>
-            ${
-              this._refreshStatus
-                ? html`<p class="refresh-status" role="status" aria-live="polite">
-                    ${this._refreshStatus}
-                  </p>`
-                : ""
-            }
             <style>
               @media (max-width: 1023px) {
                 .hamburger-btn {
@@ -598,7 +556,6 @@ export class FeedPage extends MobxLitElement {
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
-                    @bluesky-feed-opened=${this.#handleBlueskyFeedOpened}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}
@@ -696,40 +653,47 @@ export class FeedPage extends MobxLitElement {
     }
   }
 
-  async #refreshFeedHistory(): Promise<void> {
-    const store = getRootStore();
-    if (!store || this._snapshotRefreshing || store.feedStore.isLoading) return;
-    this.#cancelBlueskyRefresh();
-    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
-    const previousRequestId = store.feedStore.currentRequestId;
-    this._snapshotRefreshing = true;
-    this._refreshStatus = "Refreshing feed history…";
-    try {
-      await store.feedStore.loadFeedList({ feedName, force: true });
-      if (!store.feedStore.error) {
-        this.#showRefreshStatus(
-          store.feedStore.currentRequestId !== previousRequestId
-            ? "Feed history updated."
-            : "Feed history is up to date.",
-        );
-      }
-    } finally {
-      this._snapshotRefreshing = false;
+  #handleFrontendLeft = (): void => {
+    this.#cancelScheduledLifecycleSync();
+  };
+
+  #requestLifecycleSync = (): void => {
+    if (document.visibilityState === "hidden") return;
+    this.#scheduleLifecycleSync();
+  };
+
+  #handleVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") {
+      this.#handleFrontendLeft();
+    } else {
+      this.#requestLifecycleSync();
     }
+  };
+
+  #scheduleLifecycleSync(): void {
+    if (this._lifecycleSyncTimer || !this.isConnected || document.visibilityState === "hidden") {
+      return;
+    }
+    this._lifecycleSyncTimer = setTimeout(() => {
+      this._lifecycleSyncTimer = null;
+      void this.#runLifecycleSync();
+    }, 0);
   }
 
-  async #checkForLatestSnapshot(): Promise<void> {
+  async #runLifecycleSync(): Promise<void> {
+    if (!this.isConnected || document.visibilityState === "hidden") return;
     const store = getRootStore();
-    if (
-      !store ||
-      !store.authStore.isSignedIn ||
-      !store.accountStore.activeAccount ||
-      store.feedStore.isLoading ||
-      this._blueskyRefreshInFlight
-    )
+    if (!store?.authStore.isSignedIn || !store.accountStore.activeAccount) return;
+    if (store.feedStore.isLoading || this._pullRefreshing) {
+      this._lifecycleSyncPending = true;
       return;
-    const refreshFeedIfNew = store.feedStore.refreshFeedIfNew;
-    if (typeof refreshFeedIfNew !== "function") return;
+    }
+    if (this._lifecycleSyncPromise) {
+      this._lifecycleSyncPending = true;
+      await this._lifecycleSyncPromise;
+      return;
+    }
+
     const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
     const feedList = Array.isArray(store.feedStore.feedList) ? store.feedStore.feedList : [];
     const latestKnown = feedList
@@ -738,118 +702,37 @@ export class FeedPage extends MobxLitElement {
         (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
         undefined,
       );
-    this._blueskyRefreshInFlight = true;
+    this._lifecycleSyncPending = false;
+    const sync = store.feedStore
+      .refreshFeedIfNew(feedName, latestKnown?.requestId ?? null)
+      .then(() => undefined);
+    this._lifecycleSyncPromise = sync;
     try {
-      await refreshFeedIfNew.call(store.feedStore, feedName, latestKnown?.requestId ?? null);
+      await sync;
     } finally {
-      this._blueskyRefreshInFlight = false;
+      if (this._lifecycleSyncPromise === sync) this._lifecycleSyncPromise = null;
+      this.#drainLifecycleSyncQueue();
     }
   }
 
-  #showRefreshStatus(message: string): void {
-    this._refreshStatus = message;
-    if (this._refreshStatusTimer) clearTimeout(this._refreshStatusTimer);
-    this._refreshStatusTimer = setTimeout(() => {
-      this._refreshStatus = "";
-      this._refreshStatusTimer = null;
-    }, 4000);
-  }
-
-  #handleBlueskyFeedOpened = (): void => {
-    this.#armBlueskyRefresh(true);
-  };
-
-  #handleFrontendLeft = (): void => {
-    this.#armBlueskyRefresh(false);
-  };
-
-  #handleVisibilityChange = (): void => {
-    if (document.visibilityState === "hidden") {
-      this.#handleFrontendLeft();
-    } else {
-      this.#resumeBlueskyRefresh();
-    }
-  };
-
-  #armBlueskyRefresh(startImmediately: boolean): void {
+  #drainLifecycleSyncQueue(): void {
+    if (!this._lifecycleSyncPending || !this.isConnected) return;
     const store = getRootStore();
-    if (!store) return;
-    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
-    if (this._blueskyRefreshSession?.feedName === feedName) {
-      if (startImmediately) {
-        this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
-        this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
-      }
-      return;
-    }
-    const latest = store.feedStore.feedList
-      .filter((feed) => feed.feedName === feedName)
-      .reduce<(typeof store.feedStore.feedList)[number] | undefined>(
-        (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
-        undefined,
-      );
-
-    this.#cancelBlueskyRefresh();
-    this._blueskyRefreshSession = {
-      feedName,
-      baselineRequestId: latest?.requestId ?? null,
-      expiresAt: startImmediately ? Date.now() + BLUESKY_REFRESH_TIMEOUT_MS : null,
-    };
-    if (startImmediately) this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
-  }
-
-  #resumeBlueskyRefresh = (): void => {
-    if (document.visibilityState === "hidden") return;
-    if (!this._blueskyRefreshSession) {
-      void this.#checkForLatestSnapshot();
-      return;
-    }
-    // Give every actual return from Bluesky a complete polling window, even
-    // when the user spent several minutes away from the frontend.
-    this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
-    this.#scheduleBlueskyRefresh(0);
-  };
-
-  #scheduleBlueskyRefresh(delay: number): void {
-    if (!this._blueskyRefreshSession || this._blueskyRefreshInFlight) return;
-    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
-    this._blueskyRefreshTimer = setTimeout(() => {
-      this._blueskyRefreshTimer = null;
-      void this.#pollForBlueskySnapshot();
-    }, delay);
-  }
-
-  async #pollForBlueskySnapshot(): Promise<void> {
-    const session = this._blueskyRefreshSession;
-    const store = getRootStore();
-    if (!session || !store || this._blueskyRefreshInFlight) return;
     if (
-      session.expiresAt === null ||
-      Date.now() >= session.expiresAt ||
-      store.uiStore.selectedAlgorithm !== session.feedName
+      !store ||
+      store.feedStore.isLoading ||
+      this._pullRefreshing ||
+      this._lifecycleSyncPromise
     ) {
-      this.#cancelBlueskyRefresh();
       return;
     }
-
-    this._blueskyRefreshInFlight = true;
-    const found = await store.feedStore.refreshFeedIfNew(
-      session.feedName,
-      session.baselineRequestId,
-    );
-    this._blueskyRefreshInFlight = false;
-    if (this._blueskyRefreshSession !== session) return;
-    if (found) {
-      this.#cancelBlueskyRefresh();
-      return;
-    }
-    this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_POLL_INTERVAL_MS);
+    this._lifecycleSyncPending = false;
+    this.#scheduleLifecycleSync();
   }
 
-  #cancelBlueskyRefresh(): void {
-    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
-    this._blueskyRefreshTimer = null;
-    this._blueskyRefreshSession = null;
+  #cancelScheduledLifecycleSync(): void {
+    if (this._lifecycleSyncTimer) clearTimeout(this._lifecycleSyncTimer);
+    this._lifecycleSyncTimer = null;
   }
 
   async #signIn(event: SubmitEvent): Promise<void> {

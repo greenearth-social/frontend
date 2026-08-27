@@ -1,19 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-async function openSettings(page: import("@playwright/test").Page): Promise<void> {
+async function openSettings(page: Page): Promise<void> {
   await page.goto("/#/auth/finish?token=test-token", { waitUntil: "domcontentloaded" });
   await page.waitForURL(/#\/feed\/your-feed$/);
   await page.evaluate(() => {
     window.location.hash = "/settings/your-feed";
   });
   await expect(page).toHaveURL(/#\/settings\/your-feed$/);
-  await expect(page.locator("settings-feed-preview")).toBeAttached();
+  await expect(page.locator("settings-page settings-feed-preview")).toBeAttached();
 }
 
-async function releaseFreshness(
-  page: import("@playwright/test").Page,
-  value: string,
-): Promise<void> {
+async function releaseFreshness(page: Page, value: string): Promise<void> {
   await page.getByRole("slider", { name: "Time Window" }).evaluate((input, next) => {
     if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
     input.value = next;
@@ -22,10 +19,7 @@ async function releaseFreshness(
   }, value);
 }
 
-async function publishNewServedSlate(
-  page: import("@playwright/test").Page,
-  requestId: string,
-): Promise<void> {
+async function publishNewServedSlate(page: Page, requestId: string): Promise<void> {
   await page.evaluate(async (nextRequestId) => {
     const modulePath = "/src/main.ts";
     const appModule = (await import(modulePath)) as {
@@ -67,7 +61,7 @@ async function publishNewServedSlate(
         : [];
       const first = items[1];
       if (first) {
-        first.author = {
+        first["author"] = {
           handle: "served-from-bluesky.test",
           displayName: "Served from Bluesky",
           avatarUrl: null,
@@ -83,54 +77,65 @@ async function publishNewServedSlate(
   }, requestId);
 }
 
-test("desktop keeps current feed visible in an independently scrollable rail", async ({ page }) => {
+test("desktop keeps posts visible at 1280px with the divider chevron", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
 
   const sidebar = page.locator(".left-sidebar-desktop");
   const sidebarToggle = sidebar.getByRole("button", { name: "Collapse navigation" });
   await expect(sidebarToggle).toBeVisible();
-  await expect(sidebar).toHaveCSS("width", "275px");
-  expect(await sidebar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-    true,
-  );
-
-  await sidebarToggle.click();
-  await expect(sidebar).toHaveCSS("width", "72px");
-  await expect(sidebar.getByRole("button", { name: "Expand navigation" })).toBeVisible();
-
-  await sidebar.getByRole("button", { name: "Expand navigation" }).click();
-  await expect(sidebar).toHaveCSS("width", "275px");
+  await expect(sidebar.locator('.algo-btn[aria-label="MySky"]')).toBeVisible();
+  await expect(sidebarToggle.locator('wa-icon[name="chevron-left"]')).toBeVisible();
+  const dividerGeometry = await sidebarToggle.evaluate((element) => {
+    const sidebarBox = element.closest("aside")?.getBoundingClientRect();
+    const toggleBox = element.getBoundingClientRect();
+    return {
+      dividerOffset: sidebarBox
+        ? Math.abs(toggleBox.left + toggleBox.width / 2 - sidebarBox.right)
+        : Number.POSITIVE_INFINITY,
+      verticalOffset: sidebarBox
+        ? Math.abs(toggleBox.top + toggleBox.height / 2 - (sidebarBox.top + sidebarBox.height / 2))
+        : Number.POSITIVE_INFINITY,
+      width: toggleBox.width,
+      height: toggleBox.height,
+      borderRadius: getComputedStyle(element).borderRadius,
+    };
+  });
+  expect(dividerGeometry.dividerOffset).toBeLessThanOrEqual(1);
+  expect(dividerGeometry.verticalOffset).toBeLessThanOrEqual(1);
+  expect(dividerGeometry).toMatchObject({ width: 28, height: 52, borderRadius: "6px" });
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
-  await expect(settings.getByText("Current feed", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Update Preview" })).toBeDisabled();
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
-  const paletteButton = settings.getByRole("button", { name: "Show post color legend" });
-  await expect(paletteButton).toBeVisible();
-  await expect(paletteButton).toHaveAttribute("title", "Post color legend");
-  await expect(settings.locator('wa-icon[name="palette"]')).toBeVisible();
-  await paletteButton.click();
-  await expect(paletteButton).toHaveAttribute("aria-expanded", "true");
-  const legend = settings.getByRole("region", { name: "Post color legend" });
-  await expect(legend).toBeVisible();
-  for (const label of [
-    "Author/Topic",
-    "Followed",
-    "Followed Likes",
-    "Popular",
-    "Similar",
-    "Random",
-  ]) {
-    await expect(legend.getByText(label, { exact: true })).toBeVisible();
-  }
-  await expect(legend.getByText("Other", { exact: true })).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(legend).toHaveCount(0);
-  await expect(paletteButton).toBeFocused();
-  await paletteButton.click();
-  await page.getByRole("heading", { name: "Settings", exact: true }).click();
-  await expect(legend).toHaveCount(0);
+  const previewCard = settings.locator("settings-feed-preview .card").first();
+  const candidate = previewCard.locator(".metadata .candidate-pill");
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toHaveText(/\S+/);
+  await expect(candidate.locator("xpath=following-sibling::*[1]")).toHaveClass(/movement/);
+  const contentCard = settings
+    .locator("settings-feed-preview .card")
+    .filter({ has: page.locator(".content-pill") })
+    .first();
+  const contentPill = contentCard.locator(".snippet + .content-row .content-pill").first();
+  await expect(contentPill).toBeVisible();
+  const pillGeometry = await contentPill.evaluate((pill) => {
+    const style = getComputedStyle(pill);
+    const row = pill.parentElement?.getBoundingClientRect();
+    const box = pill.getBoundingClientRect();
+    return {
+      borderTopWidth: style.borderTopWidth,
+      borderBottomWidth: style.borderBottomWidth,
+      pillHeight: box.height,
+      rowHeight: row?.height ?? 0,
+    };
+  });
+  expect(pillGeometry).toMatchObject({ borderTopWidth: "1px", borderBottomWidth: "1px" });
+  expect(pillGeometry.rowHeight).toBeGreaterThanOrEqual(pillGeometry.pillHeight);
+  await expect(page.getByRole("button", { name: /Save|Discard/ })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: /Review|Save your settings/ })).toHaveCount(0);
+
   expect(
     await settings.evaluate((element) => {
       const controls = element.shadowRoot?.querySelector(".controls-column");
@@ -143,268 +148,272 @@ test("desktop keeps current feed visible in an independently scrollable rail", a
   ).toEqual({ controls: "auto", feed: "auto" });
 });
 
-test("desktop preview paginates the complete generated slate", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+test("1024px is desktop: the populated post pane remains beside settings without overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
   await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
 
   const settings = page.locator("settings-page");
-  await expect(settings.getByText("45 available of 48 ranked", { exact: true })).toBeVisible({
-    timeout: 5000,
-  });
-  await expect(settings.locator("settings-feed-preview .card")).toHaveCount(20);
-  const nextPage = settings.getByRole("button", { name: "Next preview page" });
-  await nextPage.scrollIntoViewIfNeeded();
-  await nextPage.click();
-  await expect(settings.getByText("Page 2 of 3", { exact: true })).toBeVisible();
-  await nextPage.click();
-  await expect(settings.getByText("Page 3 of 3", { exact: true })).toBeVisible();
-  await expect(settings.locator("settings-feed-preview .card")).toHaveCount(5);
+  await expect(settings.locator(".controls-column")).toBeVisible();
+  await expect(settings.locator(".feed-column")).toBeVisible();
+  await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
+  await expect(settings.getByRole("button", { name: "Update Preview" })).toBeVisible();
+  const overflow = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-test("manual refresh adopts a newer served Bluesky slate as the neutral baseline", async ({
+test("changes persist immediately, Undo/Redo toggles, and Preview never accepts a slate", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
-  await publishNewServedSlate(page, "served-after-bluesky-refresh");
+  await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        services: {
+          feedApiService: { acceptFeedPreview: (...args: unknown[]) => Promise<unknown> };
+        };
+      } | null;
+    };
+    const service = appModule.getRootStore()?.services.feedApiService;
+    if (!service) throw new Error("Mock feed service unavailable");
+    const browserWindow = window as Window & { acceptPreviewCallCount?: number };
+    browserWindow.acceptPreviewCallCount = 0;
+    const original = service.acceptFeedPreview.bind(service);
+    service.acceptFeedPreview = (...args: unknown[]) => {
+      browserWindow.acceptPreviewCallCount = (browserWindow.acceptPreviewCallCount ?? 0) + 1;
+      return original(...args);
+    };
+  });
 
   const settings = page.locator("settings-page");
-  await settings.getByRole("button", { name: "Refresh current feed" }).click();
+  const preview = settings.getByRole("button", { name: "Update Preview" });
+  const freshness = page.getByRole("slider", { name: "Time Window" });
+  await expect(preview).toBeDisabled();
+  await releaseFreshness(page, "2");
+  await expect(freshness).toHaveValue("2");
+  await expect(preview).toBeEnabled();
+  await expect(settings.getByRole("button", { name: "Undo last settings change" })).toBeEnabled();
+  await expect(
+    settings.getByRole("button", { name: "Undo last settings change" }).getByText("Undo"),
+  ).toBeVisible();
 
+  await preview.click();
+  await expect(settings.getByText("45 available of 48 ranked", { exact: true })).toBeVisible({
+    timeout: 6_000,
+  });
+  await expect(preview).toBeDisabled({ timeout: 6_000 });
+
+  await settings.getByRole("button", { name: "Undo last settings change" }).click();
+  await expect(freshness).toHaveValue("5");
+  await expect(settings.getByRole("button", { name: "Redo last settings change" })).toBeEnabled();
+  await expect(preview).toBeEnabled();
+
+  await preview.click();
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/fade-out/);
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
+    timeout: 6_000,
+  });
+  await expect(preview).toBeDisabled({ timeout: 6_000 });
+
+  await settings.getByRole("button", { name: "Redo last settings change" }).click();
+  await expect(freshness).toHaveValue("2");
+  await expect(settings.getByRole("button", { name: "Undo last settings change" })).toBeEnabled();
+  await expect(preview).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () => (window as Window & { acceptPreviewCallCount?: number }).acceptPreviewCallCount,
+    ),
+  ).toBe(0);
+});
+
+test("a new edit after Undo replaces Redo and Defaults is one undoable action", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  const settings = page.locator("settings-page");
+  const freshness = page.getByRole("slider", { name: "Time Window" });
+
+  await releaseFreshness(page, "2");
+  await settings.getByRole("button", { name: "Undo last settings change" }).click();
+  await expect(freshness).toHaveValue("5");
+  await releaseFreshness(page, "4");
+  await expect(settings.getByRole("button", { name: "Redo last settings change" })).toHaveCount(0);
+  await expect(settings.getByRole("button", { name: "Undo last settings change" })).toBeEnabled();
+
+  await settings.getByRole("button", { name: "Reset settings to defaults" }).click();
+  await expect(freshness).toHaveValue("5");
+  await settings.getByRole("button", { name: "Undo last settings change" }).click();
+  await expect(freshness).toHaveValue("4");
+});
+
+test("preview pagination remains available and the baseline refreshes automatically", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  const settings = page.locator("settings-page");
+
+  await releaseFreshness(page, "2");
+  await settings.getByRole("button", { name: "Update Preview" }).click();
+  await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible({ timeout: 6_000 });
+  const nextPage = settings.getByRole("button", { name: "Next preview page" });
+  await nextPage.click();
+  await expect(settings.getByText("Page 2 of 3", { exact: true })).toBeVisible();
+
+  await publishNewServedSlate(page, "served-after-bluesky-refresh");
+  await expect(settings.getByRole("button", { name: "Refresh current feed" })).toHaveCount(0);
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent("pageshow"));
+  });
   await expect(
     settings.getByText("Current feed updated from Bluesky", { exact: true }),
   ).toBeVisible();
   await expect(settings.getByText("Served from Bluesky", { exact: true })).toBeVisible();
-  await expect(settings.locator("settings-feed-preview .movement")).toHaveCount(6);
-  await expect(
-    settings.locator('settings-feed-preview .movement wa-icon[name="minus"]'),
-  ).toHaveCount(6);
 });
 
-test("a newer Bluesky slate closes a dirty mobile preview without losing the draft", async ({
+test("375px uses the compact Preview/Back overlay while keeping the feed mounted", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
   const settings = page.locator("settings-page");
-  await expect(settings.locator(".feed-column")).toBeVisible();
+  const feed = settings.locator(".feed-column");
+  const preview = settings.getByRole("button", { name: "Preview", exact: true });
 
-  await publishNewServedSlate(page, "served-while-draft-open");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(feed).toBeAttached();
+  await expect(feed).not.toBeVisible();
+  await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
+  await expect(settings.locator(".page-title-full")).toBeHidden();
+  await expect(settings.locator(".page-title-short")).toHaveText("Settings");
+  await expect(settings.locator(".page-title-short")).toBeVisible();
+  const fullTitleGeometry = await settings.locator("h1").evaluate((title) => ({
+    clientWidth: title.clientWidth,
+    scrollWidth: title.scrollWidth,
+  }));
+  expect(fullTitleGeometry.scrollWidth).toBeLessThanOrEqual(fullTitleGeometry.clientWidth);
+  await expect(preview).toBeDisabled();
+  await releaseFreshness(page, "2");
+  await expect(preview).toBeEnabled();
+  const undoPaths = settings
+    .getByRole("button", { name: "Undo last settings change" })
+    .locator('wa-icon[name="undo"] path');
+  await expect(settings.getByRole("button", { name: "Undo last settings change" })).toHaveCSS(
+    "border-top-width",
+    "1px",
+  );
+  await expect(undoPaths).toHaveCount(2);
+  await expect(undoPaths.nth(0)).toHaveAttribute("fill", "none");
+  await expect(undoPaths.nth(1)).toHaveAttribute("fill", "none");
+  await preview.click();
 
-  await expect(settings.locator(".feed-column")).not.toBeVisible({ timeout: 5_000 });
-  await expect(page.getByRole("dialog", { name: "Review this change" })).toBeVisible();
+  await expect(feed).toBeVisible();
+  const mobileActions = settings.locator(".preview-mobile-primary-actions");
+  const back = settings.getByRole("button", { name: "Back to settings" });
+  await expect(back).toBeVisible();
+  await expect(back.locator('wa-icon[name="chevron-left"]')).toBeVisible();
+  await expect(mobileActions.locator("button").first()).toHaveAttribute(
+    "aria-label",
+    "Back to settings",
+  );
+  await expect(mobileActions.locator("button")).toHaveCount(1);
+  await expect(mobileActions.getByRole("heading", { name: "Preview" })).toBeVisible();
+  await expect(mobileActions.locator(".history-btn, .reset-defaults-btn")).toHaveCount(0);
+  await expect(settings.locator("settings-feed-preview .card")).not.toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Save|Discard/ })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: /Review|Save your settings/ })).toHaveCount(0);
+  await back.click();
+  await expect(feed).not.toBeVisible();
   await expect(page.getByRole("slider", { name: "Time Window" })).toHaveValue("2");
-  await expect(
-    settings.getByRole("status").filter({ hasText: /draft is unchanged/i }),
-  ).toBeVisible();
 });
 
-test("saving an accepted preview promotes it to a neutral current baseline", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-
-  const settings = page.locator("settings-page");
-  const actions = settings.locator(".preview-actions");
-  await expect(actions).toBeVisible({ timeout: 5000 });
-  await actions.getByRole("button", { name: "Save Changes" }).click();
-
-  await expect(settings.getByText("Current feed", { exact: true })).toBeVisible();
-  await expect(actions).toHaveCount(0);
-  await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible();
-  await expect(settings.locator("settings-feed-preview .movement")).toHaveCount(20);
-  await expect(
-    settings.locator('settings-feed-preview .movement wa-icon[name="minus"]'),
-  ).toHaveCount(20);
-  await expect(
-    settings.locator(
-      "settings-feed-preview .movement.up, settings-feed-preview .movement.down, settings-feed-preview .movement.new",
-    ),
-  ).toHaveCount(0);
-});
-
-test("mobile keeps preview actions reachable and restores the review dialog on close", async ({
+test("320px visually shortens the accessible title and wraps header controls cleanly", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 375, height: 667 });
+  await page.setViewportSize({ width: 320, height: 640 });
   await openSettings(page);
   const settings = page.locator("settings-page");
-  await expect(settings.locator(".feed-column")).not.toBeVisible();
+  await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
+  await expect(settings.locator(".page-title-full")).toBeHidden();
+  await expect(settings.locator(".page-title-short")).toHaveText("Settings");
+  await expect(settings.locator(".page-title-short")).toBeVisible();
+  await expect(settings.locator(".reset-defaults-btn .reset-label").first()).toBeHidden();
 
-  await releaseFreshness(page, "2");
-  await expect(page.getByRole("dialog", { name: "Review this change" })).toBeVisible();
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-
-  await expect(settings.locator(".feed-column")).toBeVisible();
-  await expect(settings.locator(".preview-header h2")).toHaveText("Time Window");
-  await expect(settings.locator(".feed-column")).toHaveCSS("position", "fixed");
-  await expect(settings.getByLabel("New post").first()).toBeVisible({ timeout: 5000 });
-  await expect(settings.locator('wa-icon[name="seedling"]').first()).toBeVisible();
-  const paletteButton = settings.getByRole("button", { name: "Show post color legend" });
-  const backButton = settings.getByRole("button", { name: "Back to settings" });
-  const paletteBox = await paletteButton.boundingBox();
-  const backBox = await backButton.boundingBox();
-  expect(paletteBox?.x).toBeLessThan(backBox?.x ?? 0);
-  await paletteButton.click();
-  await expect(settings.getByRole("region", { name: "Post color legend" })).toBeVisible();
-  await paletteButton.click();
-  await expect(
-    settings.locator(".preview-actions").getByRole("button", { name: "Save Changes" }),
-  ).toBeVisible();
-  await expect(
-    settings.locator(".preview-actions").getByRole("button", { name: "Discard Changes" }),
-  ).toBeVisible();
-  await expect(settings.locator("settings-feed-preview .movement.up").first()).toHaveCSS(
-    "color",
-    "rgb(16, 131, 254)",
-  );
-  await expect(settings.locator("settings-feed-preview .movement.down").first()).toHaveCSS(
-    "color",
-    "rgb(244, 33, 46)",
-  );
-  await expect(settings.locator("settings-feed-preview .movement.new").first()).toHaveCSS(
-    "color",
-    "rgb(0, 186, 124)",
-  );
-  const imagePill = settings
-    .locator("settings-feed-preview .content-pill", {
-      hasText: "2 images",
-    })
-    .first();
-  await expect(imagePill).toHaveCSS("color", "rgb(56, 189, 248)");
-  await expect(imagePill).toHaveCSS("border-top-color", "rgba(56, 189, 248, 0.8)");
-  await expect(settings.getByText("45 available of 48 ranked", { exact: true })).toBeVisible();
-  const nextPage = settings.getByRole("button", { name: "Next preview page" });
-  await nextPage.scrollIntoViewIfNeeded();
-  await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible();
-  await nextPage.click();
-  await expect(settings.getByText("Page 2 of 3", { exact: true })).toBeVisible();
-  await expect(settings.locator("settings-feed-preview .card")).toHaveCount(20);
-  await expect(
-    settings.locator(".preview-actions").getByRole("button", { name: "Save Changes" }),
-  ).toBeVisible();
-
-  await backButton.click();
-  await expect(settings.locator(".feed-column")).not.toBeVisible();
-  const reviewDialog = page.getByRole("dialog", { name: "Review this change" });
-  await expect(reviewDialog).toBeVisible();
-  await reviewDialog.getByRole("button", { name: "Discard Changes" }).click();
-  await expect(reviewDialog).toHaveCount(0, { timeout: 500 });
-});
-
-test("returning the final dirty control to saved restores the current slate automatically", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await openSettings(page);
-
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.locator("settings-page .preview-actions")).toBeVisible({ timeout: 5000 });
-
-  await releaseFreshness(page, "5");
-  await expect(page.getByRole("dialog", { name: "Review this change" })).toHaveCount(0);
-  await expect(
-    page.locator("settings-page").getByText("Current feed", { exact: true }),
-  ).toBeVisible({
-    timeout: 5000,
+  const headerGeometry = await settings.locator(".header-row").evaluate((header) => {
+    const title = header.querySelector("h1");
+    const actions = header.querySelector(".settings-header-actions");
+    return {
+      height: header.getBoundingClientRect().height,
+      titleBottom: title?.getBoundingClientRect().bottom ?? 0,
+      actionsTop: actions?.getBoundingClientRect().top ?? 0,
+      scrollWidth: header.scrollWidth,
+      clientWidth: header.clientWidth,
+      titleScrollWidth: title?.scrollWidth ?? 0,
+      titleClientWidth: title?.clientWidth ?? 0,
+    };
   });
-  await expect(page.locator("settings-page .preview-actions")).toHaveCount(0);
-  const movements = page.locator("settings-page settings-feed-preview .movement");
-  await expect(movements).toHaveCount(6);
-  await expect(
-    page.locator('settings-page settings-feed-preview .movement wa-icon[name="minus"]'),
-  ).toHaveCount(6);
-  await expect(
-    page.locator(
-      "settings-page settings-feed-preview .movement.up, settings-page settings-feed-preview .movement.down, settings-page settings-feed-preview .movement.new",
-    ),
-  ).toHaveCount(0);
+  expect(headerGeometry.actionsTop).toBeGreaterThanOrEqual(headerGeometry.titleBottom);
+  expect(headerGeometry.scrollWidth).toBeLessThanOrEqual(headerGeometry.clientWidth);
+  expect(headerGeometry.titleScrollWidth).toBeLessThanOrEqual(headerGeometry.titleClientWidth);
+  expect(headerGeometry.height).toBeGreaterThan(60);
+  expect(headerGeometry.height).toBeLessThanOrEqual(110);
 });
 
-test("Reset Defaults settles only when defaults are the saved baseline", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await openSettings(page);
-  const settings = page.locator("settings-page");
-  const reset = page.getByRole("button", { name: "Reset settings to defaults" });
+test("Settings keeps the full title until the mobile header is space constrained", async ({
+  page,
+}) => {
+  for (const width of [375, 479]) {
+    await page.setViewportSize({ width, height: 720 });
+    await openSettings(page);
+    const settings = page.locator("settings-page");
+    await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
+    await expect(settings.locator(".page-title-full")).toBeHidden();
+    await expect(settings.locator(".page-title-short")).toBeVisible();
+    const title = await settings.locator("h1").evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(title.scrollWidth).toBeLessThanOrEqual(title.clientWidth);
+  }
 
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(settings.locator(".preview-actions")).toBeVisible({ timeout: 5000 });
-  await reset.click();
-  await expect(settings.getByText("Current feed", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(
-    settings.locator('settings-feed-preview .movement wa-icon[name="minus"]'),
-  ).toHaveCount(6);
-
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Save Changes" }).click();
-  await expect(reset).toBeEnabled();
-  await reset.click();
-  await expect(page.getByRole("dialog", { name: "Review this change" })).toBeVisible();
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(settings.locator(".preview-actions")).toBeVisible({ timeout: 5000 });
-  await expect(
-    settings.locator(
-      "settings-feed-preview .movement.up, settings-feed-preview .movement.down, settings-feed-preview .movement.new",
-    ),
-  ).not.toHaveCount(0);
-});
-
-test("small-screen review actions remain clear and reachable", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 568 });
-  await openSettings(page);
-  await releaseFreshness(page, "2");
-
-  const dialog = page.getByRole("dialog", { name: "Review this change" });
-  await expect(dialog).toBeVisible();
-  const dialogBox = await dialog.boundingBox();
-  expect(dialogBox?.x).toBeGreaterThan(0);
-  expect(dialogBox?.width).toBeLessThan(320);
-  expect(Math.abs((dialogBox?.x ?? 0) - (320 - (dialogBox?.width ?? 0)) / 2)).toBeLessThan(2);
-  expect(Math.abs((dialogBox?.y ?? 0) - (568 - (dialogBox?.height ?? 0)) / 2)).toBeLessThan(2);
-  expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(568);
-  for (const label of ["Preview", "Save Changes", "Continue Editing", "Discard Changes"]) {
-    const button = dialog.getByRole("button", { name: label, exact: true });
-    await expect(button).toBeVisible();
-    expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  for (const width of [480, 768, 1023, 1024]) {
+    await page.setViewportSize({ width, height: 720 });
+    await openSettings(page);
+    const settings = page.locator("settings-page");
+    await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
+    await expect(settings.locator(".page-title-full")).toBeVisible();
+    await expect(settings.locator(".page-title-short")).toBeHidden();
+    const header = await settings.locator(".header-row").evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      titleClientWidth: element.querySelector("h1")?.clientWidth ?? 0,
+      titleScrollWidth: element.querySelector("h1")?.scrollWidth ?? 0,
+    }));
+    expect(header.scrollWidth).toBeLessThanOrEqual(header.clientWidth);
+    expect(header.titleScrollWidth).toBeLessThanOrEqual(header.titleClientWidth);
   }
 });
 
-test("draft release can save directly or discard without previewing", async ({ page }) => {
+test("navigation leaves Settings immediately without an unsaved-change dialog", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
-  const freshness = page.getByRole("slider", { name: "Time Window" });
-  const settings = page.locator("settings-page");
-
   await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Save Changes" }).click();
-  const saving = page.getByRole("button", { name: "Saving…" });
-  await expect(saving).toBeDisabled();
-  await expect(freshness).toHaveValue("2");
-  await expect(page.getByRole("dialog", { name: "Review this change" })).toHaveCount(0);
-  await expect(settings.locator("settings-feed-preview .card")).toHaveCount(20);
-  await expect(
-    settings.locator('settings-feed-preview .movement wa-icon[name="minus"]'),
-  ).toHaveCount(20);
-  await expect(
-    settings.locator(
-      "settings-feed-preview .movement.up, settings-feed-preview .movement.down, settings-feed-preview .movement.new",
-    ),
-  ).toHaveCount(0);
-
-  await releaseFreshness(page, "4");
-  await page.getByRole("button", { name: "Discard Changes" }).click();
-  await expect(freshness).toHaveValue("2");
+  await page.locator('.left-sidebar-desktop a[href="#/feedback/your-feed"]').click();
+  await expect(page).toHaveURL(/#\/feedback\/your-feed$/);
+  await expect(page.getByRole("dialog", { name: "Save your settings?" })).toHaveCount(0);
 });
 
-test("a failed direct-save generation retains the draft and can be retried", async ({ page }) => {
+test("feed switching clears stale preview work and enables Preview after the next edit", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
   await page.evaluate(async () => {
@@ -413,7 +422,10 @@ test("a failed direct-save generation retains the draft and can be retried", asy
       getRootStore(): {
         services: {
           feedApiService: {
-            createFeedPreview: () => Promise<unknown>;
+            createFeedPreview: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<unknown>;
           };
         };
       } | null;
@@ -421,75 +433,35 @@ test("a failed direct-save generation retains the draft and can be retried", asy
     const service = appModule.getRootStore()?.services.feedApiService;
     if (!service) throw new Error("Mock feed service unavailable");
     const original = service.createFeedPreview.bind(service);
-    service.createFeedPreview = () => {
-      service.createFeedPreview = original;
-      return Promise.reject(new Error("preview unavailable"));
+    let deferNextSettingsPreview = true;
+    service.createFeedPreview = (feedName, patch) => {
+      if (deferNextSettingsPreview && Object.keys(patch).length > 0) {
+        deferNextSettingsPreview = false;
+        return new Promise(() => undefined);
+      }
+      return original(feedName, patch);
     };
   });
 
+  const settings = page.locator("settings-page");
   await releaseFreshness(page, "2");
-  const dialog = page.getByRole("dialog", { name: "Review this change" });
-  await dialog.getByRole("button", { name: "Save Changes" }).click();
+  await settings.getByRole("button", { name: "Update Preview" }).click();
+  await expect(settings.getByText("Generating preview…", { exact: true })).toBeVisible();
 
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("alert")).toContainText("have not been saved");
-  await expect(page.getByRole("slider", { name: "Time Window" })).toHaveValue("2");
-  await expect(page.locator("settings-page settings-feed-preview .card")).toHaveCount(6);
-
-  await dialog.getByRole("button", { name: "Save Changes" }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.locator("settings-page settings-feed-preview .card")).toHaveCount(20);
-});
-
-test("leaving dirty Settings offers Save, Discard, or Stay", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Continue Editing" }).click();
-
-  await page.locator('.left-sidebar-desktop a[href="#/feedback/your-feed"]').click();
-  const leaveDialog = page.getByRole("dialog", { name: "Save your settings?" });
-  await expect(leaveDialog).toBeVisible();
-  await leaveDialog.getByRole("button", { name: "Stay" }).click();
-  await expect(page).toHaveURL(/#\/settings\/your-feed$/);
-
-  await page.locator('.left-sidebar-desktop a[href="#/feedback/your-feed"]').click();
-  await leaveDialog.getByRole("button", { name: "Discard" }).click();
-  await expect(page).toHaveURL(/#\/feedback\/your-feed$/);
-});
-
-test("navigation Save waits for slate generation and persistence", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Continue Editing" }).click();
-
-  await page.locator('.left-sidebar-desktop a[href="#/feedback/your-feed"]').click();
-  const leaveDialog = page.getByRole("dialog", { name: "Save your settings?" });
-  await leaveDialog.getByRole("button", { name: "Save" }).click();
-
-  await expect(page).toHaveURL(/#\/settings\/your-feed$/);
-  await expect(leaveDialog.getByRole("button", { name: "Saving…" })).toBeDisabled();
-  await expect(page).toHaveURL(/#\/feedback\/your-feed$/);
-});
-
-test("mobile leave confirmation is a centered compact dialog", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 667 });
-  await openSettings(page);
-  await releaseFreshness(page, "2");
-  await page.getByRole("button", { name: "Continue Editing" }).click();
-  await page.locator("settings-page").evaluate((element) => {
-    const settings = element as HTMLElement & {
-      confirmLeave(): Promise<boolean>;
-    };
-    void settings.confirmLeave();
+  await page.evaluate(() => {
+    window.location.hash = "/settings/random";
   });
+  await expect(page).toHaveURL(/#\/settings\/random$/);
+  await expect(settings.getByRole("heading", { name: "Random Settings" })).toBeVisible();
+  await expect(settings.getByText("Generating preview…", { exact: true })).toHaveCount(0);
+  await releaseFreshness(page, "2");
+  const preview = settings.getByRole("button", { name: "Update Preview" });
+  await expect(preview).toBeEnabled();
+  await preview.click();
+  await expect(preview).toBeDisabled({ timeout: 6_000 });
 
-  const dialog = page.getByRole("dialog", { name: "Save your settings?" });
-  await expect(dialog).toBeVisible();
-  const box = await dialog.boundingBox();
-  expect(box?.width).toBeLessThan(375);
-  expect(Math.abs((box?.x ?? 0) - (375 - (box?.width ?? 0)) / 2)).toBeLessThan(2);
-  expect(Math.abs((box?.y ?? 0) - (667 - (box?.height ?? 0)) / 2)).toBeLessThan(2);
-  await dialog.getByRole("button", { name: "Stay" }).click();
+  await page.evaluate(() => {
+    window.location.hash = "/settings/best-of-friends";
+  });
+  await expect(settings.getByRole("heading", { name: "Best of Friends Settings" })).toBeVisible();
 });

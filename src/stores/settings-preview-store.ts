@@ -2,40 +2,10 @@ import { makeAutoObservable } from "mobx";
 import type { AlgorithmId } from "../constants/algorithms";
 import type { FeedItemView, FilteringCounts } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import type { FeedControlName } from "../services/analytics/types";
-import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
-import { FeedApiError } from "../services/types";
+import type { FeedPreferences } from "../services/types";
 import type { RootStore } from "./root-store";
-import type { SourceWeightChangeOrigin } from "./preferences-store";
 
 const BASELINE_MAX_AGE_MS = 10 * 60 * 1000;
-
-const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
-  source_weights: "sourceWeights",
-  freshness: "freshness",
-  politics: "politics",
-  purpose: "purpose",
-};
-
-function clonePreferences(values: Preferences): Preferences {
-  return { ...values, sourceWeights: { ...values.sourceWeights } };
-}
-
-function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
-  return (
-    a.following === b.following &&
-    a.networkLikes === b.networkLikes &&
-    a.authorsTopics === b.authorsTopics &&
-    a.popular === b.popular
-  );
-}
-
-function valuesEqual(control: FeedControlName, current: Preferences, saved: Preferences): boolean {
-  const property = CONTROL_PROPERTIES[control];
-  return control === "source_weights"
-    ? sourceWeightsEqual(current.sourceWeights, saved.sourceWeights)
-    : current[property] === saved[property];
-}
 
 function signature(feedName: AlgorithmId, patch: FeedPreferences): string {
   return JSON.stringify({ feedName, patch });
@@ -46,6 +16,8 @@ function sameSlate(a: FeedItemView[], b: FeedItemView[]): boolean {
 }
 
 export interface GeneratedSettingsPreview {
+  feedName: AlgorithmId;
+  generation: number;
   requestId: string;
   generatedAt: string;
   items: FeedItemView[];
@@ -53,9 +25,9 @@ export interface GeneratedSettingsPreview {
   signature: string;
 }
 
-export type BaselineRefreshOutcome =
-  | { status: "updated"; hadDirtyChanges: boolean }
-  | { status: "unchanged" | "deferred" | "error"; hadDirtyChanges: false };
+export type BaselineRefreshOutcome = {
+  status: "updated" | "unchanged" | "deferred" | "error";
+};
 
 const EMPTY_FILTERING_COUNTS: FilteringCounts = {
   storedItemCount: 0,
@@ -67,10 +39,6 @@ const EMPTY_FILTERING_COUNTS: FilteringCounts = {
 export class SettingsPreviewStore {
   root: RootStore;
   activeFeed: AlgorithmId | null = null;
-  draft: Preferences | null = null;
-  dirtyControls: FeedControlName[] = [];
-  origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {};
-  activeControl: FeedControlName | null = null;
   baselineItems: FeedItemView[] = [];
   displayedItems: FeedItemView[] = [];
   baselineFilteringCounts: FilteringCounts = { ...EMPTY_FILTERING_COUNTS };
@@ -80,21 +48,35 @@ export class SettingsPreviewStore {
   isLoadingBaseline = false;
   isRefreshingBaseline = false;
   isGenerating = false;
-  isSaving = false;
   error: string | null = null;
   warning: string | null = null;
   baselineRefreshError: string | null = null;
   lastPreviewSignature: string | null = null;
   lastPreviewRequestId: string | null = null;
   lastPreviewGeneratedAt: string | null = null;
-  private sequence = 0;
-  private refreshSequence = 0;
+  private feedGeneration = 0;
+  private previewOperation = 0;
+  private refreshOperation = 0;
+  private displayRevision = 0;
+  private activationPromise: Promise<void> | null = null;
+  private activationPromiseFeed: AlgorithmId | null = null;
+  private refreshPromise: Promise<BaselineRefreshOutcome> | null = null;
+  private refreshPromiseFeed: AlgorithmId | null = null;
   private accountId: string | null = null;
   private lastObservedServedRequestId: string | null = null;
 
   constructor(root: RootStore) {
     this.root = root;
-    makeAutoObservable(this, { root: false });
+    makeAutoObservable<
+      this,
+      "activationPromise" | "activationPromiseFeed" | "refreshPromise" | "refreshPromiseFeed"
+    >(this, {
+      root: false,
+      activationPromise: false,
+      activationPromiseFeed: false,
+      refreshPromise: false,
+      refreshPromiseFeed: false,
+    });
   }
 
   activateAccount(accountId: string): void {
@@ -104,14 +86,11 @@ export class SettingsPreviewStore {
   }
 
   reset(): void {
-    this.sequence++;
-    this.refreshSequence++;
+    this.feedGeneration++;
+    this.previewOperation++;
+    this.refreshOperation++;
     this.accountId = null;
     this.activeFeed = null;
-    this.draft = null;
-    this.dirtyControls = [];
-    this.origins = {};
-    this.activeControl = null;
     this.baselineItems = [];
     this.displayedItems = [];
     this.baselineFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
@@ -121,7 +100,11 @@ export class SettingsPreviewStore {
     this.isLoadingBaseline = false;
     this.isRefreshingBaseline = false;
     this.isGenerating = false;
-    this.isSaving = false;
+    this.displayRevision = 0;
+    this.activationPromise = null;
+    this.activationPromiseFeed = null;
+    this.refreshPromise = null;
+    this.refreshPromiseFeed = null;
     this.error = null;
     this.warning = null;
     this.baselineRefreshError = null;
@@ -132,14 +115,18 @@ export class SettingsPreviewStore {
   }
 
   async activateFeed(feedName: AlgorithmId): Promise<void> {
-    if (this.activeFeed === feedName && this.draft !== null) return;
-    const requestSequence = ++this.sequence;
-    this.refreshSequence++;
+    if (this.activeFeed === feedName) {
+      if (this.activationPromise && this.activationPromiseFeed === feedName) {
+        await this.activationPromise;
+        return;
+      }
+      if (this.baselineGeneratedAt !== null || this.baselineItems.length > 0) return;
+    }
+
+    const generation = ++this.feedGeneration;
+    this.previewOperation++;
+    this.refreshOperation++;
     this.activeFeed = feedName;
-    this.draft = clonePreferences(this.root.preferencesStore.valuesFor(feedName));
-    this.dirtyControls = [];
-    this.origins = {};
-    this.activeControl = null;
     this.baselineItems = [];
     this.displayedItems = [];
     this.baselineFilteringCounts = { ...EMPTY_FILTERING_COUNTS };
@@ -154,11 +141,34 @@ export class SettingsPreviewStore {
     this.lastPreviewGeneratedAt = null;
     this.lastObservedServedRequestId = null;
     this.isLoadingBaseline = true;
+    this.isRefreshingBaseline = false;
+    this.isGenerating = false;
+    this.displayRevision = 0;
+    this.refreshPromise = null;
+    this.refreshPromiseFeed = null;
 
+    const activation = this.loadBaseline(feedName, generation, this.displayRevision);
+    this.activationPromise = activation;
+    this.activationPromiseFeed = feedName;
+    try {
+      await activation;
+    } finally {
+      if (this.activationPromise === activation) {
+        this.activationPromise = null;
+        this.activationPromiseFeed = null;
+      }
+    }
+  }
+
+  private async loadBaseline(
+    feedName: AlgorithmId,
+    generation: number,
+    initialDisplayRevision: number,
+  ): Promise<void> {
     let staleRequestId: string | null = null;
     try {
       const feedList = await this.root.services.feedApiService.listFeeds();
-      if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
+      if (!this.isCurrentFeed(feedName, generation)) return;
       const latest = (feedList.feeds ?? [])
         .filter((feed) => feed.feedName === feedName)
         .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))[0];
@@ -168,12 +178,13 @@ export class SettingsPreviewStore {
         Number.isFinite(generatedAt) && Date.now() - generatedAt <= BASELINE_MAX_AGE_MS;
       if (latest && isFresh) {
         const detail = await this.root.services.feedApiService.getFeedDetail(latest.requestId);
-        if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
+        if (!this.isCurrentFeed(feedName, generation)) return;
         this.setBaseline(
           transformFeedItems(detail.items),
           detail.filteringCounts,
           latest.requestId,
           latest.generatedAt,
+          this.displayRevision === initialDisplayRevision,
         );
         this.lastObservedServedRequestId = latest.requestId;
         return;
@@ -182,18 +193,19 @@ export class SettingsPreviewStore {
       try {
         const session = await this.root.services.feedApiService.createFeedPreview(feedName, {});
         const detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
-        if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
+        if (!this.isCurrentFeed(feedName, generation)) return;
         this.setBaseline(
           transformFeedItems(detail.items),
           detail.filteringCounts,
           null,
           detail.generatedAt,
+          this.displayRevision === initialDisplayRevision,
         );
         this.lastObservedServedRequestId = staleRequestId;
       } catch (refreshError) {
         if (!staleRequestId) throw refreshError;
         const staleDetail = await this.root.services.feedApiService.getFeedDetail(staleRequestId);
-        if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
+        if (!this.isCurrentFeed(feedName, generation)) return;
         this.warning =
           "The current feed is older than 10 minutes. Preview changes may include newer posts.";
         this.setBaseline(
@@ -201,48 +213,67 @@ export class SettingsPreviewStore {
           staleDetail.filteringCounts,
           staleRequestId,
           staleDetail.generatedAt,
+          this.displayRevision === initialDisplayRevision,
         );
         this.lastObservedServedRequestId = staleRequestId;
       }
     } catch (error) {
-      if (requestSequence !== this.sequence || this.activeFeed !== feedName) return;
-      this.error = error instanceof Error ? error.message : "Could not load the current feed";
+      if (!this.isCurrentFeed(feedName, generation)) return;
+      if (this.displayRevision === initialDisplayRevision) {
+        this.error = error instanceof Error ? error.message : "Could not load the current feed";
+      }
     } finally {
-      if (requestSequence === this.sequence && this.activeFeed === feedName) {
+      if (this.isCurrentFeed(feedName, generation)) {
         this.isLoadingBaseline = false;
       }
     }
   }
 
   async refreshBaselineIfNew(feedName: AlgorithmId): Promise<BaselineRefreshOutcome> {
-    if (this.activeFeed !== feedName) return { status: "unchanged", hadDirtyChanges: false };
-    if (this.isLoadingBaseline || this.isGenerating || this.isSaving || this.isRefreshingBaseline) {
-      return { status: "deferred", hadDirtyChanges: false };
+    if (this.activeFeed !== feedName) return { status: "unchanged" };
+    if (this.refreshPromise && this.refreshPromiseFeed === feedName) {
+      return this.refreshPromise;
+    }
+    if (this.isLoadingBaseline || this.isGenerating || this.isRefreshingBaseline) {
+      return { status: "deferred" };
     }
 
-    const refreshSequence = ++this.refreshSequence;
-    const operationSequence = this.sequence;
+    const refresh = this.runBaselineRefresh(feedName);
+    this.refreshPromise = refresh;
+    this.refreshPromiseFeed = feedName;
+    try {
+      return await refresh;
+    } finally {
+      if (this.refreshPromise === refresh) {
+        this.refreshPromise = null;
+        this.refreshPromiseFeed = null;
+      }
+    }
+  }
+
+  private async runBaselineRefresh(feedName: AlgorithmId): Promise<BaselineRefreshOutcome> {
+    const refreshOperation = ++this.refreshOperation;
+    const generation = this.feedGeneration;
     this.isRefreshingBaseline = true;
     this.baselineRefreshError = null;
     try {
       const feedList = await this.root.services.feedApiService.listFeeds();
       if (
-        refreshSequence !== this.refreshSequence ||
-        operationSequence !== this.sequence ||
-        this.activeFeed !== feedName
+        refreshOperation !== this.refreshOperation ||
+        !this.isCurrentFeed(feedName, generation)
       ) {
-        return { status: "deferred", hadDirtyChanges: false };
+        return { status: "deferred" };
       }
       const latest = (feedList.feeds ?? [])
         .filter((feed) => feed.feedName === feedName)
         .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))[0];
-      if (!latest) return { status: "unchanged", hadDirtyChanges: false };
+      if (!latest) return { status: "unchanged" };
       if (
         latest.requestId === this.baselineRequestId ||
         latest.requestId === this.lastObservedServedRequestId
       ) {
         this.lastObservedServedRequestId = latest.requestId;
-        return { status: "unchanged", hadDirtyChanges: false };
+        return { status: "unchanged" };
       }
 
       const latestTime = Date.parse(latest.generatedAt);
@@ -253,238 +284,104 @@ export class SettingsPreviewStore {
         latestTime <= baselineTime
       ) {
         this.lastObservedServedRequestId = latest.requestId;
-        return { status: "unchanged", hadDirtyChanges: false };
+        return { status: "unchanged" };
       }
 
       const detail = await this.root.services.feedApiService.getFeedDetail(latest.requestId);
       if (
-        refreshSequence !== this.refreshSequence ||
-        operationSequence !== this.sequence ||
-        this.activeFeed !== feedName
+        refreshOperation !== this.refreshOperation ||
+        !this.isCurrentFeed(feedName, generation)
       ) {
-        return { status: "deferred", hadDirtyChanges: false };
+        return { status: "deferred" };
       }
 
-      const hadDirtyChanges = this.hasDirtyChanges;
       this.lastObservedServedRequestId = latest.requestId;
       this.setBaseline(
         transformFeedItems(detail.items),
         detail.filteringCounts,
         latest.requestId,
         latest.generatedAt,
+        true,
       );
       this.lastPreviewSignature = null;
       this.lastPreviewRequestId = null;
       this.lastPreviewGeneratedAt = null;
-      this.warning = hadDirtyChanges
-        ? "Bluesky loaded a newer feed. Your draft is unchanged; preview or save it again."
-        : null;
-      return { status: "updated", hadDirtyChanges };
+      this.warning = null;
+      return { status: "updated" };
     } catch (error) {
-      if (refreshSequence === this.refreshSequence && this.activeFeed === feedName) {
+      if (
+        refreshOperation === this.refreshOperation &&
+        this.isCurrentFeed(feedName, generation)
+      ) {
         this.baselineRefreshError =
           error instanceof Error ? error.message : "Could not refresh the current feed";
       }
-      return { status: "error", hadDirtyChanges: false };
+      return { status: "error" };
     } finally {
-      if (refreshSequence === this.refreshSequence) this.isRefreshingBaseline = false;
+      if (
+        refreshOperation === this.refreshOperation &&
+        this.isCurrentFeed(feedName, generation)
+      ) {
+        this.isRefreshingBaseline = false;
+      }
     }
   }
 
-  setControl(
-    control: FeedControlName,
-    value: number | SourceWeights,
-    origin?: SourceWeightChangeOrigin,
-  ): boolean {
-    if (!this.activeFeed || !this.draft) return false;
-    const property = CONTROL_PROPERTIES[control];
-    const next = clonePreferences(this.draft);
-    Object.assign(next, {
-      [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
-    });
-    if (valuesEqual(control, next, this.draft)) return false;
-    this.draft = next;
-    this.activeControl = control;
-    if (origin) this.origins[control] = origin;
-    this.recomputeDirty();
-    return true;
-  }
-
-  resetDraftToDefaults(defaults: Preferences, controls: FeedControlName[]): boolean {
-    if (!this.draft) return false;
-    const next = clonePreferences(this.draft);
-    for (const control of controls) {
-      const property = CONTROL_PROPERTIES[control];
-      Object.assign(next, {
-        [property]:
-          control === "source_weights" ? { ...defaults.sourceWeights } : defaults[property],
-      });
-    }
-    const changedControls = controls.filter(
-      (control) => !valuesEqual(control, next, this.draft as Preferences),
-    );
-    if (changedControls.length === 0) return false;
-    for (const control of changedControls) this.origins[control] = "reset_defaults";
-    this.draft = next;
-    this.activeControl = controls.at(-1) ?? null;
-    this.recomputeDirty();
-    return true;
-  }
-
-  async preview(): Promise<GeneratedSettingsPreview | null> {
-    if (!this.activeFeed || !this.hasDirtyChanges || this.isGenerating) return null;
+  async preview(patch: FeedPreferences): Promise<GeneratedSettingsPreview | null> {
+    if (!this.activeFeed || this.isGenerating) return null;
     const feedName = this.activeFeed;
-    const patch = this.dirtyPatch;
     const previewSignature = signature(feedName, patch);
-    const requestSequence = ++this.sequence;
+    const generation = this.feedGeneration;
+    const previewOperation = ++this.previewOperation;
+    this.refreshOperation++;
+    this.isRefreshingBaseline = false;
     this.isGenerating = true;
     this.error = null;
     try {
-      const preview = await this.generatePreview(feedName, patch, previewSignature);
-      if (requestSequence !== this.sequence || this.activeFeed !== feedName) return null;
-      return preview;
+      const generated = await this.generatePreview(
+        feedName,
+        patch,
+        previewSignature,
+        generation,
+      );
+      if (
+        previewOperation !== this.previewOperation ||
+        !this.isCurrentFeed(feedName, generation)
+      ) {
+        return null;
+      }
+      return generated;
     } catch (error) {
-      if (requestSequence === this.sequence && this.activeFeed === feedName) {
+      if (
+        previewOperation === this.previewOperation &&
+        this.isCurrentFeed(feedName, generation)
+      ) {
         this.error = error instanceof Error ? error.message : "Could not generate a preview";
       }
       return null;
     } finally {
-      if (requestSequence === this.sequence && this.activeFeed === feedName) {
+      if (
+        previewOperation === this.previewOperation &&
+        this.isCurrentFeed(feedName, generation)
+      ) {
         this.isGenerating = false;
       }
     }
   }
 
   acceptPreview(preview: GeneratedSettingsPreview): void {
+    if (preview.feedName !== this.activeFeed || preview.generation !== this.feedGeneration) return;
     this.displayedItems = preview.items;
     this.displayedFilteringCounts = preview.filteringCounts;
+    this.displayRevision++;
+    this.error = null;
     this.lastPreviewSignature = preview.signature;
     this.lastPreviewRequestId = preview.requestId;
     this.lastPreviewGeneratedAt = preview.generatedAt;
   }
 
-  async save(): Promise<boolean> {
-    if (!this.activeFeed || !this.hasDirtyChanges || this.isSaving || this.isGenerating) {
-      return !this.hasDirtyChanges;
-    }
-    const feedName = this.activeFeed;
-    const patch = this.dirtyPatch;
-    const savedSignature = signature(feedName, patch);
-    const requestSequence = ++this.sequence;
-    this.isSaving = true;
-    this.error = null;
-    let acceptedSlate: GeneratedSettingsPreview;
-    try {
-      acceptedSlate =
-        this.lastPreviewSignature === savedSignature && this.lastPreviewRequestId !== null
-          ? {
-              requestId: this.lastPreviewRequestId,
-              generatedAt: this.lastPreviewGeneratedAt ?? new Date().toISOString(),
-              items: [...this.displayedItems],
-              filteringCounts: { ...this.displayedFilteringCounts },
-              signature: savedSignature,
-            }
-          : await this.generatePreview(feedName, patch, savedSignature);
-    } catch {
-      if (requestSequence === this.sequence && this.activeFeed === feedName) {
-        this.error = "The updated feed could not be generated. Your changes have not been saved.";
-      }
-      this.isSaving = false;
-      return false;
-    }
-
-    if (requestSequence !== this.sequence || this.activeFeed !== feedName) {
-      this.isSaving = false;
-      return false;
-    }
-
-    try {
-      let accepted;
-      try {
-        accepted = await this.root.services.feedApiService.acceptFeedPreview(
-          feedName,
-          acceptedSlate.requestId,
-          patch,
-          acceptedSlate.items.map((item) => item.atUri),
-        );
-      } catch (error) {
-        if (!(error instanceof FeedApiError) || (error.status !== 404 && error.status !== 409)) {
-          throw error;
-        }
-        acceptedSlate = await this.generatePreview(feedName, patch, savedSignature);
-        if (requestSequence !== this.sequence || this.activeFeed !== feedName) return false;
-        accepted = await this.root.services.feedApiService.acceptFeedPreview(
-          feedName,
-          acceptedSlate.requestId,
-          patch,
-          acceptedSlate.items.map((item) => item.atUri),
-        );
-      }
-      if (requestSequence !== this.sequence || this.activeFeed !== feedName) return false;
-
-      this.root.preferencesStore.applyAcceptedPatch(
-        feedName,
-        patch,
-        accepted.preferences,
-        this.origins,
-      );
-      this.draft = clonePreferences(this.root.preferencesStore.valuesFor(feedName));
-      this.dirtyControls = [];
-      this.origins = {};
-      this.setBaseline(
-        acceptedSlate.items,
-        acceptedSlate.filteringCounts,
-        accepted.requestId,
-        acceptedSlate.generatedAt,
-      );
-      this.lastPreviewSignature = null;
-      this.lastPreviewRequestId = null;
-      this.lastPreviewGeneratedAt = null;
-      this.warning = null;
-      this.baselineRefreshError = null;
-      return true;
-    } catch {
-      if (requestSequence === this.sequence && this.activeFeed === feedName) {
-        this.error = "Changes could not be saved. Your draft is still here.";
-      }
-      return false;
-    } finally {
-      this.isSaving = false;
-    }
-  }
-
-  discard(): void {
-    if (!this.activeFeed) return;
-    this.draft = clonePreferences(this.root.preferencesStore.valuesFor(this.activeFeed));
-    this.dirtyControls = [];
-    this.origins = {};
-    this.displayedItems = this.baselineItems;
-    this.displayedFilteringCounts = this.baselineFilteringCounts;
-    this.lastPreviewSignature = null;
-    this.lastPreviewRequestId = null;
-    this.lastPreviewGeneratedAt = null;
-    this.error = null;
-  }
-
-  get hasDirtyChanges(): boolean {
-    return this.dirtyControls.length > 0;
-  }
-
   get isDisplayingBaseline(): boolean {
     return sameSlate(this.displayedItems, this.baselineItems);
-  }
-
-  get dirtyPatch(): FeedPreferences {
-    if (!this.draft) return {};
-    const patch: FeedPreferences = {};
-    for (const control of this.dirtyControls) {
-      const property = CONTROL_PROPERTIES[control];
-      const value = this.draft[property];
-      Object.assign(patch, {
-        [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
-      });
-    }
-    return patch;
   }
 
   private setBaseline(
@@ -492,36 +389,40 @@ export class SettingsPreviewStore {
     filteringCounts: FilteringCounts,
     requestId: string | null,
     generatedAt: string | null,
+    replaceDisplayed: boolean,
   ): void {
     this.baselineItems = [...items];
-    this.displayedItems = [...items];
     this.baselineFilteringCounts = { ...filteringCounts };
-    this.displayedFilteringCounts = { ...filteringCounts };
+    if (replaceDisplayed) {
+      this.displayedItems = [...items];
+      this.displayedFilteringCounts = { ...filteringCounts };
+      this.displayRevision++;
+    }
     this.baselineRequestId = requestId;
     this.baselineGeneratedAt = generatedAt;
+    this.error = null;
+  }
+
+  private isCurrentFeed(feedName: AlgorithmId, generation: number): boolean {
+    return this.activeFeed === feedName && this.feedGeneration === generation;
   }
 
   private async generatePreview(
     feedName: AlgorithmId,
     patch: FeedPreferences,
     previewSignature: string,
+    generation: number,
   ): Promise<GeneratedSettingsPreview> {
     const session = await this.root.services.feedApiService.createFeedPreview(feedName, patch);
     const detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
     return {
+      feedName,
+      generation,
       requestId: session.requestId,
       generatedAt: detail.generatedAt,
       items: transformFeedItems(detail.items),
       filteringCounts: detail.filteringCounts,
       signature: previewSignature,
     };
-  }
-
-  private recomputeDirty(): void {
-    if (!this.activeFeed || !this.draft) return;
-    const saved = this.root.preferencesStore.valuesFor(this.activeFeed);
-    this.dirtyControls = (Object.keys(CONTROL_PROPERTIES) as FeedControlName[]).filter(
-      (control) => !valuesEqual(control, this.draft as Preferences, saved),
-    );
   }
 }

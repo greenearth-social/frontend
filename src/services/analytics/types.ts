@@ -57,7 +57,9 @@ export interface FeedControlEventProperties {
     | "authors_topics"
     | "popular"
     | "source_mix_master"
-    | "reset_defaults";
+    | "reset_defaults"
+    | "undo"
+    | "redo";
   previous_value?: number;
   new_value?: number;
   previous_label?: string;

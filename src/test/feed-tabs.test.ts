@@ -50,7 +50,7 @@ describe("FeedTabs source breakdown", () => {
     expect(changed).not.toHaveBeenCalled();
     expect(element.shadowRoot?.querySelectorAll(".breakdown-button")).toHaveLength(0);
     const dialogText = element.shadowRoot?.querySelector("dialog")?.textContent;
-    expect(dialogText).toContain("Followed");
+    expect(dialogText).toContain("Following");
     expect(dialogText).not.toContain("followed_users");
     element.remove();
   });
@@ -67,7 +67,7 @@ describe("FeedTabs source breakdown", () => {
     externalButton.click();
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Followed");
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Following");
     externalButton.remove();
     element.remove();
   });
@@ -97,10 +97,10 @@ describe("FeedTabs source breakdown", () => {
 
     const tableText = element.shadowRoot?.querySelector("tbody")?.textContent ?? "";
     const sourceNames = Array.from(
-      tableText.matchAll(/(Followed Likes|Followed|Author\/Topic|Popular)\s+70%/g),
+      tableText.matchAll(/(Followed Likes|Following|Author\/Topic|Popular)\s+70%/g),
       (match) => match[1],
     );
-    expect(sourceNames).toEqual(["Followed", "Followed Likes", "Author/Topic", "Popular"]);
+    expect(sourceNames).toEqual(["Following", "Followed Likes", "Author/Topic", "Popular"]);
     element.remove();
   });
 
@@ -184,8 +184,9 @@ describe("FeedTabs source breakdown", () => {
     trigger?.click();
     await element.updateComplete;
 
-    const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])]
-      .filter((btn) => btn.textContent.includes("Latest"));
+    const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])].filter(
+      (btn) => btn.textContent.includes("Latest"),
+    );
 
     element.remove();
     expect(latestOptions).toHaveLength(0);

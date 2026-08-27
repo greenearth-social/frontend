@@ -180,16 +180,13 @@ export class FeedStore {
     }
   }
 
-  /**
-   * Quietly check for a snapshot created after the user opened a feed in
-   * Bluesky. Existing content stays in place unless a new request is found.
-   */
+  /** Quietly check for a newer snapshot without replacing existing content on failure. */
   async refreshFeedIfNew(
     feedName: AlgorithmId,
     baselineRequestId: string | null,
   ): Promise<boolean> {
     // Do not supersede an intentional route, tab, or pull-to-refresh load.
-    // The next background poll will retry after that visible load completes.
+    // The page queues a trailing lifecycle sync after that visible load completes.
     if (this.isLoading) return false;
     const seq = ++this._feedListLoadSeq;
 
@@ -218,7 +215,7 @@ export class FeedStore {
       return this.currentRequestId === latest.requestId;
     } catch (error) {
       // This is a background convenience refresh. Keep the current snapshot
-      // visible and let the next scheduled check retry quietly.
+      // visible and let the next lifecycle trigger retry quietly.
       console.error("FeedStore.refreshFeedIfNew error:", error);
       return false;
     }

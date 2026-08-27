@@ -50,6 +50,29 @@ function delay(milliseconds: number): Promise<void> {
 
 export const PREVIEW_PAGE_SIZE = 20;
 
+export const PREVIEW_ANIMATION_TIMINGS = {
+  fadeOut: 450,
+  fadeOutStagger: 225,
+  removeSpace: 160,
+  rerank: 775,
+  insertSpace: 160,
+  fadeIn: 450,
+  fadeInStagger: 225,
+  reducedMotion: 160,
+} as const;
+
+export function deletionCascadeDelay(index: number, count: number): number {
+  if (count <= 1 || index <= 0) return 0;
+  const boundedIndex = Math.min(index, count - 1);
+  return boundedIndex * PREVIEW_ANIMATION_TIMINGS.fadeOutStagger;
+}
+
+export function revealCascadeDelay(index: number, count: number): number {
+  if (count <= 1 || index <= 0) return 0;
+  const boundedIndex = Math.min(index, count - 1);
+  return boundedIndex * PREVIEW_ANIMATION_TIMINGS.fadeInStagger;
+}
+
 export interface PreviewPageTransition {
   removed: string[];
   leavingPage: string[];
@@ -60,9 +83,12 @@ export interface PreviewPageTransition {
 export function previewPageTransition(
   before: FeedItemView[],
   after: FeedItemView[],
+  page = 1,
 ): PreviewPageTransition {
-  const beforePage = before.slice(0, PREVIEW_PAGE_SIZE);
-  const afterPage = after.slice(0, PREVIEW_PAGE_SIZE);
+  const pageStart = (Math.max(1, page) - 1) * PREVIEW_PAGE_SIZE;
+  const pageEnd = pageStart + PREVIEW_PAGE_SIZE;
+  const beforePage = before.slice(pageStart, pageEnd);
+  const afterPage = after.slice(pageStart, pageEnd);
   const beforeUris = new Set(before.map((item) => item.atUri));
   const afterUris = new Set(after.map((item) => item.atUri));
   const beforePageUris = new Set(beforePage.map((item) => item.atUri));
@@ -88,7 +114,8 @@ export class SettingsFeedPreview extends LitElement {
   @state() private renderedItems: FeedItemView[] = [];
   @state() private comparisonItems: FeedItemView[] = [];
   @state() private currentPage = 1;
-  @state() private phase: "idle" | "collapse" | "remove" | "rerank" | "insert" | "reveal" = "idle";
+  @state() private phase:
+    "idle" | "fade-out" | "compact" | "rerank" | "insert-space" | "fade-in" = "idle";
   @state() private removedUris = new Set<string>();
   @state() private newUris = new Set<string>();
   private isAnimating = false;
@@ -185,11 +212,11 @@ export class SettingsFeedPreview extends LitElement {
       background: var(--surface, #16181c);
       opacity: 1;
       transition:
-        min-height 220ms ease,
-        max-height 220ms ease,
-        padding 220ms ease,
-        opacity 220ms ease,
-        margin 220ms ease;
+        min-height 160ms ease,
+        max-height 160ms ease,
+        padding 160ms ease,
+        opacity 450ms ease,
+        margin 160ms ease;
       will-change: transform, opacity;
     }
 
@@ -211,14 +238,26 @@ export class SettingsFeedPreview extends LitElement {
       white-space: nowrap;
     }
 
-    .content-pills {
+    .content-row {
       display: flex;
-      flex: none;
-      min-width: 0;
+      overflow: hidden;
+      min-height: 1.375rem;
+      max-height: 1.375rem;
+      align-items: center;
       gap: 0.25rem;
+      margin-top: 0.25rem;
+      opacity: 1;
+      transition:
+        min-height 160ms ease,
+        max-height 160ms ease,
+        margin 160ms ease,
+        opacity 120ms ease;
     }
 
+    .source-pill,
     .content-pill {
+      overflow: hidden;
+      min-width: 0;
       padding: 0.125rem 0.45rem;
       border: 1px solid var(--source-border);
       border-radius: 999px;
@@ -226,7 +265,12 @@ export class SettingsFeedPreview extends LitElement {
       color: var(--source-color);
       font-size: 0.625rem;
       font-weight: 650;
+      text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .source-pill {
+      flex: none;
     }
 
     .movement {
@@ -272,30 +316,38 @@ export class SettingsFeedPreview extends LitElement {
       line-height: 1.25rem;
       opacity: 1;
       transition:
-        max-height 220ms ease,
-        margin 220ms ease,
-        opacity 180ms ease;
+        max-height 160ms ease,
+        margin 160ms ease,
+        opacity 120ms ease;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
 
-    .collapse .card,
-    .remove .card,
+    .compact .card,
     .rerank .card,
-    .insert .card {
+    .insert-space .card {
       min-height: 2.875rem;
+      max-height: 2.875rem;
     }
 
-    .collapse .snippet,
-    .remove .snippet,
+    .compact .snippet,
     .rerank .snippet,
-    .insert .snippet {
+    .insert-space .snippet,
+    .compact .content-row,
+    .rerank .content-row,
+    .insert-space .content-row {
+      min-height: 0;
       max-height: 0;
       margin-top: 0;
       opacity: 0;
     }
 
-    .remove .card.removed {
+    .fade-out .card.removed {
+      opacity: 0;
+      transition-delay: var(--removal-delay, 0ms);
+    }
+
+    .compact .card.removed {
       min-height: 0;
       max-height: 0;
       padding-top: 0;
@@ -304,15 +356,13 @@ export class SettingsFeedPreview extends LitElement {
       opacity: 0;
     }
 
-    .insert .card.new {
-      animation: open-card 220ms ease both;
+    .insert-space .card.new {
+      animation: open-card 160ms ease both;
     }
 
-    .flight-card {
-      position: fixed;
-      z-index: 1000;
-      margin: 0;
-      pointer-events: none;
+    .fade-in .card.new {
+      animation: reveal-card 450ms ease both;
+      animation-delay: var(--reveal-delay, 0ms);
     }
 
     @keyframes open-card {
@@ -323,6 +373,18 @@ export class SettingsFeedPreview extends LitElement {
         padding-bottom: 0;
         border-width: 0;
         opacity: 0;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+
+    @keyframes reveal-card {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
       }
     }
 
@@ -354,11 +416,11 @@ export class SettingsFeedPreview extends LitElement {
     this.isAnimating = true;
     const current = [...(fromItems ?? this.currentSlate)];
     const next = [...nextItems];
-    const currentVisible = current.slice(0, PREVIEW_PAGE_SIZE);
-    const nextVisible = next.slice(0, PREVIEW_PAGE_SIZE);
-    const flightCards: HTMLElement[] = [];
+    const animationPage = Math.min(this.currentPage, this.totalPagesFor(next));
+    const currentVisible = this.pageItems(current, animationPage);
+    const nextVisible = this.pageItems(next, animationPage);
     try {
-      this.currentPage = 1;
+      this.currentPage = animationPage;
       if (fromItems) {
         this.currentSlate = current;
         this.comparisonItems = current;
@@ -371,7 +433,7 @@ export class SettingsFeedPreview extends LitElement {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (reducedMotion) {
         const animation = this.animate([{ opacity: 1 }, { opacity: 0.35 }, { opacity: 1 }], {
-          duration: 160,
+          duration: PREVIEW_ANIMATION_TIMINGS.reducedMotion,
           easing: "ease-out",
         });
         this.comparisonItems = current;
@@ -382,18 +444,25 @@ export class SettingsFeedPreview extends LitElement {
       }
 
       this.comparisonItems = current;
-      this.phase = "collapse";
-      await delay(220);
+      // Only the visible page participates in the animation. The complete
+      // `next` slate is still adopted below so pagination exposes every
+      // off-page change as soon as the transition finishes.
+      const pageTransition = previewPageTransition(current, next, animationPage);
+      this.removedUris = new Set([...pageTransition.removed, ...pageTransition.leavingPage]);
+      this.phase = "fade-out";
+      await this.updateComplete;
+      await delay(
+        PREVIEW_ANIMATION_TIMINGS.fadeOut +
+          deletionCascadeDelay(this.removedUris.size - 1, this.removedUris.size),
+      );
 
-      const nextUris = new Set(next.map((item) => item.atUri));
-      const pageTransition = previewPageTransition(current, next);
-      this.removedUris = new Set(pageTransition.removed);
-      this.phase = "remove";
-      await delay(220);
+      this.phase = "compact";
+      await this.updateComplete;
+      await delay(PREVIEW_ANIMATION_TIMINGS.removeSpace);
 
-      const currentUris = new Set(current.map((item) => item.atUri));
+      const currentVisibleUris = new Set(currentVisible.map((item) => item.atUri));
       const nextVisibleUris = new Set(nextVisible.map((item) => item.atUri));
-      const survivingCurrentPage = currentVisible.filter((item) => nextUris.has(item.atUri));
+      const survivingCurrentPage = currentVisible.filter((item) => nextVisibleUris.has(item.atUri));
       this.currentSlate = next;
       this.renderedItems = survivingCurrentPage;
       this.removedUris = new Set();
@@ -404,71 +473,39 @@ export class SettingsFeedPreview extends LitElement {
       const oldRects = new Map(
         oldElements.map((element) => [element.dataset.uri ?? "", element.getBoundingClientRect()]),
       );
-      for (const element of oldElements) {
-        const uri = element.dataset.uri ?? "";
-        if (nextVisibleUris.has(uri)) continue;
-        const clone = element.cloneNode(true) as HTMLElement;
-        const rect = element.getBoundingClientRect();
-        clone.classList.add("flight-card");
-        clone.setAttribute("aria-hidden", "true");
-        clone.style.top = `${String(rect.top)}px`;
-        clone.style.left = `${String(rect.left)}px`;
-        clone.style.width = `${String(rect.width)}px`;
-        clone.style.height = `${String(rect.height)}px`;
-        this.renderRoot.append(clone);
-        flightCards.push(clone);
-      }
 
-      this.renderedItems = nextVisible.filter((item) => currentUris.has(item.atUri));
+      this.renderedItems = nextVisible.filter((item) => currentVisibleUris.has(item.atUri));
       await this.updateComplete;
       const animations = [
-        ...[...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]")].map(
-          (element) => {
-            const oldRect = oldRects.get(element.dataset.uri ?? "");
-            const newRect = element.getBoundingClientRect();
-            const oldIndex = current.findIndex((item) => item.atUri === element.dataset.uri);
-            const newIndex = next.findIndex((item) => item.atUri === element.dataset.uri);
-            const offset = oldRect
-              ? oldRect.top - newRect.top
-              : oldIndex > newIndex
-                ? window.innerHeight
-                : -window.innerHeight;
-            return element
-              .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
-                duration: 450,
-                easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-              })
-              .finished.catch(() => undefined);
-          },
-        ),
-        ...flightCards.map((element) => {
-          const rect = element.getBoundingClientRect();
-          const distance = Math.max(rect.height * 2, window.innerHeight - rect.top + rect.height);
-          return element
-            .animate(
-              [
-                { transform: "none", opacity: 1 },
-                { transform: `translateY(${String(distance)}px)`, opacity: 0 },
-              ],
-              { duration: 450, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-            )
-            .finished.catch(() => undefined);
-        }),
-      ];
+        ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
+      ].map((element) => {
+        const oldRect = oldRects.get(element.dataset.uri ?? "");
+        const newRect = element.getBoundingClientRect();
+        const offset = oldRect ? oldRect.top - newRect.top : 0;
+        return element
+          .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
+            duration: PREVIEW_ANIMATION_TIMINGS.rerank,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          })
+          .finished.catch(() => undefined);
+      });
       await Promise.all(animations);
-      for (const card of flightCards.splice(0)) card.remove();
 
-      this.newUris = new Set(pageTransition.added);
+      this.newUris = new Set(
+        nextVisible.filter((item) => !currentVisibleUris.has(item.atUri)).map((item) => item.atUri),
+      );
       this.renderedItems = nextVisible;
-      this.phase = "insert";
+      this.phase = "insert-space";
       await this.updateComplete;
-      await delay(220);
+      await delay(PREVIEW_ANIMATION_TIMINGS.insertSpace);
 
-      this.phase = "reveal";
-      this.newUris = new Set();
-      await delay(260);
+      this.phase = "fade-in";
+      await this.updateComplete;
+      await delay(
+        PREVIEW_ANIMATION_TIMINGS.fadeIn +
+          revealCascadeDelay(this.newUris.size - 1, this.newUris.size),
+      );
     } finally {
-      for (const card of flightCards) card.remove();
       this.removedUris = new Set();
       this.newUris = new Set();
       this.phase = "idle";
@@ -580,21 +617,23 @@ export class SettingsFeedPreview extends LitElement {
     const delta = movement.delta === null ? "" : String(Math.abs(movement.delta));
     const movementText =
       movement.kind === "new" ? "New" : movement.kind === "unchanged" ? "" : delta;
+    const removedItems = this.renderedItems.filter((candidate) =>
+      this.removedUris.has(candidate.atUri),
+    );
+    const removalIndex = removedItems.findIndex((candidate) => candidate.atUri === item.atUri);
+    const removalDelay = deletionCascadeDelay(removalIndex, removedItems.length);
+    const newItems = this.renderedItems.filter((candidate) => this.newUris.has(candidate.atUri));
+    const revealIndex = newItems.findIndex((candidate) => candidate.atUri === item.atUri);
+    const revealDelay = revealCascadeDelay(revealIndex, newItems.length);
     return html`
       <article
         class="card ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}"
         data-uri=${item.atUri}
-        style="--source-border:${source.border};--source-color:${source.color}"
+        style="--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms"
       >
         <div class="metadata">
           <span class="author">${item.displayName || item.author}</span>
-          ${
-            contentLabels.length > 0
-              ? html`<span class="content-pills">
-                  ${contentLabels.map((label) => html`<span class="content-pill">${label}</span>`)}
-                </span>`
-              : nothing
-          }
+          <span class="source-pill candidate-pill">${source.label}</span>
           <span
             class="movement ${movement.kind}"
             aria-label=${movement.label}
@@ -604,6 +643,15 @@ export class SettingsFeedPreview extends LitElement {
           </span>
         </div>
         <div class="snippet">${item.content || item.mediaLabels.join(", ") || "Post"}</div>
+        ${
+          contentLabels.length > 0
+            ? html`<div class="content-row">
+                ${contentLabels.map(
+                  (label) => html`<span class="content-pill">${label}</span>`,
+                )}
+              </div>`
+            : nothing
+        }
       </article>
     `;
   }

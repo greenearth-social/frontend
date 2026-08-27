@@ -28,7 +28,7 @@ const testState = vi.hoisted(() => ({
       setPostsPerPage: vi.fn(),
     },
     uiStore: {
-      selectedAlgorithm: "random" as const,
+      selectedAlgorithm: "random",
       selectedItemUri: null,
       setSelectedAlgorithm: vi.fn(),
       clearSelectedAlgorithm: vi.fn(),
@@ -74,9 +74,12 @@ describe("FeedPage pull to refresh", () => {
     testState.rootStore.feedStore.items = [];
     testState.rootStore.feedStore.currentRequestId = null;
     testState.rootStore.feedStore.error = null;
+    testState.rootStore.authStore.isSignedIn = true;
+    testState.rootStore.accountStore.activeAccount.did = "did:plc:test";
     testState.rootStore.uiStore.selectedAlgorithm = "random";
     testState.rootStore.feedStore.loadFeedList.mockReset();
     testState.rootStore.feedStore.refreshFeedIfNew.mockReset();
+    testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -145,7 +148,28 @@ describe("FeedPage pull to refresh", () => {
     });
   });
 
-  it("offers an explicit refresh without replacing already visible posts", async () => {
+  it("treats an in-progress activation load as the initial sync", async () => {
+    vi.useFakeTimers();
+    testState.rootStore.feedStore.isLoading = true;
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).not.toHaveBeenCalled();
+
+    testState.rootStore.feedStore.isLoading = false;
+    element.requestUpdate();
+    await element.updateComplete;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("removes the manual refresh button and preserves visible posts during lifecycle sync", async () => {
     testState.rootStore.feedStore.items = [
       {
         atUri: "at://visible",
@@ -172,85 +196,142 @@ describe("FeedPage pull to refresh", () => {
       },
     ];
     testState.rootStore.feedStore.currentRequestId = "random-old";
-    testState.rootStore.feedStore.loadFeedList.mockImplementation(() => {
-      testState.rootStore.feedStore.currentRequestId = "random-new";
-      return Promise.resolve();
-    });
     const element = document.createElement("feed-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const refresh = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Refresh feed history"]',
-    );
-    refresh?.click();
-
     await vi.waitFor(() => {
-      expect(testState.rootStore.feedStore.loadFeedList).toHaveBeenCalledWith({
-        feedName: "random",
-        force: true,
-      });
-      expect(element.shadowRoot?.querySelector("feed-view")).not.toBeNull();
-      expect(element.shadowRoot?.querySelector(".refresh-status")?.textContent).toContain(
-        "Feed history updated",
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+        "random",
+        null,
       );
+      expect(element.shadowRoot?.querySelector("feed-view")).not.toBeNull();
     });
+    expect(
+      element.shadowRoot?.querySelector('button[aria-label="Refresh feed history"]'),
+    ).toBeNull();
+    expect(element.shadowRoot?.querySelector(".refresh-status")).toBeNull();
   });
 
-  it("loads a new snapshot when the user returns from opening the feed in Bluesky", async () => {
+  it("coalesces lifecycle events and never starts periodic polling", async () => {
     vi.useFakeTimers();
-    testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(true);
-    const scrollContainer = document.createElement("main");
-    const element = document.createElement("feed-page");
-    scrollContainer.appendChild(element);
-    document.body.appendChild(scrollContainer);
-    await element.updateComplete;
+    const originalVisibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+    try {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "visible",
+      });
+      const element = document.createElement("feed-page");
+      document.body.appendChild(element);
+      await element.updateComplete;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(1);
 
-    const feedView = element.shadowRoot?.querySelector("feed-view");
-    feedView?.dispatchEvent(
-      new CustomEvent("bluesky-feed-opened", { bubbles: true, composed: true }),
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new PageTransitionEvent("pageshow"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(2);
+
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(2);
+
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "visible",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(3);
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(document, "visibilityState", originalVisibility);
+      } else {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
+      vi.useRealTimers();
+    }
+  });
+
+  it("queues one trailing lifecycle sync while another sync is running", async () => {
+    vi.useFakeTimers();
+    let finishFirst: ((value: boolean) => void) | undefined;
+    testState.rootStore.feedStore.refreshFeedIfNew.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishFirst = resolve;
+        }),
     );
-    window.dispatchEvent(new Event("focus"));
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
     await vi.advanceTimersByTimeAsync(0);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(1);
 
-    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith("random", null);
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new PageTransitionEvent("pageshow"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(1);
+
+    finishFirst?.(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
 
-  it.each([
-    { label: "no previous snapshots", feeds: [], baselineRequestId: null },
-    {
-      label: "an existing snapshot",
-      feeds: [
-        {
-          requestId: "random-old",
-          generatedAt: "2026-08-10T20:00:00Z",
-          feedName: "random" as const,
-        },
-      ],
-      baselineRequestId: "random-old",
-    },
-  ])(
-    "checks for new posts after returning to the frontend with $label",
-    async ({ feeds, baselineRequestId }) => {
-      vi.useFakeTimers();
-      testState.rootStore.feedStore.feedList = feeds;
-      testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(true);
-      const scrollContainer = document.createElement("main");
-      const element = document.createElement("feed-page");
-      scrollContainer.appendChild(element);
-      document.body.appendChild(scrollContainer);
-      await element.updateComplete;
-
-      window.dispatchEvent(new Event("blur"));
-      window.dispatchEvent(new Event("focus"));
-      await vi.advanceTimersByTimeAsync(0);
-
+  it("synchronizes again when the selected feed or account changes", async () => {
+    testState.rootStore.feedStore.feedList = [
+      {
+        requestId: "random-current",
+        generatedAt: "2026-08-24T12:00:00Z",
+        feedName: "random",
+      },
+      {
+        requestId: "mysky-current",
+        generatedAt: "2026-08-25T12:00:00Z",
+        feedName: "your-feed",
+      },
+    ];
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await vi.waitFor(() => {
       expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
         "random",
-        baselineRequestId,
+        "random-current",
       );
-      vi.useRealTimers();
-    },
-  );
+    });
+
+    testState.rootStore.feedStore.refreshFeedIfNew.mockClear();
+    testState.rootStore.uiStore.selectedAlgorithm = "your-feed";
+    element.requestUpdate();
+    await element.updateComplete;
+    await vi.waitFor(() => {
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+        "your-feed",
+        "mysky-current",
+      );
+    });
+
+    testState.rootStore.feedStore.refreshFeedIfNew.mockClear();
+    testState.rootStore.accountStore.activeAccount.did = "did:plc:other";
+    element.requestUpdate();
+    await element.updateComplete;
+    await vi.waitFor(() => {
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
+        "your-feed",
+        "mysky-current",
+      );
+    });
+  });
 });

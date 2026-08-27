@@ -48,6 +48,10 @@ test.describe("Feed Page", () => {
     await expect(page.locator("h1")).toHaveText("Why Am I Seeing This?");
   });
 
+  test("does not show a manual feed refresh control", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Refresh feed history" })).toHaveCount(0);
+  });
+
   test("does not duplicate the feed selector in a right sidebar", async ({ page }) => {
     await expect(page.locator("right-sidebar")).toHaveCount(0);
   });
