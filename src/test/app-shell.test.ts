@@ -456,7 +456,7 @@ describe("AppShell authentication UI", () => {
     await page?.updateComplete;
     const form = page?.shadowRoot?.querySelector("feedback-form");
 
-    expect(form?.prompt).toBe("We'd love to know what you think of MySky by GreenEarth");
+    expect(form?.prompt).toBe("We'd love to know what you think of GreenEarth");
     expect(form?.selectedFeed).toBe("your-feed");
   });
 
@@ -471,7 +471,7 @@ describe("AppShell authentication UI", () => {
       "settingsViewed",
       {
         feed_name: "your-feed",
-        feed_label: "MySky by GreenEarth",
+        feed_label: "GreenEarth",
       },
     );
 
