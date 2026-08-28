@@ -28,7 +28,6 @@ import "../components/icon-range-slider";
 import "../components/feedback-form";
 import "../components/settings-feed-preview";
 import type { SettingsFeedPreview } from "../components/settings-feed-preview";
-import { GENERATOR_LEGEND } from "../components/generator-presentation";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
 import { settingsPageStyles } from "./settings-page.styles";
 import {
@@ -84,7 +83,6 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewFreshness: number | null = null;
   @state() private mobilePreviewOpen = false;
   @state() private isPreviewAnimating = false;
-  @state() private showColorLegend = false;
   @state() private isResetting = false;
   @state() private isApplyingHistory = false;
   @state() private previewNeeded = false;
@@ -102,19 +100,6 @@ export class SettingsPage extends MobxLitElement {
   private changeSequence = 0;
   private settingsRevision = 0;
   private previewAnimationOperation = 0;
-  private readonly colorLegendPointerHandler = (event: PointerEvent): void => {
-    if (!this.showColorLegend) return;
-    const path = event.composedPath();
-    const button = this.renderRoot.querySelector("#color-legend-button");
-    const legend = this.renderRoot.querySelector("#post-color-legend");
-    if ((button && path.includes(button)) || (legend && path.includes(legend))) return;
-    this.showColorLegend = false;
-  };
-  private readonly colorLegendKeyHandler = (event: KeyboardEvent): void => {
-    if (!this.showColorLegend || event.key !== "Escape") return;
-    event.preventDefault();
-    this.#closeColorLegend(true);
-  };
   private readonly handleFrontendLeft = (): void => {
     this.#cancelScheduledBaselineSync();
   };
@@ -134,15 +119,12 @@ export class SettingsPage extends MobxLitElement {
     // whenever the layout crosses that boundary so a stale mobile overlay
     // cannot reappear after resizing back down from desktop.
     this.mobilePreviewOpen = false;
-    this.showColorLegend = false;
   };
 
   static styles = settingsPageStyles;
 
   connectedCallback(): void {
     super.connectedCallback();
-    document.addEventListener("pointerdown", this.colorLegendPointerHandler);
-    window.addEventListener("keydown", this.colorLegendKeyHandler);
     window.addEventListener("focus", this.requestLifecycleBaselineSync);
     window.addEventListener("pagehide", this.handleFrontendLeft);
     window.addEventListener("pageshow", this.requestLifecycleBaselineSync);
@@ -154,8 +136,6 @@ export class SettingsPage extends MobxLitElement {
   }
 
   disconnectedCallback(): void {
-    document.removeEventListener("pointerdown", this.colorLegendPointerHandler);
-    window.removeEventListener("keydown", this.colorLegendKeyHandler);
     window.removeEventListener("focus", this.requestLifecycleBaselineSync);
     window.removeEventListener("pagehide", this.handleFrontendLeft);
     window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
@@ -199,7 +179,6 @@ export class SettingsPage extends MobxLitElement {
       this.mobilePreviewOpen = false;
       this.previewAnimationOperation++;
       this.isPreviewAnimating = false;
-      this.showColorLegend = false;
       this.previewNeeded = false;
       this.historyEntry = null;
       this.settingsError = "";
@@ -377,47 +356,6 @@ export class SettingsPage extends MobxLitElement {
               </button>
               <h2 class="mobile-preview-title">Preview</h2>
             </div>
-            <div class="preview-header-actions">
-              <button
-                id="color-legend-button"
-                class="palette-button"
-                type="button"
-                aria-label="Show post color legend"
-                aria-controls="post-color-legend"
-                aria-expanded=${String(this.showColorLegend)}
-                title="Post color legend"
-                @click=${() => {
-                  this.showColorLegend = !this.showColorLegend;
-                }}
-              >
-                <wa-icon library="app" name="palette"></wa-icon>
-              </button>
-            </div>
-            ${
-              this.showColorLegend
-                ? html`<div
-                    id="post-color-legend"
-                    class="color-legend"
-                    role="region"
-                    aria-label="Post color legend"
-                  >
-                    <strong>Post colors</strong>
-                    <div class="color-legend-list" role="list">
-                      ${GENERATOR_LEGEND.map(
-                        (entry) =>
-                          html`<div class="color-legend-row" role="listitem">
-                            <span
-                              class="color-legend-swatch"
-                              style="--legend-border:${entry.border};--legend-background:${entry.background}"
-                              aria-hidden="true"
-                            ></span>
-                            <span>${entry.label}</span>
-                          </div>`,
-                      )}
-                    </div>
-                  </div>`
-                : ""
-            }
           </div>
           ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
           ${
@@ -997,7 +935,6 @@ export class SettingsPage extends MobxLitElement {
     };
     this.historyEntry = entry;
     this.previewNeeded = true;
-    this.showColorLegend = false;
     this.settingsError = "";
     this.settingsRevision++;
 
@@ -1138,7 +1075,6 @@ export class SettingsPage extends MobxLitElement {
     if (!this.isConnected || feedName !== this.selectedAlgorithm) return outcome;
 
     if (outcome.status === "updated") {
-      this.showColorLegend = false;
       await this.updateComplete;
       this.renderRoot
         .querySelector<SettingsFeedPreview>("settings-feed-preview")
@@ -1225,18 +1161,6 @@ export class SettingsPage extends MobxLitElement {
     const store = getSettingsPreviewStore();
     if (store?.isGenerating || this.isPreviewAnimating) return;
     this.mobilePreviewOpen = false;
-    this.showColorLegend = false;
-  }
-
-  #focusAfterUpdate(selector: string): void {
-    void this.updateComplete.then(() => {
-      this.renderRoot.querySelector<HTMLElement>(selector)?.focus();
-    });
-  }
-
-  #closeColorLegend(returnFocus: boolean): void {
-    this.showColorLegend = false;
-    if (returnFocus) this.#focusAfterUpdate("#color-legend-button");
   }
 }
 

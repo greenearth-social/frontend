@@ -32,13 +32,6 @@ export const settingsPageStyles = css`
     background: rgba(21, 32, 43, 0.94);
   }
 
-  .preview-header-actions {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   .update-preview-btn,
   .mobile-preview-btn,
   .history-btn {
@@ -161,7 +154,6 @@ export const settingsPageStyles = css`
   }
 
   .preview-close,
-  .palette-button,
   .preview-error button {
     min-height: 36px;
     padding: 0.4rem 0.75rem;
@@ -175,28 +167,7 @@ export const settingsPageStyles = css`
     cursor: pointer;
   }
 
-  .palette-button {
-    display: grid;
-    width: 36px;
-    min-width: 36px;
-    padding: 0;
-    place-items: center;
-  }
-
-  .palette-button wa-icon {
-    width: 1rem;
-    height: 1rem;
-    font-size: 1rem;
-  }
-
-  .palette-button[aria-expanded="true"] {
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-bg-hover);
-    color: var(--bluesky-brand);
-  }
-
-  .preview-close:disabled,
-  .palette-button:disabled {
+  .preview-close:disabled {
     cursor: wait;
     opacity: 0.55;
   }
@@ -217,57 +188,9 @@ export const settingsPageStyles = css`
     font-size: 1.125rem;
   }
 
-  .palette-button:focus-visible,
   .preview-close:focus-visible {
     outline: 2px solid var(--bluesky-brand);
     outline-offset: 2px;
-  }
-
-  .color-legend {
-    position: absolute;
-    z-index: 5;
-    top: calc(100% - 0.25rem);
-    right: 1rem;
-    width: min(18rem, calc(100% - 2rem));
-    padding: 0.875rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 0.875rem;
-    box-sizing: border-box;
-    background: var(--bluesky-bg-card, #151f2b);
-    color: var(--bluesky-text);
-    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
-  }
-
-  .color-legend > strong {
-    display: block;
-    margin-bottom: 0.65rem;
-    font-size: 0.8125rem;
-  }
-
-  .color-legend-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem 0.75rem;
-  }
-
-  .color-legend-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.45rem;
-    color: var(--bluesky-text-secondary);
-    font-size: 0.6875rem;
-    font-weight: 650;
-  }
-
-  .color-legend-swatch {
-    width: 1rem;
-    height: 1rem;
-    flex: none;
-    border: 2px solid var(--legend-border);
-    border-radius: 0.3rem;
-    box-sizing: border-box;
-    background: var(--legend-background);
   }
 
   .feed-scroll {
@@ -1218,9 +1141,6 @@ export const settingsPageStyles = css`
       height: 100dvh;
     }
 
-    .color-legend-list {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (min-width: 1024px) {

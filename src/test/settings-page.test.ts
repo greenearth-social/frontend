@@ -184,13 +184,12 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector("h1")?.getAttribute("aria-label")).toBe(
       "MySky Settings",
     );
-    const headerActions = element.shadowRoot?.querySelector(".preview-header-actions");
     expect(
-      headerActions?.querySelector<HTMLButtonElement>('[aria-label="Refresh current feed"]'),
+      element.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Refresh current feed"]'),
     ).toBeNull();
     expect(
-      Array.from(headerActions?.querySelectorAll("button") ?? []).map((button) => button.id),
-    ).toEqual(["color-legend-button"]);
+      element.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Show post color legend"]'),
+    ).toBeNull();
   });
 
   it("waits for saved preferences instead of briefly showing fallback defaults", async () => {

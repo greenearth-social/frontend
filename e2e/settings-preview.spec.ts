@@ -118,7 +118,18 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Update Preview" })).toBeDisabled();
+  const updatePreview = settings.getByRole("button", { name: "Update Preview" });
+  await expect(updatePreview).toBeDisabled();
+  await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
+  const previewHeaderGeometry = await settings.locator(".feed-column").evaluate((column) => {
+    const columnBox = column.getBoundingClientRect();
+    const buttonBox = column.querySelector("#update-preview")?.getBoundingClientRect();
+    return {
+      columnCenter: columnBox.left + columnBox.width / 2,
+      buttonCenter: buttonBox ? buttonBox.left + buttonBox.width / 2 : Number.NaN,
+    };
+  });
+  expect(Math.abs(previewHeaderGeometry.columnCenter - previewHeaderGeometry.buttonCenter)).toBeLessThanOrEqual(1);
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
   const previewCard = settings.locator("settings-feed-preview .card").first();
   const candidate = previewCard.locator(".metadata .candidate-pill");
@@ -489,6 +500,7 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   await expect(mobileActions.locator("button")).toHaveCount(1);
   await expect(mobileActions.getByRole("heading", { name: "Preview" })).toBeVisible();
   await expect(mobileActions.locator(".history-btn, .reset-defaults-btn")).toHaveCount(0);
+  await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   await expect(settings.locator("settings-feed-preview .card")).not.toHaveCount(0);
   await expect(page.getByRole("button", { name: /Save|Discard/ })).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: /Review|Save your settings/ })).toHaveCount(0);
