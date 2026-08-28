@@ -85,6 +85,7 @@ interface ApiFeedItemResponse {
     like_count: number;
   } | null;
   post_url: string | null;
+  is_partial?: boolean;
 }
 
 interface ApiFeedDetailResponse {
@@ -96,6 +97,8 @@ interface ApiFeedDetailResponse {
   displayed_item_count?: number;
   publicly_filtered_count?: number;
   unavailable_count?: number;
+  partial_item_count?: number;
+  generator_diagnostics?: ApiFeedSummary["generator_diagnostics"];
 }
 
 interface ApiFeedPreviewResponse {
@@ -184,6 +187,7 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
         }
       : null,
     postUrl: item.post_url,
+    isPartial: item.is_partial ?? false,
   };
 }
 
@@ -198,7 +202,18 @@ function mapFeedDetail(response: ApiFeedDetailResponse): FeedDetailResponse {
       displayedItemCount: response.displayed_item_count ?? response.items.length,
       publiclyFilteredCount: response.publicly_filtered_count ?? 0,
       unavailableCount: response.unavailable_count ?? 0,
+      partialItemCount: response.partial_item_count ?? 0,
     },
+    generatorDiagnostics: (response.generator_diagnostics ?? []).map((diagnostic) => ({
+      name: diagnostic.name,
+      weight: diagnostic.weight,
+      requestedCount: diagnostic.requested_count,
+      returnedCount: diagnostic.returned_count,
+      contributedCount: diagnostic.contributed_count,
+      status: diagnostic.status,
+      reason: diagnostic.reason,
+      mode: diagnostic.mode,
+    })),
   };
 }
 

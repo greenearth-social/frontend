@@ -70,6 +70,14 @@ function emptyControlsByFeed(): Record<AlgorithmId, FeedControlName[]> {
   };
 }
 
+function emptyPendingSavesByFeed(): Record<AlgorithmId, Set<Promise<boolean>>> {
+  return {
+    "your-feed": new Set(),
+    "best-of-friends": new Set(),
+    random: new Set(),
+  };
+}
+
 function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
   return (
     a.following === b.following &&
@@ -165,10 +173,14 @@ export class PreferencesStore {
   private loadPromise: Promise<void> | null = null;
   private accountGeneration = 0;
   private accountId: string | null = null;
+  private pendingSavePromisesByFeed = emptyPendingSavesByFeed();
 
   constructor(root: RootStore) {
     this.root = root;
-    makeAutoObservable(this, { root: false });
+    makeAutoObservable<PreferencesStore, "pendingSavePromisesByFeed">(this, {
+      root: false,
+      pendingSavePromisesByFeed: false,
+    });
   }
 
   activateAccount(accountId: string): void {
@@ -231,6 +243,7 @@ export class PreferencesStore {
     this.isLoading = false;
     this.hasLoaded = false;
     this.loadPromise = null;
+    this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
   }
 
   async save(
@@ -291,10 +304,34 @@ export class PreferencesStore {
     }
   }
 
-  async savePatch(
+  savePatch(
     feedName: AlgorithmId,
     patch: FeedPreferences,
     origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): Promise<boolean> {
+    const operation = this.performSavePatch(feedName, patch, origins);
+    const pending = this.pendingSavePromisesByFeed[feedName];
+    pending.add(operation);
+    void operation.finally(() => {
+      pending.delete(operation);
+    });
+    return operation;
+  }
+
+  async waitForPendingSaves(feedName: AlgorithmId): Promise<boolean> {
+    let succeeded = true;
+    const pending = this.pendingSavePromisesByFeed[feedName];
+    while (pending.size > 0) {
+      const results = await Promise.all([...pending]);
+      succeeded = succeeded && results.every(Boolean);
+    }
+    return succeeded;
+  }
+
+  private async performSavePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>>,
   ): Promise<boolean> {
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const optimisticValues = clonePreferences(previousValues);

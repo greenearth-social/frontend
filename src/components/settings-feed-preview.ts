@@ -238,6 +238,25 @@ export class SettingsFeedPreview extends LitElement {
       white-space: nowrap;
     }
 
+    .card.partial {
+      border-style: dashed;
+    }
+
+    .card.partial .author {
+      color: var(--text-secondary, #8b98a5);
+    }
+
+    .partial-link {
+      color: var(--bluesky-brand, #1083fe);
+      text-decoration: none;
+    }
+
+    .partial-link:hover,
+    .partial-link:focus-visible {
+      text-decoration: underline;
+      outline: none;
+    }
+
     .content-row {
       display: flex;
       overflow: hidden;
@@ -534,17 +553,22 @@ export class SettingsFeedPreview extends LitElement {
       displayedItemCount: this.currentSlate.length,
       publiclyFilteredCount: 0,
       unavailableCount: 0,
+      partialItemCount: 0,
     };
     const totalPages = this.totalPagesFor(this.currentSlate);
     const paginationDisabled = this.loading || this.phase !== "idle";
     return html`
       <div class="slate-summary" role="status">
-        <span>${counts.displayedItemCount} available of ${counts.storedItemCount} ranked</span>
+        <span>${counts.displayedItemCount} shown of ${counts.storedItemCount} ranked</span>
         ${
-          counts.publiclyFilteredCount || counts.unavailableCount
+          counts.publiclyFilteredCount || counts.unavailableCount || counts.partialItemCount
             ? html`<span class="filter-summary"
                 >${counts.publiclyFilteredCount} filtered · ${counts.unavailableCount}
-                unavailable</span
+                unavailable${
+                  counts.partialItemCount
+                    ? html` · ${counts.partialItemCount} limited details`
+                    : nothing
+                }</span
               >`
             : nothing
         }
@@ -622,12 +646,14 @@ export class SettingsFeedPreview extends LitElement {
     const revealDelay = revealCascadeDelay(revealIndex, newItems.length);
     return html`
       <article
-        class="card ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}"
+        class="card ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}"
         data-uri=${item.atUri}
         style="--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms"
       >
         <div class="metadata">
-          <span class="author">${item.displayName || item.author}</span>
+          <span class="author"
+            >${item.isPartial ? "Post details unavailable" : item.displayName || item.author}</span
+          >
           <span class="source-pill candidate-pill">${source.label}</span>
           <span
             class="movement ${movement.kind}"
@@ -637,7 +663,21 @@ export class SettingsFeedPreview extends LitElement {
             <wa-icon library="app" name=${movement.icon}></wa-icon>${movementText || nothing}
           </span>
         </div>
-        <div class="snippet">${item.content || item.mediaLabels.join(", ") || "Post"}</div>
+        <div class="snippet">
+          ${
+            item.isPartial
+              ? item.postUrl
+                ? html`Ranked by MySky. <a
+                    class="partial-link"
+                    href=${item.postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Open this post in Bluesky</a
+                  >.`
+                : "Ranked by MySky. Full post details are temporarily unavailable."
+              : item.content || item.mediaLabels.join(", ") || "Post"
+          }
+        </div>
         ${
           contentLabels.length > 0
             ? html`<div class="content-row">

@@ -149,6 +149,7 @@ describe("FeedApiService", () => {
       displayedItemCount: 1,
       publiclyFilteredCount: 2,
       unavailableCount: 1,
+      partialItemCount: 0,
     });
     expect(response.items?.[0]).toMatchObject({
       atUri: "at://post/1",
@@ -279,6 +280,35 @@ describe("FeedApiService", () => {
         popular: 0.25,
       },
     });
+  });
+
+  it.each([
+    {
+      label: "Following",
+      weights: { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 },
+      wire: { following: 1, network_likes: 0, authors_topics: 0, popular: 0 },
+    },
+    {
+      label: "Liked by Following",
+      weights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 },
+      wire: { following: 0, network_likes: 1, authors_topics: 0, popular: 0 },
+    },
+  ])("preserves every zero in a 100% $label preview payload", async ({ weights, wire }) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        request_id: "preview-100",
+        feed_name: "your-feed",
+        generated_at: "2026-08-23T12:00:00Z",
+        expires_at: "2026-08-23T12:10:00Z",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await service.createFeedPreview("your-feed", { sourceWeights: weights });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ source_weights: wire });
   });
 
   it("creates a preview from a sparse draft without persisting it", async () => {

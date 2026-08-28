@@ -23,6 +23,7 @@ const testState = vi.hoisted(() => {
         load: vi.fn().mockResolvedValue(undefined),
         save: vi.fn(),
         savePatch: vi.fn(),
+        waitForPendingSaves: vi.fn().mockResolvedValue(true),
         restoreDefaults: vi.fn().mockResolvedValue(true),
       },
       services: {

@@ -383,7 +383,7 @@ describe("settings feed movement presentation", () => {
 
     expect(element.shadowRoot?.querySelectorAll(".card")).toHaveLength(20);
     expect(element.shadowRoot?.querySelector(".slate-summary")?.textContent).toContain(
-      "45 available of 50 ranked",
+      "45 shown of 50 ranked",
     );
     expect(
       element.shadowRoot?.querySelector(".filter-summary")?.textContent.replace(/\s+/g, " "),

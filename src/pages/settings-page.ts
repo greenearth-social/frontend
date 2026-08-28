@@ -1056,11 +1056,28 @@ export class SettingsPage extends MobxLitElement {
       return;
     }
     if (store.isRefreshingBaseline) this.baselineSyncPending = true;
-    const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
-    if (isMobilePreview) this.mobilePreviewOpen = true;
     const feedName = this.selectedAlgorithm;
     const revision = this.settingsRevision;
     const animationOperation = ++this.previewAnimationOperation;
+    const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
+    if (isMobilePreview) this.mobilePreviewOpen = true;
+    this.isPreviewAnimating = true;
+    const persistenceSucceeded = await root.preferencesStore.waitForPendingSaves(feedName);
+    if (
+      !persistenceSucceeded ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      if (!persistenceSucceeded && feedName === this.selectedAlgorithm) {
+        this.settingsError = "Settings could not be saved, so Preview was not updated.";
+      }
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+      return;
+    }
     const patch = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
     const generated = await store.preview(patch);
     if (
@@ -1069,11 +1086,13 @@ export class SettingsPage extends MobxLitElement {
       feedName !== this.selectedAlgorithm ||
       animationOperation !== this.previewAnimationOperation
     ) {
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
       this.#drainBaselineSyncQueue();
       return;
     }
     const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
-    this.isPreviewAnimating = true;
     try {
       if (isMobilePreview) {
         // Let the overlay settle briefly before its contents begin moving so

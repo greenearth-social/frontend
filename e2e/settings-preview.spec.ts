@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function openSettings(page: Page): Promise<void> {
   await page.goto("/#/auth/finish?token=test-token", { waitUntil: "domcontentloaded" });
-  await page.waitForURL(/#\/feed\/your-feed$/);
+  await page.waitForURL(/#\/feed(?:\/your-feed)?$/);
   await page.evaluate(() => {
     window.location.hash = "/settings/your-feed";
   });
@@ -17,6 +17,17 @@ async function releaseFreshness(page: Page, value: string): Promise<void> {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
+}
+
+async function setSourcePercentage(page: Page, label: string, value: string): Promise<void> {
+  await page
+    .getByRole("spinbutton", { name: `${label} percentage`, exact: true })
+    .evaluate((input, next) => {
+      if (!(input instanceof HTMLInputElement)) throw new Error("Expected a number input");
+      input.value = next;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, value);
 }
 
 async function publishNewServedSlate(page: Page, requestId: string): Promise<void> {
@@ -148,6 +159,158 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
   ).toEqual({ controls: "auto", feed: "auto" });
 });
 
+test("100% Liked by Following reaches Preview and preserves ranked fallback cards", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        services: {
+          feedApiService: {
+            patchPreferences: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<Record<string, unknown>>;
+            createFeedPreview: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<{ requestId: string }>;
+            getFeedPreview: (requestId: string) => Promise<Record<string, unknown>>;
+          };
+        };
+      } | null;
+    };
+    const service = appModule.getRootStore()?.services.feedApiService;
+    if (!service) throw new Error("Mock feed service unavailable");
+    const originalPatch = service.patchPreferences.bind(service);
+    const originalCreate = service.createFeedPreview.bind(service);
+    const originalGet = service.getFeedPreview.bind(service);
+    service.patchPreferences = async (feedName, patch) => {
+      Reflect.set(window, "__myskySavedPatch", patch);
+      return originalPatch(feedName, patch);
+    };
+    service.createFeedPreview = async (feedName, patch) => {
+      Reflect.set(window, "__myskyPreviewPatch", patch);
+      return originalCreate(feedName, patch);
+    };
+    service.getFeedPreview = async (requestId) => {
+      const current = await originalGet(requestId);
+      const items = Array.isArray(current["items"])
+        ? (current["items"] as Array<Record<string, unknown>>).slice(0, 2).map((item) => ({
+            ...item,
+            isPartial: true,
+          }))
+        : [];
+      return {
+        ...current,
+        items,
+        filteringCounts: {
+          storedItemCount: items.length,
+          displayedItemCount: items.length,
+          publiclyFilteredCount: 0,
+          unavailableCount: items.length,
+          partialItemCount: items.length,
+        },
+        generatorDiagnostics: [
+          {
+            name: "network_likes",
+            weight: 1,
+            requestedCount: 100,
+            returnedCount: items.length,
+            contributedCount: items.length,
+            status: "success",
+            reason: null,
+            mode: "primary",
+          },
+        ],
+      };
+    };
+  });
+
+  await setSourcePercentage(page, "Liked by Following", "100");
+  const preview = page.getByRole("button", { name: "Update Preview" });
+  await expect(preview).toBeEnabled();
+  await preview.click();
+  await expect(page.locator("settings-page settings-feed-preview .card.partial")).toHaveCount(2, {
+    timeout: 12_000,
+  });
+  await expect(
+    page
+      .locator("settings-page .feed-column .preview-warning")
+      .filter({ hasText: /ranked posts are shown with limited details/ }),
+  ).toBeVisible();
+
+  const payloads = await page.evaluate(() => ({
+    saved: Reflect.get(window, "__myskySavedPatch") as Record<string, unknown>,
+    preview: Reflect.get(window, "__myskyPreviewPatch") as Record<string, unknown>,
+  }));
+  expect(payloads.saved).toMatchObject({
+    sourceWeights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 },
+  });
+  expect(payloads.preview).toMatchObject({
+    sourceWeights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 },
+  });
+});
+
+test("100% Following reaches persistence and Preview with every other source at zero", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        services: {
+          feedApiService: {
+            patchPreferences: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<Record<string, unknown>>;
+            createFeedPreview: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<{ requestId: string }>;
+          };
+        };
+      } | null;
+    };
+    const service = appModule.getRootStore()?.services.feedApiService;
+    if (!service) throw new Error("Mock feed service unavailable");
+    const originalPatch = service.patchPreferences.bind(service);
+    const originalCreate = service.createFeedPreview.bind(service);
+    service.patchPreferences = async (feedName, patch) => {
+      Reflect.set(window, "__myskyFollowingSavedPatch", patch);
+      return originalPatch(feedName, patch);
+    };
+    service.createFeedPreview = async (feedName, patch) => {
+      Reflect.set(window, "__myskyFollowingPreviewPatch", patch);
+      return originalCreate(feedName, patch);
+    };
+  });
+
+  await setSourcePercentage(page, "Following", "100");
+  const preview = page.getByRole("button", { name: "Update Preview" });
+  await expect(preview).toBeEnabled();
+  await preview.click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => Boolean(Reflect.get(window, "__myskyFollowingPreviewPatch"))),
+    )
+    .toBe(true);
+
+  const payloads = await page.evaluate(() => ({
+    saved: Reflect.get(window, "__myskyFollowingSavedPatch") as Record<string, unknown>,
+    preview: Reflect.get(window, "__myskyFollowingPreviewPatch") as Record<string, unknown>,
+  }));
+  const expectedWeights = { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 };
+  expect(payloads.saved).toMatchObject({ sourceWeights: expectedWeights });
+  expect(payloads.preview).toMatchObject({ sourceWeights: expectedWeights });
+});
+
 test("1024px is desktop: the populated post pane remains beside settings without overflow", async ({
   page,
 }) => {
@@ -204,7 +367,7 @@ test("changes persist immediately, Undo/Redo toggles, and Preview never accepts 
   ).toBeVisible();
 
   await preview.click();
-  await expect(settings.getByText("45 available of 48 ranked", { exact: true })).toBeVisible({
+  await expect(settings.getByText("45 shown of 48 ranked", { exact: true })).toBeVisible({
     timeout: 12_000,
   });
   await expect(preview).toBeDisabled({ timeout: 12_000 });

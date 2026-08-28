@@ -331,6 +331,30 @@ describe("PreferencesStore.savePatch", () => {
     expect(capture).not.toHaveBeenCalledWith("feedControlChanged", expect.anything());
     consoleError.mockRestore();
   });
+
+  it("lets Preview wait for the active feed's in-flight persistence", async () => {
+    let resolvePatch: ((value: FeedPreferences) => void) | undefined;
+    const patch = vi.fn().mockReturnValue(
+      new Promise<FeedPreferences>((resolve) => {
+        resolvePatch = resolve;
+      }),
+    );
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const saving = store.savePatch("your-feed", { freshness: 2 });
+    const waiting = store.waitForPendingSaves("your-feed");
+    let settled = false;
+    void waiting.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolvePatch?.({ freshness: 2 });
+    await expect(saving).resolves.toBe(true);
+    await expect(waiting).resolves.toBe(true);
+  });
 });
 
 describe("PreferencesStore.restoreDefaults", () => {

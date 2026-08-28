@@ -37,7 +37,9 @@ function detail(
       displayedItemCount: uris.length,
       publiclyFilteredCount: 0,
       unavailableCount: 0,
+      partialItemCount: 0,
     },
+    generatorDiagnostics: [],
   };
 }
 
@@ -144,6 +146,109 @@ describe("SettingsPreviewStore", () => {
 
     expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
     expect(store.error).toBe("preview unavailable");
+  });
+
+  it("retries the same preview snapshot when hydration is partial", async () => {
+    vi.useFakeTimers();
+    try {
+      const { root, getFeedPreview } = harness();
+      const store = new SettingsPreviewStore(root);
+      await store.activateFeed("your-feed");
+      const partial = detail("preview-1", ["ranked"]);
+      partial.items = [{ ...apiItem("ranked"), isPartial: true }];
+      partial.filteringCounts.partialItemCount = 1;
+      partial.filteringCounts.unavailableCount = 1;
+      const hydrated = detail("preview-1", ["ranked"]);
+      getFeedPreview.mockReset().mockResolvedValueOnce(partial).mockResolvedValueOnce(hydrated);
+
+      const pending = store.preview({ freshness: 2 });
+      await vi.advanceTimersByTimeAsync(500);
+      const preview = await pending;
+
+      expect(getFeedPreview).toHaveBeenNthCalledWith(1, "preview-1");
+      expect(getFeedPreview).toHaveBeenNthCalledWith(2, "preview-1");
+      expect(preview?.items[0]?.isPartial).toBe(false);
+      expect(preview?.filteringCounts.partialItemCount).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows ranked fallback cards after the hydration retry remains partial", async () => {
+    vi.useFakeTimers();
+    try {
+      const { root, getFeedPreview } = harness();
+      const store = new SettingsPreviewStore(root);
+      await store.activateFeed("your-feed");
+      const partial = detail("preview-1", ["ranked"]);
+      partial.items = [{ ...apiItem("ranked"), isPartial: true }];
+      partial.filteringCounts.partialItemCount = 1;
+      partial.filteringCounts.unavailableCount = 1;
+      getFeedPreview.mockReset().mockResolvedValue(partial);
+
+      const pending = store.preview({ freshness: 2 });
+      await vi.advanceTimersByTimeAsync(500);
+      const preview = await pending;
+      expect(preview).not.toBeNull();
+      if (preview) store.acceptPreview(preview);
+
+      expect(store.displayedItems[0]?.isPartial).toBe(true);
+      expect(store.warning).toContain("1 ranked post is shown with limited details");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the current slate when every active generator fails", async () => {
+    const { root, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const failed = detail("preview-1", []);
+    failed.generatorDiagnostics = [
+      {
+        name: "network_likes",
+        weight: 1,
+        requestedCount: 100,
+        returnedCount: 0,
+        contributedCount: 0,
+        status: "timeout",
+        reason: "generator_timeout",
+        mode: "primary",
+      },
+    ];
+    getFeedPreview.mockReset().mockResolvedValue(failed);
+
+    await expect(store.preview({ freshness: 2 })).resolves.toBeNull();
+
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
+    expect(store.error).toContain("Liked by Following");
+  });
+
+  it("accepts a truthful empty source and explains it", async () => {
+    const { root, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const empty = detail("preview-1", []);
+    empty.generatorDiagnostics = [
+      {
+        name: "followed_users",
+        weight: 1,
+        requestedCount: 100,
+        returnedCount: 0,
+        contributedCount: 0,
+        status: "empty",
+        reason: "no_candidates",
+        mode: "primary",
+      },
+    ];
+    getFeedPreview.mockReset().mockResolvedValue(empty);
+
+    const preview = await store.preview({ freshness: 2 });
+    expect(preview).not.toBeNull();
+    if (preview) store.acceptPreview(preview);
+
+    expect(store.displayedItems).toEqual([]);
+    expect(store.warning).toContain("No posts matched Following");
   });
 
   it("uses an empty hypothetical request to replace an old baseline", async () => {

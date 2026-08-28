@@ -1,11 +1,35 @@
 import { makeAutoObservable } from "mobx";
 import type { AlgorithmId } from "../constants/algorithms";
-import type { FeedItemView, FilteringCounts } from "../models/feed-debug-snapshot";
+import type {
+  FeedItemView,
+  FilteringCounts,
+  GeneratorDiagnostic,
+} from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { FeedPreferences } from "../services/types";
 import type { RootStore } from "./root-store";
 
 const BASELINE_MAX_AGE_MS = 10 * 60 * 1000;
+const HYDRATION_RETRY_DELAY_MS = 500;
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function generatorLabel(name: string): string {
+  switch (name) {
+    case "followed_users":
+      return "Following";
+    case "network_likes":
+      return "Liked by Following";
+    case "two_tower":
+      return "Authors & Topics";
+    case "popularity":
+      return "Popular";
+    default:
+      return name.split("_").join(" ");
+  }
+}
 
 function signature(feedName: AlgorithmId, patch: FeedPreferences): string {
   return JSON.stringify({ feedName, patch });
@@ -22,6 +46,7 @@ export interface GeneratedSettingsPreview {
   generatedAt: string;
   items: FeedItemView[];
   filteringCounts: FilteringCounts;
+  generatorDiagnostics: GeneratorDiagnostic[];
   signature: string;
 }
 
@@ -34,6 +59,7 @@ const EMPTY_FILTERING_COUNTS: FilteringCounts = {
   displayedItemCount: 0,
   publiclyFilteredCount: 0,
   unavailableCount: 0,
+  partialItemCount: 0,
 };
 
 export class SettingsPreviewStore {
@@ -375,6 +401,25 @@ export class SettingsPreviewStore {
     this.displayedFilteringCounts = preview.filteringCounts;
     this.displayRevision++;
     this.error = null;
+    const partialCount = preview.filteringCounts.partialItemCount ?? 0;
+    if (partialCount > 0) {
+      this.warning = `${String(partialCount)} ranked ${partialCount === 1 ? "post is" : "posts are"} shown with limited details because Bluesky could not load the full post data.`;
+    } else if (preview.items.length === 0) {
+      const activeDiagnostics = preview.generatorDiagnostics.filter(
+        (diagnostic) => diagnostic.weight > 0,
+      );
+      const labels = activeDiagnostics.map((diagnostic) => generatorLabel(diagnostic.name));
+      const returnedCount = activeDiagnostics.reduce(
+        (total, diagnostic) => total + diagnostic.returnedCount,
+        0,
+      );
+      this.warning =
+        returnedCount > 0
+          ? "Posts were found, but none passed the current ranking and quality filters."
+          : `No posts matched ${labels.join(" and ") || "the selected sources"} in the selected time window.`;
+    } else {
+      this.warning = null;
+    }
     this.lastPreviewSignature = preview.signature;
     this.lastPreviewRequestId = preview.requestId;
     this.lastPreviewGeneratedAt = preview.generatedAt;
@@ -414,7 +459,32 @@ export class SettingsPreviewStore {
     generation: number,
   ): Promise<GeneratedSettingsPreview> {
     const session = await this.root.services.feedApiService.createFeedPreview(feedName, patch);
-    const detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
+    let detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
+    if ((detail.filteringCounts.partialItemCount ?? 0) > 0) {
+      await delay(HYDRATION_RETRY_DELAY_MS);
+      if (this.isCurrentFeed(feedName, generation)) {
+        const retried = await this.root.services.feedApiService.getFeedPreview(session.requestId);
+        if (
+          (retried.filteringCounts.partialItemCount ?? 0) <
+            (detail.filteringCounts.partialItemCount ?? 0) ||
+          (retried.items?.length ?? 0) > (detail.items?.length ?? 0)
+        ) {
+          detail = retried;
+        }
+      }
+    }
+    const diagnostics = detail.generatorDiagnostics ?? [];
+    const failedDiagnostics = diagnostics.filter(
+      (diagnostic) =>
+        diagnostic.weight > 0 &&
+        ["error", "timeout", "not_configured", "not_run"].includes(diagnostic.status),
+    );
+    if ((detail.items?.length ?? 0) === 0 && failedDiagnostics.length > 0) {
+      const sources = failedDiagnostics.map((diagnostic) => generatorLabel(diagnostic.name));
+      throw new Error(
+        `Preview could not load ${sources.join(" and ")} posts. Your current preview was kept; try again.`,
+      );
+    }
     return {
       feedName,
       generation,
@@ -422,6 +492,7 @@ export class SettingsPreviewStore {
       generatedAt: detail.generatedAt,
       items: transformFeedItems(detail.items),
       filteringCounts: detail.filteringCounts,
+      generatorDiagnostics: diagnostics,
       signature: previewSignature,
     };
   }
