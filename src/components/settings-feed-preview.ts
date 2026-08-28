@@ -463,33 +463,47 @@ export class SettingsFeedPreview extends LitElement {
       const currentVisibleUris = new Set(currentVisible.map((item) => item.atUri));
       const nextVisibleUris = new Set(nextVisible.map((item) => item.atUri));
       const survivingCurrentPage = currentVisible.filter((item) => nextVisibleUris.has(item.atUri));
+      const survivingNextPage = nextVisible.filter((item) => currentVisibleUris.has(item.atUri));
+      const hasReordering = survivingCurrentPage.some(
+        (item, index) => item.atUri !== survivingNextPage[index]?.atUri,
+      );
       this.currentSlate = next;
       this.renderedItems = survivingCurrentPage;
       this.removedUris = new Set();
-      this.phase = "rerank";
-      await this.updateComplete;
+      if (hasReordering) {
+        this.phase = "rerank";
+        await this.updateComplete;
 
-      const oldElements = [...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]")];
-      const oldRects = new Map(
-        oldElements.map((element) => [element.dataset.uri ?? "", element.getBoundingClientRect()]),
-      );
+        const oldElements = [
+          ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
+        ];
+        const oldRects = new Map(
+          oldElements.map((element) => [element.dataset.uri ?? "", element.getBoundingClientRect()]),
+        );
 
-      this.renderedItems = nextVisible.filter((item) => currentVisibleUris.has(item.atUri));
-      await this.updateComplete;
-      const animations = [
-        ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
-      ].map((element) => {
-        const oldRect = oldRects.get(element.dataset.uri ?? "");
-        const newRect = element.getBoundingClientRect();
-        const offset = oldRect ? oldRect.top - newRect.top : 0;
-        return element
-          .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
-            duration: PREVIEW_ANIMATION_TIMINGS.rerank,
-            easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-          })
-          .finished.catch(() => undefined);
-      });
-      await Promise.all(animations);
+        this.renderedItems = survivingNextPage;
+        await this.updateComplete;
+        const animations = [
+          ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
+        ].map((element) => {
+          const oldRect = oldRects.get(element.dataset.uri ?? "");
+          const newRect = element.getBoundingClientRect();
+          const offset = oldRect ? oldRect.top - newRect.top : 0;
+          return element
+            .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
+              duration: PREVIEW_ANIMATION_TIMINGS.rerank,
+              easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+            })
+            .finished.catch(() => undefined);
+        });
+        await Promise.all(animations);
+      } else {
+        // Deletions and insertions can change the visible page without changing
+        // the relative order of its surviving posts. Move directly to the next
+        // phase instead of holding on an imperceptible rerank animation.
+        this.renderedItems = survivingNextPage;
+        await this.updateComplete;
+      }
 
       this.newUris = new Set(
         nextVisible.filter((item) => !currentVisibleUris.has(item.atUri)).map((item) => item.atUri),

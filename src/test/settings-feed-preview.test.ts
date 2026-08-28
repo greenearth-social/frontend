@@ -164,7 +164,7 @@ describe("settings feed movement presentation", () => {
     await element.updateComplete;
 
     try {
-      const finished = element.animateTo(["b", "c", "new"].map(item));
+      const finished = element.animateTo(["c", "b", "new"].map(item));
       await element.updateComplete;
       expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-out");
       expect(element.shadowRoot?.querySelectorAll(".fade-out .card.removed")).toHaveLength(1);
@@ -202,6 +202,41 @@ describe("settings feed movement presentation", () => {
       await finished;
       await element.updateComplete;
       expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("idle");
+    } finally {
+      element.remove();
+      Object.defineProperty(HTMLElement.prototype, "animate", {
+        configurable: true,
+        value: originalAnimate,
+      });
+      vi.useRealTimers();
+    }
+  });
+
+  it("skips the rerank pause when surviving posts keep their order", async () => {
+    vi.useFakeTimers();
+    const originalAnimate = HTMLElement.prototype.animate;
+    const animate = vi.fn(() => ({ finished: Promise.resolve() }));
+    Object.defineProperty(HTMLElement.prototype, "animate", {
+      configurable: true,
+      value: animate,
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = ["a", "b", "c"].map(item);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const finished = element.animateTo(["b", "c", "new"].map(item));
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeOut);
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.removeSpace);
+      await element.updateComplete;
+
+      expect(animate).not.toHaveBeenCalled();
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("insert-space");
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.insertSpace);
+      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeIn);
+      await finished;
     } finally {
       element.remove();
       Object.defineProperty(HTMLElement.prototype, "animate", {
