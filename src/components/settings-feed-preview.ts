@@ -323,25 +323,6 @@ export class SettingsFeedPreview extends LitElement {
       -webkit-line-clamp: 2;
     }
 
-    .compact .card,
-    .rerank .card,
-    .insert-space .card {
-      min-height: 2.875rem;
-      max-height: 2.875rem;
-    }
-
-    .compact .snippet,
-    .rerank .snippet,
-    .insert-space .snippet,
-    .compact .content-row,
-    .rerank .content-row,
-    .insert-space .content-row {
-      min-height: 0;
-      max-height: 0;
-      margin-top: 0;
-      opacity: 0;
-    }
-
     .fade-out .card.removed {
       opacity: 0;
       transition-delay: var(--removal-delay, 0ms);

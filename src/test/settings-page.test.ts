@@ -58,6 +58,7 @@ vi.mock("../main", () => ({
 
 import "../pages/settings-page";
 import type { IconRangeSlider } from "../components/icon-range-slider";
+import { MOBILE_PREVIEW_SETTLE_DELAY_MS } from "../pages/settings-page";
 import { settingsPageStyles } from "../pages/settings-page.styles";
 
 describe("SettingsPage", () => {
@@ -639,6 +640,15 @@ describe("SettingsPage", () => {
     expect(settingsPageStyles.cssText).toMatch(
       /\.history-btn\s*\{[^}]*border-color:\s*var\(--bluesky-border\)/s,
     );
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.mobile-preview-btn\s*\{[^}]*background:\s*var\(--bluesky-brand\)/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.update-preview-btn\s*\{[^}]*background:\s*var\(--bluesky-brand\)/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(min-width: 1024px\)[\s\S]*\.update-preview-btn\s*\{[^}]*left:\s*50%/s,
+    );
 
     const mobileActions = element.shadowRoot?.querySelector(".preview-mobile-primary-actions");
     expect(Array.from(mobileActions?.children ?? []).map((child) => child.className)).toEqual([
@@ -675,6 +685,59 @@ describe("SettingsPage", () => {
     expect(
       element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.disabled,
     ).toBe(false);
+  });
+
+  it("briefly settles the mobile Preview screen before starting its animation", async () => {
+    vi.useFakeTimers();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      media: "(max-width: 1023px)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    testState.rootStore.settingsPreviewStore.preview.mockResolvedValue({ items: [] });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const freshness = Array.from(
+        element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+      ).find((slider) => slider.ariaLabel === "Time Window");
+      freshness?.dispatchEvent(
+        new CustomEvent("slider-change", {
+          bubbles: true,
+          composed: true,
+          detail: { value: 2 },
+        }),
+      );
+      await Promise.resolve();
+      await element.updateComplete;
+
+      const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+      if (!feed) throw new Error("Settings feed preview was not rendered");
+      const animateTo = vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.click();
+      for (let index = 0; index < 4; index++) await Promise.resolve();
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".settings-layout")?.classList).toContain(
+        "mobile-preview-open",
+      );
+      expect(animateTo).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(MOBILE_PREVIEW_SETTLE_DELAY_MS - 1);
+      expect(animateTo).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(animateTo).toHaveBeenCalledTimes(1);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+      vi.useRealTimers();
+    }
   });
 
   it("reports baseline sync errors without a manual Retry control", async () => {

@@ -56,12 +56,26 @@ export const settingsPageStyles = css`
 
   .update-preview-btn {
     display: none;
+    min-height: 44px;
+    padding: 0.6rem 1.25rem;
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-brand);
+    color: #fff;
+    font-size: 0.875rem;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
   }
 
   .mobile-preview-btn {
     display: inline-flex;
+    min-height: 42px;
     align-items: center;
     justify-content: center;
+    padding-inline: 1rem;
+    border-color: var(--bluesky-brand);
+    background: var(--bluesky-brand);
+    color: #fff;
+    font-size: 0.8125rem;
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--bluesky-brand) 28%, transparent);
   }
 
   .history-btn {
@@ -101,8 +115,8 @@ export const settingsPageStyles = css`
 
   .update-preview-btn:hover:not(:disabled),
   .mobile-preview-btn:hover:not(:disabled) {
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-bg-hover);
+    border-color: color-mix(in srgb, var(--bluesky-brand) 82%, white);
+    background: color-mix(in srgb, var(--bluesky-brand) 86%, black);
   }
 
   .history-btn:hover:not(:disabled) {
@@ -123,6 +137,13 @@ export const settingsPageStyles = css`
     color: var(--bluesky-text-secondary);
     cursor: default;
     opacity: 0.5;
+  }
+
+  .update-preview-btn:disabled,
+  .mobile-preview-btn:disabled {
+    border-color: var(--bluesky-border);
+    background: var(--bluesky-bg-card);
+    box-shadow: none;
   }
 
   .preview-header h2 {
@@ -1083,7 +1104,6 @@ export const settingsPageStyles = css`
       font-size: 1rem;
     }
 
-    .mobile-preview-btn,
     .reset-defaults-btn {
       min-height: 36px;
       padding-inline: 0.7rem;
@@ -1095,7 +1115,7 @@ export const settingsPageStyles = css`
     }
   }
 
-  @media (max-width: 479px) {
+  @media (max-width: 489px) {
     .header-row {
       gap: 0.35rem;
       padding: 0.6rem 0.5rem;
@@ -1131,13 +1151,13 @@ export const settingsPageStyles = css`
 
     .mobile-preview-btn {
       width: auto;
-      min-height: 36px;
-      padding-inline: 0.4rem;
-      font-size: 0.75rem;
+      min-height: 42px;
+      padding-inline: 0.65rem;
+      font-size: 0.8125rem;
     }
   }
 
-  @media (max-width: 359px) {
+  @media (max-width: 374px) {
     .header-row {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1176,6 +1196,10 @@ export const settingsPageStyles = css`
     .mobile-preview-btn {
       width: 100%;
       min-height: 40px;
+    }
+
+    .mobile-preview-btn {
+      min-height: 44px;
     }
   }
 
@@ -1235,9 +1259,12 @@ export const settingsPageStyles = css`
     }
 
     .update-preview-btn {
+      position: absolute;
+      left: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      transform: translateX(-50%);
     }
   }
 
@@ -1257,8 +1284,8 @@ export const settingsPageStyles = css`
     }
 
     .mobile-preview-btn {
-      padding-inline: 0.4rem;
-      font-size: 0.75rem;
+      padding-inline: 0.65rem;
+      font-size: 0.8125rem;
     }
 
     .reset-defaults-btn {

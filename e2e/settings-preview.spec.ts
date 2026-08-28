@@ -314,6 +314,7 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   await preview.click();
 
   await expect(feed).toBeVisible();
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/);
   const mobileActions = settings.locator(".preview-mobile-primary-actions");
   const back = settings.getByRole("button", { name: "Back to settings" });
   await expect(back).toBeVisible();
@@ -407,7 +408,7 @@ test("crossing the desktop breakpoint returns a stale mobile preview to Settings
 test("Settings keeps the full title until the mobile header is space constrained", async ({
   page,
 }) => {
-  for (const width of [375, 479]) {
+  for (const width of [375, 479, 480, 489]) {
     await page.setViewportSize({ width, height: 720 });
     await openSettings(page);
     const settings = page.locator("settings-page");
@@ -437,7 +438,7 @@ test("Settings keeps the full title until the mobile header is space constrained
     expect(title.headerOverflow).toBeLessThanOrEqual(0);
   }
 
-  for (const width of [480, 768, 1023, 1024]) {
+  for (const width of [490, 768, 1023, 1024]) {
     await page.setViewportSize({ width, height: 720 });
     await openSettings(page);
     const settings = page.locator("settings-page");
@@ -453,6 +454,46 @@ test("Settings keeps the full title until the mobile header is space constrained
     expect(header.scrollWidth).toBeLessThanOrEqual(header.clientWidth);
     expect(header.titleScrollWidth).toBeLessThanOrEqual(header.titleClientWidth);
   }
+});
+
+test("Defaults stays fully visible across the responsive header range", async ({ page }) => {
+  await page.setViewportSize({ width: 1023, height: 720 });
+  await openSettings(page);
+  const settings = page.locator("settings-page");
+  const defaults = settings.getByRole("button", { name: "Reset settings to defaults" });
+  const widths = Array.from(
+    new Set([
+      ...Array.from({ length: 73 }, (_, index) => 300 + index * 10),
+      359,
+      360,
+      374,
+      375,
+      479,
+      480,
+      489,
+      490,
+      1023,
+    ]),
+  ).sort((a, b) => a - b);
+  const clipped: Array<{ width: number; left: number; right: number; labelClipped: boolean }> = [];
+
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 720 });
+    const geometry = await defaults.evaluate((button) => {
+      const buttonRect = button.getBoundingClientRect();
+      const label = button.querySelector(".reset-label");
+      return {
+        left: buttonRect.left,
+        right: buttonRect.right,
+        labelClipped: label ? label.scrollWidth > label.clientWidth : true,
+      };
+    });
+    if (geometry.left < 0 || geometry.right > width || geometry.labelClipped) {
+      clipped.push({ width, ...geometry });
+    }
+  }
+
+  expect(clipped).toEqual([]);
 });
 
 test("navigation leaves Settings immediately without an unsaved-change dialog", async ({

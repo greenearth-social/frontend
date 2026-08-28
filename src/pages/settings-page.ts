@@ -71,6 +71,8 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
   );
 }
 
+export const MOBILE_PREVIEW_SETTLE_DELAY_MS = 300;
+
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
@@ -1054,7 +1056,8 @@ export class SettingsPage extends MobxLitElement {
       return;
     }
     if (store.isRefreshingBaseline) this.baselineSyncPending = true;
-    if (window.matchMedia("(max-width: 1023px)").matches) this.mobilePreviewOpen = true;
+    const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
+    if (isMobilePreview) this.mobilePreviewOpen = true;
     const feedName = this.selectedAlgorithm;
     const revision = this.settingsRevision;
     const animationOperation = ++this.previewAnimationOperation;
@@ -1072,6 +1075,21 @@ export class SettingsPage extends MobxLitElement {
     const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
     this.isPreviewAnimating = true;
     try {
+      if (isMobilePreview) {
+        // Let the overlay settle briefly before its contents begin moving so
+        // the transition to the Preview screen remains easy to follow.
+        await this.updateComplete;
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, MOBILE_PREVIEW_SETTLE_DELAY_MS);
+        });
+        if (
+          revision !== this.settingsRevision ||
+          feedName !== this.selectedAlgorithm ||
+          animationOperation !== this.previewAnimationOperation
+        ) {
+          return;
+        }
+      }
       if (feed) await feed.animateTo(generated.items);
       if (
         revision !== this.settingsRevision ||

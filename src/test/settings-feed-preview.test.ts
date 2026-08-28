@@ -148,7 +148,7 @@ describe("settings feed movement presentation", () => {
     expect(revealCascadeDelay(3, 4)).toBe(675);
   });
 
-  it("fades departures before compacting and reordering the remaining cards", async () => {
+  it("fades departures before removing their space and reordering full cards", async () => {
     vi.useFakeTimers();
     const animationResolvers: Array<() => void> = [];
     const originalAnimate = HTMLElement.prototype.animate;
@@ -174,7 +174,9 @@ describe("settings feed movement presentation", () => {
       await element.updateComplete;
       expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("compact");
       expect(element.shadowRoot?.querySelectorAll(".compact .card")).toHaveLength(3);
-      expect(SettingsFeedPreview.styles.cssText).toContain("min-height: 2.875rem");
+      expect(SettingsFeedPreview.styles.cssText).not.toContain(".compact .snippet");
+      expect(SettingsFeedPreview.styles.cssText).not.toContain(".rerank .snippet");
+      expect(SettingsFeedPreview.styles.cssText).toContain(".compact .card.removed");
 
       await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.removeSpace);
       await element.updateComplete;
