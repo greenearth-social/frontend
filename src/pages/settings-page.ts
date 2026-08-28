@@ -265,22 +265,22 @@ export class SettingsPage extends MobxLitElement {
                   Preview
                 </button>
               </div>
-                <button
-                  class="reset-defaults-btn"
-                  type="button"
-                  aria-label="Reset settings to defaults"
-                  ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
-                  @click=${() => {
+              <button
+                class="reset-defaults-btn"
+                type="button"
+                aria-label="Reset settings to defaults"
+                ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
+                @click=${() => {
                     void this.#restoreDefaults();
                   }}
-                >
-                  <svg viewBox="0 0 640 640" aria-hidden="true">
-                    <path
-                      d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
-                    ></path>
-                  </svg>
-                  <span class="reset-label">Defaults</span>
-                </button>
+              >
+                <svg viewBox="0 0 640 640" aria-hidden="true">
+                  <path
+                    d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
+                  ></path>
+                </svg>
+                <span class="reset-label">Defaults</span>
+              </button>
             </div>
           </div>
 
@@ -368,7 +368,9 @@ export class SettingsPage extends MobxLitElement {
           ${
             previewStore?.baselineRefreshError
               ? html`<div class="preview-error baseline-refresh-error" role="status">
-                  <span>Current feed could not be refreshed. We’ll check again when you return.</span>
+                  <span
+                    >Current feed could not be refreshed. We’ll check again when you return.</span
+                  >
                 </div>`
               : ""
           }
@@ -1029,6 +1031,19 @@ export class SettingsPage extends MobxLitElement {
       this.#drainBaselineSyncQueue();
       return;
     }
+    const accepted = await store.acceptGeneratedPreview(generated, patch);
+    if (
+      !accepted ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+      return;
+    }
     const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
     try {
       if (isMobilePreview) {
@@ -1046,7 +1061,7 @@ export class SettingsPage extends MobxLitElement {
           return;
         }
       }
-      if (feed) await feed.animateTo(generated.items);
+      if (feed) await feed.animateTo(accepted.items);
       if (
         revision !== this.settingsRevision ||
         feedName !== this.selectedAlgorithm ||
@@ -1054,7 +1069,7 @@ export class SettingsPage extends MobxLitElement {
       ) {
         return;
       }
-      store.acceptPreview(generated);
+      store.acceptPreview(accepted);
       this.previewNeeded = false;
     } finally {
       if (animationOperation === this.previewAnimationOperation) {

@@ -556,6 +556,10 @@ export class FeedPage extends MobxLitElement {
                     .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
                     .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
                     .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
+                    .hasSnapshot=${feedStore.currentRequestId !== null}
+                    .generatedAt=${feedStore.lastGeneratedAt ?? ""}
+                    .filteringCounts=${feedStore.currentFilteringCounts}
+                    .generatorDiagnostics=${feedStore.currentGeneratorDiagnostics}
                     @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}
@@ -718,12 +722,7 @@ export class FeedPage extends MobxLitElement {
   #drainLifecycleSyncQueue(): void {
     if (!this._lifecycleSyncPending || !this.isConnected) return;
     const store = getRootStore();
-    if (
-      !store ||
-      store.feedStore.isLoading ||
-      this._pullRefreshing ||
-      this._lifecycleSyncPromise
-    ) {
+    if (!store || store.feedStore.isLoading || this._pullRefreshing || this._lifecycleSyncPromise) {
       return;
     }
     this._lifecycleSyncPending = false;

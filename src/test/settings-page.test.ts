@@ -38,6 +38,7 @@ const testState = vi.hoisted(() => {
         activateFeed: vi.fn().mockResolvedValue(undefined),
         refreshBaselineIfNew: vi.fn().mockResolvedValue({ status: "unchanged" }),
         preview: vi.fn().mockResolvedValue(null),
+        acceptGeneratedPreview: vi.fn().mockResolvedValue(null),
         acceptPreview: vi.fn(),
         baselineItems: [],
         displayedItems: [],
@@ -101,6 +102,10 @@ describe("SettingsPage", () => {
     });
     testState.rootStore.settingsPreviewStore.preview.mockReset();
     testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(null);
+    testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockReset();
+    testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockImplementation(
+      (preview: unknown) => Promise.resolve(preview),
+    );
     testState.rootStore.settingsPreviewStore.acceptPreview.mockReset();
     testState.rootStore.settingsPreviewStore.isLoadingBaseline = false;
     testState.rootStore.settingsPreviewStore.isRefreshingBaseline = false;
@@ -634,9 +639,7 @@ describe("SettingsPage", () => {
     );
     expect(settingsHistory?.textContent.trim()).toBe("Undo");
     expect(settingsHistory?.querySelector("wa-icon")?.getAttribute("name")).toBe("undo");
-    expect(settingsPageStyles.cssText).toMatch(
-      /\.history-btn\s*\{[^}]*background:\s*transparent/s,
-    );
+    expect(settingsPageStyles.cssText).toMatch(/\.history-btn\s*\{[^}]*background:\s*transparent/s);
     expect(settingsPageStyles.cssText).toMatch(
       /\.history-btn\s*\{[^}]*border-color:\s*var\(--bluesky-border\)/s,
     );
@@ -827,17 +830,23 @@ describe("SettingsPage", () => {
 
       window.dispatchEvent(new Event("focus"));
       await vi.advanceTimersByTimeAsync(0);
-      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(1);
+      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(
+        1,
+      );
 
       window.dispatchEvent(new PageTransitionEvent("pageshow"));
       await vi.advanceTimersByTimeAsync(0);
-      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(1);
+      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(
+        1,
+      );
 
       finishFirst?.({ status: "unchanged" });
       await Promise.resolve();
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(0);
-      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(2);
+      expect(testState.rootStore.settingsPreviewStore.refreshBaselineIfNew).toHaveBeenCalledTimes(
+        2,
+      );
     } finally {
       document.body.replaceChildren();
       if (originalVisibility) {

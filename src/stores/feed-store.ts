@@ -1,5 +1,10 @@
 import { makeAutoObservable } from "mobx";
-import type { FeedItemView, FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
+import type {
+  FeedItemView,
+  FeedSummary,
+  FilteringCounts,
+  GeneratorDiagnostic,
+} from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
@@ -25,6 +30,7 @@ export class FeedStore {
   feedList: FeedSummary[] = [];
   currentRequestId: string | null = null;
   filteringCountsByRequest: Record<string, FilteringCounts> = {};
+  generatorDiagnosticsByRequest: Record<string, GeneratorDiagnostic[]> = {};
 
   private _feedListLoadSeq: number = 0;
   private _loadSeq: number = 0;
@@ -59,6 +65,25 @@ export class FeedStore {
 
   get hasMore(): boolean {
     return this._currentPage < this.totalPages;
+  }
+
+  get currentSummary(): FeedSummary | null {
+    if (!this.currentRequestId) return null;
+    return this.feedList.find((feed) => feed.requestId === this.currentRequestId) ?? null;
+  }
+
+  get currentFilteringCounts(): FilteringCounts | null {
+    if (!this.currentRequestId) return null;
+    return this.filteringCountsByRequest[this.currentRequestId] ?? null;
+  }
+
+  get currentGeneratorDiagnostics(): GeneratorDiagnostic[] {
+    if (!this.currentRequestId) return [];
+    return (
+      this.generatorDiagnosticsByRequest[this.currentRequestId] ??
+      this.currentSummary?.generatorDiagnostics ??
+      []
+    );
   }
 
   private _updateVisibleItems(): void {
@@ -123,6 +148,7 @@ export class FeedStore {
     this.feedList = [];
     this.currentRequestId = null;
     this.filteringCountsByRequest = {};
+    this.generatorDiagnosticsByRequest = {};
   }
 
   async loadFeedList(options?: { feedName?: AlgorithmId; force?: boolean }): Promise<void> {
@@ -235,6 +261,11 @@ export class FeedStore {
 
       this._allItems = transformFeedItems(response.items ?? []);
       this.filteringCountsByRequest[requestId] = response.filteringCounts;
+      this.generatorDiagnosticsByRequest[requestId] =
+        response.generatorDiagnostics && response.generatorDiagnostics.length > 0
+          ? response.generatorDiagnostics
+          : (this.feedList.find((feed) => feed.requestId === requestId)?.generatorDiagnostics ??
+            []);
       this.currentRequestId = requestId;
       this._currentPage = 1;
       this._updateVisibleItems();

@@ -129,7 +129,9 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
       buttonCenter: buttonBox ? buttonBox.left + buttonBox.width / 2 : Number.NaN,
     };
   });
-  expect(Math.abs(previewHeaderGeometry.columnCenter - previewHeaderGeometry.buttonCenter)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(previewHeaderGeometry.columnCenter - previewHeaderGeometry.buttonCenter),
+  ).toBeLessThanOrEqual(1);
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
   const previewCard = settings.locator("settings-feed-preview .card").first();
   const candidate = previewCard.locator(".metadata .candidate-pill");
@@ -308,9 +310,7 @@ test("100% Following reaches persistence and Preview with every other source at 
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect
-    .poll(() =>
-      page.evaluate(() => Boolean(Reflect.get(window, "__myskyFollowingPreviewPatch"))),
-    )
+    .poll(() => page.evaluate(() => Boolean(Reflect.get(window, "__myskyFollowingPreviewPatch"))))
     .toBe(true);
 
   const payloads = await page.evaluate(() => ({
@@ -340,7 +340,7 @@ test("1024px is desktop: the populated post pane remains beside settings without
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-test("changes persist immediately, Undo/Redo toggles, and Preview never accepts a slate", async ({
+test("changes persist immediately and each displayed Preview is accepted exactly once", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -350,18 +350,37 @@ test("changes persist immediately, Undo/Redo toggles, and Preview never accepts 
     const appModule = (await import(modulePath)) as {
       getRootStore(): {
         services: {
-          feedApiService: { acceptFeedPreview: (...args: unknown[]) => Promise<unknown> };
+          feedApiService: {
+            acceptFeedPreview: (
+              feedName: string,
+              requestId: string,
+              patch: Record<string, unknown>,
+              displayedItemUris: string[],
+            ) => Promise<unknown>;
+          };
         };
       } | null;
     };
     const service = appModule.getRootStore()?.services.feedApiService;
     if (!service) throw new Error("Mock feed service unavailable");
-    const browserWindow = window as Window & { acceptPreviewCallCount?: number };
-    browserWindow.acceptPreviewCallCount = 0;
+    const browserWindow = window as Window & {
+      acceptPreviewCalls?: Array<{
+        feedName: string;
+        requestId: string;
+        patch: Record<string, unknown>;
+        displayedItemUris: string[];
+      }>;
+    };
+    browserWindow.acceptPreviewCalls = [];
     const original = service.acceptFeedPreview.bind(service);
-    service.acceptFeedPreview = (...args: unknown[]) => {
-      browserWindow.acceptPreviewCallCount = (browserWindow.acceptPreviewCallCount ?? 0) + 1;
-      return original(...args);
+    service.acceptFeedPreview = (feedName, requestId, patch, displayedItemUris) => {
+      browserWindow.acceptPreviewCalls?.push({
+        feedName,
+        requestId,
+        patch,
+        displayedItemUris: [...displayedItemUris],
+      });
+      return original(feedName, requestId, patch, displayedItemUris);
     };
   });
 
@@ -399,11 +418,33 @@ test("changes persist immediately, Undo/Redo toggles, and Preview never accepts 
   await expect(freshness).toHaveValue("2");
   await expect(settings.getByRole("button", { name: "Undo last settings change" })).toBeEnabled();
   await expect(preview).toBeEnabled();
-  expect(
-    await page.evaluate(
-      () => (window as Window & { acceptPreviewCallCount?: number }).acceptPreviewCallCount,
-    ),
-  ).toBe(0);
+  const acceptanceCalls = await page.evaluate(
+    () =>
+      (
+        window as Window & {
+          acceptPreviewCalls?: Array<{
+            feedName: string;
+            requestId: string;
+            patch: Record<string, unknown>;
+            displayedItemUris: string[];
+          }>;
+        }
+      ).acceptPreviewCalls ?? [],
+  );
+  expect(acceptanceCalls).toHaveLength(2);
+  expect(acceptanceCalls[0]).toMatchObject({
+    feedName: "your-feed",
+    patch: { freshness: 2 },
+  });
+  expect(acceptanceCalls[1]).toMatchObject({
+    feedName: "your-feed",
+    patch: { freshness: 5 },
+  });
+  for (const call of acceptanceCalls) {
+    expect(call.requestId).toMatch(/^preview-/);
+    expect(call.displayedItemUris.length).toBeGreaterThan(0);
+    expect(new Set(call.displayedItemUris).size).toBe(call.displayedItemUris.length);
+  }
 });
 
 test("a new edit after Undo replaces Redo and Defaults is one undoable action", async ({
@@ -551,12 +592,12 @@ test("320px visually shortens the accessible title and wraps header controls cle
   expect(headerGeometry.scrollWidth).toBeLessThanOrEqual(headerGeometry.clientWidth);
   expect(headerGeometry.titleScrollWidth).toBeLessThanOrEqual(headerGeometry.titleClientWidth);
   expect(headerGeometry.buttonWidths).toHaveLength(2);
-  expect(Math.max(...headerGeometry.buttonWidths) - Math.min(...headerGeometry.buttonWidths)).toBeLessThan(
-    1,
-  );
-  expect(Math.max(...headerGeometry.buttonGaps) - Math.min(...headerGeometry.buttonGaps)).toBeLessThan(
-    1,
-  );
+  expect(
+    Math.max(...headerGeometry.buttonWidths) - Math.min(...headerGeometry.buttonWidths),
+  ).toBeLessThan(1);
+  expect(
+    Math.max(...headerGeometry.buttonGaps) - Math.min(...headerGeometry.buttonGaps),
+  ).toBeLessThan(1);
   expect(headerGeometry.height).toBeGreaterThan(60);
   expect(headerGeometry.height).toBeLessThanOrEqual(128);
 });

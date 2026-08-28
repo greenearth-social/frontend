@@ -6,7 +6,7 @@ import type {
   GeneratorDiagnostic,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
-import type { FeedPreferences } from "../services/types";
+import { FeedApiError, type FeedPreferences } from "../services/types";
 import type { RootStore } from "./root-store";
 
 const BASELINE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -284,10 +284,7 @@ export class SettingsPreviewStore {
     this.baselineRefreshError = null;
     try {
       const feedList = await this.root.services.feedApiService.listFeeds();
-      if (
-        refreshOperation !== this.refreshOperation ||
-        !this.isCurrentFeed(feedName, generation)
-      ) {
+      if (refreshOperation !== this.refreshOperation || !this.isCurrentFeed(feedName, generation)) {
         return { status: "deferred" };
       }
       const latest = (feedList.feeds ?? [])
@@ -314,10 +311,7 @@ export class SettingsPreviewStore {
       }
 
       const detail = await this.root.services.feedApiService.getFeedDetail(latest.requestId);
-      if (
-        refreshOperation !== this.refreshOperation ||
-        !this.isCurrentFeed(feedName, generation)
-      ) {
+      if (refreshOperation !== this.refreshOperation || !this.isCurrentFeed(feedName, generation)) {
         return { status: "deferred" };
       }
 
@@ -335,19 +329,13 @@ export class SettingsPreviewStore {
       this.warning = null;
       return { status: "updated" };
     } catch (error) {
-      if (
-        refreshOperation === this.refreshOperation &&
-        this.isCurrentFeed(feedName, generation)
-      ) {
+      if (refreshOperation === this.refreshOperation && this.isCurrentFeed(feedName, generation)) {
         this.baselineRefreshError =
           error instanceof Error ? error.message : "Could not refresh the current feed";
       }
       return { status: "error" };
     } finally {
-      if (
-        refreshOperation === this.refreshOperation &&
-        this.isCurrentFeed(feedName, generation)
-      ) {
+      if (refreshOperation === this.refreshOperation && this.isCurrentFeed(feedName, generation)) {
         this.isRefreshingBaseline = false;
       }
     }
@@ -364,34 +352,71 @@ export class SettingsPreviewStore {
     this.isGenerating = true;
     this.error = null;
     try {
-      const generated = await this.generatePreview(
-        feedName,
-        patch,
-        previewSignature,
-        generation,
-      );
-      if (
-        previewOperation !== this.previewOperation ||
-        !this.isCurrentFeed(feedName, generation)
-      ) {
+      const generated = await this.generatePreview(feedName, patch, previewSignature, generation);
+      if (previewOperation !== this.previewOperation || !this.isCurrentFeed(feedName, generation)) {
         return null;
       }
       return generated;
     } catch (error) {
-      if (
-        previewOperation === this.previewOperation &&
-        this.isCurrentFeed(feedName, generation)
-      ) {
+      if (previewOperation === this.previewOperation && this.isCurrentFeed(feedName, generation)) {
         this.error = error instanceof Error ? error.message : "Could not generate a preview";
       }
       return null;
     } finally {
-      if (
-        previewOperation === this.previewOperation &&
-        this.isCurrentFeed(feedName, generation)
-      ) {
+      if (previewOperation === this.previewOperation && this.isCurrentFeed(feedName, generation)) {
         this.isGenerating = false;
       }
+    }
+  }
+
+  async acceptGeneratedPreview(
+    preview: GeneratedSettingsPreview,
+    patch: FeedPreferences,
+  ): Promise<GeneratedSettingsPreview | null> {
+    const { feedName, generation, signature: previewSignature } = preview;
+    if (!this.isCurrentFeed(feedName, generation)) return null;
+
+    const accept = async (candidate: GeneratedSettingsPreview): Promise<void> => {
+      await this.root.services.feedApiService.acceptFeedPreview(
+        candidate.feedName,
+        candidate.requestId,
+        patch,
+        candidate.items.map((item) => item.atUri),
+      );
+    };
+
+    try {
+      await accept(preview);
+      if (!this.isCurrentFeed(feedName, generation)) return null;
+      return preview;
+    } catch (error) {
+      let acceptanceError = error;
+      if (error instanceof FeedApiError && error.status === 404) {
+        try {
+          const regenerated = await this.generatePreview(
+            feedName,
+            patch,
+            previewSignature,
+            generation,
+          );
+          if (!this.isCurrentFeed(feedName, generation)) return null;
+          await accept(regenerated);
+          if (!this.isCurrentFeed(feedName, generation)) return null;
+          return regenerated;
+        } catch (retryError) {
+          acceptanceError = retryError;
+        }
+      }
+
+      if (this.isCurrentFeed(feedName, generation)) {
+        this.error =
+          acceptanceError instanceof FeedApiError && acceptanceError.status === 409
+            ? "Settings changed before Preview could be synchronized. Preview again."
+            : acceptanceError instanceof Error
+              ? acceptanceError.message
+              : "Preview could not be synchronized with MySky. Try again.";
+      }
+      return null;
     }
   }
 

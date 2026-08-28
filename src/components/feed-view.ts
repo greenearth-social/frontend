@@ -1,7 +1,12 @@
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { FeedItemView } from "../models/feed-debug-snapshot";
+import type {
+  FeedItemView,
+  FilteringCounts,
+  GeneratorDiagnostic,
+} from "../models/feed-debug-snapshot";
+import { emptySnapshotExplanation } from "../models/feed-empty-state";
 import type { AlgorithmId } from "../constants/algorithms";
 import "./feed-item-card";
 
@@ -12,6 +17,10 @@ export class FeedView extends MobxLitElement {
   @property({ type: String }) algorithmLabel: string = "";
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
   @property({ type: String }) localUserDid = "";
+  @property({ type: Boolean }) hasSnapshot = false;
+  @property({ type: String }) generatedAt = "";
+  @property({ attribute: false }) filteringCounts: FilteringCounts | null = null;
+  @property({ attribute: false }) generatorDiagnostics: GeneratorDiagnostic[] = [];
   @property({ type: Number }) engagingInfluence = 0.5;
   @property({ type: Number }) constructiveInfluence = 0.5;
 
@@ -39,6 +48,12 @@ export class FeedView extends MobxLitElement {
       color: var(--bluesky-text-secondary);
       text-align: center;
       line-height: 1.5;
+    }
+    .empty-state-time {
+      margin: -0.5rem 0 0;
+      color: var(--bluesky-text-secondary);
+      font-size: 0.8125rem;
+      text-align: center;
     }
     .local-dev-hint {
       max-width: 34rem;
@@ -78,11 +93,16 @@ export class FeedView extends MobxLitElement {
   render() {
     if (this.items.length === 0) {
       const label = this.algorithmLabel || "this feed";
+      const explanation = this.hasSnapshot
+        ? emptySnapshotExplanation(this.filteringCounts, this.generatorDiagnostics)
+        : `You have not refreshed ${label} within the last 24 hours.`;
+      const generatedTime = this.hasSnapshot ? this.#formattedGeneratedAt() : "";
       return html`
         <div class="empty-state">
-          <p class="empty-state-text">You have not refreshed ${label} within the last 24 hours.</p>
+          <p class="empty-state-text">${explanation}</p>
+          ${generatedTime ? html`<p class="empty-state-time">Refreshed ${generatedTime}</p>` : ""}
           ${
-            this.localUserDid
+            this.localUserDid && !this.hasSnapshot
               ? html`<p class="local-dev-hint">
                   Local user <code>${this.localUserDid}</code><br />
                   Generate a matching snapshot with
@@ -121,6 +141,12 @@ export class FeedView extends MobxLitElement {
         )}
       </div>
     `;
+  }
+
+  #formattedGeneratedAt(): string {
+    if (!this.generatedAt) return "";
+    const value = new Date(this.generatedAt);
+    return Number.isNaN(value.getTime()) ? "" : value.toLocaleString();
   }
 
   #notifyBlueskyFeedOpened = (): void => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ApiFeedItem, FeedDetailResponse } from "../models/feed-debug-snapshot";
-import type { FeedPreferences } from "../services/types";
+import { FeedApiError, type FeedPreferences } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { SettingsPreviewStore } from "../stores/settings-preview-store";
 
@@ -51,7 +51,11 @@ function harness(generatedAt = new Date().toISOString()) {
     expiresAt: new Date(Date.now() + 600_000).toISOString(),
   });
   const getFeedPreview = vi.fn().mockResolvedValue(detail("preview-1", ["b", "a", "new"]));
-  const acceptFeedPreview = vi.fn();
+  const acceptFeedPreview = vi.fn().mockResolvedValue({
+    requestId: "preview-1",
+    preferences: {},
+    acceptedUntil: null,
+  });
   const listFeeds = vi.fn().mockResolvedValue({
     feeds: [
       {
@@ -110,7 +114,7 @@ describe("SettingsPreviewStore", () => {
     expect(store.isDisplayingBaseline).toBe(true);
   });
 
-  it("generates from the supplied saved-settings snapshot without accepting it", async () => {
+  it("accepts the exact hydrated Preview before making it displayable", async () => {
     const { root, acceptFeedPreview, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
@@ -126,14 +130,75 @@ describe("SettingsPreviewStore", () => {
     };
 
     const preview = await store.preview(patch);
+    const accepted = preview ? await store.acceptGeneratedPreview(preview, patch) : null;
 
     expect(createFeedPreview).toHaveBeenCalledWith("your-feed", patch);
     expect(preview?.items.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
-    if (preview) store.acceptPreview(preview);
+    expect(acceptFeedPreview).toHaveBeenCalledWith("your-feed", "preview-1", patch, [
+      "b",
+      "a",
+      "new",
+    ]);
+    if (accepted) store.acceptPreview(accepted);
     expect(store.displayedItems.map((item) => item.atUri)).toEqual(["b", "a", "new"]);
     expect(store.baselineItems.map((item) => item.atUri)).toEqual(["a", "b", "c"]);
     expect(store.isDisplayingBaseline).toBe(false);
-    expect(acceptFeedPreview).not.toHaveBeenCalled();
+  });
+
+  it("regenerates and accepts once when the Preview cache expires", async () => {
+    const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2 };
+    createFeedPreview
+      .mockResolvedValueOnce({
+        requestId: "preview-1",
+        feedName: "your-feed",
+        generatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        requestId: "preview-2",
+        feedName: "your-feed",
+        generatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      });
+    getFeedPreview
+      .mockResolvedValueOnce(detail("preview-1", ["old-preview"]))
+      .mockResolvedValueOnce(detail("preview-2", ["replacement"]));
+    acceptFeedPreview
+      .mockRejectedValueOnce(new FeedApiError(404, "Feed preview not found"))
+      .mockResolvedValueOnce({ requestId: "preview-2", preferences: patch, acceptedUntil: null });
+
+    const preview = await store.preview(patch);
+    const accepted = preview ? await store.acceptGeneratedPreview(preview, patch) : null;
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+    expect(acceptFeedPreview).toHaveBeenNthCalledWith(1, "your-feed", "preview-1", patch, [
+      "old-preview",
+    ]);
+    expect(acceptFeedPreview).toHaveBeenNthCalledWith(2, "your-feed", "preview-2", patch, [
+      "replacement",
+    ]);
+    expect(accepted?.requestId).toBe("preview-2");
+  });
+
+  it("treats a stale-preference conflict as superseded without retrying", async () => {
+    const { root, acceptFeedPreview, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    acceptFeedPreview.mockRejectedValueOnce(
+      new FeedApiError(409, "Settings changed after this preview was generated"),
+    );
+    const patch = { freshness: 2 };
+
+    const preview = await store.preview(patch);
+    const accepted = preview ? await store.acceptGeneratedPreview(preview, patch) : null;
+
+    expect(accepted).toBeNull();
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+    expect(acceptFeedPreview).toHaveBeenCalledTimes(1);
+    expect(store.error).toContain("Settings changed");
   });
 
   it("keeps the current posts visible when preview generation fails", async () => {
@@ -424,16 +489,20 @@ describe("SettingsPreviewStore", () => {
   });
 
   it("does not accept a generated slate after its feed generation changes", async () => {
-    const { root } = harness();
+    const { root, acceptFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
-    const preview = await store.preview({ freshness: 2 });
+    const patch = { freshness: 2 };
+    const preview = await store.preview(patch);
     expect(preview).not.toBeNull();
 
     await store.activateFeed("random");
     const randomItems = store.displayedItems.map((item) => item.atUri);
-    if (preview) store.acceptPreview(preview);
+    const accepted = preview ? await store.acceptGeneratedPreview(preview, patch) : null;
+    if (accepted) store.acceptPreview(accepted);
 
+    expect(accepted).toBeNull();
+    expect(acceptFeedPreview).not.toHaveBeenCalled();
     expect(store.activeFeed).toBe("random");
     expect(store.displayedItems.map((item) => item.atUri)).toEqual(randomItems);
   });
