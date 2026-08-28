@@ -53,9 +53,9 @@ export const PREVIEW_PAGE_SIZE = 20;
 export const PREVIEW_ANIMATION_TIMINGS = {
   fadeOut: 450,
   fadeOutStagger: 225,
-  removeSpace: 160,
-  rerank: 775,
-  insertSpace: 160,
+  removeSpace: 400,
+  rerank: 1550,
+  insertSpace: 400,
   fadeIn: 450,
   fadeInStagger: 225,
   reducedMotion: 160,
@@ -212,11 +212,11 @@ export class SettingsFeedPreview extends LitElement {
       background: var(--surface, #16181c);
       opacity: 1;
       transition:
-        min-height 160ms ease,
-        max-height 160ms ease,
-        padding 160ms ease,
+        min-height 400ms ease,
+        max-height 400ms ease,
+        padding 400ms ease,
         opacity 450ms ease,
-        margin 160ms ease;
+        margin 400ms ease;
       will-change: transform, opacity;
     }
 
@@ -248,10 +248,10 @@ export class SettingsFeedPreview extends LitElement {
       margin-top: 0.25rem;
       opacity: 1;
       transition:
-        min-height 160ms ease,
-        max-height 160ms ease,
-        margin 160ms ease,
-        opacity 120ms ease;
+        min-height 400ms ease,
+        max-height 400ms ease,
+        margin 400ms ease,
+        opacity 300ms ease;
     }
 
     .source-pill,
@@ -316,9 +316,9 @@ export class SettingsFeedPreview extends LitElement {
       line-height: 1.25rem;
       opacity: 1;
       transition:
-        max-height 160ms ease,
-        margin 160ms ease,
-        opacity 120ms ease;
+        max-height 400ms ease,
+        margin 400ms ease,
+        opacity 300ms ease;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
@@ -357,7 +357,7 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .insert-space .card.new {
-      animation: open-card 160ms ease both;
+      animation: open-card 400ms ease both;
     }
 
     .fade-in .card.new {
@@ -485,7 +485,7 @@ export class SettingsFeedPreview extends LitElement {
         return element
           .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
             duration: PREVIEW_ANIMATION_TIMINGS.rerank,
-            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            easing: "cubic-bezier(0.4, 0, 0.2, 1)",
           })
           .finished.catch(() => undefined);
       });

@@ -115,19 +115,19 @@ describe("settings feed movement presentation", () => {
     expect(PREVIEW_ANIMATION_TIMINGS).toEqual({
       fadeOut: 450,
       fadeOutStagger: 225,
-      removeSpace: 160,
-      rerank: 775,
-      insertSpace: 160,
+      removeSpace: 400,
+      rerank: 1550,
+      insertSpace: 400,
       fadeIn: 450,
       fadeInStagger: 225,
       reducedMotion: 160,
     });
-    expect(SettingsFeedPreview.styles.cssText).toContain("min-height 160ms ease");
+    expect(SettingsFeedPreview.styles.cssText).toContain("min-height 400ms ease");
     expect(SettingsFeedPreview.styles.cssText).toContain("opacity 450ms ease");
     expect(SettingsFeedPreview.styles.cssText).toContain(
       "transition-delay: var(--removal-delay, 0ms)",
     );
-    expect(SettingsFeedPreview.styles.cssText).toContain("animation: open-card 160ms ease both");
+    expect(SettingsFeedPreview.styles.cssText).toContain("animation: open-card 400ms ease both");
     expect(SettingsFeedPreview.styles.cssText).toContain("animation: reveal-card 450ms ease both");
     expect(SettingsFeedPreview.styles.cssText).toContain(
       "animation-delay: var(--reveal-delay, 0ms)",
@@ -181,7 +181,10 @@ describe("settings feed movement presentation", () => {
       expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("rerank");
       expect(HTMLElement.prototype.animate).toHaveBeenCalledWith(
         expect.any(Array),
-        expect.objectContaining({ duration: PREVIEW_ANIMATION_TIMINGS.rerank }),
+        expect.objectContaining({
+          duration: PREVIEW_ANIMATION_TIMINGS.rerank,
+          easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+        }),
       );
 
       animationResolvers.splice(0).forEach((resolve) => {

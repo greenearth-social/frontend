@@ -205,9 +205,9 @@ test("changes persist immediately, Undo/Redo toggles, and Preview never accepts 
 
   await preview.click();
   await expect(settings.getByText("45 available of 48 ranked", { exact: true })).toBeVisible({
-    timeout: 6_000,
+    timeout: 12_000,
   });
-  await expect(preview).toBeDisabled({ timeout: 6_000 });
+  await expect(preview).toBeDisabled({ timeout: 12_000 });
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
   await expect(freshness).toHaveValue("5");
@@ -217,9 +217,9 @@ test("changes persist immediately, Undo/Redo toggles, and Preview never accepts 
   await preview.click();
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/fade-out/);
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
-    timeout: 6_000,
+    timeout: 12_000,
   });
-  await expect(preview).toBeDisabled({ timeout: 6_000 });
+  await expect(preview).toBeDisabled({ timeout: 12_000 });
 
   await settings.getByRole("button", { name: "Redo last settings change" }).click();
   await expect(freshness).toHaveValue("2");
@@ -343,26 +343,65 @@ test("320px visually shortens the accessible title and wraps header controls cle
   await expect(settings.locator(".page-title-full")).toBeHidden();
   await expect(settings.locator(".page-title-short")).toHaveText("Settings");
   await expect(settings.locator(".page-title-short")).toBeVisible();
-  await expect(settings.locator(".reset-defaults-btn .reset-label").first()).toBeHidden();
+  await expect(settings.locator(".reset-defaults-btn .reset-label").first()).toBeVisible();
 
   const headerGeometry = await settings.locator(".header-row").evaluate((header) => {
     const title = header.querySelector("h1");
     const actions = header.querySelector(".settings-header-actions");
+    const actionButtons = Array.from(actions?.querySelectorAll("button") ?? []).map((button) =>
+      button.getBoundingClientRect(),
+    );
     return {
       height: header.getBoundingClientRect().height,
+      headerCenter: header.getBoundingClientRect().left + header.getBoundingClientRect().width / 2,
       titleBottom: title?.getBoundingClientRect().bottom ?? 0,
       actionsTop: actions?.getBoundingClientRect().top ?? 0,
+      actionsCenter:
+        (actions?.getBoundingClientRect().left ?? 0) +
+        (actions?.getBoundingClientRect().width ?? 0) / 2,
       scrollWidth: header.scrollWidth,
       clientWidth: header.clientWidth,
       titleScrollWidth: title?.scrollWidth ?? 0,
       titleClientWidth: title?.clientWidth ?? 0,
+      buttonWidths: actionButtons.map((button) => button.width),
+      buttonGaps: actionButtons.slice(1).map((button, index) => {
+        const previous = actionButtons[index];
+        return previous ? button.left - previous.right : 0;
+      }),
     };
   });
   expect(headerGeometry.actionsTop).toBeGreaterThanOrEqual(headerGeometry.titleBottom);
+  expect(Math.abs(headerGeometry.actionsCenter - headerGeometry.headerCenter)).toBeLessThan(1);
   expect(headerGeometry.scrollWidth).toBeLessThanOrEqual(headerGeometry.clientWidth);
   expect(headerGeometry.titleScrollWidth).toBeLessThanOrEqual(headerGeometry.titleClientWidth);
+  expect(headerGeometry.buttonWidths).toHaveLength(2);
+  expect(Math.max(...headerGeometry.buttonWidths) - Math.min(...headerGeometry.buttonWidths)).toBeLessThan(
+    1,
+  );
+  expect(Math.max(...headerGeometry.buttonGaps) - Math.min(...headerGeometry.buttonGaps)).toBeLessThan(
+    1,
+  );
   expect(headerGeometry.height).toBeGreaterThan(60);
-  expect(headerGeometry.height).toBeLessThanOrEqual(110);
+  expect(headerGeometry.height).toBeLessThanOrEqual(128);
+});
+
+test("crossing the desktop breakpoint returns a stale mobile preview to Settings", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openSettings(page);
+  const settings = page.locator("settings-page");
+  const feed = settings.locator(".feed-column");
+  await releaseFreshness(page, "2");
+  await settings.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(feed).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(feed).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 667 });
+
+  await expect(feed).not.toBeVisible();
+  await expect(page.getByRole("slider", { name: "Time Window" })).toBeVisible();
 });
 
 test("Settings keeps the full title until the mobile header is space constrained", async ({
@@ -375,11 +414,27 @@ test("Settings keeps the full title until the mobile header is space constrained
     await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
     await expect(settings.locator(".page-title-full")).toBeHidden();
     await expect(settings.locator(".page-title-short")).toBeVisible();
-    const title = await settings.locator("h1").evaluate((element) => ({
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-    }));
+    const title = await settings.locator("h1").evaluate((element) => {
+      const header = element.closest(".header-row");
+      const actions = header?.querySelector(".settings-header-actions");
+      const defaults = header?.querySelector(".reset-defaults-btn");
+      const titleRect = element.getBoundingClientRect();
+      const actionsRect = actions?.getBoundingClientRect();
+      const defaultsRect = defaults?.getBoundingClientRect();
+      return {
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        sameRow:
+          actionsRect && defaultsRect
+            ? Math.max(titleRect.top, actionsRect.top, defaultsRect.top) <
+              Math.min(titleRect.bottom, actionsRect.bottom, defaultsRect.bottom)
+            : false,
+        headerOverflow: (header?.scrollWidth ?? 0) - (header?.clientWidth ?? 0),
+      };
+    });
     expect(title.scrollWidth).toBeLessThanOrEqual(title.clientWidth);
+    expect(title.sameRow).toBe(true);
+    expect(title.headerOverflow).toBeLessThanOrEqual(0);
   }
 
   for (const width of [480, 768, 1023, 1024]) {

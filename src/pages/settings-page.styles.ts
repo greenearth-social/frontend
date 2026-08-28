@@ -1053,20 +1053,21 @@ export const settingsPageStyles = css`
     }
 
     .header-row {
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
     }
 
     h1 {
       min-width: max-content;
       overflow: visible;
-      font-size: 0.875rem;
+      font-size: 1.125rem;
+      line-height: 1.25;
       text-overflow: clip;
       white-space: nowrap;
     }
 
     .settings-header-actions {
-      gap: 0.375rem;
+      gap: 0.5rem;
     }
 
     .settings-header-actions .history-btn {
@@ -1096,8 +1097,8 @@ export const settingsPageStyles = css`
 
   @media (max-width: 479px) {
     .header-row {
-      gap: 0.25rem;
-      padding-inline: 0.5rem;
+      gap: 0.35rem;
+      padding: 0.6rem 0.5rem;
     }
 
     .page-title-full {
@@ -1109,29 +1110,72 @@ export const settingsPageStyles = css`
     }
 
     .settings-header-actions {
-      gap: 0.2rem;
+      display: flex;
+      width: auto;
+      gap: 0.3rem;
+    }
+
+    .reset-defaults-btn {
+      width: auto;
+      min-height: 36px;
+      padding-inline: 0.45rem;
+      font-size: 0.75rem;
     }
 
     .settings-header-actions .history-btn {
-      padding-inline: 0.45rem;
-      font-size: 0.6875rem;
+      width: auto;
+      height: 36px;
+      padding-inline: 0.4rem;
+      font-size: 0.75rem;
     }
 
-    .mobile-preview-btn,
-    .reset-defaults-btn {
-      padding-inline: 0.5rem;
-      font-size: 0.6875rem;
+    .mobile-preview-btn {
+      width: auto;
+      min-height: 36px;
+      padding-inline: 0.4rem;
+      font-size: 0.75rem;
     }
   }
 
   @media (max-width: 359px) {
     .header-row {
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 0.625rem;
+      padding: 0.75rem 0.75rem 1rem;
+    }
+
+    .hamburger-btn {
+      grid-row: 1;
+      grid-column: 1;
+    }
+
+    h1 {
+      grid-row: 1;
+      grid-column: 2;
     }
 
     .settings-header-actions {
-      flex: 1 0 100%;
-      justify-content: flex-end;
+      display: grid;
+      width: 100%;
+      grid-row: 2;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .reset-defaults-btn {
+      width: auto;
+      min-height: 40px;
+      grid-row: 1;
+      grid-column: 3;
+      padding-inline: 0.6rem;
+    }
+
+    .settings-header-actions .history-btn,
+    .mobile-preview-btn {
+      width: 100%;
+      min-height: 40px;
     }
   }
 
@@ -1198,37 +1242,28 @@ export const settingsPageStyles = css`
   }
 
   @media (max-width: 340px) {
-    .header-row {
-      gap: 0.25rem;
-      padding-inline: 0.5rem;
-    }
-
     h1 {
-      font-size: 0.875rem;
+      font-size: 1.125rem;
     }
 
     .settings-header-actions {
-      gap: 0.15rem;
+      gap: 0.5rem;
     }
 
     .settings-header-actions .history-btn {
-      gap: 0.2rem;
-      padding-inline: 0.25rem;
-      font-size: 0.65rem;
+      gap: 0.3rem;
+      padding-inline: 0.4rem;
+      font-size: 0.75rem;
     }
 
     .mobile-preview-btn {
-      padding-inline: 0.45rem;
-      font-size: 0.65rem;
+      padding-inline: 0.4rem;
+      font-size: 0.75rem;
     }
 
     .reset-defaults-btn {
-      min-height: 36px;
+      min-height: 40px;
       padding-inline: 0.6rem;
-    }
-
-    .reset-defaults-btn .reset-label {
-      display: none;
     }
 
     .page-content {

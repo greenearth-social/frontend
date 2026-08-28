@@ -96,6 +96,7 @@ export class SettingsPage extends MobxLitElement {
   private baselineSyncPromise: Promise<void> | null = null;
   private baselineSyncPending = false;
   private baselineRefreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private desktopLayoutQuery: MediaQueryList | null = null;
   private changeSequence = 0;
   private settingsRevision = 0;
   private previewAnimationOperation = 0;
@@ -126,6 +127,13 @@ export class SettingsPage extends MobxLitElement {
     }
     this.requestLifecycleBaselineSync();
   };
+  private readonly handleDesktopLayoutChange = (): void => {
+    // Preview is an overlay-only state below the desktop breakpoint. Clear it
+    // whenever the layout crosses that boundary so a stale mobile overlay
+    // cannot reappear after resizing back down from desktop.
+    this.mobilePreviewOpen = false;
+    this.showColorLegend = false;
+  };
 
   static styles = settingsPageStyles;
 
@@ -137,6 +145,8 @@ export class SettingsPage extends MobxLitElement {
     window.addEventListener("pagehide", this.handleFrontendLeft);
     window.addEventListener("pageshow", this.requestLifecycleBaselineSync);
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    this.desktopLayoutQuery = window.matchMedia("(min-width: 1024px)");
+    this.desktopLayoutQuery.addEventListener("change", this.handleDesktopLayoutChange);
     const root = getRootStore();
     this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
   }
@@ -148,6 +158,8 @@ export class SettingsPage extends MobxLitElement {
     window.removeEventListener("pagehide", this.handleFrontendLeft);
     window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    this.desktopLayoutQuery?.removeEventListener("change", this.handleDesktopLayoutChange);
+    this.desktopLayoutQuery = null;
     this.#cancelScheduledBaselineSync();
     if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
     super.disconnectedCallback();
@@ -271,6 +283,7 @@ export class SettingsPage extends MobxLitElement {
                 >
                   Preview
                 </button>
+              </div>
                 <button
                   class="reset-defaults-btn"
                   type="button"
@@ -287,7 +300,6 @@ export class SettingsPage extends MobxLitElement {
                   </svg>
                   <span class="reset-label">Defaults</span>
                 </button>
-              </div>
             </div>
           </div>
 
