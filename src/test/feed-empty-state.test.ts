@@ -28,6 +28,26 @@ describe("WAIST empty snapshot explanations", () => {
     expect(explanation).not.toContain("You have not refreshed");
   });
 
+  it("explains an empty Authors & Topics corpus window", () => {
+    const explanation = emptySnapshotExplanation(
+      null,
+      [
+        {
+          name: "two_tower",
+          weight: 1,
+          requestedCount: 30,
+          returnedCount: 0,
+          contributedCount: 0,
+          status: "empty",
+          reason: "no_recent_authors_topics_posts",
+          mode: "primary",
+        },
+      ],
+    );
+
+    expect(explanation).toContain("Authors & Topics found no recent matching posts");
+  });
+
   it("explains when ranked posts all became filtered or unavailable", () => {
     const explanation = emptySnapshotExplanation(
       {

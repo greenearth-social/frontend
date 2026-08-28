@@ -227,13 +227,63 @@ describe("SettingsPreviewStore", () => {
       getFeedPreview.mockReset().mockResolvedValueOnce(partial).mockResolvedValueOnce(hydrated);
 
       const pending = store.preview({ freshness: 2 });
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(300);
       const preview = await pending;
 
       expect(getFeedPreview).toHaveBeenNthCalledWith(1, "preview-1");
       expect(getFeedPreview).toHaveBeenNthCalledWith(2, "preview-1");
       expect(preview?.items[0]?.isPartial).toBe(false);
       expect(preview?.filteringCounts.partialItemCount).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("settles Preview hydration across multiple improving responses", async () => {
+    vi.useFakeTimers();
+    try {
+      const { root, acceptFeedPreview, getFeedPreview } = harness();
+      const store = new SettingsPreviewStore(root);
+      await store.activateFeed("your-feed");
+      const initial = detail("preview-1", ["one"]);
+      initial.items = [{ ...apiItem("one"), isPartial: true }];
+      initial.filteringCounts = {
+        ...initial.filteringCounts,
+        storedItemCount: 2,
+        unavailableCount: 1,
+        partialItemCount: 1,
+      };
+      const improving = detail("preview-1", ["one", "two"]);
+      if (!improving.items) throw new Error("Expected improving Preview items");
+      improving.items[1] = { ...apiItem("two"), isPartial: true };
+      improving.filteringCounts = {
+        ...improving.filteringCounts,
+        storedItemCount: 2,
+        unavailableCount: 1,
+        partialItemCount: 1,
+      };
+      const hydrated = detail("preview-1", ["one", "two"]);
+      getFeedPreview
+        .mockReset()
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(improving)
+        .mockResolvedValueOnce(hydrated);
+
+      const pending = store.preview({ freshness: 2 });
+      await vi.advanceTimersByTimeAsync(1_000);
+      const preview = await pending;
+      const patch = { freshness: 2 };
+      const accepted = preview ? await store.acceptGeneratedPreview(preview, patch) : null;
+
+      expect(getFeedPreview).toHaveBeenCalledTimes(3);
+      expect(preview?.items.map((item) => item.atUri)).toEqual(["one", "two"]);
+      expect(preview?.items.every((item) => !item.isPartial)).toBe(true);
+      expect(preview?.filteringCounts.partialItemCount).toBe(0);
+      expect(acceptFeedPreview).toHaveBeenCalledWith("your-feed", "preview-1", patch, [
+        "one",
+        "two",
+      ]);
+      expect(accepted?.items.map((item) => item.atUri)).toEqual(["one", "two"]);
     } finally {
       vi.useRealTimers();
     }
@@ -252,7 +302,7 @@ describe("SettingsPreviewStore", () => {
       getFeedPreview.mockReset().mockResolvedValue(partial);
 
       const pending = store.preview({ freshness: 2 });
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(2_500);
       const preview = await pending;
       expect(preview).not.toBeNull();
       if (preview) store.acceptPreview(preview);
@@ -313,7 +363,33 @@ describe("SettingsPreviewStore", () => {
     if (preview) store.acceptPreview(preview);
 
     expect(store.displayedItems).toEqual([]);
-    expect(store.warning).toContain("No posts matched Following");
+    expect(store.warning).toContain("Following returned no candidates");
+  });
+
+  it("explains when feed history exhausted the selected source", async () => {
+    const { root, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const empty = detail("preview-1", []);
+    empty.generatorDiagnostics = [
+      {
+        name: "followed_users",
+        weight: 1,
+        requestedCount: 100,
+        returnedCount: 0,
+        contributedCount: 0,
+        status: "empty",
+        reason: "history_exclusions",
+        mode: "primary",
+      },
+    ];
+    getFeedPreview.mockReset().mockResolvedValue(empty);
+
+    const preview = await store.preview({ freshness: 2 });
+    expect(preview).not.toBeNull();
+    if (preview) store.acceptPreview(preview);
+
+    expect(store.warning).toContain("Following only found posts already excluded by feed history");
   });
 
   it("uses an empty hypothetical request to replace an old baseline", async () => {

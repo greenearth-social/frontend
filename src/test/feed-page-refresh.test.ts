@@ -87,6 +87,28 @@ describe("FeedPage pull to refresh", () => {
     document.body.replaceChildren();
   });
 
+  it("keeps a pending empty-to-populated feed switch in the loading state", async () => {
+    vi.useFakeTimers();
+    try {
+      testState.rootStore.feedStore.isLoading = true;
+      testState.rootStore.feedStore.items = [];
+      const element = document.createElement("feed-page");
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".loader-container")?.textContent).toContain(
+        "Loading feed",
+      );
+      expect(element.shadowRoot?.textContent).not.toContain("No posts found");
+      expect(element.shadowRoot?.querySelector("feed-view")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refreshes the feed selected by the current route after a downward pull", async () => {
     let finishRefresh: (() => void) | undefined;
     testState.rootStore.feedStore.loadFeedList.mockImplementation(
@@ -201,10 +223,7 @@ describe("FeedPage pull to refresh", () => {
     await element.updateComplete;
 
     await vi.waitFor(() => {
-      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith(
-        "random",
-        null,
-      );
+      expect(testState.rootStore.feedStore.refreshFeedIfNew).toHaveBeenCalledWith("random", null);
       expect(element.shadowRoot?.querySelector("feed-view")).not.toBeNull();
     });
     expect(

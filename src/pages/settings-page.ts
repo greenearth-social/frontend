@@ -378,7 +378,9 @@ export class SettingsPage extends MobxLitElement {
             <settings-feed-preview
               .items=${previewStore?.displayedItems ?? []}
               .loading=${
-                (previewStore?.isLoadingBaseline ?? false) || (previewStore?.isGenerating ?? false)
+                (previewStore?.isLoadingBaseline ?? false) ||
+                (previewStore?.isGenerating ?? false) ||
+                this.isPreviewAnimating
               }
               .error=${previewStore?.error ?? ""}
               .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}

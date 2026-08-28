@@ -690,6 +690,56 @@ describe("SettingsPage", () => {
     ).toBe(false);
   });
 
+  it("keeps an empty Preview loading through server acceptance", async () => {
+    const generated = { items: [{ atUri: "at://did:plc:author/app.bsky.feed.post/new" }] };
+    let finishAcceptance: (() => void) | undefined;
+    testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
+    testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishAcceptance = () => {
+            resolve(generated);
+          };
+        }),
+    );
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const freshness = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Time Window");
+    freshness?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 2 },
+      }),
+    );
+    await Promise.resolve();
+    await element.updateComplete;
+
+    const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+    if (!feed) throw new Error("Settings feed preview was not rendered");
+    vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+    await vi.waitFor(() => {
+      expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledTimes(
+        1,
+      );
+    });
+    await element.updateComplete;
+    await feed.updateComplete;
+
+    expect(feed.shadowRoot?.textContent).toContain("Loading your current feed");
+    expect(feed.shadowRoot?.textContent).not.toContain("No posts are available");
+
+    finishAcceptance?.();
+    await vi.waitFor(() => {
+      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("briefly settles the mobile Preview screen before starting its animation", async () => {
     vi.useFakeTimers();
     const originalMatchMedia = window.matchMedia;

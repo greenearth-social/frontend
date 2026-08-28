@@ -19,8 +19,6 @@ const PULL_REFRESH_MAX_DISTANCE = 88;
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) authFailureMessage = "";
-  @state() private _showEmptyInsteadOfLoading = false;
-  @state() private _loadTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private _handle = "";
   @state() private _signInPending = false;
   @state() private _signInError = "";
@@ -169,10 +167,6 @@ export class FeedPage extends MobxLitElement {
     window.removeEventListener("pageshow", this.#requestLifecycleSync);
     document.removeEventListener("visibilitychange", this.#handleVisibilityChange);
     this.#cancelScheduledLifecycleSync();
-    if (this._loadTimer) {
-      clearTimeout(this._loadTimer);
-      this._loadTimer = null;
-    }
     super.disconnectedCallback();
   }
 
@@ -197,27 +191,6 @@ export class FeedPage extends MobxLitElement {
     }
 
     this.#drainLifecycleSyncQueue();
-
-    if (
-      changedProperties.has("_showEmptyInsteadOfLoading") ||
-      changedProperties.has("_loadTimer")
-    ) {
-      return;
-    }
-
-    if (isLoading) {
-      if (!this._loadTimer) {
-        this._loadTimer = setTimeout(() => {
-          this._showEmptyInsteadOfLoading = true;
-        }, 1000);
-      }
-    } else {
-      if (this._loadTimer) {
-        clearTimeout(this._loadTimer);
-        this._loadTimer = null;
-      }
-      this._showEmptyInsteadOfLoading = false;
-    }
   }
 
   render() {
@@ -533,51 +506,45 @@ export class FeedPage extends MobxLitElement {
             : ""
         }
         ${
-          feedStore.isLoading && feedStore.items.length === 0 && !this._showEmptyInsteadOfLoading
+          feedStore.isLoading && feedStore.items.length === 0
             ? html`
                 <div class="loader-container" style="color: var(--bluesky-text-secondary)">
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
               `
-            : feedStore.isLoading && feedStore.items.length === 0 && this._showEmptyInsteadOfLoading
-              ? html`
-                  <div class="empty-state">
-                    <p>No posts found</p>
-                  </div>
-                `
-              : html`
-                  <feed-view
-                    .items=${feedStore.items}
-                    .selectedUri=${uiStore.selectedItemUri}
-                    .algorithmId=${uiStore.selectedAlgorithm}
-                    .engagingInfluence=${1 - selectedPreferences.purpose}
-                    .constructiveInfluence=${selectedPreferences.purpose}
-                    .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
-                    .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
-                    .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
-                    .hasSnapshot=${feedStore.currentRequestId !== null}
-                    .generatedAt=${feedStore.lastGeneratedAt ?? ""}
-                    .filteringCounts=${feedStore.currentFilteringCounts}
-                    .generatorDiagnostics=${feedStore.currentGeneratorDiagnostics}
-                    @select-item=${(e: CustomEvent<{ uri: string }>) => {
+            : html`
+                <feed-view
+                  .items=${feedStore.items}
+                  .selectedUri=${uiStore.selectedItemUri}
+                  .algorithmId=${uiStore.selectedAlgorithm}
+                  .engagingInfluence=${1 - selectedPreferences.purpose}
+                  .constructiveInfluence=${selectedPreferences.purpose}
+                  .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
+                  .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
+                  .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
+                  .hasSnapshot=${feedStore.currentRequestId !== null}
+                  .generatedAt=${feedStore.lastGeneratedAt ?? ""}
+                  .filteringCounts=${feedStore.currentFilteringCounts}
+                  .generatorDiagnostics=${feedStore.currentGeneratorDiagnostics}
+                  @select-item=${(e: CustomEvent<{ uri: string }>) => {
                       uiStore.toggleSelectedItem(e.detail.uri);
                     }}
-                  ></feed-view>
+                ></feed-view>
 
-                  <pagination-control
-                    .currentPage=${feedStore.currentPage}
-                    .totalPages=${feedStore.totalPages}
-                    .totalItems=${feedStore.totalCount}
-                    .itemsPerPage=${feedStore.postsPerPage}
-                    @page-change=${(e: CustomEvent<{ page: number }>) => {
+                <pagination-control
+                  .currentPage=${feedStore.currentPage}
+                  .totalPages=${feedStore.totalPages}
+                  .totalItems=${feedStore.totalCount}
+                  .itemsPerPage=${feedStore.postsPerPage}
+                  @page-change=${(e: CustomEvent<{ page: number }>) => {
                       feedStore.goToPage(e.detail.page);
                     }}
-                    @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
+                  @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
                       feedStore.setPostsPerPage(e.detail.perPage);
                     }}
-                  ></pagination-control>
-                `
+                ></pagination-control>
+              `
         }
       </div>
     `;

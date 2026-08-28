@@ -6,11 +6,12 @@ import type {
   GeneratorDiagnostic,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
+import { emptySnapshotExplanation } from "../models/feed-empty-state";
 import { FeedApiError, type FeedPreferences } from "../services/types";
 import type { RootStore } from "./root-store";
 
 const BASELINE_MAX_AGE_MS = 10 * 60 * 1000;
-const HYDRATION_RETRY_DELAY_MS = 500;
+const HYDRATION_RETRY_DELAYS_MS = [300, 700, 1_500] as const;
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -430,18 +431,10 @@ export class SettingsPreviewStore {
     if (partialCount > 0) {
       this.warning = `${String(partialCount)} ranked ${partialCount === 1 ? "post is" : "posts are"} shown with limited details because Bluesky could not load the full post data.`;
     } else if (preview.items.length === 0) {
-      const activeDiagnostics = preview.generatorDiagnostics.filter(
-        (diagnostic) => diagnostic.weight > 0,
+      this.warning = emptySnapshotExplanation(
+        preview.filteringCounts,
+        preview.generatorDiagnostics,
       );
-      const labels = activeDiagnostics.map((diagnostic) => generatorLabel(diagnostic.name));
-      const returnedCount = activeDiagnostics.reduce(
-        (total, diagnostic) => total + diagnostic.returnedCount,
-        0,
-      );
-      this.warning =
-        returnedCount > 0
-          ? "Posts were found, but none passed the current ranking and quality filters."
-          : `No posts matched ${labels.join(" and ") || "the selected sources"} in the selected time window.`;
     } else {
       this.warning = null;
     }
@@ -485,9 +478,11 @@ export class SettingsPreviewStore {
   ): Promise<GeneratedSettingsPreview> {
     const session = await this.root.services.feedApiService.createFeedPreview(feedName, patch);
     let detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
-    if ((detail.filteringCounts.partialItemCount ?? 0) > 0) {
-      await delay(HYDRATION_RETRY_DELAY_MS);
-      if (this.isCurrentFeed(feedName, generation)) {
+    for (const retryDelay of HYDRATION_RETRY_DELAYS_MS) {
+      if ((detail.filteringCounts.partialItemCount ?? 0) === 0) break;
+      await delay(retryDelay);
+      if (!this.isCurrentFeed(feedName, generation)) break;
+      try {
         const retried = await this.root.services.feedApiService.getFeedPreview(session.requestId);
         if (
           (retried.filteringCounts.partialItemCount ?? 0) <
@@ -496,6 +491,11 @@ export class SettingsPreviewStore {
         ) {
           detail = retried;
         }
+      } catch {
+        // The initial hydrated response remains truthful and usable. A failed
+        // follow-up should not discard it or turn a transient cache read into
+        // a failed Preview.
+        break;
       }
     }
     const diagnostics = detail.generatorDiagnostics ?? [];

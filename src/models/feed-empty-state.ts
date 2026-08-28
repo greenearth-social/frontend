@@ -24,6 +24,8 @@ function diagnosticExplanation(diagnostic: GeneratorDiagnostic): string {
       return `${source} found no recent followed posts in the indexed time window.`;
     case "no_recent_network_likes":
       return `${source} found no recent likes by followed accounts in the indexed time window.`;
+    case "no_recent_authors_topics_posts":
+      return `${source} found no recent matching posts in the indexed time window.`;
     case "liked_posts_unavailable":
       return `${source} found likes, but their posts were missing from the indexed posts corpus.`;
     case "history_exclusions":
