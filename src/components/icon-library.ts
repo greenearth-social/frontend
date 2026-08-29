@@ -61,6 +61,20 @@ const ALGO_PNG_ICONS: Record<string, string> = {
   "algo-random": "/assets/algo-random.png",
 };
 
+export function applyAppIconAttributes(svg: SVGElement): void {
+  // Filled icons omit the attribute and inherit the current text color. Keep an
+  // explicit `fill="none"` intact for outline icons such as the logout lock.
+  // Web Awesome styles its SVG part with `fill: currentColor`, so mirror an
+  // explicit fill into an inline style to preserve the artwork's intent.
+  const declaredFill = svg.getAttribute("fill");
+  if (declaredFill === null) {
+    svg.setAttribute("fill", "currentColor");
+  } else {
+    svg.style.fill = declaredFill;
+  }
+  svg.setAttribute("aria-hidden", "true");
+}
+
 registerIconLibrary("app", {
   resolver: (name: string) => {
     const png = ALGO_PNG_ICONS[name];
@@ -74,8 +88,5 @@ registerIconLibrary("app", {
     }
     return "";
   },
-  mutator: (svg: SVGElement) => {
-    svg.setAttribute("fill", "currentColor");
-    svg.setAttribute("aria-hidden", "true");
-  },
+  mutator: applyAppIconAttributes,
 });

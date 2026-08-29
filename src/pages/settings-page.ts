@@ -208,6 +208,7 @@ export class SettingsPage extends MobxLitElement {
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
     const previewBusy = (previewStore?.isGenerating ?? false) || this.isPreviewAnimating;
+    const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
     const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
     const historyLabel = `${historyAction} last settings change`;
     const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
@@ -337,7 +338,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              ${previewBusy ? "Generating preview" : "Update preview"}
+              ${previewBusy || !hasGeneratedPreview ? "Generating preview" : "Update preview"}
             </button>
             <div class="preview-mobile-primary-actions">
               <button

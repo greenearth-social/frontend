@@ -25,7 +25,7 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     label: "Sources",
     type: "config",
     description:
-      "Percentages control how much each source contributes to the candidate pool. The lifecycle icons provide a visual scale from lower to higher emphasis. Changing one percentage rebalances the others unless a source is locked.",
+      "Percentages control how much each source contributes to your feed. The lifecycle icons show how the source mix moves from friends toward discovery. Lock a source to keep its percentage fixed while adjusting the others.",
   },
   time_window: {
     label: "Time Window",

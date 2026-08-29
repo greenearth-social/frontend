@@ -52,6 +52,7 @@ const testState = vi.hoisted(() => {
         error: null as string | null,
         warning: null as string | null,
         baselineRefreshError: null as string | null,
+        lastPreviewRequestId: null as string | null,
       },
     },
   };
@@ -113,6 +114,12 @@ describe("SettingsPage", () => {
     );
     testState.rootStore.settingsPreviewStore.markPreviewSyncFailure.mockReset();
     testState.rootStore.settingsPreviewStore.acceptPreview.mockReset();
+    testState.rootStore.settingsPreviewStore.acceptPreview.mockImplementation(
+      (preview: { requestId?: string }) => {
+        testState.rootStore.settingsPreviewStore.lastPreviewRequestId =
+          preview.requestId ?? "generated-preview";
+      },
+    );
     testState.rootStore.settingsPreviewStore.isLoadingBaseline = false;
     testState.rootStore.settingsPreviewStore.isRefreshingBaseline = false;
     testState.rootStore.settingsPreviewStore.isGenerating = false;
@@ -120,6 +127,7 @@ describe("SettingsPage", () => {
     testState.rootStore.settingsPreviewStore.error = null;
     testState.rootStore.settingsPreviewStore.warning = null;
     testState.rootStore.settingsPreviewStore.baselineRefreshError = null;
+    testState.rootStore.settingsPreviewStore.lastPreviewRequestId = null;
   });
 
   afterEach(() => {

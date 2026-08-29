@@ -328,6 +328,9 @@ describe("AppShell authentication UI", () => {
     );
     expect(compactLogout?.getAttribute("aria-label")).toBe("Log out");
     expect(compactLogout?.querySelector("wa-icon")?.getAttribute("name")).toBe("lock");
+    expect(AppShell.styles.cssText).toMatch(
+      /\.logout-btn\s*\{[^}]*color:\s*var\(--bluesky-danger\)/s,
+    );
   });
 
   it("closes the mobile drawer before signing out", async () => {
@@ -444,8 +447,8 @@ describe("AppShell authentication UI", () => {
       expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
       const logo = feedPage?.shadowRoot?.querySelector<HTMLImageElement>(".logged-out-logo");
       expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
-      expect(logo?.getAttribute("width")).toBe("1453");
-      expect(logo?.getAttribute("height")).toBe("1082");
+      expect(logo?.getAttribute("width")).toBe("640");
+      expect(logo?.getAttribute("height")).toBe("476");
       expect(feedPage?.shadowRoot?.querySelector("style")?.textContent).toContain(
         "width: min(52vw, 190px)",
       );

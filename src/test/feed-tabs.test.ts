@@ -122,9 +122,9 @@ describe("FeedTabs source breakdown", () => {
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
       "Snapshot stored 10 posts",
     );
-    expect(
-      element.shadowRoot?.querySelector("dialog")?.textContent.replace(/\s+/g, " "),
-    ).toContain("Public labels filtered 2");
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent.replace(/\s+/g, " ")).toContain(
+      "Public labels filtered 2",
+    );
     element.remove();
   });
 
@@ -163,62 +163,62 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
   });
 
-  it("does not render algo icons inside individual tabs", async () => {
+  it("keeps the mobile diagnostics table inside its own horizontal scroller", async () => {
     const element = makeTabs();
-    element.selectedAlgorithm = "your-feed";
     await element.updateComplete;
 
-    const tabIcons = element.shadowRoot?.querySelectorAll(".tab-algo-icon");
-
-    element.remove();
-    expect(tabIcons?.length ?? 0).toBe(0);
-  });
-
-  it("does not include a Latest option in the mobile algo dropdown", async () => {
-    const element = makeTabs();
-    element.selectedAlgorithm = "your-feed";
-    element.algorithmLabel = "GreenEarth";
+    element.showActiveBreakdown();
     await element.updateComplete;
 
-    const trigger = element.shadowRoot?.querySelector<HTMLButtonElement>(".algo-trigger");
-    trigger?.click();
-    await element.updateComplete;
-
-    const latestOptions = [...(element.shadowRoot?.querySelectorAll(".algo-option") ?? [])].filter(
-      (btn) => btn.textContent.includes("Latest"),
+    const root = element.shadowRoot;
+    const scroller = root?.querySelector<HTMLElement>(".breakdown-table-scroll");
+    expect(scroller?.getAttribute("role")).toBe("region");
+    expect(scroller?.getAttribute("aria-label")).toBe("Source diagnostics table");
+    expect(scroller?.querySelector("table")).not.toBeNull();
+    expect(root?.querySelector(".table-scroll-hint")?.textContent).toContain("Swipe horizontally");
+    expect(FeedTabs.styles.cssText).toMatch(
+      /\.breakdown-table-scroll\s*\{[^}]*overflow-x:\s*auto/s,
+    );
+    expect(FeedTabs.styles.cssText).toMatch(
+      /th:first-child,\s*td:first-child\s*\{[^}]*position:\s*sticky[^}]*left:\s*0/s,
+    );
+    expect(FeedTabs.styles.cssText).toMatch(
+      /@media\s*\(max-width:\s*480px\)[\s\S]*width:\s*calc\(100vw\s*-\s*0\.75rem\)/,
     );
 
+    root?.querySelector<HTMLButtonElement>(".popover-close")?.click();
+    await element.updateComplete;
+    expect(root?.querySelector("dialog")).toBeNull();
     element.remove();
-    expect(latestOptions).toHaveLength(0);
   });
 
-  it("keeps the mobile feed switcher available when the selected feed has no snapshots", async () => {
+  it("keeps the snapshot strip and its edge fades without a redundant feed selector", async () => {
+    const element = makeTabs();
+    await element.updateComplete;
+
+    const root = element.shadowRoot;
+    expect(root?.querySelector(".algo-indicator, .algo-trigger, .algo-dropdown")).toBeNull();
+    expect(root?.querySelector(".tabs-scroll-area")).not.toBeNull();
+    expect(root?.querySelector(".tabs-wrapper")).not.toBeNull();
+    expect(root?.querySelectorAll(".tab")).toHaveLength(2);
+    expect(root?.querySelector(".tab")?.textContent).toContain("Latest");
+    expect(FeedTabs.styles.cssText).toContain(".tabs-scroll-area::before");
+    expect(FeedTabs.styles.cssText).toContain(".tabs-scroll-area::after");
+    expect(FeedTabs.styles.cssText).toContain("overflow-x: auto");
+
+    element.remove();
+  });
+
+  it("keeps the full-width snapshot strip when the selected feed has no snapshots", async () => {
     const element = document.createElement("feed-tabs");
     element.feeds = [];
-    element.selectedAlgorithm = "best-of-friends";
-    element.algorithmLabel = "Best of Friends";
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector(".algo-trigger")?.textContent).toContain(
-      "Best of Friends",
-    );
+    expect(element.shadowRoot?.querySelector(".algo-trigger")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".tabs-scroll-area")).not.toBeNull();
     expect(element.shadowRoot?.querySelectorAll(".tab")).toHaveLength(0);
     expect(FeedTabs.styles.cssText).toContain("min-height: 2.75rem");
-    element.remove();
-  });
-
-  it("uses the MySky logo asset for the MySky feed switcher", async () => {
-    const element = document.createElement("feed-tabs");
-    element.selectedAlgorithm = "your-feed";
-    element.algorithmLabel = "MySky";
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const logo = element.shadowRoot?.querySelector<HTMLImageElement>(".algo-trigger img");
-    expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
-    expect(logo?.getAttribute("width")).toBe("100");
-    expect(logo?.getAttribute("height")).toBe("100");
     element.remove();
   });
 });

@@ -118,7 +118,7 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
-  const updatePreview = settings.getByRole("button", { name: "Update preview" });
+  const updatePreview = settings.getByRole("button", { name: "Generating preview" });
   await expect(updatePreview).toBeDisabled();
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   const previewHeaderGeometry = await settings.locator(".feed-column").evaluate((column) => {
@@ -244,7 +244,7 @@ test("100% Liked by Following reaches Preview and preserves ranked fallback card
   });
 
   await setSourcePercentage(page, "Liked by Following", "100");
-  const preview = page.getByRole("button", { name: "Update preview" });
+  const preview = page.getByRole("button", { name: "Generating preview" });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect(page.locator("settings-page settings-feed-preview .card.partial")).toHaveCount(2, {
@@ -306,7 +306,7 @@ test("100% Following reaches persistence and Preview with every other source at 
   });
 
   await setSourcePercentage(page, "Following", "100");
-  const preview = page.getByRole("button", { name: "Update preview" });
+  const preview = page.getByRole("button", { name: "Generating preview" });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect
@@ -332,7 +332,7 @@ test("1024px is desktop: the populated post pane remains beside settings without
   await expect(settings.locator(".controls-column")).toBeVisible();
   await expect(settings.locator(".feed-column")).toBeVisible();
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
-  await expect(settings.getByRole("button", { name: "Update preview" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Generating preview" })).toBeVisible();
   const overflow = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -385,7 +385,8 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   });
 
   const settings = page.locator("settings-page");
-  const preview = settings.getByRole("button", { name: "Update preview" });
+  const preview = settings.locator("#update-preview");
+  await expect(preview).toHaveText("Generating preview");
   const freshness = page.getByRole("slider", { name: "Time Window" });
   await expect(preview).toBeDisabled();
   await releaseFreshness(page, "2");
@@ -399,7 +400,8 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await preview.click();
   await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
   await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
-  await expect(preview).toBeDisabled({ timeout: 12_000 });
+  await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+  await expect(preview).toBeDisabled();
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
   await expect(freshness).toHaveValue("5");
@@ -411,7 +413,8 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
-  await expect(preview).toBeDisabled({ timeout: 12_000 });
+  await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+  await expect(preview).toBeDisabled();
 
   await settings.getByRole("button", { name: "Redo last settings change" }).click();
   await expect(freshness).toHaveValue("2");
@@ -475,7 +478,7 @@ test("preview pagination remains available and the baseline refreshes automatica
   const settings = page.locator("settings-page");
 
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Update preview" }).click();
+  await settings.getByRole("button", { name: "Generating preview" }).click();
   await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible({ timeout: 6_000 });
   const nextPage = settings.getByRole("button", { name: "Next preview page" });
   await nextPage.click();
@@ -903,7 +906,7 @@ test("feed switching clears stale preview work and enables Preview after the nex
 
   const settings = page.locator("settings-page");
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Update preview" }).click();
+  await settings.getByRole("button", { name: "Generating preview" }).click();
   await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
 
   await page.evaluate(() => {
@@ -911,15 +914,92 @@ test("feed switching clears stale preview work and enables Preview after the nex
   });
   await expect(page).toHaveURL(/#\/settings\/random$/);
   await expect(settings.getByRole("heading", { name: "Random Settings" })).toBeVisible();
-  await expect(settings.getByText("Generating preview", { exact: true })).toHaveCount(0);
+  await expect(settings.getByRole("button", { name: "Generating preview" })).toBeDisabled();
   await releaseFreshness(page, "2");
-  const preview = settings.getByRole("button", { name: "Update preview" });
+  const preview = settings.locator("#update-preview");
+  await expect(preview).toHaveText("Generating preview");
   await expect(preview).toBeEnabled();
   await preview.click();
-  await expect(preview).toBeDisabled({ timeout: 6_000 });
+  await expect(preview).toHaveText("Update preview", { timeout: 6_000 });
+  await expect(preview).toBeDisabled();
 
   await page.evaluate(() => {
     window.location.hash = "/settings/best-of-friends";
   });
   await expect(settings.getByRole("heading", { name: "Best of Friends Settings" })).toBeVisible();
+});
+
+test("feed switching cancels an active preview animation and settles the new baseline", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(() => {
+    const browserWindow = window as Window & {
+      settingsPreviewAnimationStarted?: boolean;
+      settingsPreviewAnimationCancelCount?: number;
+    };
+    const originalAnimate = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = function (...args: Parameters<HTMLElement["animate"]>) {
+      const animation = originalAnimate.apply(this, args);
+      if (this.tagName.toLowerCase() !== "settings-feed-preview") return animation;
+      browserWindow.settingsPreviewAnimationStarted = true;
+      browserWindow.settingsPreviewAnimationCancelCount = 0;
+      animation.pause();
+      const originalCancel = animation.cancel.bind(animation);
+      animation.cancel = () => {
+        browserWindow.settingsPreviewAnimationCancelCount =
+          (browserWindow.settingsPreviewAnimationCancelCount ?? 0) + 1;
+        originalCancel();
+      };
+      return animation;
+    };
+  });
+
+  const settings = page.locator("settings-page");
+  await releaseFreshness(page, "2");
+  await settings.locator("#update-preview").click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Boolean(
+          (window as Window & { settingsPreviewAnimationStarted?: boolean })
+            .settingsPreviewAnimationStarted,
+        ),
+      ),
+    )
+    .toBe(true);
+
+  await page.evaluate(() => {
+    window.location.hash = "/settings/random";
+  });
+  await expect(page).toHaveURL(/#\/settings\/random$/);
+  await expect(settings.getByRole("heading", { name: "Random Settings" })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { settingsPreviewAnimationCancelCount?: number })
+            .settingsPreviewAnimationCancelCount ?? 0,
+      ),
+    )
+    .toBe(1);
+  await expect(settings.locator("settings-feed-preview .card").first()).toBeVisible();
+
+  const renderedUris = await settings
+    .locator("settings-feed-preview .card")
+    .evaluateAll((cards) => cards.map((card) => (card as HTMLElement).dataset.uri));
+  const activeBaselineUris = await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        settingsPreviewStore: { displayedItems: Array<{ atUri: string }> };
+      } | null;
+    };
+    return (
+      appModule.getRootStore()?.settingsPreviewStore.displayedItems.map((item) => item.atUri) ?? []
+    );
+  });
+  expect(renderedUris).toEqual(activeBaselineUris.slice(0, renderedUris.length));
 });

@@ -369,6 +369,142 @@ describe("settings feed movement presentation", () => {
     }
   });
 
+  it("keeps a newer feed baseline when it arrives during an animation", async () => {
+    const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    let rejectAnimation: ((reason: Error) => void) | undefined;
+    const animation = {
+      finished: new Promise<void>((_resolve, reject) => {
+        rejectAnimation = reject;
+      }),
+      cancel: vi.fn(() => {
+        rejectAnimation?.(new Error("cancelled"));
+      }),
+    } as unknown as Animation;
+    const element = document.createElement("settings-feed-preview");
+    Object.defineProperty(element, "animate", {
+      configurable: true,
+      value: vi.fn(() => animation),
+    });
+    element.items = [item("feed-a-baseline")];
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const pending = element.animateTo([item("feed-a-preview")]);
+      await element.updateComplete;
+      element.items = [item("feed-b-baseline")];
+      await element.updateComplete;
+      await pending;
+
+      expect(animation.cancel).toHaveBeenCalledOnce();
+      expect(element.shadowRoot?.querySelector<HTMLElement>(".card")?.dataset.uri).toBe(
+        "feed-b-baseline",
+      );
+      expect(element.shadowRoot?.querySelector(".movement.new")).toBeNull();
+    } finally {
+      matchMedia.mockRestore();
+      element.remove();
+    }
+  });
+
+  it("keeps a newer feed baseline during a full-motion fade phase", async () => {
+    vi.useFakeTimers();
+    const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = [item("feed-a-1"), item("feed-a-2")];
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const pending = element.animateTo([item("feed-a-preview")]);
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-out");
+
+      element.items = [item("feed-b-1"), item("feed-b-2")];
+      await element.updateComplete;
+      await vi.runAllTimersAsync();
+      await pending;
+
+      expect(
+        [...(element.shadowRoot?.querySelectorAll<HTMLElement>(".card") ?? [])].map(
+          (card) => card.dataset.uri,
+        ),
+      ).toEqual(["feed-b-1", "feed-b-2"]);
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("idle");
+    } finally {
+      matchMedia.mockRestore();
+      element.remove();
+      vi.useRealTimers();
+    }
+  });
+
+  it("animates away the visible page when the next slate has fewer pages", async () => {
+    vi.useFakeTimers();
+    const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = Array.from({ length: 45 }, (_, index) => item(`old-${String(index + 1)}`));
+    document.body.appendChild(element);
+    await element.updateComplete;
+    const nextPage = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Next preview page"]',
+    );
+    nextPage?.click();
+    await element.updateComplete;
+    nextPage?.click();
+    await element.updateComplete;
+
+    try {
+      const pending = element.animateTo(
+        Array.from({ length: 10 }, (_, index) => item(`new-${String(index + 1)}`)),
+      );
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelectorAll(".card.removed")).toHaveLength(5);
+      expect(
+        [...(element.shadowRoot?.querySelectorAll<HTMLElement>(".card.removed") ?? [])].map(
+          (card) => card.dataset.uri,
+        ),
+      ).toEqual(["old-41", "old-42", "old-43", "old-44", "old-45"]);
+
+      await vi.runAllTimersAsync();
+      await pending;
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelectorAll(".card")).toHaveLength(10);
+      expect(element.shadowRoot?.querySelector<HTMLElement>(".card")?.dataset.uri).toBe("new-1");
+    } finally {
+      matchMedia.mockRestore();
+      element.remove();
+      vi.useRealTimers();
+    }
+  });
+
   it("paginates every returned item without showing hydration counts", async () => {
     const element = document.createElement("settings-feed-preview");
     element.items = Array.from({ length: 45 }, (_, index) => item(`post-${String(index + 1)}`));

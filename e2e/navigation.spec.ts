@@ -61,6 +61,19 @@ test.describe("feed-scoped navigation", () => {
     await desktop.getByRole("button", { name: "More options" }).click();
     const logout = desktop.getByRole("button", { name: "Log out" });
     await expect(logout.locator('wa-icon[name="lock"]')).toBeVisible();
+    await expect(desktop.locator(".logout-menu.compact")).not.toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(logout).toHaveCSS("color", "rgb(244, 33, 46)");
+    await expect
+      .poll(() =>
+        logout.locator('wa-icon[name="lock"]').evaluate((icon) => {
+          const lockBody = icon.shadowRoot?.querySelector("svg rect");
+          return lockBody ? getComputedStyle(lockBody).fill : null;
+        }),
+      )
+      .toBe("none");
     const logoutBox = await logout.boundingBox();
     expect(logoutBox).not.toBeNull();
     expect((logoutBox?.y ?? -1) + (logoutBox?.height ?? 0)).toBeLessThanOrEqual(520);
@@ -383,26 +396,109 @@ test.describe("feed-scoped navigation", () => {
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   });
 
-  test("keeps the mobile feed switcher mapped to the canonical feed route", async ({ page }) => {
+  test("uses the mobile drawer as the feed switcher and gives snapshots the full strip", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 375, height: 720 });
     const tabs = page.locator("feed-page feed-tabs");
-    const trigger = tabs.locator(".algo-trigger");
-    const greenEarthHeight = (await trigger.boundingBox())?.height;
-    expect(greenEarthHeight).toBeDefined();
+    await expect(tabs.locator(".algo-indicator, .algo-trigger, .algo-dropdown")).toHaveCount(0);
+    await expect(tabs.locator(".tabs-scroll-area")).toBeVisible();
+    await expect(tabs.locator(".tab").first()).toContainText("Latest");
 
-    await trigger.click();
-    await tabs.getByRole("option", { name: "Best of Friends" }).click();
+    const geometry = await tabs.locator(".tabs-container").evaluate((container) => {
+      const strip = container.querySelector(".tabs-scroll-area")?.getBoundingClientRect();
+      const box = container.getBoundingClientRect();
+      return {
+        stripLeft: strip?.left ?? -1,
+        stripRight: strip?.right ?? -1,
+        containerLeft: box.left,
+        containerRight: box.right,
+      };
+    });
+    expect(Math.abs(geometry.stripLeft - geometry.containerLeft)).toBeLessThan(1);
+    expect(Math.abs(geometry.stripRight - geometry.containerRight)).toBeLessThan(1);
+  });
 
-    await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
-    await expect(trigger).toContainText("Best of Friends");
-    await expect(tabs.locator(".tab")).toHaveCount(0);
-    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
+  test("keeps the source breakdown readable and horizontally scrollable on mobile", async ({
+    page,
+  }) => {
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 640 });
+      const feedPage = page.locator("feed-page");
+      await feedPage.locator("feed-tabs").evaluate(async (element) => {
+        const tabs = element as HTMLElement & {
+          feeds: Array<Record<string, unknown>>;
+          updateComplete: Promise<boolean>;
+        };
+        const activeFeed = tabs.feeds[0];
+        if (!activeFeed) throw new Error("Expected an active feed fixture");
+        const diagnostic = {
+          weight: 0.25,
+          requestedCount: 50,
+          returnedCount: 24,
+          contributedCount: 10,
+          status: "success",
+          reason: null,
+          mode: "primary",
+        };
+        tabs.feeds = [
+          {
+            ...activeFeed,
+            generatorDiagnostics: [
+              { ...diagnostic, name: "followed_users" },
+              { ...diagnostic, name: "network_likes" },
+              { ...diagnostic, name: "two_tower" },
+              { ...diagnostic, name: "popularity" },
+            ],
+          },
+        ];
+        await tabs.updateComplete;
+      });
+      const openBreakdown = feedPage.getByRole("button", { name: "View source breakdown" });
+      await expect(openBreakdown).toBeEnabled();
+      await openBreakdown.click();
 
-    await trigger.click();
-    await tabs.getByRole("option", { name: "Random" }).click();
-    await expect(page).toHaveURL(/#\/feed\/random$/);
-    await expect(trigger).toContainText("Random");
-    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
+      const dialog = feedPage.getByRole("dialog", { name: "Source breakdown" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText("Swipe horizontally to see all columns")).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Close source breakdown" })).toBeVisible();
+
+      const geometry = await dialog.evaluate((element) => {
+        const dialogBox = element.getBoundingClientRect();
+        const scrollElement = element.querySelector<HTMLElement>(".breakdown-table-scroll");
+        const sourceCell = scrollElement?.querySelector<HTMLElement>("tbody td:first-child");
+        if (scrollElement) scrollElement.scrollLeft = scrollElement.scrollWidth;
+        const scrollBox = scrollElement?.getBoundingClientRect();
+        const sourceBox = sourceCell?.getBoundingClientRect();
+        return {
+          dialogLeft: dialogBox.left,
+          dialogRight: dialogBox.right,
+          dialogClientWidth: element.clientWidth,
+          dialogScrollWidth: element.scrollWidth,
+          scrollerClientWidth: scrollElement?.clientWidth ?? 0,
+          scrollerScrollWidth: scrollElement?.scrollWidth ?? 0,
+          scrollerScrollLeft: scrollElement?.scrollLeft ?? 0,
+          scrollerLeft: scrollBox?.left ?? 0,
+          sourceLeft: sourceBox?.left ?? 0,
+          closeSize: (() => {
+            const box = element.querySelector(".popover-close")?.getBoundingClientRect();
+            return { width: box?.width ?? 0, height: box?.height ?? 0 };
+          })(),
+        };
+      });
+
+      expect(geometry.dialogLeft).toBeGreaterThanOrEqual(0);
+      expect(geometry.dialogRight).toBeLessThanOrEqual(width);
+      expect(geometry.dialogScrollWidth).toBeLessThanOrEqual(geometry.dialogClientWidth);
+      expect(geometry.scrollerScrollWidth).toBeGreaterThan(geometry.scrollerClientWidth);
+      expect(geometry.scrollerScrollLeft).toBeGreaterThan(0);
+      expect(Math.abs(geometry.sourceLeft - geometry.scrollerLeft)).toBeLessThan(2);
+      expect(geometry.closeSize.width).toBeGreaterThanOrEqual(44);
+      expect(geometry.closeSize.height).toBeGreaterThanOrEqual(44);
+
+      await dialog.getByRole("button", { name: "Close source breakdown" }).click();
+      await expect(dialog).toHaveCount(0);
+    }
   });
 });
 

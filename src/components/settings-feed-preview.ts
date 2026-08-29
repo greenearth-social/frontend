@@ -119,6 +119,8 @@ export class SettingsFeedPreview extends LitElement {
   @state() private removedUris = new Set<string>();
   @state() private newUris = new Set<string>();
   private isAnimating = false;
+  private animationOperation = 0;
+  private activeAnimations = new Set<Animation>();
   private currentSlate: FeedItemView[] = [];
 
   static styles = css`
@@ -381,14 +383,16 @@ export class SettingsFeedPreview extends LitElement {
   `;
 
   protected willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has("items") && !this.isAnimating) {
+    if (changed.has("items")) {
+      const interruptedAnimation = this.isAnimating;
+      if (interruptedAnimation) this.cancelActiveAnimation();
       this.currentSlate = [...this.items];
       this.currentPage = Math.min(this.currentPage, this.totalPagesFor(this.currentSlate));
       this.renderedItems = this.pageItems(this.currentSlate, this.currentPage);
-      if (this.currentSlate.length === 0) {
-        // Settings clears the slate while switching feeds. Drop the previous
-        // feed's comparison origin so the incoming baseline settles to dashes.
-        this.comparisonItems = [];
+      if (interruptedAnimation || this.currentSlate.length === 0) {
+        // A feed switch or lifecycle refresh supersedes the old comparison
+        // origin, so the incoming baseline settles to unchanged markers.
+        this.comparisonItems = this.currentSlate;
       } else if (this.comparisonItems.length === 0) {
         this.comparisonItems = this.currentSlate;
       }
@@ -396,16 +400,21 @@ export class SettingsFeedPreview extends LitElement {
   }
 
   async animateTo(nextItems: FeedItemView[], fromItems?: FeedItemView[]): Promise<void> {
-    if (this.isAnimating) return;
+    const supersedesAnimation = this.isAnimating;
+    const current = [...(fromItems ?? (supersedesAnimation ? this.items : this.currentSlate))];
+    if (supersedesAnimation) this.cancelActiveAnimation();
+    const animationOperation = ++this.animationOperation;
     this.isAnimating = true;
-    const current = [...(fromItems ?? this.currentSlate)];
     const next = [...nextItems];
-    const animationPage = Math.min(this.currentPage, this.totalPagesFor(next));
-    const currentVisible = this.pageItems(current, animationPage);
+    const currentPage = Math.min(this.currentPage, this.totalPagesFor(current));
+    const animationPage = Math.min(currentPage, this.totalPagesFor(next));
+    const currentVisible = this.pageItems(current, currentPage);
     const nextVisible = this.pageItems(next, animationPage);
+    const currentVisibleUris = new Set(currentVisible.map((item) => item.atUri));
+    const nextVisibleUris = new Set(nextVisible.map((item) => item.atUri));
     try {
       this.currentPage = animationPage;
-      if (fromItems) {
+      if (fromItems || supersedesAnimation) {
         this.currentSlate = current;
         this.comparisonItems = current;
         this.renderedItems = currentVisible;
@@ -413,6 +422,7 @@ export class SettingsFeedPreview extends LitElement {
         this.newUris = new Set();
         this.phase = "idle";
         await this.updateComplete;
+        if (!this.isCurrentAnimation(animationOperation)) return;
       }
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (reducedMotion) {
@@ -420,10 +430,13 @@ export class SettingsFeedPreview extends LitElement {
           duration: PREVIEW_ANIMATION_TIMINGS.reducedMotion,
           easing: "ease-out",
         });
+        const animationFinished = this.waitForAnimation(animation);
         this.comparisonItems = current;
         this.currentSlate = next;
         this.renderedItems = nextVisible;
-        await animation.finished.catch(() => undefined);
+        await this.updateComplete;
+        if (!this.isCurrentAnimation(animationOperation)) return;
+        await animationFinished;
         return;
       }
 
@@ -431,21 +444,24 @@ export class SettingsFeedPreview extends LitElement {
       // Only the visible page participates in the animation. The complete
       // `next` slate is still adopted below so pagination exposes every
       // off-page change as soon as the transition finishes.
-      const pageTransition = previewPageTransition(current, next, animationPage);
-      this.removedUris = new Set([...pageTransition.removed, ...pageTransition.leavingPage]);
+      this.removedUris = new Set(
+        currentVisible.filter((item) => !nextVisibleUris.has(item.atUri)).map((item) => item.atUri),
+      );
       this.phase = "fade-out";
       await this.updateComplete;
+      if (!this.isCurrentAnimation(animationOperation)) return;
       await delay(
         PREVIEW_ANIMATION_TIMINGS.fadeOut +
           deletionCascadeDelay(this.removedUris.size - 1, this.removedUris.size),
       );
+      if (!this.isCurrentAnimation(animationOperation)) return;
 
       this.phase = "compact";
       await this.updateComplete;
+      if (!this.isCurrentAnimation(animationOperation)) return;
       await delay(PREVIEW_ANIMATION_TIMINGS.removeSpace);
+      if (!this.isCurrentAnimation(animationOperation)) return;
 
-      const currentVisibleUris = new Set(currentVisible.map((item) => item.atUri));
-      const nextVisibleUris = new Set(nextVisible.map((item) => item.atUri));
       const survivingCurrentPage = currentVisible.filter((item) => nextVisibleUris.has(item.atUri));
       const survivingNextPage = nextVisible.filter((item) => currentVisibleUris.has(item.atUri));
       const hasReordering = survivingCurrentPage.some(
@@ -457,6 +473,7 @@ export class SettingsFeedPreview extends LitElement {
       if (hasReordering) {
         this.phase = "rerank";
         await this.updateComplete;
+        if (!this.isCurrentAnimation(animationOperation)) return;
 
         const oldElements = [
           ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
@@ -476,20 +493,25 @@ export class SettingsFeedPreview extends LitElement {
           const oldRect = oldRects.get(element.dataset.uri ?? "");
           const newRect = element.getBoundingClientRect();
           const offset = oldRect ? oldRect.top - newRect.top : 0;
-          return element
-            .animate([{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }], {
-              duration: PREVIEW_ANIMATION_TIMINGS.rerank,
-              easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-            })
-            .finished.catch(() => undefined);
+          return this.waitForAnimation(
+            element.animate(
+              [{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }],
+              {
+                duration: PREVIEW_ANIMATION_TIMINGS.rerank,
+                easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+              },
+            ),
+          );
         });
         await Promise.all(animations);
+        if (!this.isCurrentAnimation(animationOperation)) return;
       } else {
         // Deletions and insertions can change the visible page without changing
         // the relative order of its surviving posts. Move directly to the next
         // phase instead of holding on an imperceptible rerank animation.
         this.renderedItems = survivingNextPage;
         await this.updateComplete;
+        if (!this.isCurrentAnimation(animationOperation)) return;
       }
 
       this.newUris = new Set(
@@ -498,23 +520,29 @@ export class SettingsFeedPreview extends LitElement {
       this.renderedItems = nextVisible;
       this.phase = "insert-space";
       await this.updateComplete;
+      if (!this.isCurrentAnimation(animationOperation)) return;
       await delay(PREVIEW_ANIMATION_TIMINGS.insertSpace);
+      if (!this.isCurrentAnimation(animationOperation)) return;
 
       this.phase = "fade-in";
       await this.updateComplete;
+      if (!this.isCurrentAnimation(animationOperation)) return;
       await delay(
         PREVIEW_ANIMATION_TIMINGS.fadeIn +
           revealCascadeDelay(this.newUris.size - 1, this.newUris.size),
       );
     } finally {
-      this.removedUris = new Set();
-      this.newUris = new Set();
-      this.phase = "idle";
-      this.isAnimating = false;
+      if (this.isCurrentAnimation(animationOperation)) {
+        this.removedUris = new Set();
+        this.newUris = new Set();
+        this.phase = "idle";
+        this.isAnimating = false;
+      }
     }
   }
 
   settleAsOrigin(items: FeedItemView[]): void {
+    if (this.isAnimating) this.cancelActiveAnimation();
     const settled = [...items];
     this.currentSlate = settled;
     this.comparisonItems = settled;
@@ -523,6 +551,37 @@ export class SettingsFeedPreview extends LitElement {
     this.removedUris = new Set();
     this.newUris = new Set();
     this.phase = "idle";
+  }
+
+  private cancelActiveAnimation(): void {
+    this.animationOperation++;
+    for (const animation of this.activeAnimations) {
+      try {
+        animation.cancel();
+      } catch {
+        // A detached or test-provided animation may already be settled.
+      }
+    }
+    this.activeAnimations.clear();
+    this.isAnimating = false;
+    this.removedUris = new Set();
+    this.newUris = new Set();
+    this.phase = "idle";
+  }
+
+  private isCurrentAnimation(operation: number): boolean {
+    return this.isAnimating && operation === this.animationOperation;
+  }
+
+  private async waitForAnimation(animation: Animation): Promise<void> {
+    this.activeAnimations.add(animation);
+    try {
+      await animation.finished;
+    } catch {
+      // Cancellation is the expected way a newer feed or preview takes over.
+    } finally {
+      this.activeAnimations.delete(animation);
+    }
   }
 
   render() {

@@ -847,11 +847,6 @@ export class AppShell extends MobxLitElement {
           class="center-column ${!authStore.isSignedIn ? "logged-out-main" : ""} ${activePage === "settings" ? "settings-active" : ""}"
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
-          @algo-select=${(e: CustomEvent<{ algorithmId: AlgorithmId | null }>) => {
-            if (e.detail.algorithmId !== null) {
-              this.#selectAlgorithm(e.detail.algorithmId);
-            }
-          }}
         >
           ${
             activePage === "settings"
@@ -1177,10 +1172,6 @@ export class AppShell extends MobxLitElement {
     }
     this.#updateRoute();
   }
-
-  #selectAlgorithm = (id: AlgorithmId) => {
-    void this.#navigateTo(this._currentPage, id);
-  };
 
   #syncSelectedAlgorithm(id: AlgorithmId): void {
     const store = getRootStore();

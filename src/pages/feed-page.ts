@@ -210,8 +210,8 @@ export class FeedPage extends MobxLitElement {
               src="/assets/mysky-logo.png"
               alt="MySky"
               class="logged-out-logo"
-              width="1453"
-              height="1082"
+              width="640"
+              height="476"
             />
             <h1 class="logged-out-title">MySky</h1>
             <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>
@@ -465,8 +465,6 @@ export class FeedPage extends MobxLitElement {
               .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
-            .selectedAlgorithm=${uiStore.selectedAlgorithm}
-            .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
               const feed = feedStore.feedList.find((f) => f.requestId === e.detail.requestId);
               if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
