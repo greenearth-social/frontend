@@ -235,25 +235,7 @@ export class SettingsPage extends MobxLitElement {
                 <span class="page-title-full">${settingsTitle}</span>
                 <span class="page-title-short" aria-hidden="true">Settings</span>
               </h1>
-              <div class="settings-header-actions">
-                <button
-                  class="history-btn"
-                  type="button"
-                  aria-label=${historyLabel}
-                  title=${historyLabel}
-                  ?disabled=${
-                    this.isLoading || this.isApplyingHistory || this.historyEntry === null
-                  }
-                  @click=${() => {
-                    void this.#toggleHistory();
-                  }}
-                >
-                  <wa-icon
-                    library="app"
-                    name=${this.historyEntry?.mode === "redo" ? "redo" : "undo"}
-                  ></wa-icon>
-                  <span>${historyAction}</span>
-                </button>
+              <div class="mobile-preview-row">
                 <button
                   class="mobile-preview-btn"
                   type="button"
@@ -266,13 +248,29 @@ export class SettingsPage extends MobxLitElement {
                 </button>
               </div>
               <button
+                class="history-btn"
+                type="button"
+                aria-label=${historyLabel}
+                title=${historyLabel}
+                ?disabled=${this.isLoading || this.isApplyingHistory || this.historyEntry === null}
+                @click=${() => {
+                  void this.#toggleHistory();
+                }}
+              >
+                <wa-icon
+                  library="app"
+                  name=${this.historyEntry?.mode === "redo" ? "redo" : "undo"}
+                ></wa-icon>
+                <span>${historyAction}</span>
+              </button>
+              <button
                 class="reset-defaults-btn"
                 type="button"
                 aria-label="Reset settings to defaults"
                 ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
                 @click=${() => {
-                    void this.#restoreDefaults();
-                  }}
+                  void this.#restoreDefaults();
+                }}
               >
                 <svg viewBox="0 0 640 640" aria-hidden="true">
                   <path
@@ -339,7 +337,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              Update Preview
+              ${previewBusy ? "Generating preview" : "Update preview"}
             </button>
             <div class="preview-mobile-primary-actions">
               <button
@@ -354,7 +352,7 @@ export class SettingsPage extends MobxLitElement {
               >
                 <wa-icon library="app" name="chevron-left"></wa-icon>
               </button>
-              <h2 class="mobile-preview-title">Preview</h2>
+              <span class="mobile-preview-status">Generating Preview</span>
             </div>
           </div>
           ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
@@ -386,11 +384,6 @@ export class SettingsPage extends MobxLitElement {
               .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
             ></settings-feed-preview>
           </div>
-          ${
-            previewStore?.isGenerating
-              ? html`<div class="preview-generating" role="status">Generating preview…</div>`
-              : ""
-          }
           ${
             previewStore?.error && previewStore.displayedItems.length > 0
               ? html` <div class="preview-error" role="alert">
@@ -429,7 +422,19 @@ export class SettingsPage extends MobxLitElement {
   #renderCandidateSection(weights: SourceWeights, freshness: number): TemplateResult {
     return html`
       <section class="section section-candidate">
-        <h2 class="section-title">Sources</h2>
+        <div class="section-heading">
+          <h2 class="section-title">Sources</h2>
+          <button
+            class="section-info-btn"
+            type="button"
+            aria-label="Learn more about Sources"
+            @click=${() => {
+              this.#openNode("sources");
+            }}
+          >
+            <span class="question-icon" aria-hidden="true">i</span>
+          </button>
+        </div>
         <div class="control-card config-card">
           ${this.#titleButton("time_window", "Time Window")}
           <icon-range-slider
@@ -438,7 +443,7 @@ export class SettingsPage extends MobxLitElement {
             step="1"
             .value=${freshness}
             .icons=${FRESHNESS_PRESETS.map((preset) => preset.iconSrc)}
-            thumbIconSize="24"
+            thumbIconSize="20"
             .valueText=${FRESHNESS_PRESETS[freshness]?.label ?? "7d"}
             ariaLabel="Time Window"
             ?disabled=${this.isLoading}
@@ -471,10 +476,6 @@ export class SettingsPage extends MobxLitElement {
     const masterValue = sourceRankPosition(weights);
     const masterDisabled = this.isLoading || this.lockedSources.length > 0;
     return html`
-      <p class="source-controls-help">
-        Enter a whole percentage or lock a source to keep it fixed. The Vertical Source Rank Control
-        is available when every source is unlocked.
-      </p>
       <div class="sources-layout">
         <div class="master-column">
           <span class="master-end-label">Friends</span>
@@ -618,7 +619,6 @@ export class SettingsPage extends MobxLitElement {
                 }
               }}
             />
-            <span class="percentage-suffix" aria-hidden="true">%</span>
           </label>
           <button
             class="source-lock-btn"
@@ -1033,7 +1033,41 @@ export class SettingsPage extends MobxLitElement {
       this.#drainBaselineSyncQueue();
       return;
     }
-    const accepted = await store.acceptGeneratedPreview(generated, patch);
+    let accepted = await store.acceptGeneratedPreview(generated, patch);
+    const shouldRecoverAcceptanceConflict = store.acceptanceConflict;
+    if (
+      !accepted &&
+      shouldRecoverAcceptanceConflict &&
+      revision === this.settingsRevision &&
+      feedName === this.selectedAlgorithm &&
+      animationOperation === this.previewAnimationOperation
+    ) {
+      const synchronized = await root.preferencesStore.syncSnapshot(feedName, patch);
+      if (
+        synchronized &&
+        revision === this.settingsRevision &&
+        feedName === this.selectedAlgorithm &&
+        animationOperation === this.previewAnimationOperation
+      ) {
+        const regenerated = await store.preview(patch);
+        if (
+          regenerated &&
+          revision === this.settingsRevision &&
+          feedName === this.selectedAlgorithm &&
+          animationOperation === this.previewAnimationOperation
+        ) {
+          accepted = await store.acceptGeneratedPreview(regenerated, patch);
+          if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
+        }
+      } else if (
+        !synchronized &&
+        revision === this.settingsRevision &&
+        feedName === this.selectedAlgorithm &&
+        animationOperation === this.previewAnimationOperation
+      ) {
+        store.markPreviewSyncFailure();
+      }
+    }
     if (
       !accepted ||
       revision !== this.settingsRevision ||

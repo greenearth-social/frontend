@@ -122,9 +122,9 @@ describe("FeedTabs source breakdown", () => {
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
       "Snapshot stored 10 posts",
     );
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
-      "Public labels filtered 2",
-    );
+    expect(
+      element.shadowRoot?.querySelector("dialog")?.textContent.replace(/\s+/g, " "),
+    ).toContain("Public labels filtered 2");
     element.remove();
   });
 
@@ -205,6 +205,20 @@ describe("FeedTabs source breakdown", () => {
     );
     expect(element.shadowRoot?.querySelectorAll(".tab")).toHaveLength(0);
     expect(FeedTabs.styles.cssText).toContain("min-height: 2.75rem");
+    element.remove();
+  });
+
+  it("uses the MySky logo asset for the MySky feed switcher", async () => {
+    const element = document.createElement("feed-tabs");
+    element.selectedAlgorithm = "your-feed";
+    element.algorithmLabel = "MySky";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const logo = element.shadowRoot?.querySelector<HTMLImageElement>(".algo-trigger img");
+    expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
+    expect(logo?.getAttribute("width")).toBe("100");
+    expect(logo?.getAttribute("height")).toBe("100");
     element.remove();
   });
 });

@@ -78,6 +78,14 @@ function emptyPendingSavesByFeed(): Record<AlgorithmId, Set<Promise<boolean>>> {
   };
 }
 
+function emptySaveQueuesByFeed(): Record<AlgorithmId, Promise<void>> {
+  return {
+    "your-feed": Promise.resolve(),
+    "best-of-friends": Promise.resolve(),
+    random: Promise.resolve(),
+  };
+}
+
 function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
   return (
     a.following === b.following &&
@@ -174,12 +182,14 @@ export class PreferencesStore {
   private accountGeneration = 0;
   private accountId: string | null = null;
   private pendingSavePromisesByFeed = emptyPendingSavesByFeed();
+  private saveQueueByFeed = emptySaveQueuesByFeed();
 
   constructor(root: RootStore) {
     this.root = root;
-    makeAutoObservable<PreferencesStore, "pendingSavePromisesByFeed">(this, {
+    makeAutoObservable<PreferencesStore, "pendingSavePromisesByFeed" | "saveQueueByFeed">(this, {
       root: false,
       pendingSavePromisesByFeed: false,
+      saveQueueByFeed: false,
     });
   }
 
@@ -244,6 +254,7 @@ export class PreferencesStore {
     this.hasLoaded = false;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
+    this.saveQueueByFeed = emptySaveQueuesByFeed();
   }
 
   async save(
@@ -268,7 +279,7 @@ export class PreferencesStore {
 
     try {
       const patch = { [property]: normalizedValue } as FeedPreferences;
-      const savedValues = await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      const savedValues = await this.enqueuePreferencePatch(feedName, patch);
       if (generation === this.accountGeneration && version === this.saveVersions[key]) {
         const savedValue = savedValues[property] ?? normalizedValue;
         const currentValues = this.valuesFor(feedName);
@@ -310,12 +321,25 @@ export class PreferencesStore {
     origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
   ): Promise<boolean> {
     const operation = this.performSavePatch(feedName, patch, origins);
-    const pending = this.pendingSavePromisesByFeed[feedName];
-    pending.add(operation);
-    void operation.finally(() => {
-      pending.delete(operation);
-    });
-    return operation;
+    return this.trackPendingSave(feedName, operation);
+  }
+
+  syncSnapshot(feedName: AlgorithmId, patch: FeedPreferences): Promise<boolean> {
+    const generation = this.accountGeneration;
+    const snapshot = {
+      ...patch,
+      ...(patch.sourceWeights ? { sourceWeights: { ...patch.sourceWeights } } : {}),
+    };
+    const operation = (async (): Promise<boolean> => {
+      try {
+        await this.enqueuePreferencePatch(feedName, snapshot);
+        return generation === this.accountGeneration;
+      } catch (error) {
+        console.error("Failed to synchronize preference snapshot:", error);
+        return false;
+      }
+    })();
+    return this.trackPendingSave(feedName, operation);
   }
 
   async waitForPendingSaves(feedName: AlgorithmId): Promise<boolean> {
@@ -366,7 +390,7 @@ export class PreferencesStore {
     this.valuesByFeed[feedName] = optimisticValues;
 
     try {
-      const saved = await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      const saved = await this.enqueuePreferencePatch(feedName, patch);
       if (generation !== this.accountGeneration) return false;
       const finalValues = clonePreferences(this.valuesFor(feedName));
       for (const control of changedControls) {
@@ -484,7 +508,7 @@ export class PreferencesStore {
     this.valuesByFeed[feedName] = optimisticValues;
 
     try {
-      await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      await this.enqueuePreferencePatch(feedName, patch);
       if (generation !== this.accountGeneration) return false;
 
       const finalValues = clonePreferences(this.valuesFor(feedName));
@@ -529,6 +553,29 @@ export class PreferencesStore {
       console.error("Failed to restore default preferences:", error);
       return false;
     }
+  }
+
+  private enqueuePreferencePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+  ): Promise<FeedPreferences> {
+    const request = this.saveQueueByFeed[feedName].then(() =>
+      this.root.services.feedApiService.patchPreferences(feedName, patch),
+    );
+    this.saveQueueByFeed[feedName] = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    return request;
+  }
+
+  private trackPendingSave(feedName: AlgorithmId, operation: Promise<boolean>): Promise<boolean> {
+    const pending = this.pendingSavePromisesByFeed[feedName];
+    pending.add(operation);
+    void operation.finally(() => {
+      pending.delete(operation);
+    });
+    return operation;
   }
 
   valuesFor(feedName: AlgorithmId): Preferences {

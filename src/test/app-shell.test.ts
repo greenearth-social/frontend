@@ -354,7 +354,7 @@ describe("AppShell authentication UI", () => {
     });
   });
 
-  it("keeps the mobile drawer open while navigating and closes it only on dismissal", async () => {
+  it("keeps the mobile drawer open for feed selection and closes it for subpages", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -377,10 +377,6 @@ describe("AppShell authentication UI", () => {
       ?.click();
     await element.updateComplete;
     expect(window.location.hash).toBe("#/settings/best-of-friends");
-    expect(drawer?.classList.contains("open")).toBe(true);
-
-    element.shadowRoot?.querySelector<HTMLElement>(".drawer-backdrop")?.click();
-    await element.updateComplete;
     expect(drawer?.classList.contains("open")).toBe(false);
 
     const settingsPage = element.shadowRoot?.querySelector("settings-page");
@@ -388,6 +384,31 @@ describe("AppShell authentication UI", () => {
     settingsPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
     await element.updateComplete;
     expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.drawer a[href="#/feedback/best-of-friends"]')
+      ?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feedback/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    const feedbackPage = element.shadowRoot?.querySelector("feedback-page");
+    await feedbackPage?.updateComplete;
+    feedbackPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.drawer a[href="#/feed/best-of-friends"]')
+      ?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feed/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    const reopenedFeedPage = element.shadowRoot?.querySelector("feed-page");
+    await reopenedFeedPage?.updateComplete;
+    reopenedFeedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
 
     drawer?.querySelector<HTMLButtonElement>(".drawer-close")?.click();
     await element.updateComplete;
@@ -421,6 +442,16 @@ describe("AppShell authentication UI", () => {
       const feedPage = element.shadowRoot?.querySelector("feed-page");
       await feedPage?.updateComplete;
       expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
+      const logo = feedPage?.shadowRoot?.querySelector<HTMLImageElement>(".logged-out-logo");
+      expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
+      expect(logo?.getAttribute("width")).toBe("1453");
+      expect(logo?.getAttribute("height")).toBe("1082");
+      expect(feedPage?.shadowRoot?.querySelector("style")?.textContent).toContain(
+        "width: min(52vw, 190px)",
+      );
+      expect(AppShell.styles.toString()).toMatch(
+        /wa-icon\[name\^="algo-"\][^}]*width:\s*2\.25rem/s,
+      );
     },
   );
 
@@ -604,6 +635,15 @@ describe("AppShell algorithm selector", () => {
     expect(active?.length).toBe(1);
     expect(active?.[0]?.getAttribute("aria-label")).toBe("Best of Friends");
     expect(window.location.hash).toBe("#/feed/best-of-friends");
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-row\.active\s*\{[^}]*color-mix\(in srgb, var\(--bluesky-brand\) 62%, #a8d3ff\)/s,
+    );
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-row\.active \.algo-label\s*\{[^}]*font-weight:\s*800/s,
+    );
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-btn\s*\{[^}]*gap:\s*0\.375rem[^}]*padding:\s*0\.625rem 0 0\.625rem 0\.375rem/s,
+    );
   });
 
   it("calls setSelectedAlgorithm and loadFeedDetail on click", async () => {

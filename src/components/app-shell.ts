@@ -143,8 +143,8 @@ export class AppShell extends MobxLitElement {
         background-color 0.15s;
     }
     .feed-group.active-feed {
-      border-color: color-mix(in srgb, var(--bluesky-brand) 55%, var(--bluesky-border));
-      background: color-mix(in srgb, var(--bluesky-brand) 7%, var(--bluesky-nav-bg));
+      border-color: color-mix(in srgb, var(--bluesky-brand) 38%, #a8d3ff);
+      background: color-mix(in srgb, var(--bluesky-brand) 5%, var(--bluesky-nav-bg));
     }
     .algo-row {
       display: flex;
@@ -161,17 +161,19 @@ export class AppShell extends MobxLitElement {
       background: var(--bluesky-bg-hover);
     }
     .algo-row.active {
-      background: var(--bluesky-brand);
+      background: color-mix(in srgb, var(--bluesky-brand) 62%, #a8d3ff);
       color: #fff;
-      font-weight: 700;
+    }
+    .algo-row.active .algo-label {
+      font-weight: 800;
     }
     .algo-btn {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.375rem;
       min-width: 0;
       flex: 1;
-      padding: 0.625rem 0 0.625rem 0.75rem;
+      padding: 0.625rem 0 0.625rem 0.375rem;
       border: none;
       background: transparent;
       color: inherit;
@@ -184,12 +186,18 @@ export class AppShell extends MobxLitElement {
       font-size: 1.5rem;
       flex-shrink: 0;
     }
+    .algo-btn wa-icon[name^="algo-"] {
+      width: 2.25rem;
+      height: 2.25rem;
+      font-size: 2.25rem;
+    }
     .algo-label {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
     .algo-toggle {
       width: 44px;
       height: 44px;
@@ -882,80 +890,81 @@ export class AppShell extends MobxLitElement {
         <div class="sidebar-scroll">
           <nav id="${surface}-feed-navigation" class="feed-groups" aria-label="Feed pages">
             ${ALGORITHM_IDS.map((id) => {
-            const algo = ALGORITHMS[id];
-            const isActiveFeed = this._currentFeed === id;
-            const isExpanded = this._expandedAlgorithms.has(id);
-            const subnavId = `${surface}-${id}-pages`;
-            const togglesCollapsedActiveFeed =
-              surface === "desktop" && this._desktopSidebarCollapsed && isActiveFeed;
-            return html`
-              <div
-                class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
-              >
-                <div class="algo-row ${isActiveFeed ? "active" : ""}">
-                  <button
-                    class="algo-btn"
-                    @click=${() => {
-                      if (togglesCollapsedActiveFeed) {
-                        this.#toggleAlgorithmExpanded(id);
-                        return;
+              const algo = ALGORITHMS[id];
+              const isActiveFeed = this._currentFeed === id;
+              const isExpanded = this._expandedAlgorithms.has(id);
+              const subnavId = `${surface}-${id}-pages`;
+              const togglesCollapsedActiveFeed =
+                surface === "desktop" && this._desktopSidebarCollapsed && isActiveFeed;
+              return html`
+                <div
+                  class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
+                >
+                  <div class="algo-row ${isActiveFeed ? "active" : ""}">
+                    <button
+                      class="algo-btn"
+                      @click=${() => {
+                        if (togglesCollapsedActiveFeed) {
+                          this.#toggleAlgorithmExpanded(id);
+                          return;
+                        }
+                        void this.#navigateTo(this._currentPage, id);
+                      }}
+                      aria-label=${
+                        togglesCollapsedActiveFeed
+                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                          : algo.label
                       }
-                      void this.#navigateTo(this._currentPage, id);
-                    }}
-                    aria-label=${
-                      togglesCollapsedActiveFeed
-                        ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                        : algo.label
-                    }
-                    aria-pressed=${isActiveFeed}
-                    aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
-                    aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
-                    title=${
-                      togglesCollapsedActiveFeed
-                        ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                        : nothing
-                    }
-                    type="button"
-                  >
-                    <wa-icon name=${algo.icon} library="app"></wa-icon>
-                    <span class="algo-label">${algo.label}</span>
-                  </button>
-                  <button
-                    class="algo-toggle"
-                    type="button"
-                    aria-label="${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages"
-                    aria-expanded=${isExpanded}
-                    aria-controls=${subnavId}
-                    @click=${() => {
-                      this.#toggleAlgorithmExpanded(id);
-                    }}
-                  >
-                    <wa-icon name="chevron-down" library="app"></wa-icon>
-                  </button>
+                      aria-pressed=${isActiveFeed}
+                      aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
+                      aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
+                      title=${
+                        togglesCollapsedActiveFeed
+                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
+                          : nothing
+                      }
+                      type="button"
+                    >
+                      <wa-icon name=${algo.icon} library="app"></wa-icon>
+                      <span class="algo-label">${algo.label}</span>
+                    </button>
+                    <button
+                      class="algo-toggle"
+                      type="button"
+                      aria-label="${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages"
+                      aria-expanded=${isExpanded}
+                      aria-controls=${subnavId}
+                      @click=${() => {
+                        this.#toggleAlgorithmExpanded(id);
+                      }}
+                    >
+                      <wa-icon name="chevron-down" library="app"></wa-icon>
+                    </button>
+                  </div>
+                  <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
+                    ${NAV_ITEMS.map((item) => {
+                      const isActive = isActiveFeed && this._currentPage === item.page;
+                      const path = feedScopedPath(item.page, id);
+                      return html`
+                        <a
+                          href="#${path}"
+                          class="nav-link ${isActive ? "active" : ""}"
+                          aria-current=${isActive ? "page" : "false"}
+                          @click=${(event: MouseEvent) => {
+                            event.preventDefault();
+                            if (surface === "drawer") this.#closeDrawer();
+                            void this.#navigateTo(item.page, id);
+                          }}
+                        >
+                          <wa-icon name=${item.icon} library="app"></wa-icon>
+                          <span class="nav-label">${item.label}</span>
+                        </a>
+                      `;
+                    })}
+                  </div>
                 </div>
-                <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
-                  ${NAV_ITEMS.map((item) => {
-                    const isActive = isActiveFeed && this._currentPage === item.page;
-                    const path = feedScopedPath(item.page, id);
-                    return html`
-                      <a
-                        href="#${path}"
-                        class="nav-link ${isActive ? "active" : ""}"
-                        aria-current=${isActive ? "page" : "false"}
-                        @click=${(event: MouseEvent) => {
-                          event.preventDefault();
-                          void this.#navigateTo(item.page, id);
-                        }}
-                      >
-                        <wa-icon name=${item.icon} library="app"></wa-icon>
-                        <span class="nav-label">${item.label}</span>
-                      </a>
-                    `;
-                  })}
-                </div>
-              </div>
-            `;
-          })}
+              `;
+            })}
           </nav>
         </div>
         ${

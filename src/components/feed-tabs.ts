@@ -6,9 +6,9 @@ import { relativeTime } from "../utils/relative-time";
 import { GENERATOR_LABELS } from "./generator-badge";
 
 const ALGO_PNG: Record<string, string> = {
-  "your-feed": "/assets/algo-greenearth.png",
+  "your-feed": "/assets/mysky-logo.png",
   "best-of-friends": "/assets/algo-best-of-friends.png",
-  "random": "/assets/algo-random.png",
+  random: "/assets/algo-random.png",
 };
 
 const GENERATOR_ORDER: Record<string, number> = {
@@ -151,11 +151,21 @@ export class FeedTabs extends LitElement {
     .tabs-scroll-area::before {
       left: 0;
       width: 1.5rem;
-      background: linear-gradient(to right, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
+      background: linear-gradient(
+        to right,
+        rgba(21, 32, 43, 0.95) 0%,
+        rgba(21, 32, 43, 0.7) 50%,
+        transparent 100%
+      );
     }
     .tabs-scroll-area::after {
       right: 0;
-      background: linear-gradient(to left, rgba(21, 32, 43, 0.95) 0%, rgba(21, 32, 43, 0.7) 50%, transparent 100%);
+      background: linear-gradient(
+        to left,
+        rgba(21, 32, 43, 0.95) 0%,
+        rgba(21, 32, 43, 0.7) 50%,
+        transparent 100%
+      );
     }
     .tabs-wrapper {
       overflow-x: auto;
@@ -260,13 +270,15 @@ export class FeedTabs extends LitElement {
       border-collapse: collapse;
       font-size: 0.72rem;
     }
-    th, td {
+    th,
+    td {
       padding: 0.4rem 0.35rem;
       text-align: right;
       border-top: 1px solid var(--bluesky-border);
       white-space: nowrap;
     }
-    th:first-child, td:first-child {
+    th:first-child,
+    td:first-child {
       text-align: left;
     }
     .status-problem {
@@ -307,11 +319,25 @@ export class FeedTabs extends LitElement {
             aria-expanded=${this._algoDropdownOpen}
             @click=${this.#toggleAlgoDropdown}
           >
-            ${pngSrc ? html`<img src=${pngSrc} alt="" />` : html`
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.125rem; height: 1.125rem; flex-shrink: 0;">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-              </svg>
-            `}
+            ${
+              pngSrc
+                ? html`<img src=${pngSrc} alt="" width="100" height="100" />`
+                : html`
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="width: 1.125rem; height: 1.125rem; flex-shrink: 0;"
+                    >
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                      <polyline points="17 6 23 6 23 12" />
+                    </svg>
+                  `
+            }
             <span>${indicatorLabel}</span>
             <svg
               class="algo-chevron ${this._algoDropdownOpen ? "open" : ""}"
@@ -323,12 +349,14 @@ export class FeedTabs extends LitElement {
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <polyline points="6 9 12 15 18 9"/>
+              <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
-          ${this._algoDropdownOpen ? html`
-            <div class="algo-dropdown" role="listbox">
-              ${ALGORITHM_IDS.map((id) => {
+          ${
+            this._algoDropdownOpen
+              ? html`
+                  <div class="algo-dropdown" role="listbox">
+                    ${ALGORITHM_IDS.map((id) => {
                 const algo = ALGORITHMS[id];
                 const isActive = id === this.selectedAlgorithm;
                 const png = ALGO_PNG[id] ?? "";
@@ -338,31 +366,35 @@ export class FeedTabs extends LitElement {
                     type="button"
                     role="option"
                     aria-selected=${isActive}
-                    @click=${(e: Event) => { this.#selectAlgo(id, e); }}
+                    @click=${(e: Event) => {
+                      this.#selectAlgo(id, e);
+                    }}
                   >
-                    ${png ? html`<img src=${png} alt="" />` : ""}
+                    ${png ? html`<img src=${png} alt="" width="100" height="100" />` : ""}
                     <span>${algo.label}</span>
                   </button>
                 `;
               })}
-            </div>
-          ` : ""}
+                  </div>
+                `
+              : ""
+          }
         </div>
         <div class="tabs-scroll-area">
           <div class="tabs-wrapper">
             <div class="tabs">
-              ${this.feeds.map(
-                (f, index) => {
-                  return html`
-                    <div
-                      class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
-                      @click=${() => { this.#selectTab(f.requestId); }}
-                    >
-                      <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
-                    </div>
-                  `;
-                },
-              )}
+              ${this.feeds.map((f, index) => {
+                return html`
+                  <div
+                    class="tab ${f.requestId === this.activeRequestId ? "active" : ""}"
+                    @click=${() => {
+                        this.#selectTab(f.requestId);
+                      }}
+                  >
+                    <span>${index === 0 ? "Latest" : relativeTime(f.generatedAt)}</span>
+                  </div>
+                `;
+              })}
             </div>
           </div>
         </div>
@@ -375,9 +407,10 @@ export class FeedTabs extends LitElement {
     const feed = this.feeds.find((item) => item.requestId === this.openBreakdownId);
     if (!feed) return html``;
     const radiusLabels = ["Friends", "Very close", "Closer", "Balanced", "Everyone"];
-    const radius = feed.appliedSocialRadius === null
-      ? "Unknown"
-      : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
+    const radius =
+      feed.appliedSocialRadius === null
+        ? "Unknown"
+        : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
     const sourceNames: Record<string, string> = {
       followed_users: "Following",
       two_tower: "Authors/Topics",
@@ -396,7 +429,9 @@ export class FeedTabs extends LitElement {
       <dialog
         class="popover"
         aria-label="Source breakdown"
-        @click=${(event: MouseEvent) => { this.#dismissFromBackdrop(event); }}
+        @click=${(event: MouseEvent) => {
+          this.#dismissFromBackdrop(event);
+        }}
         @cancel=${(event: Event) => {
           event.preventDefault();
           this.openBreakdownId = null;
@@ -407,46 +442,64 @@ export class FeedTabs extends LitElement {
           ${sourceMix ? `Applied source mix: ${sourceMix}` : `Legacy social radius: ${radius}`}
         </div>
         <div class="filter-summary">
-          ${filtering
-            ? html`
-                Snapshot stored ${filtering.storedItemCount} posts sent to Bluesky;
-                ${filtering.displayedItemCount} are displayed here.
-                Public labels filtered ${filtering.publiclyFilteredCount} and
-                ${filtering.unavailableCount} were unavailable.
-              `
-            : html`Select this snapshot to calculate its displayed and filtered counts.`}
-          This is a public-label approximation; private Bluesky moderation can hide additional posts.
+          ${
+            filtering
+              ? html`
+                  Snapshot stored ${filtering.storedItemCount} posts sent to Bluesky;
+                  ${filtering.displayedItemCount} are displayed here. Public labels filtered
+                  ${filtering.publiclyFilteredCount} and ${filtering.unavailableCount} were
+                  unavailable.
+                `
+              : html`Select this snapshot to calculate its displayed and filtered counts.`
+          }
+          This is a public-label approximation; private Bluesky moderation can hide additional
+          posts.
         </div>
-        ${feed.generatorDiagnostics.length === 0
-          ? html`<div class="popover-subtitle">Diagnostics are unavailable for this legacy snapshot.</div>`
-          : html`
-              <table>
-                <thead>
-                  <tr><th>Source</th><th>Weight</th><th>Asked</th><th>Returned</th><th>Shown</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  ${[...feed.generatorDiagnostics].sort(
-                    (a, b) =>
-                      (GENERATOR_ORDER[a.name] ?? Number.MAX_SAFE_INTEGER)
-                      - (GENERATOR_ORDER[b.name] ?? Number.MAX_SAFE_INTEGER),
-                  ).map((diagnostic) => html`
+        ${
+          feed.generatorDiagnostics.length === 0
+            ? html`<div class="popover-subtitle">
+                Diagnostics are unavailable for this legacy snapshot.
+              </div>`
+            : html`
+                <table>
+                  <thead>
                     <tr>
-                      <td>
-                        ${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}
-                      </td>
-                      <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
-                      <td>${diagnostic.requestedCount}</td>
-                      <td>${diagnostic.returnedCount}</td>
-                      <td>${diagnostic.contributedCount}</td>
-                      <td>
-                        <span class=${diagnostic.status === "success" ? "" : "status-problem"}>${diagnostic.status}</span>
-                        ${diagnostic.reason ? html`<span class="reason">${this.#reasonLabel(diagnostic.reason)} (${diagnostic.reason})</span>` : ""}
-                      </td>
+                      <th>Source</th>
+                      <th>Weight</th>
+                      <th>Asked</th>
+                      <th>Returned</th>
+                      <th>Shown</th>
+                      <th>Status</th>
                     </tr>
-                  `)}
-                </tbody>
-              </table>
-            `}
+                  </thead>
+                  <tbody>
+                    ${[...feed.generatorDiagnostics]
+                    .sort(
+                      (a, b) =>
+                        (GENERATOR_ORDER[a.name] ?? Number.MAX_SAFE_INTEGER) -
+                        (GENERATOR_ORDER[b.name] ?? Number.MAX_SAFE_INTEGER),
+                    )
+                    .map(
+                      (diagnostic) => html`
+                        <tr>
+                          <td>${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name}</td>
+                          <td>${(diagnostic.weight * 100).toFixed(0)}%</td>
+                          <td>${diagnostic.requestedCount}</td>
+                          <td>${diagnostic.returnedCount}</td>
+                          <td>${diagnostic.contributedCount}</td>
+                          <td>
+                            <span class=${diagnostic.status === "success" ? "" : "status-problem"}
+                              >${diagnostic.status}</span
+                            >
+                            ${diagnostic.reason ? html`<span class="reason">${this.#reasonLabel(diagnostic.reason)} (${diagnostic.reason})</span>` : ""}
+                          </td>
+                        </tr>
+                      `,
+                    )}
+                  </tbody>
+                </table>
+              `
+        }
       </dialog>
     `;
   }
@@ -474,22 +527,27 @@ export class FeedTabs extends LitElement {
   #dismissFromBackdrop(event: MouseEvent) {
     const dialog = event.currentTarget as HTMLDialogElement;
     const rect = dialog.getBoundingClientRect();
-    const inside = event.clientX >= rect.left
-      && event.clientX <= rect.right
-      && event.clientY >= rect.top
-      && event.clientY <= rect.bottom;
+    const inside =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
     if (!inside) this.openBreakdownId = null;
   }
 
   #reasonLabel(reason: string): string {
-    return ({
-      follow_lookup_failed: "Could not load followed accounts",
-      no_followed_users: "No followed accounts found",
-      no_recent_followed_posts: "No eligible recent posts from followed accounts",
-      post_tower_not_configured: "Two-tower model is not configured",
-      generator_timeout: "Generator timed out",
-      generator_error: "Generator failed",
-    } as Record<string, string>)[reason] ?? reason.split("_").join(" ");
+    return (
+      (
+        {
+          follow_lookup_failed: "Could not load followed accounts",
+          no_followed_users: "No followed accounts found",
+          no_recent_followed_posts: "No eligible recent posts from followed accounts",
+          post_tower_not_configured: "Two-tower model is not configured",
+          generator_timeout: "Generator timed out",
+          generator_error: "Generator failed",
+        } as Record<string, string>
+      )[reason] ?? reason.split("_").join(" ")
+    );
   }
 
   #toggleAlgoDropdown = (e: Event) => {
@@ -500,11 +558,13 @@ export class FeedTabs extends LitElement {
   #selectAlgo(id: AlgorithmId | null, e: Event) {
     e.stopPropagation();
     this._algoDropdownOpen = false;
-    this.dispatchEvent(new CustomEvent("algo-select", {
-      bubbles: true,
-      composed: true,
-      detail: { algorithmId: id },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("algo-select", {
+        bubbles: true,
+        composed: true,
+        detail: { algorithmId: id },
+      }),
+    );
   }
 
   #onWindowClick = (event: MouseEvent) => {

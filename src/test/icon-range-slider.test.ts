@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  IconRangeSlider,
-  iconIndexForValue,
-} from "../components/icon-range-slider";
+import { IconRangeSlider, iconIndexForValue } from "../components/icon-range-slider";
 
 describe("IconRangeSlider", () => {
   it("exposes themeable track, fill, and tick colors", () => {
@@ -13,6 +10,10 @@ describe("IconRangeSlider", () => {
     expect(styles).toContain("touch-action: pan-y");
     expect(styles).toContain("touch-action: pan-x");
     expect(styles).toContain("--icon-endpoint-inset: 3px");
+    expect(styles).toContain("--icon-thumb-size: 32px");
+    expect(styles).toContain("--icon-control-height: 34px");
+    expect(styles).toContain("height: 44px");
+    expect(styles).toMatch(/@media \(max-width: 375px\)[\s\S]*--icon-thumb-size: 28px/);
     expect(styles).toContain(
       "margin-inline: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset))",
     );
@@ -37,9 +38,7 @@ describe("IconRangeSlider", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelector(".icon-thumb img")?.getAttribute("src")).toBe(
-      "3.png",
-    );
+    expect(element.shadowRoot?.querySelector(".icon-thumb img")?.getAttribute("src")).toBe("3.png");
   });
 
   it("exposes vertical orientation and accessible range text", async () => {
@@ -66,9 +65,9 @@ describe("IconRangeSlider", () => {
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector(".value")).toBeNull();
-    expect(
-      element.shadowRoot?.querySelector("input")?.getAttribute("aria-valuetext"),
-    ).toBe("Balanced");
+    expect(element.shadowRoot?.querySelector("input")?.getAttribute("aria-valuetext")).toBe(
+      "Balanced",
+    );
   });
 
   it("shows a constrained maximum on a full-scale source track", async () => {
@@ -87,9 +86,7 @@ describe("IconRangeSlider", () => {
     expect(element.shadowRoot?.querySelector(".icon-thumb")?.getAttribute("style")).toContain(
       "left: 30%",
     );
-    expect(element.shadowRoot?.querySelector("input")?.getAttribute("aria-valuemax")).toBe(
-      "0.8",
-    );
+    expect(element.shadowRoot?.querySelector("input")?.getAttribute("aria-valuemax")).toBe("0.8");
   });
 
   it("tracks a coarse pointer from its first contact and keeps fill and thumb aligned", async () => {
@@ -133,9 +130,7 @@ describe("IconRangeSlider", () => {
     );
     await element.updateComplete;
 
-    expect(previewed).toHaveBeenLastCalledWith(
-      expect.objectContaining({ detail: { value: 0.4 } }),
-    );
+    expect(previewed).toHaveBeenLastCalledWith(expect.objectContaining({ detail: { value: 0.4 } }));
     expect(element.shadowRoot?.querySelector(".fill")?.getAttribute("style")).toContain(
       "width: 40%",
     );
@@ -154,9 +149,7 @@ describe("IconRangeSlider", () => {
     );
 
     expect(committed).toHaveBeenCalledOnce();
-    expect(committed).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: { value: 0.6 } }),
-    );
+    expect(committed).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: 0.6 } }));
   });
 
   it("restores the starting value when a vertical scroll cancels a touch", async () => {
@@ -228,9 +221,7 @@ describe("IconRangeSlider", () => {
     await element.updateComplete;
     input.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(committed).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: { value: 0.53 } }),
-    );
+    expect(committed).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: 0.53 } }));
   });
 
   it("commits the last preview on pointer release when change is omitted", async () => {
@@ -252,9 +243,7 @@ describe("IconRangeSlider", () => {
     await Promise.resolve();
 
     expect(committed).toHaveBeenCalledTimes(1);
-    expect(committed).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: { value: 0.37 } }),
-    );
+    expect(committed).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: 0.37 } }));
   });
 
   it("does not double commit when change follows pointer release", async () => {
@@ -274,8 +263,6 @@ describe("IconRangeSlider", () => {
     await Promise.resolve();
 
     expect(committed).toHaveBeenCalledTimes(1);
-    expect(committed).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: { value: 0.53 } }),
-    );
+    expect(committed).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: 0.53 } }));
   });
 });

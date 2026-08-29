@@ -11,7 +11,7 @@ export type RankMovement =
   | {
       kind: "up" | "down" | "unchanged";
       delta: number;
-      icon: "chevron-up" | "chevrons-up" | "chevron-down" | "chevrons-down" | "minus";
+      icon: "chevron-up" | "chevron-down" | "minus";
       label: string;
     };
 
@@ -31,7 +31,7 @@ export function rankMovement(
     return {
       kind: "up",
       delta,
-      icon: delta >= 3 ? "chevrons-up" : "chevron-up",
+      icon: "chevron-up",
       label: `Moved up ${String(delta)} ${delta === 1 ? "position" : "positions"}`,
     };
   }
@@ -39,7 +39,7 @@ export function rankMovement(
   return {
     kind: "down",
     delta,
-    icon: absoluteDelta >= 3 ? "chevrons-down" : "chevron-down",
+    icon: "chevron-down",
     label: `Moved down ${String(absoluteDelta)} ${absoluteDelta === 1 ? "position" : "positions"}`,
   };
 }
@@ -114,8 +114,8 @@ export class SettingsFeedPreview extends LitElement {
   @state() private renderedItems: FeedItemView[] = [];
   @state() private comparisonItems: FeedItemView[] = [];
   @state() private currentPage = 1;
-  @state() private phase:
-    "idle" | "fade-out" | "compact" | "rerank" | "insert-space" | "fade-in" = "idle";
+  @state() private phase: "idle" | "fade-out" | "compact" | "rerank" | "insert-space" | "fade-in" =
+    "idle";
   @state() private removedUris = new Set<string>();
   @state() private newUris = new Set<string>();
   private isAnimating = false;
@@ -141,22 +141,6 @@ export class SettingsFeedPreview extends LitElement {
       display: grid;
       gap: 0.5rem;
       padding: 0.75rem;
-    }
-
-    .slate-summary {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.25rem 0.75rem;
-      padding: 0.75rem 0.75rem 0;
-      color: var(--text-secondary, #8b98a5);
-      font-size: 0.6875rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .filter-summary {
-      opacity: 0.86;
     }
 
     .pagination {
@@ -478,7 +462,10 @@ export class SettingsFeedPreview extends LitElement {
           ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
         ];
         const oldRects = new Map(
-          oldElements.map((element) => [element.dataset.uri ?? "", element.getBoundingClientRect()]),
+          oldElements.map((element) => [
+            element.dataset.uri ?? "",
+            element.getBoundingClientRect(),
+          ]),
         );
 
         this.renderedItems = survivingNextPage;
@@ -548,31 +535,9 @@ export class SettingsFeedPreview extends LitElement {
     if (this.renderedItems.length === 0) {
       return html`<div class="status">No posts are available for this feed yet.</div>`;
     }
-    const counts = this.filteringCounts ?? {
-      storedItemCount: this.currentSlate.length,
-      displayedItemCount: this.currentSlate.length,
-      publiclyFilteredCount: 0,
-      unavailableCount: 0,
-      partialItemCount: 0,
-    };
     const totalPages = this.totalPagesFor(this.currentSlate);
     const paginationDisabled = this.loading || this.phase !== "idle";
     return html`
-      <div class="slate-summary" role="status">
-        <span>${counts.displayedItemCount} shown of ${counts.storedItemCount} ranked</span>
-        ${
-          counts.publiclyFilteredCount || counts.unavailableCount || counts.partialItemCount
-            ? html`<span class="filter-summary"
-                >${counts.publiclyFilteredCount} filtered · ${counts.unavailableCount}
-                unavailable${
-                  counts.partialItemCount
-                    ? html` · ${counts.partialItemCount} limited details`
-                    : nothing
-                }</span
-              >`
-            : nothing
-        }
-      </div>
       <div class="feed ${this.phase}" aria-live="polite">
         ${repeat(
           this.renderedItems,
@@ -667,13 +632,14 @@ export class SettingsFeedPreview extends LitElement {
           ${
             item.isPartial
               ? item.postUrl
-                ? html`Ranked by MySky. <a
-                    class="partial-link"
-                    href=${item.postUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    >Open this post in Bluesky</a
-                  >.`
+                ? html`Ranked by MySky.
+                    <a
+                      class="partial-link"
+                      href=${item.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Open this post in Bluesky</a
+                    >.`
                 : "Ranked by MySky. Full post details are temporarily unavailable."
               : item.content || item.mediaLabels.join(", ") || "Post"
           }
@@ -681,9 +647,7 @@ export class SettingsFeedPreview extends LitElement {
         ${
           contentLabels.length > 0
             ? html`<div class="content-row">
-                ${contentLabels.map(
-                  (label) => html`<span class="content-pill">${label}</span>`,
-                )}
+                ${contentLabels.map((label) => html`<span class="content-pill">${label}</span>`)}
               </div>`
             : nothing
         }

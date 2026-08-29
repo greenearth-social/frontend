@@ -183,7 +183,7 @@ describe("SettingsPreviewStore", () => {
     expect(accepted?.requestId).toBe("preview-2");
   });
 
-  it("treats a stale-preference conflict as superseded without retrying", async () => {
+  it("exposes a stale-preference conflict only as an internal recovery signal", async () => {
     const { root, acceptFeedPreview, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
@@ -198,7 +198,14 @@ describe("SettingsPreviewStore", () => {
     expect(accepted).toBeNull();
     expect(createFeedPreview).toHaveBeenCalledTimes(1);
     expect(acceptFeedPreview).toHaveBeenCalledTimes(1);
-    expect(store.error).toContain("Settings changed");
+    expect(store.acceptanceConflict).toBe(true);
+    expect(store.error).toBeNull();
+    expect(JSON.stringify(store)).not.toContain("Settings changed before Preview");
+
+    store.markPreviewSyncFailure();
+    expect(store.acceptanceConflict).toBe(false);
+    expect(store.error).toBe("Preview could not be synchronized with MySky. Try again.");
+    expect(store.error).not.toContain("Settings changed");
   });
 
   it("keeps the current posts visible when preview generation fails", async () => {

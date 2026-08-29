@@ -118,7 +118,7 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
-  const updatePreview = settings.getByRole("button", { name: "Update Preview" });
+  const updatePreview = settings.getByRole("button", { name: "Update preview" });
   await expect(updatePreview).toBeDisabled();
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   const previewHeaderGeometry = await settings.locator(".feed-column").evaluate((column) => {
@@ -244,7 +244,7 @@ test("100% Liked by Following reaches Preview and preserves ranked fallback card
   });
 
   await setSourcePercentage(page, "Liked by Following", "100");
-  const preview = page.getByRole("button", { name: "Update Preview" });
+  const preview = page.getByRole("button", { name: "Update preview" });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect(page.locator("settings-page settings-feed-preview .card.partial")).toHaveCount(2, {
@@ -306,7 +306,7 @@ test("100% Following reaches persistence and Preview with every other source at 
   });
 
   await setSourcePercentage(page, "Following", "100");
-  const preview = page.getByRole("button", { name: "Update Preview" });
+  const preview = page.getByRole("button", { name: "Update preview" });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect
@@ -332,7 +332,7 @@ test("1024px is desktop: the populated post pane remains beside settings without
   await expect(settings.locator(".controls-column")).toBeVisible();
   await expect(settings.locator(".feed-column")).toBeVisible();
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
-  await expect(settings.getByRole("button", { name: "Update Preview" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Update preview" })).toBeVisible();
   const overflow = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -385,7 +385,7 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   });
 
   const settings = page.locator("settings-page");
-  const preview = settings.getByRole("button", { name: "Update Preview" });
+  const preview = settings.getByRole("button", { name: "Update preview" });
   const freshness = page.getByRole("slider", { name: "Time Window" });
   await expect(preview).toBeDisabled();
   await releaseFreshness(page, "2");
@@ -397,9 +397,8 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   ).toBeVisible();
 
   await preview.click();
-  await expect(settings.getByText("45 shown of 48 ranked", { exact: true })).toBeVisible({
-    timeout: 12_000,
-  });
+  await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
+  await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
   await expect(preview).toBeDisabled({ timeout: 12_000 });
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
@@ -476,7 +475,7 @@ test("preview pagination remains available and the baseline refreshes automatica
   const settings = page.locator("settings-page");
 
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Update Preview" }).click();
+  await settings.getByRole("button", { name: "Update preview" }).click();
   await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible({ timeout: 6_000 });
   const nextPage = settings.getByRole("button", { name: "Next preview page" });
   await nextPage.click();
@@ -508,6 +507,34 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   await expect(settings.locator(".page-title-full")).toBeHidden();
   await expect(settings.locator(".page-title-short")).toHaveText("Settings");
   await expect(settings.locator(".page-title-short")).toBeVisible();
+  const actionOrder = await settings.locator(".header-row").evaluate((header) => {
+    const titleBox = header.querySelector("h1")?.getBoundingClientRect();
+    const previewBox = header.querySelector(".mobile-preview-btn")?.getBoundingClientRect();
+    const undoBox = header.querySelector(".history-btn")?.getBoundingClientRect();
+    const defaultsBox = header.querySelector(".reset-defaults-btn")?.getBoundingClientRect();
+    const headerBox = header.getBoundingClientRect();
+    return {
+      titleCenter: titleBox ? titleBox.top + titleBox.height / 2 : 0,
+      previewCenter: previewBox ? previewBox.left + previewBox.width / 2 : 0,
+      undoCenter: undoBox ? undoBox.top + undoBox.height / 2 : 0,
+      defaultsCenter: defaultsBox ? defaultsBox.top + defaultsBox.height / 2 : 0,
+      headerCenter: headerBox.left + headerBox.width / 2,
+      topRowBottom: Math.max(titleBox?.bottom ?? 0, undoBox?.bottom ?? 0, defaultsBox?.bottom ?? 0),
+      previewTop: previewBox?.top ?? 0,
+      previewWidth: previewBox?.width ?? 0,
+      widestTopAction: Math.max(undoBox?.width ?? 0, defaultsBox?.width ?? 0),
+      undoLeft: undoBox?.left ?? 0,
+      defaultsLeft: defaultsBox?.left ?? 0,
+    };
+  });
+  expect(
+    Math.max(actionOrder.titleCenter, actionOrder.undoCenter, actionOrder.defaultsCenter) -
+      Math.min(actionOrder.titleCenter, actionOrder.undoCenter, actionOrder.defaultsCenter),
+  ).toBeLessThan(1);
+  expect(actionOrder.previewTop).toBeGreaterThanOrEqual(actionOrder.topRowBottom);
+  expect(actionOrder.previewWidth).toBeGreaterThan(actionOrder.widestTopAction * 2);
+  expect(Math.abs(actionOrder.previewCenter - actionOrder.headerCenter)).toBeLessThan(1);
+  expect(actionOrder.undoLeft).toBeLessThan(actionOrder.defaultsLeft);
   const fullTitleGeometry = await settings.locator("h1").evaluate((title) => ({
     clientWidth: title.clientWidth,
     scrollWidth: title.scrollWidth,
@@ -539,7 +566,19 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
     "Back to settings",
   );
   await expect(mobileActions.locator("button")).toHaveCount(1);
-  await expect(mobileActions.getByRole("heading", { name: "Preview" })).toBeVisible();
+  await expect(mobileActions.getByRole("heading", { name: "Settings" })).toHaveCount(0);
+  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("Generating Preview");
+  const previewHeaderAlignment = await settings.locator(".preview-header").evaluate((header) => {
+    const headerRect = header.getBoundingClientRect();
+    const statusRect = header.querySelector(".mobile-preview-status")?.getBoundingClientRect();
+    return {
+      headerCenter: headerRect.left + headerRect.width / 2,
+      statusCenter: statusRect ? statusRect.left + statusRect.width / 2 : 0,
+    };
+  });
+  expect(
+    Math.abs(previewHeaderAlignment.headerCenter - previewHeaderAlignment.statusCenter),
+  ).toBeLessThan(1);
   await expect(mobileActions.locator(".history-btn, .reset-defaults-btn")).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   await expect(settings.locator("settings-feed-preview .card")).not.toHaveCount(0);
@@ -548,6 +587,40 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   await back.click();
   await expect(feed).not.toBeVisible();
   await expect(page.getByRole("slider", { name: "Time Window" })).toHaveValue("2");
+});
+
+test("mobile opens Preview on the first tap and keeps generation status in the Settings header", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openSettings(page);
+  await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const appModule = (await import(modulePath)) as {
+      getRootStore(): {
+        services: {
+          feedApiService: {
+            createFeedPreview: (
+              feedName: string,
+              patch: Record<string, unknown>,
+            ) => Promise<unknown>;
+          };
+        };
+      } | null;
+    };
+    const service = appModule.getRootStore()?.services.feedApiService;
+    if (!service) throw new Error("Mock feed service unavailable");
+    service.createFeedPreview = () => new Promise(() => undefined);
+  });
+
+  const settings = page.locator("settings-page");
+  await releaseFreshness(page, "2");
+  await settings.getByRole("button", { name: "Preview", exact: true }).click();
+
+  await expect(settings.locator(".feed-column")).toBeVisible();
+  await expect(settings.locator(".mobile-preview-title")).toHaveCount(0);
+  await expect(settings.locator(".mobile-preview-status")).toHaveText("Generating Preview");
+  await expect(settings.locator(".preview-generating")).toHaveCount(0);
 });
 
 test("320px visually shortens the accessible title and wraps header controls cleanly", async ({
@@ -564,40 +637,42 @@ test("320px visually shortens the accessible title and wraps header controls cle
 
   const headerGeometry = await settings.locator(".header-row").evaluate((header) => {
     const title = header.querySelector("h1");
-    const actions = header.querySelector(".settings-header-actions");
-    const actionButtons = Array.from(actions?.querySelectorAll("button") ?? []).map((button) =>
-      button.getBoundingClientRect(),
-    );
+    const preview = header.querySelector(".mobile-preview-btn")?.getBoundingClientRect();
+    const undo = header.querySelector(".history-btn")?.getBoundingClientRect();
+    const defaults = header.querySelector(".reset-defaults-btn")?.getBoundingClientRect();
+    const titleRect = title?.getBoundingClientRect();
     return {
       height: header.getBoundingClientRect().height,
+      topRowBottom: Math.max(titleRect?.bottom ?? 0, undo?.bottom ?? 0, defaults?.bottom ?? 0),
+      previewTop: preview?.top ?? 0,
+      previewWidth: preview?.width ?? 0,
+      widestTopAction: Math.max(undo?.width ?? 0, defaults?.width ?? 0),
+      previewCenter: preview ? preview.left + preview.width / 2 : 0,
       headerCenter: header.getBoundingClientRect().left + header.getBoundingClientRect().width / 2,
-      titleBottom: title?.getBoundingClientRect().bottom ?? 0,
-      actionsTop: actions?.getBoundingClientRect().top ?? 0,
-      actionsCenter:
-        (actions?.getBoundingClientRect().left ?? 0) +
-        (actions?.getBoundingClientRect().width ?? 0) / 2,
       scrollWidth: header.scrollWidth,
       clientWidth: header.clientWidth,
       titleScrollWidth: title?.scrollWidth ?? 0,
       titleClientWidth: title?.clientWidth ?? 0,
-      buttonWidths: actionButtons.map((button) => button.width),
-      buttonGaps: actionButtons.slice(1).map((button, index) => {
-        const previous = actionButtons[index];
-        return previous ? button.left - previous.right : 0;
-      }),
+      titleOverflow: title ? getComputedStyle(title).textOverflow : "",
+      titleCenter: titleRect ? titleRect.top + titleRect.height / 2 : 0,
+      undoCenter: undo ? undo.top + undo.height / 2 : 0,
+      defaultsCenter: defaults ? defaults.top + defaults.height / 2 : 0,
     };
   });
-  expect(headerGeometry.actionsTop).toBeGreaterThanOrEqual(headerGeometry.titleBottom);
-  expect(Math.abs(headerGeometry.actionsCenter - headerGeometry.headerCenter)).toBeLessThan(1);
+  expect(headerGeometry.previewTop).toBeGreaterThanOrEqual(headerGeometry.topRowBottom);
+  expect(headerGeometry.previewWidth).toBeGreaterThan(headerGeometry.widestTopAction * 2);
+  expect(Math.abs(headerGeometry.previewCenter - headerGeometry.headerCenter)).toBeLessThan(1);
+  expect(
+    Math.max(headerGeometry.titleCenter, headerGeometry.undoCenter, headerGeometry.defaultsCenter) -
+      Math.min(
+        headerGeometry.titleCenter,
+        headerGeometry.undoCenter,
+        headerGeometry.defaultsCenter,
+      ),
+  ).toBeLessThan(1);
   expect(headerGeometry.scrollWidth).toBeLessThanOrEqual(headerGeometry.clientWidth);
   expect(headerGeometry.titleScrollWidth).toBeLessThanOrEqual(headerGeometry.titleClientWidth);
-  expect(headerGeometry.buttonWidths).toHaveLength(2);
-  expect(
-    Math.max(...headerGeometry.buttonWidths) - Math.min(...headerGeometry.buttonWidths),
-  ).toBeLessThan(1);
-  expect(
-    Math.max(...headerGeometry.buttonGaps) - Math.min(...headerGeometry.buttonGaps),
-  ).toBeLessThan(1);
+  expect(headerGeometry.titleOverflow).not.toBe("ellipsis");
   expect(headerGeometry.height).toBeGreaterThan(60);
   expect(headerGeometry.height).toBeLessThanOrEqual(128);
 });
@@ -621,40 +696,81 @@ test("crossing the desktop breakpoint returns a stale mobile preview to Settings
   await expect(page.getByRole("slider", { name: "Time Window" })).toBeVisible();
 });
 
-test("Settings keeps the full title until the mobile header is space constrained", async ({
-  page,
-}) => {
-  for (const width of [375, 479, 480, 489]) {
+test("Settings centers wrapped Preview and never ellipsizes its title", async ({ page }) => {
+  for (const width of [240, 280, 300, 320, 374, 375, 430, 479]) {
     await page.setViewportSize({ width, height: 720 });
     await openSettings(page);
     const settings = page.locator("settings-page");
     await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
     await expect(settings.locator(".page-title-full")).toBeHidden();
     await expect(settings.locator(".page-title-short")).toBeVisible();
-    const title = await settings.locator("h1").evaluate((element) => {
+    const geometry = await settings.locator("h1").evaluate((element) => {
       const header = element.closest(".header-row");
-      const actions = header?.querySelector(".settings-header-actions");
+      const undo = header?.querySelector(".history-btn");
       const defaults = header?.querySelector(".reset-defaults-btn");
+      const preview = header?.querySelector(".mobile-preview-btn");
       const titleRect = element.getBoundingClientRect();
-      const actionsRect = actions?.getBoundingClientRect();
+      const undoRect = undo?.getBoundingClientRect();
       const defaultsRect = defaults?.getBoundingClientRect();
+      const previewRect = preview?.getBoundingClientRect();
+      const headerRect = header?.getBoundingClientRect();
+      const center = (rect: DOMRect | undefined) => (rect ? rect.top + rect.height / 2 : 0);
       return {
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
-        sameRow:
-          actionsRect && defaultsRect
-            ? Math.max(titleRect.top, actionsRect.top, defaultsRect.top) <
-              Math.min(titleRect.bottom, actionsRect.bottom, defaultsRect.bottom)
-            : false,
+        titleOverflow: getComputedStyle(element).textOverflow,
+        topRowCenters: [center(titleRect), center(undoRect), center(defaultsRect)],
+        topRowBottom: Math.max(titleRect.bottom, undoRect?.bottom ?? 0, defaultsRect?.bottom ?? 0),
+        previewTop: previewRect?.top ?? 0,
+        previewWidth: previewRect?.width ?? 0,
+        widestTopAction: Math.max(undoRect?.width ?? 0, defaultsRect?.width ?? 0),
+        previewCenter: previewRect ? previewRect.left + previewRect.width / 2 : 0,
+        headerCenter: headerRect ? headerRect.left + headerRect.width / 2 : 0,
         headerOverflow: (header?.scrollWidth ?? 0) - (header?.clientWidth ?? 0),
       };
     });
-    expect(title.scrollWidth).toBeLessThanOrEqual(title.clientWidth);
-    expect(title.sameRow).toBe(true);
-    expect(title.headerOverflow).toBeLessThanOrEqual(0);
+    expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+    expect(geometry.titleOverflow).not.toBe("ellipsis");
+    expect(Math.max(...geometry.topRowCenters) - Math.min(...geometry.topRowCenters)).toBeLessThan(
+      1,
+    );
+    expect(geometry.previewTop).toBeGreaterThanOrEqual(geometry.topRowBottom);
+    expect(geometry.previewWidth).toBeGreaterThan(geometry.widestTopAction * 2);
+    expect(Math.abs(geometry.previewCenter - geometry.headerCenter)).toBeLessThan(1);
+    expect(geometry.headerOverflow).toBeLessThanOrEqual(0);
   }
 
-  for (const width of [490, 768, 1023, 1024]) {
+  for (const width of [480, 600, 767]) {
+    await page.setViewportSize({ width, height: 720 });
+    await openSettings(page);
+    const settings = page.locator("settings-page");
+    await expect(settings.getByRole("heading", { name: "MySky Settings" })).toBeVisible();
+    await expect(settings.locator(".page-title-full")).toBeHidden();
+    await expect(settings.locator(".page-title-short")).toBeVisible();
+    const geometry = await settings.locator("h1").evaluate((element) => {
+      const header = element.closest(".header-row");
+      const rects = [
+        element,
+        header?.querySelector(".mobile-preview-btn"),
+        header?.querySelector(".history-btn"),
+        header?.querySelector(".reset-defaults-btn"),
+      ].map((node) => node?.getBoundingClientRect());
+      const centers = rects.map((rect) => (rect ? rect.top + rect.height / 2 : 0));
+      return {
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        titleOverflow: getComputedStyle(element).textOverflow,
+        centers,
+        headerOverflow: (header?.scrollWidth ?? 0) - (header?.clientWidth ?? 0),
+      };
+    });
+    expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+    expect(geometry.titleOverflow).not.toBe("ellipsis");
+    expect(Math.max(...geometry.centers) - Math.min(...geometry.centers)).toBeLessThan(1);
+    expect(geometry.headerOverflow).toBeLessThanOrEqual(0);
+  }
+
+  for (const width of [768, 1023, 1024, 1280]) {
     await page.setViewportSize({ width, height: 720 });
     await openSettings(page);
     const settings = page.locator("settings-page");
@@ -672,44 +788,74 @@ test("Settings keeps the full title until the mobile header is space constrained
   }
 });
 
-test("Defaults stays fully visible across the responsive header range", async ({ page }) => {
-  await page.setViewportSize({ width: 1023, height: 720 });
+test("all feed settings headers keep every action visible without overlap", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
   await openSettings(page);
   const settings = page.locator("settings-page");
-  const defaults = settings.getByRole("button", { name: "Reset settings to defaults" });
-  const widths = Array.from(
-    new Set([
-      ...Array.from({ length: 73 }, (_, index) => 300 + index * 10),
-      359,
-      360,
-      374,
-      375,
-      479,
-      480,
-      489,
-      490,
-      1023,
-    ]),
-  ).sort((a, b) => a - b);
-  const clipped: Array<{ width: number; left: number; right: number; labelClipped: boolean }> = [];
+  const feeds = ["your-feed", "best-of-friends", "random"];
+  const widths = [240, 280, 300, 320, 374, 375, 430, 479, 480, 600, 767, 768, 1023, 1024, 1280];
+  const failures: Array<{ feed: string; width: number; issues: string[] }> = [];
 
-  for (const width of widths) {
-    await page.setViewportSize({ width, height: 720 });
-    const geometry = await defaults.evaluate((button) => {
-      const buttonRect = button.getBoundingClientRect();
-      const label = button.querySelector(".reset-label");
-      return {
-        left: buttonRect.left,
-        right: buttonRect.right,
-        labelClipped: label ? label.scrollWidth > label.clientWidth : true,
-      };
-    });
-    if (geometry.left < 0 || geometry.right > width || geometry.labelClipped) {
-      clipped.push({ width, ...geometry });
+  for (const feed of feeds) {
+    await page.evaluate((nextFeed) => {
+      window.location.hash = `/settings/${nextFeed}`;
+    }, feed);
+    await expect(page).toHaveURL(new RegExp(`#\\/settings\\/${feed}$`));
+
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 720 });
+      const issues = await settings.locator(".header-row").evaluate((header) => {
+        const viewportWidth = document.documentElement.clientWidth;
+        const visibleElements = Array.from(
+          header.querySelectorAll<HTMLElement>(
+            ".hamburger-btn, h1, .mobile-preview-btn, .history-btn, .reset-defaults-btn",
+          ),
+        ).filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0;
+        });
+        const found: string[] = [];
+
+        if (header.scrollWidth > header.clientWidth) found.push("header overflow");
+        for (const element of visibleElements) {
+          const rect = element.getBoundingClientRect();
+          const name = element.className || element.tagName.toLowerCase();
+          if (rect.left < -0.5 || rect.right > viewportWidth + 0.5) found.push(`${name} clipped`);
+        }
+
+        for (let first = 0; first < visibleElements.length; first += 1) {
+          for (let second = first + 1; second < visibleElements.length; second += 1) {
+            const firstElement = visibleElements[first];
+            const secondElement = visibleElements[second];
+            if (!firstElement || !secondElement) continue;
+            const a = firstElement.getBoundingClientRect();
+            const b = secondElement.getBoundingClientRect();
+            const overlaps =
+              Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
+              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+            if (overlaps)
+              found.push(`${firstElement.className} overlaps ${secondElement.className}`);
+          }
+        }
+
+        const visibleTitle = Array.from(
+          header.querySelectorAll<HTMLElement>(".page-title-full, .page-title-short"),
+        ).find((title) => getComputedStyle(title).display !== "none");
+        if (visibleTitle && visibleTitle.scrollWidth > visibleTitle.clientWidth) {
+          found.push("title clipped");
+        }
+        const resetLabel = header.querySelector<HTMLElement>(".reset-label");
+        if (resetLabel && resetLabel.scrollWidth > resetLabel.clientWidth) {
+          found.push("Defaults clipped");
+        }
+        return found;
+      });
+      if (issues.length > 0) failures.push({ feed, width, issues });
     }
   }
 
-  expect(clipped).toEqual([]);
+  expect(failures).toEqual([]);
 });
 
 test("navigation leaves Settings immediately without an unsaved-change dialog", async ({
@@ -757,17 +903,17 @@ test("feed switching clears stale preview work and enables Preview after the nex
 
   const settings = page.locator("settings-page");
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Update Preview" }).click();
-  await expect(settings.getByText("Generating preview…", { exact: true })).toBeVisible();
+  await settings.getByRole("button", { name: "Update preview" }).click();
+  await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
 
   await page.evaluate(() => {
     window.location.hash = "/settings/random";
   });
   await expect(page).toHaveURL(/#\/settings\/random$/);
   await expect(settings.getByRole("heading", { name: "Random Settings" })).toBeVisible();
-  await expect(settings.getByText("Generating preview…", { exact: true })).toHaveCount(0);
+  await expect(settings.getByText("Generating preview", { exact: true })).toHaveCount(0);
   await releaseFreshness(page, "2");
-  const preview = settings.getByRole("button", { name: "Update Preview" });
+  const preview = settings.getByRole("button", { name: "Update preview" });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect(preview).toBeDisabled({ timeout: 6_000 });

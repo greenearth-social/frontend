@@ -92,18 +92,29 @@ export const settingsPageStyles = css`
   }
 
   .preview-mobile-primary-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
     min-width: 0;
     flex: 1;
     align-items: center;
     gap: 0.4rem;
   }
 
-  .preview-header .mobile-preview-title {
-    margin: 0;
+  .preview-mobile-primary-actions::after {
+    width: 36px;
+    height: 1px;
+    content: "";
+  }
+
+  .mobile-preview-status {
+    grid-column: 2;
+    justify-self: center;
     color: var(--bluesky-text);
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .update-preview-btn:hover:not(:disabled),
@@ -246,20 +257,6 @@ export const settingsPageStyles = css`
     border-bottom: 0;
   }
 
-  .preview-generating {
-    position: absolute;
-    right: 1rem;
-    bottom: 1rem;
-    padding: 0.55rem 0.8rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 999px;
-    background: rgba(21, 32, 43, 0.94);
-    color: var(--bluesky-text);
-    font-size: 0.75rem;
-    font-weight: 650;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  }
-
   .sticky-header {
     position: sticky;
     top: 0;
@@ -273,7 +270,7 @@ export const settingsPageStyles = css`
   .header-row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.25rem;
     padding: 0.75rem 1.5rem;
   }
 
@@ -289,12 +286,15 @@ export const settingsPageStyles = css`
     display: none;
   }
 
-  .settings-header-actions {
+  .mobile-preview-row {
     display: flex;
     min-width: 0;
-    flex: none;
-    align-items: center;
-    gap: 0.4rem;
+    max-width: 8.75rem;
+    flex: 1 1 0;
+  }
+
+  .mobile-preview-row .mobile-preview-btn {
+    width: 100%;
   }
 
   .reset-defaults-btn {
@@ -368,7 +368,7 @@ export const settingsPageStyles = css`
     flex-direction: column;
     align-items: center;
     min-height: calc(100dvh - 60px);
-    padding: 1.25rem 0.5rem 3rem;
+    padding: 0.75rem 0.375rem 2rem;
   }
 
   .diagram-wrapper,
@@ -381,7 +381,7 @@ export const settingsPageStyles = css`
   .section {
     width: calc(100% - 0.5rem);
     margin-inline: 0.25rem;
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.625rem;
     border-radius: 16px;
     box-sizing: border-box;
   }
@@ -405,12 +405,54 @@ export const settingsPageStyles = css`
   }
 
   .section-title {
-    margin: 0 0 0.875rem;
+    margin: 0 0 0.5rem;
     color: #93b4f5;
     font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-align: center;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-heading .section-title {
+    margin: 0;
+  }
+
+  .section-info-btn {
+    position: relative;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #93b4f5;
+    cursor: pointer;
+  }
+
+  .section-info-btn::before {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    content: "";
+  }
+
+  .section-info-btn .question-icon {
+    margin: 0;
+  }
+
+  .section-info-btn:focus-visible {
+    border-radius: 9999px;
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
   }
 
   .section-ranking .section-title {
@@ -423,7 +465,7 @@ export const settingsPageStyles = css`
 
   .control-card {
     min-width: 0;
-    padding: 0.75rem;
+    padding: 0.5rem;
     border-radius: 12px;
     box-sizing: border-box;
     color: #fff;
@@ -461,7 +503,7 @@ export const settingsPageStyles = css`
   }
 
   .config-card {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     border: 1px solid rgba(253, 186, 116, 0.28);
     background: linear-gradient(145deg, #a94f45, #a86f32);
   }
@@ -479,15 +521,15 @@ export const settingsPageStyles = css`
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 44px;
-    margin: -0.35rem 0 0.25rem;
-    padding: 0.25rem 0.5rem;
+    min-height: 32px;
+    margin: -0.2rem 0 0;
+    padding: 0.1rem 0.375rem;
     border: 0;
     border-radius: 8px;
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 700;
     text-align: center;
     cursor: pointer;
@@ -503,10 +545,10 @@ export const settingsPageStyles = css`
   .question-icon {
     display: inline-grid;
     place-items: center;
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    margin-left: 0.35rem;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin-left: 0.25rem;
     border: 1px solid currentColor;
     border-radius: 9999px;
     font-size: 0.6875rem;
@@ -528,17 +570,8 @@ export const settingsPageStyles = css`
   .sources-layout {
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr);
-    gap: 0.625rem;
+    gap: 0.5rem;
     align-items: stretch;
-  }
-
-  .source-controls-help {
-    width: 100%;
-    margin: 0 0 0.625rem;
-    color: rgba(226, 232, 240, 0.76);
-    font-size: 0.6875rem;
-    line-height: 1.35;
-    text-align: center;
   }
 
   .master-column {
@@ -572,28 +605,28 @@ export const settingsPageStyles = css`
   .source-list {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: 0.4rem;
     min-width: 0;
   }
 
   .source-adjustment-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 44px;
-    gap: 0.5rem;
+    gap: 0.375rem;
     align-items: stretch;
     min-width: 0;
   }
 
   .source-slider-card {
     min-width: 0;
-    padding: 0.65rem 0.625rem;
+    padding: 0.375rem 0.5rem;
   }
 
   .source-editor {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.125rem;
     align-items: center;
   }
 
@@ -622,7 +655,7 @@ export const settingsPageStyles = css`
   }
 
   .percentage-input {
-    width: 1.65rem;
+    width: 100%;
     min-width: 0;
     padding: 0;
     border: 0;
@@ -633,7 +666,7 @@ export const settingsPageStyles = css`
     font-size: 0.8125rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: center;
     appearance: textfield;
   }
 
@@ -648,12 +681,6 @@ export const settingsPageStyles = css`
     border-color: #f87171;
     outline: 2px solid #ef4444;
     outline-offset: 1px;
-  }
-
-  .percentage-suffix {
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 0.75rem;
-    font-weight: 800;
   }
 
   .source-lock-btn {
@@ -737,7 +764,7 @@ export const settingsPageStyles = css`
   .fixed-source {
     display: grid;
     place-items: center;
-    min-height: 74px;
+    min-height: 62px;
   }
 
   .fixed-source .component-title {
@@ -747,14 +774,14 @@ export const settingsPageStyles = css`
   .ranking-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .penalties {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.625rem;
+    gap: 0.4rem;
   }
 
   .penalty-pill {
@@ -790,12 +817,12 @@ export const settingsPageStyles = css`
   .arrow-connector {
     display: grid;
     place-items: center;
-    height: 36px;
+    height: 26px;
   }
 
   .arrow-connector svg {
     width: 20px;
-    height: 36px;
+    height: 26px;
   }
 
   .arrow-line {
@@ -977,13 +1004,13 @@ export const settingsPageStyles = css`
 
   @media (min-width: 480px) {
     .page-content {
-      padding: 2rem 0.75rem 3rem;
+      padding: 1.25rem 0.75rem 2.5rem;
     }
 
     .section {
       width: calc(100% - 1rem);
       margin-inline: 0.5rem;
-      padding: 1.25rem 1rem;
+      padding: 1rem 0.75rem;
     }
 
     .ranking-grid {
@@ -997,7 +1024,7 @@ export const settingsPageStyles = css`
     }
 
     .header-row {
-      gap: 0.75rem;
+      gap: 0.25rem;
       padding: 0.65rem 1rem;
     }
 
@@ -1010,18 +1037,24 @@ export const settingsPageStyles = css`
       white-space: nowrap;
     }
 
-    .settings-header-actions {
-      gap: 0.5rem;
+    .header-row > .mobile-preview-row,
+    .header-row > .history-btn,
+    .header-row > .reset-defaults-btn {
+      width: auto;
+      min-width: 0;
+      max-width: 8.75rem;
+      min-height: 40px;
+      flex: 1 1 0;
     }
 
-    .settings-header-actions .history-btn {
-      height: 36px;
+    .header-row > .history-btn {
+      height: 40px;
       gap: 0.2rem;
       padding-inline: 0.6rem;
       font-size: 0.75rem;
     }
 
-    .settings-header-actions .history-btn wa-icon {
+    .header-row > .history-btn wa-icon {
       width: 1rem;
       height: 1rem;
       font-size: 1rem;
@@ -1038,54 +1071,12 @@ export const settingsPageStyles = css`
     }
   }
 
-  @media (max-width: 489px) {
-    .header-row {
-      gap: 0.35rem;
-      padding: 0.6rem 0.5rem;
-    }
-
-    .page-title-full {
-      display: none;
-    }
-
-    .page-title-short {
-      display: inline;
-    }
-
-    .settings-header-actions {
-      display: flex;
-      width: auto;
-      gap: 0.3rem;
-    }
-
-    .reset-defaults-btn {
-      width: auto;
-      min-height: 36px;
-      padding-inline: 0.45rem;
-      font-size: 0.75rem;
-    }
-
-    .settings-header-actions .history-btn {
-      width: auto;
-      height: 36px;
-      padding-inline: 0.4rem;
-      font-size: 0.75rem;
-    }
-
-    .mobile-preview-btn {
-      width: auto;
-      min-height: 42px;
-      padding-inline: 0.65rem;
-      font-size: 0.8125rem;
-    }
-  }
-
-  @media (max-width: 374px) {
+  @media (max-width: 767px) {
     .header-row {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 0.625rem;
-      padding: 0.75rem 0.75rem 1rem;
+      grid-template-columns: 36px max-content minmax(0, 1fr) repeat(3, minmax(0, 6.25rem));
+      gap: 0.35rem;
+      padding: 0.6rem 0.5rem;
     }
 
     .hamburger-btn {
@@ -1098,31 +1089,85 @@ export const settingsPageStyles = css`
       grid-column: 2;
     }
 
-    .settings-header-actions {
-      display: grid;
-      width: 100%;
-      grid-row: 2;
-      grid-column: 1 / -1;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem;
+    .page-title-full {
+      display: none;
+    }
+
+    .page-title-short {
+      display: inline;
+    }
+
+    .mobile-preview-row {
+      grid-row: 1;
+      grid-column: 4;
+    }
+
+    .history-btn {
+      grid-row: 1;
+      grid-column: 5;
     }
 
     .reset-defaults-btn {
-      width: auto;
-      min-height: 40px;
       grid-row: 1;
-      grid-column: 3;
-      padding-inline: 0.6rem;
+      grid-column: 6;
     }
 
-    .settings-header-actions .history-btn,
-    .mobile-preview-btn {
+    .mobile-preview-row .mobile-preview-btn,
+    .header-row > .history-btn,
+    .header-row > .reset-defaults-btn {
+      max-width: none;
+      min-height: 38px;
+      padding-inline: 0.45rem;
+      font-size: 0.75rem;
+    }
+
+    .header-row > .history-btn {
+      height: 38px;
+    }
+
+    .preview-header {
+      gap: 0.25rem;
+      padding-inline: 0.5rem;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .header-row {
+      grid-template-columns: 36px max-content minmax(0, 1fr) auto auto;
+    }
+
+    .hamburger-btn {
+      grid-column: 1;
+    }
+
+    h1 {
+      grid-column: 2;
+    }
+
+    .history-btn {
+      grid-row: 1;
+      grid-column: 4;
+      justify-self: end;
+    }
+
+    .reset-defaults-btn {
+      grid-row: 1;
+      grid-column: 5;
+    }
+
+    .header-row > .mobile-preview-row {
+      grid-row: 2;
+      grid-column: 1 / -1;
       width: 100%;
-      min-height: 40px;
+      max-width: none;
+      justify-content: center;
+      margin-top: 0.15rem;
     }
 
-    .mobile-preview-btn {
+    .mobile-preview-row .mobile-preview-btn {
+      width: min(75%, 18rem);
       min-height: 44px;
+      font-size: 0.8125rem;
     }
   }
 
@@ -1140,7 +1185,6 @@ export const settingsPageStyles = css`
       flex-direction: column;
       height: 100dvh;
     }
-
   }
 
   @media (min-width: 1024px) {
@@ -1174,6 +1218,7 @@ export const settingsPageStyles = css`
     }
 
     .preview-mobile-primary-actions,
+    .mobile-preview-row,
     .mobile-preview-btn {
       display: none;
     }
@@ -1193,11 +1238,7 @@ export const settingsPageStyles = css`
       font-size: 1.125rem;
     }
 
-    .settings-header-actions {
-      gap: 0.5rem;
-    }
-
-    .settings-header-actions .history-btn {
+    .history-btn {
       gap: 0.3rem;
       padding-inline: 0.4rem;
       font-size: 0.75rem;
@@ -1241,8 +1282,66 @@ export const settingsPageStyles = css`
     }
 
     .source-slider-card icon-range-slider {
-      --icon-thumb-size: 32px;
-      --icon-thumb-overhang: 16px;
+      --icon-thumb-size: 28px;
+      --icon-thumb-overhang: 14px;
+      --icon-control-height: 32px;
+    }
+  }
+
+  @media (max-width: 300px) {
+    .header-row {
+      grid-template-columns: 32px max-content minmax(0, 1fr) auto auto;
+      gap: 0.125rem;
+      padding: 0.4rem 0.375rem 0.5rem;
+    }
+
+    h1 {
+      grid-row: 1;
+      grid-column: 2;
+      font-size: 1rem;
+      text-align: left;
+    }
+
+    .history-btn {
+      grid-row: 1;
+      grid-column: 4;
+      min-height: 36px;
+      justify-self: end;
+    }
+
+    .reset-defaults-btn {
+      grid-row: 1;
+      grid-column: 5;
+      min-height: 36px;
+      gap: 0;
+      padding-inline: 0.35rem;
+      font-size: 0.6875rem;
+    }
+
+    .reset-defaults-btn > svg {
+      display: none;
+    }
+
+    .mobile-preview-row .mobile-preview-btn {
+      width: 75%;
+      min-height: 42px;
+      padding-inline: 0.35rem;
+      font-size: 0.75rem;
+    }
+
+    .hamburger-btn {
+      width: 32px;
+    }
+  }
+
+  @media (max-width: 260px) {
+    .history-btn {
+      width: 36px;
+      padding: 0;
+    }
+
+    .history-btn span {
+      display: none;
     }
   }
 `;

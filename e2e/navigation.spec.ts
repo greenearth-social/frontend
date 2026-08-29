@@ -144,6 +144,25 @@ test.describe("feed-scoped navigation", () => {
     const activeGroup = desktop.locator(".feed-group.active-feed");
     await expect(activeGroup).toHaveCount(1);
     await expect(activeGroup.locator('.algo-btn[aria-pressed="true"]')).toHaveCount(1);
+
+    const bestOfFriends = desktop.locator('.algo-btn[aria-label="Best of Friends"]');
+    const bestOfFriendsGeometry = await bestOfFriends.evaluate((button) => {
+      const icon = button.querySelector("wa-icon")?.getBoundingClientRect();
+      const label = button.querySelector<HTMLElement>(".algo-label");
+      const labelRect = label?.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      return {
+        iconInset: icon ? icon.left - buttonRect.left : 0,
+        iconToLabelGap: icon && labelRect ? labelRect.left - icon.right : 0,
+        labelClientWidth: label?.clientWidth ?? 0,
+        labelScrollWidth: label?.scrollWidth ?? 0,
+      };
+    });
+    expect(bestOfFriendsGeometry.iconInset).toBeLessThanOrEqual(7);
+    expect(bestOfFriendsGeometry.iconToLabelGap).toBeLessThanOrEqual(7);
+    expect(bestOfFriendsGeometry.labelScrollWidth).toBeLessThanOrEqual(
+      bestOfFriendsGeometry.labelClientWidth,
+    );
   });
 
   test("places Politics in Ranking and applies both source-rank endpoints", async ({ page }) => {
@@ -154,6 +173,13 @@ test.describe("feed-scoped navigation", () => {
     const settings = page.locator("settings-page");
     const ranking = settings.locator(".section-ranking");
     await expect(settings.getByRole("heading", { name: "Sources" })).toBeVisible();
+    await settings.getByRole("button", { name: "Learn more about Sources" }).click();
+    const sourcesDialog = settings.getByRole("dialog", { name: "Sources" });
+    await expect(sourcesDialog).toContainText(
+      "Percentages control how much each source contributes",
+    );
+    await expect(sourcesDialog).toContainText("lifecycle icons");
+    await sourcesDialog.getByRole("button", { name: "Close detail" }).click();
     const politics = ranking.locator(".ranking-grid > .politics-card");
     await expect(politics).toBeVisible();
     expect(
@@ -336,17 +362,19 @@ test.describe("feed-scoped navigation", () => {
         name: "Lock Following weight",
       }),
     ).toBeDisabled();
-
-    const centeredHelp = await settings.evaluate((element) => {
-      const root = element.shadowRoot;
-      const panel = root?.querySelector(".section-candidate")?.getBoundingClientRect();
-      const help = root?.querySelector(".source-controls-help")?.getBoundingClientRect();
-      return panel && help
-        ? Math.abs(panel.left + panel.width / 2 - (help.left + help.width / 2))
-        : null;
+    await expect(settings.locator(".source-controls-help, .percentage-suffix")).toHaveCount(0);
+    const sliderGeometry = await firstSourceCard.locator("icon-range-slider").evaluate((slider) => {
+      const root = slider.shadowRoot;
+      const shell = root?.querySelector(".range-shell")?.getBoundingClientRect();
+      const thumb = root?.querySelector(".icon-thumb")?.getBoundingClientRect();
+      const input = root?.querySelector('input[type="range"]')?.getBoundingClientRect();
+      return {
+        shellHeight: shell?.height ?? 0,
+        thumbWidth: thumb?.width ?? 0,
+        inputHeight: input?.height ?? 0,
+      };
     });
-    expect(centeredHelp).not.toBeNull();
-    expect(centeredHelp ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+    expect(sliderGeometry).toEqual({ shellHeight: 32, thumbWidth: 28, inputHeight: 44 });
 
     const overflow = await settings.evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -413,10 +441,6 @@ for (const width of [240, 320, 375]) {
     expect(vertical.overflowY).toBe("auto");
     expect(vertical.scrollHeight).toBeGreaterThanOrEqual(vertical.clientHeight);
 
-    await drawer.getByRole("link", { name: "Settings" }).first().click();
-    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
-    await expect(drawer).toBeVisible();
-
     const name = drawer.locator(".user-details-name, .user-details-handle--primary").first();
     await name.evaluate((element) => {
       element.textContent = "A very long display name that must not leave the drawer";
@@ -431,7 +455,12 @@ for (const width of [240, 320, 375]) {
     expect(truncation.whiteSpace).toBe("nowrap");
     expect(truncation.scrollWidth).toBeGreaterThan(truncation.clientWidth);
 
-    await page.mouse.click(width - 8, 20);
+    await drawer.locator('.algo-btn[aria-label="Best of Friends"]').click();
+    await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
+    await expect(drawer).toBeVisible();
+
+    await drawer.getByRole("link", { name: "Settings" }).first().click();
+    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
     await expect(drawer).not.toBeVisible();
   });
 }

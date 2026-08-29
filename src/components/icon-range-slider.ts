@@ -35,8 +35,9 @@ export class IconRangeSlider extends LitElement {
 
   static styles = css`
     :host {
-      --icon-thumb-size: 40px;
-      --icon-thumb-overhang: 20px;
+      --icon-thumb-size: 32px;
+      --icon-thumb-overhang: 16px;
+      --icon-control-height: 34px;
       --icon-endpoint-inset: 3px;
       --icon-track-color: rgba(148, 163, 184, 0.3);
       --icon-fill-color: var(--bluesky-brand);
@@ -47,7 +48,7 @@ export class IconRangeSlider extends LitElement {
 
     .slider {
       display: grid;
-      gap: 0.35rem;
+      gap: 0.2rem;
       width: 100%;
       min-width: 0;
     }
@@ -64,12 +65,11 @@ export class IconRangeSlider extends LitElement {
     .range-shell {
       position: relative;
       width: calc(
-        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) -
-          var(--icon-endpoint-inset)
+        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) - var(--icon-endpoint-inset)
       );
       margin-inline: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset));
       min-width: 0;
-      height: 44px;
+      height: var(--icon-control-height);
     }
 
     .track,
@@ -113,8 +113,8 @@ export class IconRangeSlider extends LitElement {
 
     input[type="range"] {
       position: absolute;
-      top: 0;
-      bottom: 0;
+      top: 50%;
+      bottom: auto;
       left: calc(-1 * var(--icon-thumb-overhang));
       z-index: 2;
       width: calc(var(--interactive-percent, 100%) + var(--icon-thumb-size));
@@ -122,6 +122,7 @@ export class IconRangeSlider extends LitElement {
       margin: 0;
       opacity: 0;
       cursor: pointer;
+      transform: translateY(-50%);
       touch-action: pan-y;
       -webkit-tap-highlight-color: transparent;
     }
@@ -151,8 +152,8 @@ export class IconRangeSlider extends LitElement {
     }
 
     .icon-thumb img {
-      max-width: 30px;
-      max-height: 30px;
+      max-width: 24px;
+      max-height: 24px;
       object-fit: contain;
     }
 
@@ -175,8 +176,7 @@ export class IconRangeSlider extends LitElement {
     .vertical .range-shell {
       width: 44px;
       height: calc(
-        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) -
-          var(--icon-endpoint-inset)
+        100% - var(--icon-thumb-size) - var(--icon-endpoint-inset) - var(--icon-endpoint-inset)
       );
       min-height: 180px;
       margin: calc(var(--icon-thumb-overhang) + var(--icon-endpoint-inset)) 0;
@@ -217,6 +217,7 @@ export class IconRangeSlider extends LitElement {
       writing-mode: vertical-lr;
       direction: ltr;
       touch-action: pan-x;
+      transform: none;
     }
 
     .vertical .icon-thumb {
@@ -230,13 +231,14 @@ export class IconRangeSlider extends LitElement {
 
     @media (max-width: 375px) {
       :host {
-        --icon-thumb-size: 36px;
-        --icon-thumb-overhang: 18px;
+        --icon-thumb-size: 28px;
+        --icon-thumb-overhang: 14px;
+        --icon-control-height: 32px;
       }
 
       .icon-thumb img {
-        max-width: 26px;
-        max-height: 26px;
+        max-width: 22px;
+        max-height: 22px;
       }
     }
 
@@ -255,16 +257,10 @@ export class IconRangeSlider extends LitElement {
     const percent = this.#percent();
     const scaleMin = this.scaleMin ?? this.min;
     const scaleMax = this.scaleMax ?? this.max;
-    const icon = this.icons[
-      iconIndexForValue(this.value, scaleMin, scaleMax, this.icons.length)
-    ];
+    const icon = this.icons[iconIndexForValue(this.value, scaleMin, scaleMax, this.icons.length)];
     const vertical = this.orientation === "vertical";
-    const positionStyle = vertical
-      ? `top: ${String(percent)}%;`
-      : `left: ${String(percent)}%;`;
-    const fillStyle = vertical
-      ? `height: ${String(percent)}%;`
-      : `width: ${String(percent)}%;`;
+    const positionStyle = vertical ? `top: ${String(percent)}%;` : `left: ${String(percent)}%;`;
+    const fillStyle = vertical ? `height: ${String(percent)}%;` : `width: ${String(percent)}%;`;
     const shellStyle = vertical
       ? ""
       : `--interactive-percent: ${String(this.#interactivePercent())}%;`;
@@ -299,20 +295,20 @@ export class IconRangeSlider extends LitElement {
             @pointercancel=${this.#handlePointerEnd}
           />
           <span class="icon-thumb" style=${positionStyle} aria-hidden="true">
-            ${icon
-              ? html`<img
-                  src=${icon}
-                  alt=""
-                  width=${this.thumbIconSize}
-                  height=${this.thumbIconSize}
-                  style=${`width: ${String(this.thumbIconSize)}px; height: ${String(this.thumbIconSize)}px;`}
-                />`
-              : ""}
+            ${
+              icon
+                ? html`<img
+                    src=${icon}
+                    alt=""
+                    width=${this.thumbIconSize}
+                    height=${this.thumbIconSize}
+                    style=${`width: ${String(this.thumbIconSize)}px; height: ${String(this.thumbIconSize)}px;`}
+                  />`
+                : ""
+            }
           </span>
         </div>
-        ${this.showValue
-          ? html`<div class="value" aria-hidden="true">${displayValue}</div>`
-          : ""}
+        ${this.showValue ? html`<div class="value" aria-hidden="true">${displayValue}</div>` : ""}
       </div>
     `;
   }
@@ -321,20 +317,14 @@ export class IconRangeSlider extends LitElement {
     const scaleMin = this.scaleMin ?? this.min;
     const scaleMax = this.scaleMax ?? this.max;
     if (scaleMax <= scaleMin) return 0;
-    return Math.max(
-      0,
-      Math.min(100, ((this.value - scaleMin) / (scaleMax - scaleMin)) * 100),
-    );
+    return Math.max(0, Math.min(100, ((this.value - scaleMin) / (scaleMax - scaleMin)) * 100));
   }
 
   #interactivePercent(): number {
     const scaleMin = this.scaleMin ?? this.min;
     const scaleMax = this.scaleMax ?? this.max;
     if (scaleMax <= scaleMin) return 100;
-    return Math.max(
-      0,
-      Math.min(100, ((this.max - scaleMin) / (scaleMax - scaleMin)) * 100),
-    );
+    return Math.max(0, Math.min(100, ((this.max - scaleMin) / (scaleMax - scaleMin)) * 100));
   }
 
   #handleInput = (event: Event): void => {

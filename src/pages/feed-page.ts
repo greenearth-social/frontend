@@ -206,7 +206,13 @@ export class FeedPage extends MobxLitElement {
       return html`
         <div class="logged-out-page">
           <div class="logged-out-content">
-            <img src="/assets/caterpillar.png" alt="MySky" class="logged-out-logo" />
+            <img
+              src="/assets/mysky-logo.png"
+              alt="MySky"
+              class="logged-out-logo"
+              width="1453"
+              height="1082"
+            />
             <h1 class="logged-out-title">MySky</h1>
             <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>
             <form class="sign-in-form" @submit=${this.#signIn}>
@@ -262,9 +268,9 @@ export class FeedPage extends MobxLitElement {
             width: 100%;
           }
           .logged-out-logo {
-            width: min(44vw, 150px);
+            width: min(52vw, 190px);
             height: auto;
-            margin-bottom: -0.5rem;
+            margin-bottom: -0.625rem;
           }
           .logged-out-title {
             font-size: clamp(2rem, 10vw, 2.5rem);
@@ -347,8 +353,8 @@ export class FeedPage extends MobxLitElement {
               padding-top: 0.5rem;
             }
             .logged-out-logo {
-              width: 96px;
-              margin-bottom: -0.375rem;
+              width: 124px;
+              margin-bottom: -0.5rem;
             }
             .logged-out-title {
               font-size: 1.75rem;
@@ -369,8 +375,8 @@ export class FeedPage extends MobxLitElement {
               padding-top: 10dvh;
             }
             .logged-out-logo {
-              width: 220px;
-              margin-bottom: -0.875rem;
+              width: 280px;
+              margin-bottom: -1rem;
             }
             .logged-out-title {
               font-size: 3rem;
@@ -528,8 +534,8 @@ export class FeedPage extends MobxLitElement {
                   .filteringCounts=${feedStore.currentFilteringCounts}
                   .generatorDiagnostics=${feedStore.currentGeneratorDiagnostics}
                   @select-item=${(e: CustomEvent<{ uri: string }>) => {
-                      uiStore.toggleSelectedItem(e.detail.uri);
-                    }}
+                    uiStore.toggleSelectedItem(e.detail.uri);
+                  }}
                 ></feed-view>
 
                 <pagination-control
@@ -538,11 +544,11 @@ export class FeedPage extends MobxLitElement {
                   .totalItems=${feedStore.totalCount}
                   .itemsPerPage=${feedStore.postsPerPage}
                   @page-change=${(e: CustomEvent<{ page: number }>) => {
-                      feedStore.goToPage(e.detail.page);
-                    }}
+                    feedStore.goToPage(e.detail.page);
+                  }}
                   @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
-                      feedStore.setPostsPerPage(e.detail.perPage);
-                    }}
+                    feedStore.setPostsPerPage(e.detail.perPage);
+                  }}
                 ></pagination-control>
               `
         }

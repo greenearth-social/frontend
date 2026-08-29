@@ -23,6 +23,7 @@ const testState = vi.hoisted(() => {
         load: vi.fn().mockResolvedValue(undefined),
         save: vi.fn(),
         savePatch: vi.fn(),
+        syncSnapshot: vi.fn().mockResolvedValue(true),
         waitForPendingSaves: vi.fn().mockResolvedValue(true),
         restoreDefaults: vi.fn().mockResolvedValue(true),
       },
@@ -39,6 +40,7 @@ const testState = vi.hoisted(() => {
         refreshBaselineIfNew: vi.fn().mockResolvedValue({ status: "unchanged" }),
         preview: vi.fn().mockResolvedValue(null),
         acceptGeneratedPreview: vi.fn().mockResolvedValue(null),
+        markPreviewSyncFailure: vi.fn(),
         acceptPreview: vi.fn(),
         baselineItems: [],
         displayedItems: [],
@@ -46,6 +48,7 @@ const testState = vi.hoisted(() => {
         isLoadingBaseline: false,
         isRefreshingBaseline: false,
         isGenerating: false,
+        acceptanceConflict: false,
         error: null as string | null,
         warning: null as string | null,
         baselineRefreshError: null as string | null,
@@ -88,6 +91,8 @@ describe("SettingsPage", () => {
         return Promise.resolve(true);
       },
     );
+    testState.rootStore.preferencesStore.syncSnapshot.mockReset();
+    testState.rootStore.preferencesStore.syncSnapshot.mockResolvedValue(true);
     testState.rootStore.preferencesStore.restoreDefaults.mockReset();
     testState.rootStore.preferencesStore.restoreDefaults.mockResolvedValue(true);
     testState.rootStore.preferencesStore.load.mockReset();
@@ -106,10 +111,12 @@ describe("SettingsPage", () => {
     testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockImplementation(
       (preview: unknown) => Promise.resolve(preview),
     );
+    testState.rootStore.settingsPreviewStore.markPreviewSyncFailure.mockReset();
     testState.rootStore.settingsPreviewStore.acceptPreview.mockReset();
     testState.rootStore.settingsPreviewStore.isLoadingBaseline = false;
     testState.rootStore.settingsPreviewStore.isRefreshingBaseline = false;
     testState.rootStore.settingsPreviewStore.isGenerating = false;
+    testState.rootStore.settingsPreviewStore.acceptanceConflict = false;
     testState.rootStore.settingsPreviewStore.error = null;
     testState.rootStore.settingsPreviewStore.warning = null;
     testState.rootStore.settingsPreviewStore.baselineRefreshError = null;
@@ -167,6 +174,8 @@ describe("SettingsPage", () => {
     }
 
     const sourceRank = sliders.find((slider) => slider.ariaLabel === "Source rank");
+    const timeWindow = sliders.find((slider) => slider.ariaLabel === "Time Window");
+    expect(timeWindow?.thumbIconSize).toBe(20);
     expect(sourceRank?.max).toBe(4);
     expect(sourceRank?.icons[0]).toContain("Eggs-slider.png");
     expect(sourceRank?.icons.at(-1)).toContain("butterfly-slider.png");
@@ -629,13 +638,13 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".refresh-popup")).toBeNull();
   });
 
-  it("uses a labeled bordered history control and Back with a mobile Preview title", async () => {
+  it("groups the header actions and wraps Preview at narrow mobile widths", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
     const settingsHistory = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      ".settings-header-actions .history-btn",
+      ".header-row > .history-btn",
     );
     expect(settingsHistory?.textContent.trim()).toBe("Undo");
     expect(settingsHistory?.querySelector("wa-icon")?.getAttribute("name")).toBe("undo");
@@ -652,17 +661,70 @@ describe("SettingsPage", () => {
     expect(settingsPageStyles.cssText).toMatch(
       /@media \(min-width: 1024px\)[\s\S]*\.update-preview-btn\s*\{[^}]*left:\s*50%/s,
     );
+    expect(
+      Array.from(element.shadowRoot?.querySelector(".header-row")?.children ?? [])
+        .filter((child) =>
+          ["mobile-preview-row", "history-btn", "reset-defaults-btn"].includes(child.className),
+        )
+        .map((child) => child.className),
+    ).toEqual(["mobile-preview-row", "history-btn", "reset-defaults-btn"]);
+    expect(
+      element.shadowRoot?.querySelector(".mobile-preview-row > .mobile-preview-btn"),
+    ).not.toBeNull();
 
     const mobileActions = element.shadowRoot?.querySelector(".preview-mobile-primary-actions");
     expect(Array.from(mobileActions?.children ?? []).map((child) => child.className)).toEqual([
       "preview-close",
-      "mobile-preview-title",
+      "mobile-preview-status",
     ]);
     const back = mobileActions?.firstElementChild as HTMLButtonElement | null;
     expect(back?.getAttribute("aria-label")).toBe("Back to settings");
     expect(back?.textContent.trim()).toBe("");
     expect(back?.querySelector("wa-icon")?.getAttribute("name")).toBe("chevron-left");
-    expect(mobileActions?.querySelector(".mobile-preview-title")?.textContent).toBe("Preview");
+    expect(mobileActions?.querySelector(".mobile-preview-title")).toBeNull();
+    expect(mobileActions?.querySelector(".mobile-preview-status")?.textContent).toBe(
+      "Generating Preview",
+    );
+    expect(element.shadowRoot?.querySelector(".source-controls-help")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".percentage-suffix")).toBeNull();
+    expect(element.shadowRoot?.textContent).not.toContain("Enter a whole percentage");
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(max-width: 767px\)[\s\S]*grid-template-columns:\s*36px max-content minmax\(0, 1fr\) repeat\(3, minmax\(0, 6\.25rem\)\)/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(max-width: 479px\)[\s\S]*\.mobile-preview-row\s*\{[^}]*grid-row:\s*2[^}]*grid-column:\s*1 \/ -1[^}]*justify-content:\s*center/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(max-width: 479px\)[\s\S]*\.mobile-preview-row \.mobile-preview-btn\s*\{[^}]*width:\s*min\(75%, 18rem\)/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(max-width: 1023px\)[\s\S]*h1\s*\{[^}]*overflow:\s*visible[^}]*text-overflow:\s*clip/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.mobile-preview-status\s*\{[^}]*font-size:\s*1\.125rem[^}]*font-weight:\s*800/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(/\.component-title\s*\{[^}]*min-height:\s*32px/s);
+  });
+
+  it("explains source percentages and lifecycle icons from the Sources info control", async () => {
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const info = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[aria-label="Learn more about Sources"]',
+    );
+    expect(info?.querySelector(".question-icon")?.textContent).toBe("i");
+    info?.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".popup-title")?.textContent).toBe("Sources");
+    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
+      "Percentages control how much each source contributes",
+    );
+    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
+      "lifecycle icons",
+    );
   });
 
   it("keeps Preview available during baseline loading and background refresh", async () => {
@@ -731,6 +793,14 @@ describe("SettingsPage", () => {
     await element.updateComplete;
     await feed.updateComplete;
 
+    const updatePreview =
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn");
+    expect(updatePreview?.textContent.trim()).toBe("Generating preview");
+    expect(updatePreview?.disabled).toBe(true);
+    expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
+      "Generating Preview",
+    );
+    expect(element.shadowRoot?.querySelector(".preview-generating")).toBeNull();
     expect(feed.shadowRoot?.textContent).toContain("Loading your current feed");
     expect(feed.shadowRoot?.textContent).not.toContain("No posts are available");
 
@@ -738,6 +808,118 @@ describe("SettingsPage", () => {
     await vi.waitFor(() => {
       expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
     });
+    await element.updateComplete;
+    expect(updatePreview?.textContent.trim()).toBe("Update preview");
+    expect(updatePreview?.disabled).toBe(true);
+    expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
+      "Generating Preview",
+    );
+  });
+
+  it("recovers a 409 by synchronizing the captured snapshot and regenerating once", async () => {
+    const first = { items: [{ atUri: "at://first" }] };
+    const second = { items: [{ atUri: "at://second" }] };
+    testState.rootStore.settingsPreviewStore.preview
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+    testState.rootStore.settingsPreviewStore.acceptGeneratedPreview
+      .mockImplementationOnce(() => {
+        testState.rootStore.settingsPreviewStore.acceptanceConflict = true;
+        return Promise.resolve(null);
+      })
+      .mockImplementationOnce(() => {
+        testState.rootStore.settingsPreviewStore.acceptanceConflict = false;
+        return Promise.resolve(second);
+      });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const freshness = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Time Window");
+    freshness?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 2 },
+      }),
+    );
+    await Promise.resolve();
+    await element.updateComplete;
+
+    const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+    if (!feed) throw new Error("Settings feed preview was not rendered");
+    vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+
+    await vi.waitFor(() => {
+      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(second);
+    });
+    expect(testState.rootStore.preferencesStore.syncSnapshot).toHaveBeenCalledOnce();
+    expect(testState.rootStore.preferencesStore.syncSnapshot).toHaveBeenCalledWith(
+      "your-feed",
+      expect.objectContaining({ freshness: 2 }),
+    );
+    expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledTimes(2);
+    expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(testState.rootStore.settingsPreviewStore.markPreviewSyncFailure).not.toHaveBeenCalled();
+  });
+
+  it("cancels 409 recovery when settings change while the snapshot is synchronizing", async () => {
+    let finishSynchronization: (() => void) | undefined;
+    testState.rootStore.preferencesStore.syncSnapshot.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        finishSynchronization = () => {
+          resolve(true);
+        };
+      }),
+    );
+    testState.rootStore.settingsPreviewStore.preview.mockResolvedValue({ items: [] });
+    testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockImplementation(() => {
+      testState.rootStore.settingsPreviewStore.acceptanceConflict = true;
+      return Promise.resolve(null);
+    });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const freshness = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Time Window");
+    const changeFreshness = (value: number): void => {
+      freshness?.dispatchEvent(
+        new CustomEvent("slider-change", {
+          bubbles: true,
+          composed: true,
+          detail: { value },
+        }),
+      );
+    };
+    changeFreshness(2);
+    await Promise.resolve();
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+
+    await vi.waitFor(() => {
+      expect(testState.rootStore.preferencesStore.syncSnapshot).toHaveBeenCalledOnce();
+    });
+    changeFreshness(3);
+    finishSynchronization?.();
+    await vi.waitFor(() => {
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.disabled,
+      ).toBe(false);
+    });
+
+    expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledTimes(1);
+    expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(testState.rootStore.settingsPreviewStore.acceptPreview).not.toHaveBeenCalled();
+    expect(testState.rootStore.settingsPreviewStore.markPreviewSyncFailure).not.toHaveBeenCalled();
   });
 
   it("briefly settles the mobile Preview screen before starting its animation", async () => {

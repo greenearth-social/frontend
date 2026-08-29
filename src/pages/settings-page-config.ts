@@ -21,6 +21,12 @@ export interface SettingsNode {
 }
 
 export const SETTINGS_NODES: Record<string, SettingsNode> = {
+  sources: {
+    label: "Sources",
+    type: "config",
+    description:
+      "Percentages control how much each source contributes to the candidate pool. The lifecycle icons provide a visual scale from lower to higher emphasis. Changing one percentage rebalances the others unless a source is locked.",
+  },
   time_window: {
     label: "Time Window",
     type: "config",

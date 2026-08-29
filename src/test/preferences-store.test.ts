@@ -156,9 +156,12 @@ describe("PreferencesStore.save", () => {
     await store.load();
 
     const firstSave = store.save("your-feed", "freshness", 2);
-    await store.save("your-feed", "freshness", 4);
+    const secondSave = store.save("your-feed", "freshness", 4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectFirst?.(new Error("late failure"));
-    await firstSave;
+    await Promise.all([firstSave, secondSave]);
 
     expect(store.valuesFor("your-feed").freshness).toBe(4);
     consoleError.mockRestore();
@@ -184,9 +187,12 @@ describe("PreferencesStore.save", () => {
     };
 
     const sourceSave = store.save("your-feed", "source_weights", requestedWeights);
-    await store.save("your-feed", "purpose", 0.8);
+    const purposeSave = store.save("your-feed", "purpose", 0.8);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectSourceWeights?.(new Error("offline"));
-    await sourceSave;
+    await Promise.all([sourceSave, purposeSave]);
 
     expect(store.valuesFor("your-feed").sourceWeights).toEqual(loaded["your-feed"]?.sourceWeights);
     expect(store.valuesFor("your-feed").purpose).toBe(0.8);
@@ -355,6 +361,43 @@ describe("PreferencesStore.savePatch", () => {
     await expect(saving).resolves.toBe(true);
     await expect(waiting).resolves.toBe(true);
   });
+
+  it("serializes overlapping saves per feed and persists the newest value last", async () => {
+    let resolveFirst: ((value: FeedPreferences) => void) | undefined;
+    const firstRequest = new Promise<FeedPreferences>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const patch = vi.fn().mockReturnValueOnce(firstRequest).mockResolvedValueOnce({ freshness: 4 });
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const first = store.savePatch("your-feed", { freshness: 2 });
+    const second = store.savePatch("your-feed", { freshness: 4 });
+    expect(store.valuesFor("your-feed").freshness).toBe(4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
+
+    resolveFirst?.({ freshness: 2 });
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenNthCalledWith(1, "your-feed", { freshness: 2 });
+    expect(patch).toHaveBeenNthCalledWith(2, "your-feed", { freshness: 4 });
+    expect(store.valuesFor("your-feed").freshness).toBe(4);
+  });
+
+  it("re-persists an unchanged snapshot without emitting duplicate analytics", async () => {
+    const patch = vi.fn().mockResolvedValue({ freshness: 5 });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await expect(store.syncSnapshot("your-feed", { freshness: 5 })).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 5 });
+    expect(capture).not.toHaveBeenCalled();
+  });
 });
 
 describe("PreferencesStore.restoreDefaults", () => {
@@ -505,9 +548,12 @@ describe("PreferencesStore.restoreDefaults", () => {
     };
 
     const reset = store.restoreDefaults("your-feed");
-    await store.save("your-feed", "freshness", 2);
+    const save = store.save("your-feed", "freshness", 2);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectReset?.(new Error("offline"));
-    await expect(reset).resolves.toBe(false);
+    await expect(Promise.all([reset, save])).resolves.toEqual([false, undefined]);
 
     expect(store.valuesFor("your-feed")).toMatchObject({
       sourceWeights: {

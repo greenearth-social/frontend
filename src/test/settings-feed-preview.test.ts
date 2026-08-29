@@ -39,7 +39,7 @@ function item(atUri: string): FeedItemView {
 describe("settings feed rank movement", () => {
   const before = ["a", "b", "c", "d", "e"].map(item);
 
-  it("uses single and double line chevrons based on absolute movement", () => {
+  it("uses single chevrons while retaining the movement distance", () => {
     const after = ["d", "a", "c", "b", "e"].map(item);
 
     expect(rankMovement("a", before, after)).toMatchObject({
@@ -51,7 +51,7 @@ describe("settings feed rank movement", () => {
     expect(rankMovement("d", before, after)).toMatchObject({
       kind: "up",
       delta: 3,
-      icon: "chevrons-up",
+      icon: "chevron-up",
       label: "Moved up 3 positions",
     });
   });
@@ -369,7 +369,7 @@ describe("settings feed movement presentation", () => {
     }
   });
 
-  it("paginates every returned item and shows hydration counts", async () => {
+  it("paginates every returned item without showing hydration counts", async () => {
     const element = document.createElement("settings-feed-preview");
     element.items = Array.from({ length: 45 }, (_, index) => item(`post-${String(index + 1)}`));
     element.filteringCounts = {
@@ -382,12 +382,11 @@ describe("settings feed movement presentation", () => {
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelectorAll(".card")).toHaveLength(20);
-    expect(element.shadowRoot?.querySelector(".slate-summary")?.textContent).toContain(
-      "45 shown of 50 ranked",
-    );
-    expect(
-      element.shadowRoot?.querySelector(".filter-summary")?.textContent.replace(/\s+/g, " "),
-    ).toContain("2 filtered · 3 unavailable");
+    expect(element.shadowRoot?.querySelector(".slate-summary")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".filter-summary")).toBeNull();
+    expect(element.shadowRoot?.textContent).not.toContain("shown of");
+    expect(element.shadowRoot?.textContent).not.toContain("filtered");
+    expect(element.shadowRoot?.textContent).not.toContain("unavailable");
     expect(element.shadowRoot?.querySelector(".pagination")?.textContent).toContain("Page 1 of 3");
 
     element.shadowRoot

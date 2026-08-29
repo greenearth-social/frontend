@@ -75,6 +75,7 @@ export class SettingsPreviewStore {
   isLoadingBaseline = false;
   isRefreshingBaseline = false;
   isGenerating = false;
+  acceptanceConflict = false;
   error: string | null = null;
   warning: string | null = null;
   baselineRefreshError: string | null = null;
@@ -127,6 +128,7 @@ export class SettingsPreviewStore {
     this.isLoadingBaseline = false;
     this.isRefreshingBaseline = false;
     this.isGenerating = false;
+    this.acceptanceConflict = false;
     this.displayRevision = 0;
     this.activationPromise = null;
     this.activationPromiseFeed = null;
@@ -170,6 +172,7 @@ export class SettingsPreviewStore {
     this.isLoadingBaseline = true;
     this.isRefreshingBaseline = false;
     this.isGenerating = false;
+    this.acceptanceConflict = false;
     this.displayRevision = 0;
     this.refreshPromise = null;
     this.refreshPromiseFeed = null;
@@ -351,6 +354,7 @@ export class SettingsPreviewStore {
     this.refreshOperation++;
     this.isRefreshingBaseline = false;
     this.isGenerating = true;
+    this.acceptanceConflict = false;
     this.error = null;
     try {
       const generated = await this.generatePreview(feedName, patch, previewSignature, generation);
@@ -376,6 +380,7 @@ export class SettingsPreviewStore {
   ): Promise<GeneratedSettingsPreview | null> {
     const { feedName, generation, signature: previewSignature } = preview;
     if (!this.isCurrentFeed(feedName, generation)) return null;
+    this.acceptanceConflict = false;
 
     const accept = async (candidate: GeneratedSettingsPreview): Promise<void> => {
       await this.root.services.feedApiService.acceptFeedPreview(
@@ -410,15 +415,23 @@ export class SettingsPreviewStore {
       }
 
       if (this.isCurrentFeed(feedName, generation)) {
-        this.error =
-          acceptanceError instanceof FeedApiError && acceptanceError.status === 409
-            ? "Settings changed before Preview could be synchronized. Preview again."
-            : acceptanceError instanceof Error
+        if (acceptanceError instanceof FeedApiError && acceptanceError.status === 409) {
+          this.acceptanceConflict = true;
+          this.error = null;
+        } else {
+          this.error =
+            acceptanceError instanceof Error
               ? acceptanceError.message
               : "Preview could not be synchronized with MySky. Try again.";
+        }
       }
       return null;
     }
+  }
+
+  markPreviewSyncFailure(): void {
+    this.acceptanceConflict = false;
+    this.error = "Preview could not be synchronized with MySky. Try again.";
   }
 
   acceptPreview(preview: GeneratedSettingsPreview): void {
@@ -426,6 +439,7 @@ export class SettingsPreviewStore {
     this.displayedItems = preview.items;
     this.displayedFilteringCounts = preview.filteringCounts;
     this.displayRevision++;
+    this.acceptanceConflict = false;
     this.error = null;
     const partialCount = preview.filteringCounts.partialItemCount ?? 0;
     if (partialCount > 0) {
