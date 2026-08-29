@@ -175,6 +175,59 @@ describe("FeedStore.loadFeedList", () => {
     expect(api.getFeedDetail).not.toHaveBeenCalled();
   });
 
+  it("replaces the bootstrap empty entry when the first populated snapshot arrives", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({
+      feeds: [
+        {
+          requestId: "first-populated",
+          generatedAt: "2026-08-10T12:05:00Z",
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const api = (
+      store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }
+    ).root.services.feedApiService;
+    api.getFeedDetail.mockResolvedValue({
+      requestId: "first-populated",
+      generatedAt: "2026-08-10T12:05:00Z",
+      apiReleaseSha: null,
+      items: [makeFeedItem(1)],
+      filteringCounts: {
+        storedItemCount: 1,
+        displayedItemCount: 1,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+      generatorDiagnostics: [],
+    });
+    store.feedList = [
+      {
+        requestId: "bootstrap-empty",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "bootstrap-empty";
+
+    expect(await store.refreshFeedIfNew("your-feed", "bootstrap-empty")).toBe(true);
+    expect(store.feedList.map((feed) => feed.requestId)).toEqual(["first-populated"]);
+    expect(store.currentRequestId).toBe("first-populated");
+    expect(store.items).toHaveLength(1);
+  });
+
   it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
     let resolveDetail:
       | ((value: {
