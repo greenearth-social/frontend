@@ -130,6 +130,8 @@ export class FeedStore {
     this.items = [];
     this.currentRequestId = null;
     this.error = null;
+    this.lastGeneratedAt = null;
+    this.currentApiReleaseSha = null;
   }
 
   reset(): void {
@@ -220,6 +222,9 @@ export class FeedStore {
       const response = await this.root.services.feedApiService.listFeeds();
       if (seq !== this._feedListLoadSeq) return false;
 
+      const currentRequestBelongsToFeed = this.feedList.some(
+        (feed) => feed.requestId === this.currentRequestId && feed.feedName === feedName,
+      );
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
       const latest = this.feedList
@@ -228,6 +233,14 @@ export class FeedStore {
           (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
           undefined,
         );
+
+      if (!latest && currentRequestBelongsToFeed && this.root.uiStore.selectedAlgorithm === feedName) {
+        // A successful list response is authoritative. This notably removes a
+        // bootstrap-empty snapshot after the API classifies it as pre-history,
+        // instead of leaving its previously loaded detail visible in memory.
+        this.clearFeedDetail();
+        return false;
+      }
 
       if (
         !latest ||

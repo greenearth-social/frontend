@@ -228,6 +228,37 @@ describe("FeedStore.loadFeedList", () => {
     expect(store.items).toHaveLength(1);
   });
 
+  it("clears a loaded bootstrap entry when the API no longer lists it", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({ feeds: [] });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const api = (
+      store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }
+    ).root.services.feedApiService;
+    store.feedList = [
+      {
+        requestId: "bootstrap-empty",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "bootstrap-empty";
+    store.lastGeneratedAt = "2026-08-10T12:00:00Z";
+
+    expect(await store.refreshFeedIfNew("your-feed", "bootstrap-empty")).toBe(false);
+    expect(store.feedList).toEqual([]);
+    expect(store.currentRequestId).toBeNull();
+    expect(store.lastGeneratedAt).toBeNull();
+    expect(api.getFeedDetail).not.toHaveBeenCalled();
+  });
+
   it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
     let resolveDetail:
       | ((value: {
