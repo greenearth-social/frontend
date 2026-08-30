@@ -385,14 +385,14 @@ export class SettingsFeedPreview extends LitElement {
     const animationOperation = ++this.animationOperation;
     this.isAnimating = true;
     const next = [...nextItems];
-    const currentPage = Math.min(this.currentPage, this.totalPagesFor(current));
-    const animationPage = Math.min(currentPage, this.totalPagesFor(next));
-    const currentVisible = this.pageItems(current, currentPage);
-    const nextVisible = this.pageItems(next, animationPage);
+    const outgoingPage = Math.min(this.currentPage, this.totalPagesFor(current));
+    const nextPage = 1;
+    const currentVisible = this.pageItems(current, outgoingPage);
+    const nextVisible = this.pageItems(next, nextPage);
     const currentVisibleUris = new Set(currentVisible.map((item) => item.atUri));
     const nextVisibleUris = new Set(nextVisible.map((item) => item.atUri));
     try {
-      this.currentPage = animationPage;
+      this.currentPage = nextPage;
       if (fromItems || supersedesAnimation) {
         this.currentSlate = current;
         this.comparisonItems = current;
@@ -497,7 +497,7 @@ export class SettingsFeedPreview extends LitElement {
         // comparison badge.
         this.currentSlate = next;
         this.comparisonItems = current;
-        this.currentPage = animationPage;
+        this.currentPage = nextPage;
         this.renderedItems = nextVisible;
         this.removedUris = new Set();
         this.newUris = new Set();
