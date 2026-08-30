@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ALGORITHMS } from "../src/constants/algorithms";
 
 test.describe("feed-scoped navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -35,6 +36,70 @@ test.describe("feed-scoped navigation", () => {
     await expect(
       page.locator('.left-sidebar-desktop .algo-btn[aria-label="Best of Friends"]'),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("anchors the collapsible desktop navigation across every page", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 520 });
+    const desktop = page.locator(".left-sidebar-desktop");
+    const initialBox = await desktop.boundingBox();
+    expect(initialBox?.width).toBe(275);
+
+    await desktop.locator('a[href="#/settings/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
+    expect((await desktop.boundingBox())?.x).toBe(initialBox?.x);
+
+    await desktop.locator('a[href="#/feedback/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/feedback\/your-feed$/);
+    expect((await desktop.boundingBox())?.x).toBe(initialBox?.x);
+
+    await desktop.getByRole("button", { name: "Collapse navigation" }).click();
+    await expect(desktop).toHaveCSS("width", "72px");
+    await desktop.locator('a[href="#/feed/your-feed"]').click();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+    await expect(desktop.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+
+    await desktop.getByRole("button", { name: "More options" }).click();
+    const logout = desktop.getByRole("button", { name: "Log out" });
+    await expect(logout.locator('wa-icon[name="lock"]')).toBeVisible();
+    await expect(desktop.locator(".logout-menu.compact")).not.toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(logout).toHaveCSS("color", "rgb(244, 33, 46)");
+    await expect
+      .poll(() =>
+        logout.locator('wa-icon[name="lock"]').evaluate((icon) => {
+          const lockBody = icon.shadowRoot?.querySelector("svg rect");
+          return lockBody ? getComputedStyle(lockBody).fill : null;
+        }),
+      )
+      .toBe("none");
+    const logoutBox = await logout.boundingBox();
+    expect(logoutBox).not.toBeNull();
+    expect((logoutBox?.y ?? -1) + (logoutBox?.height ?? 0)).toBeLessThanOrEqual(520);
+  });
+
+  test("active feed icon toggles its pages in the collapsed desktop rail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 720 });
+    const feedLabel = ALGORITHMS["your-feed"].label;
+    const desktop = page.locator(".left-sidebar-desktop");
+    await desktop.getByRole("button", { name: "Collapse navigation" }).click();
+
+    const pages = desktop.locator("#desktop-your-feed-pages");
+    const collapseFeed = desktop.getByRole("button", {
+      name: `Collapse ${feedLabel} pages`,
+    });
+    await expect(collapseFeed).toHaveAttribute("aria-expanded", "true");
+    await collapseFeed.click();
+    await expect(pages).toBeHidden();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+
+    const expandFeed = desktop.getByRole("button", { name: `Expand ${feedLabel} pages` });
+    await expandFeed.click();
+    await expect(pages).toBeVisible();
+    await expect(
+      desktop.getByRole("button", { name: `Collapse ${feedLabel} pages` }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   test("opens the same drawer from a nested Settings page", async ({ page }) => {
@@ -92,6 +157,25 @@ test.describe("feed-scoped navigation", () => {
     const activeGroup = desktop.locator(".feed-group.active-feed");
     await expect(activeGroup).toHaveCount(1);
     await expect(activeGroup.locator('.algo-btn[aria-pressed="true"]')).toHaveCount(1);
+
+    const bestOfFriends = desktop.locator('.algo-btn[aria-label="Best of Friends"]');
+    const bestOfFriendsGeometry = await bestOfFriends.evaluate((button) => {
+      const icon = button.querySelector("wa-icon")?.getBoundingClientRect();
+      const label = button.querySelector<HTMLElement>(".algo-label");
+      const labelRect = label?.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      return {
+        iconInset: icon ? icon.left - buttonRect.left : 0,
+        iconToLabelGap: icon && labelRect ? labelRect.left - icon.right : 0,
+        labelClientWidth: label?.clientWidth ?? 0,
+        labelScrollWidth: label?.scrollWidth ?? 0,
+      };
+    });
+    expect(bestOfFriendsGeometry.iconInset).toBeLessThanOrEqual(7);
+    expect(bestOfFriendsGeometry.iconToLabelGap).toBeLessThanOrEqual(7);
+    expect(bestOfFriendsGeometry.labelScrollWidth).toBeLessThanOrEqual(
+      bestOfFriendsGeometry.labelClientWidth,
+    );
   });
 
   test("places Politics in Ranking and applies both source-rank endpoints", async ({ page }) => {
@@ -102,6 +186,13 @@ test.describe("feed-scoped navigation", () => {
     const settings = page.locator("settings-page");
     const ranking = settings.locator(".section-ranking");
     await expect(settings.getByRole("heading", { name: "Sources" })).toBeVisible();
+    await settings.getByRole("button", { name: "Learn more about Sources" }).click();
+    const sourcesDialog = settings.getByRole("dialog", { name: "Sources" });
+    await expect(sourcesDialog).toContainText(
+      "Percentages control how much each source contributes",
+    );
+    await expect(sourcesDialog).toContainText("lifecycle icons");
+    await sourcesDialog.getByRole("button", { name: "Close detail" }).click();
     const politics = ranking.locator(".ranking-grid > .politics-card");
     await expect(politics).toBeVisible();
     expect(
@@ -187,7 +278,6 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-
     const reset = page.getByRole("button", { name: "Reset settings to defaults" });
     await expect(reset).toBeEnabled();
     await reset.click();
@@ -200,9 +290,8 @@ test.describe("feed-scoped navigation", () => {
         exact: true,
       }),
     ).toHaveValue("0.2");
-    await expect(page.getByRole("status")).toContainText(
-      "Refresh your Bluesky feed to see updates",
-    );
+    await expect(page.getByRole("dialog", { name: "Review this change" })).toHaveCount(0);
+    await expect(reset).toBeDisabled();
   });
 
   test("keeps the four-source Settings rail usable at 320px", async ({ page }) => {
@@ -223,7 +312,14 @@ test.describe("feed-scoped navigation", () => {
     const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
     expect(cardBox).not.toBeNull();
     expect(trackBox).not.toBeNull();
-    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.8);
+    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.75);
+    if (cardBox && trackBox) {
+      const narrowThumbRadius = 16;
+      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(cardBox.x);
+      expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
+        cardBox.x + cardBox.width,
+      );
+    }
 
     await expect(
       page.getByRole("spinbutton", {
@@ -279,17 +375,19 @@ test.describe("feed-scoped navigation", () => {
         name: "Lock Following weight",
       }),
     ).toBeDisabled();
-
-    const centeredHelp = await settings.evaluate((element) => {
-      const root = element.shadowRoot;
-      const panel = root?.querySelector(".section-candidate")?.getBoundingClientRect();
-      const help = root?.querySelector(".source-controls-help")?.getBoundingClientRect();
-      return panel && help
-        ? Math.abs(panel.left + panel.width / 2 - (help.left + help.width / 2))
-        : null;
+    await expect(settings.locator(".source-controls-help, .percentage-suffix")).toHaveCount(0);
+    const sliderGeometry = await firstSourceCard.locator("icon-range-slider").evaluate((slider) => {
+      const root = slider.shadowRoot;
+      const shell = root?.querySelector(".range-shell")?.getBoundingClientRect();
+      const thumb = root?.querySelector(".icon-thumb")?.getBoundingClientRect();
+      const input = root?.querySelector('input[type="range"]')?.getBoundingClientRect();
+      return {
+        shellHeight: shell?.height ?? 0,
+        thumbWidth: thumb?.width ?? 0,
+        inputHeight: input?.height ?? 0,
+      };
     });
-    expect(centeredHelp).not.toBeNull();
-    expect(centeredHelp ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+    expect(sliderGeometry).toEqual({ shellHeight: 32, thumbWidth: 28, inputHeight: 44 });
 
     const overflow = await settings.evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -298,26 +396,109 @@ test.describe("feed-scoped navigation", () => {
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   });
 
-  test("keeps the mobile feed switcher mapped to the canonical feed route", async ({ page }) => {
+  test("uses the mobile drawer as the feed switcher and gives snapshots the full strip", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 375, height: 720 });
     const tabs = page.locator("feed-page feed-tabs");
-    const trigger = tabs.locator(".algo-trigger");
-    const greenEarthHeight = (await trigger.boundingBox())?.height;
-    expect(greenEarthHeight).toBeDefined();
+    await expect(tabs.locator(".algo-indicator, .algo-trigger, .algo-dropdown")).toHaveCount(0);
+    await expect(tabs.locator(".tabs-scroll-area")).toBeVisible();
+    await expect(tabs.locator(".tab").first()).toContainText("Latest");
 
-    await trigger.click();
-    await tabs.getByRole("option", { name: "Best of Friends" }).click();
+    const geometry = await tabs.locator(".tabs-container").evaluate((container) => {
+      const strip = container.querySelector(".tabs-scroll-area")?.getBoundingClientRect();
+      const box = container.getBoundingClientRect();
+      return {
+        stripLeft: strip?.left ?? -1,
+        stripRight: strip?.right ?? -1,
+        containerLeft: box.left,
+        containerRight: box.right,
+      };
+    });
+    expect(Math.abs(geometry.stripLeft - geometry.containerLeft)).toBeLessThan(1);
+    expect(Math.abs(geometry.stripRight - geometry.containerRight)).toBeLessThan(1);
+  });
 
-    await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
-    await expect(trigger).toContainText("Best of Friends");
-    await expect(tabs.locator(".tab")).toHaveCount(0);
-    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
+  test("keeps the source breakdown readable and horizontally scrollable on mobile", async ({
+    page,
+  }) => {
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 640 });
+      const feedPage = page.locator("feed-page");
+      await feedPage.locator("feed-tabs").evaluate(async (element) => {
+        const tabs = element as HTMLElement & {
+          feeds: Array<Record<string, unknown>>;
+          updateComplete: Promise<boolean>;
+        };
+        const activeFeed = tabs.feeds[0];
+        if (!activeFeed) throw new Error("Expected an active feed fixture");
+        const diagnostic = {
+          weight: 0.25,
+          requestedCount: 50,
+          returnedCount: 24,
+          contributedCount: 10,
+          status: "success",
+          reason: null,
+          mode: "primary",
+        };
+        tabs.feeds = [
+          {
+            ...activeFeed,
+            generatorDiagnostics: [
+              { ...diagnostic, name: "followed_users" },
+              { ...diagnostic, name: "network_likes" },
+              { ...diagnostic, name: "two_tower" },
+              { ...diagnostic, name: "popularity" },
+            ],
+          },
+        ];
+        await tabs.updateComplete;
+      });
+      const openBreakdown = feedPage.getByRole("button", { name: "View source breakdown" });
+      await expect(openBreakdown).toBeEnabled();
+      await openBreakdown.click();
 
-    await trigger.click();
-    await tabs.getByRole("option", { name: "Random" }).click();
-    await expect(page).toHaveURL(/#\/feed\/random$/);
-    await expect(trigger).toContainText("Random");
-    expect((await trigger.boundingBox())?.height).toBe(greenEarthHeight);
+      const dialog = feedPage.getByRole("dialog", { name: "Source breakdown" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText("Swipe horizontally to see all columns")).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Close source breakdown" })).toBeVisible();
+
+      const geometry = await dialog.evaluate((element) => {
+        const dialogBox = element.getBoundingClientRect();
+        const scrollElement = element.querySelector<HTMLElement>(".breakdown-table-scroll");
+        const sourceCell = scrollElement?.querySelector<HTMLElement>("tbody td:first-child");
+        if (scrollElement) scrollElement.scrollLeft = scrollElement.scrollWidth;
+        const scrollBox = scrollElement?.getBoundingClientRect();
+        const sourceBox = sourceCell?.getBoundingClientRect();
+        return {
+          dialogLeft: dialogBox.left,
+          dialogRight: dialogBox.right,
+          dialogClientWidth: element.clientWidth,
+          dialogScrollWidth: element.scrollWidth,
+          scrollerClientWidth: scrollElement?.clientWidth ?? 0,
+          scrollerScrollWidth: scrollElement?.scrollWidth ?? 0,
+          scrollerScrollLeft: scrollElement?.scrollLeft ?? 0,
+          scrollerLeft: scrollBox?.left ?? 0,
+          sourceLeft: sourceBox?.left ?? 0,
+          closeSize: (() => {
+            const box = element.querySelector(".popover-close")?.getBoundingClientRect();
+            return { width: box?.width ?? 0, height: box?.height ?? 0 };
+          })(),
+        };
+      });
+
+      expect(geometry.dialogLeft).toBeGreaterThanOrEqual(0);
+      expect(geometry.dialogRight).toBeLessThanOrEqual(width);
+      expect(geometry.dialogScrollWidth).toBeLessThanOrEqual(geometry.dialogClientWidth);
+      expect(geometry.scrollerScrollWidth).toBeGreaterThan(geometry.scrollerClientWidth);
+      expect(geometry.scrollerScrollLeft).toBeGreaterThan(0);
+      expect(Math.abs(geometry.sourceLeft - geometry.scrollerLeft)).toBeLessThan(2);
+      expect(geometry.closeSize.width).toBeGreaterThanOrEqual(44);
+      expect(geometry.closeSize.height).toBeGreaterThanOrEqual(44);
+
+      await dialog.getByRole("button", { name: "Close source breakdown" }).click();
+      await expect(dialog).toHaveCount(0);
+    }
   });
 });
 
@@ -356,10 +537,6 @@ for (const width of [240, 320, 375]) {
     expect(vertical.overflowY).toBe("auto");
     expect(vertical.scrollHeight).toBeGreaterThanOrEqual(vertical.clientHeight);
 
-    await drawer.getByRole("link", { name: "Settings" }).first().click();
-    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
-    await expect(drawer).toBeVisible();
-
     const name = drawer.locator(".user-details-name, .user-details-handle--primary").first();
     await name.evaluate((element) => {
       element.textContent = "A very long display name that must not leave the drawer";
@@ -374,7 +551,12 @@ for (const width of [240, 320, 375]) {
     expect(truncation.whiteSpace).toBe("nowrap");
     expect(truncation.scrollWidth).toBeGreaterThan(truncation.clientWidth);
 
-    await page.mouse.click(width - 8, 20);
+    await drawer.locator('.algo-btn[aria-label="Best of Friends"]').click();
+    await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
+    await expect(drawer).toBeVisible();
+
+    await drawer.getByRole("link", { name: "Settings" }).first().click();
+    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
     await expect(drawer).not.toBeVisible();
   });
 }

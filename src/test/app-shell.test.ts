@@ -111,6 +111,7 @@ vi.mock("../main", () => ({
 }));
 
 import { AppShell } from "../components/app-shell";
+import { ALGORITHMS } from "../constants/algorithms";
 
 describe("AppShell authentication UI", () => {
   beforeEach(() => {
@@ -284,6 +285,54 @@ describe("AppShell authentication UI", () => {
     expect(drawerWheel.defaultPrevented).toBe(false);
   });
 
+  it("keeps navigation collapse state across pages and exposes compact logout", async () => {
+    window.location.hash = "/feed/your-feed";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const shell = element.shadowRoot?.querySelector(".shell-container");
+    const toggle = element.shadowRoot?.querySelector<HTMLButtonElement>(".desktop-sidebar-toggle");
+    expect(toggle?.getAttribute("aria-label")).toBe("Collapse navigation");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(false);
+    expect(AppShell.styles.cssText).toMatch(
+      /\.desktop-sidebar-toggle\s*\{[^}]*top:\s*50%[^}]*height:\s*52px[^}]*border-radius:\s*6px[^}]*transform:\s*translateY\(-50%\)/s,
+    );
+
+    toggle?.click();
+    await element.updateComplete;
+
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(true);
+    expect(toggle?.getAttribute("aria-label")).toBe("Expand navigation");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.left-sidebar-desktop a[href="#/feedback/your-feed"]')
+      ?.click();
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feedback/your-feed");
+    });
+    await element.updateComplete;
+    expect(shell?.classList.contains("sidebar-collapsed")).toBe(true);
+    expect(
+      element.shadowRoot?.querySelector(".desktop-sidebar-toggle")?.getAttribute("aria-label"),
+    ).toBe("Expand navigation");
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".left-sidebar-desktop .more-btn")
+      ?.click();
+    await element.updateComplete;
+    const compactLogout = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      ".left-sidebar-desktop .logout-btn.compact",
+    );
+    expect(compactLogout?.getAttribute("aria-label")).toBe("Log out");
+    expect(compactLogout?.querySelector("wa-icon")?.getAttribute("name")).toBe("lock");
+    expect(AppShell.styles.cssText).toMatch(
+      /\.logout-btn\s*\{[^}]*color:\s*var\(--bluesky-danger\)/s,
+    );
+  });
+
   it("closes the mobile drawer before signing out", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
@@ -308,7 +357,7 @@ describe("AppShell authentication UI", () => {
     });
   });
 
-  it("keeps the mobile drawer open while navigating and closes it only on dismissal", async () => {
+  it("keeps the mobile drawer open for feed selection and closes it for subpages", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -331,10 +380,6 @@ describe("AppShell authentication UI", () => {
       ?.click();
     await element.updateComplete;
     expect(window.location.hash).toBe("#/settings/best-of-friends");
-    expect(drawer?.classList.contains("open")).toBe(true);
-
-    element.shadowRoot?.querySelector<HTMLElement>(".drawer-backdrop")?.click();
-    await element.updateComplete;
     expect(drawer?.classList.contains("open")).toBe(false);
 
     const settingsPage = element.shadowRoot?.querySelector("settings-page");
@@ -342,6 +387,31 @@ describe("AppShell authentication UI", () => {
     settingsPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
     await element.updateComplete;
     expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.drawer a[href="#/feedback/best-of-friends"]')
+      ?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feedback/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    const feedbackPage = element.shadowRoot?.querySelector("feedback-page");
+    await feedbackPage?.updateComplete;
+    feedbackPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(true);
+
+    element.shadowRoot
+      ?.querySelector<HTMLAnchorElement>('.drawer a[href="#/feed/best-of-friends"]')
+      ?.click();
+    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feed/best-of-friends");
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    const reopenedFeedPage = element.shadowRoot?.querySelector("feed-page");
+    await reopenedFeedPage?.updateComplete;
+    reopenedFeedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
 
     drawer?.querySelector<HTMLButtonElement>(".drawer-close")?.click();
     await element.updateComplete;
@@ -375,6 +445,16 @@ describe("AppShell authentication UI", () => {
       const feedPage = element.shadowRoot?.querySelector("feed-page");
       await feedPage?.updateComplete;
       expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
+      const logo = feedPage?.shadowRoot?.querySelector<HTMLImageElement>(".logged-out-logo");
+      expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
+      expect(logo?.getAttribute("width")).toBe("640");
+      expect(logo?.getAttribute("height")).toBe("476");
+      expect(feedPage?.shadowRoot?.querySelector("style")?.textContent).toContain(
+        "width: min(52vw, 190px)",
+      );
+      expect(AppShell.styles.toString()).toMatch(
+        /wa-icon\[name\^="algo-"\][^}]*width:\s*2\.25rem/s,
+      );
     },
   );
 
@@ -410,7 +490,7 @@ describe("AppShell authentication UI", () => {
     await page?.updateComplete;
     const form = page?.shadowRoot?.querySelector("feedback-form");
 
-    expect(form?.prompt).toBe("We'd love to know what you think of MySky by GreenEarth");
+    expect(form?.prompt).toBe("We'd love to know what you think of GreenEarth");
     expect(form?.selectedFeed).toBe("your-feed");
   });
 
@@ -425,7 +505,7 @@ describe("AppShell authentication UI", () => {
       "settingsViewed",
       {
         feed_name: "your-feed",
-        feed_label: "MySky by GreenEarth",
+        feed_label: "GreenEarth",
       },
     );
 
@@ -558,6 +638,15 @@ describe("AppShell algorithm selector", () => {
     expect(active?.length).toBe(1);
     expect(active?.[0]?.getAttribute("aria-label")).toBe("Best of Friends");
     expect(window.location.hash).toBe("#/feed/best-of-friends");
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-row\.active\s*\{[^}]*color-mix\(in srgb, var\(--bluesky-brand\) 62%, #a8d3ff\)/s,
+    );
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-row\.active \.algo-label\s*\{[^}]*font-weight:\s*800/s,
+    );
+    expect(AppShell.styles.toString()).toMatch(
+      /\.algo-btn\s*\{[^}]*gap:\s*0\.375rem[^}]*padding:\s*0\.625rem 0 0\.625rem 0\.375rem/s,
+    );
   });
 
   it("calls setSelectedAlgorithm and loadFeedDetail on click", async () => {
@@ -687,7 +776,7 @@ describe("AppShell algorithm selector", () => {
 
     root
       ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky by GreenEarth pages"]',
+        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky pages"]',
       )
       ?.click();
     await element.updateComplete;
@@ -699,6 +788,58 @@ describe("AppShell algorithm selector", () => {
       (node) => node.id,
     );
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
+    const feedLabel = ALGORITHMS["your-feed"].label;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}#/feed/your-feed`,
+    );
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const pages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
+    const feedGroup = pages?.closest<HTMLElement>(".feed-group");
+    expect(feedGroup?.classList.contains("active-feed")).toBe(true);
+    expect(pages?.hidden).toBe(false);
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        '.left-sidebar-desktop .desktop-sidebar-toggle[aria-label="Collapse navigation"]',
+      )
+      ?.click();
+    await vi.waitFor(() => {
+      expect(
+        element.shadowRoot
+          ?.querySelector(".shell-container")
+          ?.classList.contains("sidebar-collapsed"),
+      ).toBe(true);
+      const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
+      expect(collapseFeed).not.toBeNull();
+      expect(collapseFeed?.getAttribute("aria-label")).toBe(`Collapse ${feedLabel} pages`);
+      expect(collapseFeed?.getAttribute("aria-expanded")).toBe("true");
+      expect(collapseFeed?.getAttribute("aria-controls")).toBe("desktop-your-feed-pages");
+    });
+
+    const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
+
+    collapseFeed?.click();
+    await vi.waitFor(() => {
+      expect(pages?.hidden).toBe(true);
+      const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
+      expect(expandFeed).not.toBeNull();
+      expect(expandFeed?.getAttribute("aria-label")).toBe(`Expand ${feedLabel} pages`);
+      expect(expandFeed?.getAttribute("aria-expanded")).toBe("false");
+    });
+
+    const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
+    expandFeed?.click();
+    await vi.waitFor(() => {
+      expect(pages?.hidden).toBe(false);
+    });
   });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {
@@ -727,12 +868,12 @@ describe("AppShell algorithm selector", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    // click the "your-feed" algorithm button (labeled "MySky by GreenEarth")
+    // click the "your-feed" algorithm button (labeled "MySky")
     const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
       ".left-sidebar-desktop .algo-btn",
     );
     const yourFeedBtn = Array.from(buttons ?? []).find(
-      (b) => b.getAttribute("aria-label") === "MySky by GreenEarth",
+      (b) => b.getAttribute("aria-label") === "MySky",
     );
     yourFeedBtn?.click();
     await element.updateComplete;

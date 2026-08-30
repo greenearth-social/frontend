@@ -156,9 +156,12 @@ describe("PreferencesStore.save", () => {
     await store.load();
 
     const firstSave = store.save("your-feed", "freshness", 2);
-    await store.save("your-feed", "freshness", 4);
+    const secondSave = store.save("your-feed", "freshness", 4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectFirst?.(new Error("late failure"));
-    await firstSave;
+    await Promise.all([firstSave, secondSave]);
 
     expect(store.valuesFor("your-feed").freshness).toBe(4);
     consoleError.mockRestore();
@@ -184,9 +187,12 @@ describe("PreferencesStore.save", () => {
     };
 
     const sourceSave = store.save("your-feed", "source_weights", requestedWeights);
-    await store.save("your-feed", "purpose", 0.8);
+    const purposeSave = store.save("your-feed", "purpose", 0.8);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectSourceWeights?.(new Error("offline"));
-    await sourceSave;
+    await Promise.all([sourceSave, purposeSave]);
 
     expect(store.valuesFor("your-feed").sourceWeights).toEqual(loaded["your-feed"]?.sourceWeights);
     expect(store.valuesFor("your-feed").purpose).toBe(0.8);
@@ -208,6 +214,29 @@ describe("PreferencesStore.save", () => {
 
     expect(store.valuesFor("your-feed").purpose).toBe(0.5);
     expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch a queued save after the account changes", async () => {
+    let resolveFirst: ((value: FeedPreferences) => void) | undefined;
+    const firstRequest = new Promise<FeedPreferences>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const patch = vi.fn().mockReturnValueOnce(firstRequest);
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const firstSave = store.save("your-feed", "freshness", 2);
+    const queuedSave = store.save("your-feed", "freshness", 4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
+
+    store.reset();
+    resolveFirst?.({ freshness: 2 });
+    await Promise.all([firstSave, queuedSave]);
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(store.valuesFor("your-feed").freshness).toBe(5);
   });
 
   it("captures freshness semantics for the initiating feed", async () => {
@@ -280,6 +309,117 @@ describe("PreferencesStore.save", () => {
         feed_name: "your-feed",
       }),
     );
+  });
+});
+
+describe("PreferencesStore.savePatch", () => {
+  it("saves every dirty control through one request and emits analytics after success", async () => {
+    const patch = vi.fn().mockResolvedValue({ freshness: 2, purpose: 0.8 });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledOnce();
+    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 2, purpose: 0.8 });
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ control_name: "freshness", feed_name: "your-feed" }),
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ control_name: "purpose", feed_name: "your-feed" }),
+    );
+  });
+
+  it("applies an already-accepted patch and emits analytics without another request", async () => {
+    const patch = vi.fn();
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    store.applyAcceptedPatch(
+      "your-feed",
+      { freshness: 2, purpose: 0.8 },
+      { freshness: 2, purpose: 0.8 },
+    );
+
+    expect(patch).not.toHaveBeenCalled();
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
+    expect(capture).toHaveBeenCalledTimes(2);
+  });
+
+  it("rolls the whole optimistic patch back while leaving the caller's draft intact", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store, capture } = makeStore(vi.fn().mockRejectedValue(new Error("offline")));
+    await store.load();
+
+    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(false);
+
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(capture).not.toHaveBeenCalledWith("feedControlChanged", expect.anything());
+    consoleError.mockRestore();
+  });
+
+  it("lets Preview wait for the active feed's in-flight persistence", async () => {
+    let resolvePatch: ((value: FeedPreferences) => void) | undefined;
+    const patch = vi.fn().mockReturnValue(
+      new Promise<FeedPreferences>((resolve) => {
+        resolvePatch = resolve;
+      }),
+    );
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const saving = store.savePatch("your-feed", { freshness: 2 });
+    const waiting = store.waitForPendingSaves("your-feed");
+    let settled = false;
+    void waiting.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolvePatch?.({ freshness: 2 });
+    await expect(saving).resolves.toBe(true);
+    await expect(waiting).resolves.toBe(true);
+  });
+
+  it("serializes overlapping saves per feed and persists the newest value last", async () => {
+    let resolveFirst: ((value: FeedPreferences) => void) | undefined;
+    const firstRequest = new Promise<FeedPreferences>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const patch = vi.fn().mockReturnValueOnce(firstRequest).mockResolvedValueOnce({ freshness: 4 });
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const first = store.savePatch("your-feed", { freshness: 2 });
+    const second = store.savePatch("your-feed", { freshness: 4 });
+    expect(store.valuesFor("your-feed").freshness).toBe(4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
+
+    resolveFirst?.({ freshness: 2 });
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenNthCalledWith(1, "your-feed", { freshness: 2 });
+    expect(patch).toHaveBeenNthCalledWith(2, "your-feed", { freshness: 4 });
+    expect(store.valuesFor("your-feed").freshness).toBe(4);
+  });
+
+  it("re-persists an unchanged snapshot without emitting duplicate analytics", async () => {
+    const patch = vi.fn().mockResolvedValue({ freshness: 5 });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await expect(store.syncSnapshot("your-feed", { freshness: 5 })).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 5 });
+    expect(capture).not.toHaveBeenCalled();
   });
 });
 
@@ -431,9 +571,12 @@ describe("PreferencesStore.restoreDefaults", () => {
     };
 
     const reset = store.restoreDefaults("your-feed");
-    await store.save("your-feed", "freshness", 2);
+    const save = store.save("your-feed", "freshness", 2);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
     rejectReset?.(new Error("offline"));
-    await expect(reset).resolves.toBe(false);
+    await expect(Promise.all([reset, save])).resolves.toEqual([false, undefined]);
 
     expect(store.valuesFor("your-feed")).toMatchObject({
       sourceWeights: {

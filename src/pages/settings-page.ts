@@ -3,10 +3,17 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import type { AlgorithmId } from "../constants/algorithms";
-import { feedAnalyticsProperties } from "../constants/algorithms";
+import { ALGORITHMS, feedAnalyticsProperties } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
-import type { SourceWeights } from "../services/types";
+import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
+import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
+import type { SourceWeightChangeOrigin } from "../stores/preferences-store";
+import type {
+  BaselineRefreshOutcome,
+  SettingsPreviewStore,
+} from "../stores/settings-preview-store";
+import type { RootStore } from "../stores/root-store";
 import {
   applySourceLocks,
   blendSourceWeightsToRank,
@@ -19,6 +26,8 @@ import {
 } from "../utils/source-weight-math";
 import "../components/icon-range-slider";
 import "../components/feedback-form";
+import "../components/settings-feed-preview";
+import type { SettingsFeedPreview } from "../components/settings-feed-preview";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
 import { settingsPageStyles } from "./settings-page.styles";
 import {
@@ -28,34 +37,113 @@ import {
   UNLOCKED_ICON_PATH,
 } from "./settings-page-config";
 
+function getSettingsPreviewStore(): SettingsPreviewStore | undefined {
+  const root = getRootStore() as
+    | (Omit<RootStore, "settingsPreviewStore"> & {
+        settingsPreviewStore?: SettingsPreviewStore;
+      })
+    | null;
+  return root?.settingsPreviewStore;
+}
+
+interface SettingsHistoryEntry {
+  id: number;
+  before: FeedPreferences;
+  after: FeedPreferences;
+  mode: "undo" | "redo";
+  previewNeededBefore: boolean;
+}
+
+function clonePatch(patch: FeedPreferences): FeedPreferences {
+  return {
+    ...patch,
+    ...(patch.sourceWeights ? { sourceWeights: { ...patch.sourceWeights } } : {}),
+  };
+}
+
+function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
+  return (
+    a.following === b.following &&
+    a.networkLikes === b.networkLikes &&
+    a.authorsTopics === b.authorsTopics &&
+    a.popular === b.popular
+  );
+}
+
+export const MOBILE_PREVIEW_SETTLE_DELAY_MS = 300;
+
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
-  @property({ type: String }) blueskyUrl: string = "";
   @state() private isLoading = false;
   @state() private selectedNode: string | null = null;
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
   @state() private previewFreshness: number | null = null;
-  @state() private showRefreshPopup = false;
-  @state() private refreshPopupMessage = "Refresh your Bluesky feed to see updates!";
+  @state() private mobilePreviewOpen = false;
+  @state() private isPreviewAnimating = false;
   @state() private isResetting = false;
+  @state() private isApplyingHistory = false;
+  @state() private previewNeeded = false;
+  @state() private historyEntry: SettingsHistoryEntry | null = null;
+  @state() private settingsError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
+  @state() private baselineRefreshStatus = "";
   private masterStartWeights: SourceWeights | null = null;
   private sourceStartWeights: SourceWeights | null = null;
-  private refreshPopupTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private baselineSyncPromise: Promise<void> | null = null;
+  private baselineSyncPending = false;
+  private baselineRefreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private desktopLayoutQuery: MediaQueryList | null = null;
+  private changeSequence = 0;
+  private settingsRevision = 0;
+  private previewAnimationOperation = 0;
+  private readonly handleFrontendLeft = (): void => {
+    this.#cancelScheduledBaselineSync();
+  };
+  private readonly requestLifecycleBaselineSync = (): void => {
+    if (document.visibilityState === "hidden") return;
+    this.#scheduleBaselineSync();
+  };
+  private readonly handleVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") {
+      this.handleFrontendLeft();
+      return;
+    }
+    this.requestLifecycleBaselineSync();
+  };
+  private readonly handleDesktopLayoutChange = (): void => {
+    // Preview is an overlay-only state below the desktop breakpoint. Clear it
+    // whenever the layout crosses that boundary so a stale mobile overlay
+    // cannot reappear after resizing back down from desktop.
+    this.mobilePreviewOpen = false;
+  };
 
   static styles = settingsPageStyles;
 
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("focus", this.requestLifecycleBaselineSync);
+    window.addEventListener("pagehide", this.handleFrontendLeft);
+    window.addEventListener("pageshow", this.requestLifecycleBaselineSync);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    this.desktopLayoutQuery = window.matchMedia("(min-width: 1024px)");
+    this.desktopLayoutQuery.addEventListener("change", this.handleDesktopLayoutChange);
     const root = getRootStore();
     this.isLoading = Boolean(root && !root.preferencesStore.hasLoaded);
   }
 
   disconnectedCallback(): void {
-    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
+    window.removeEventListener("focus", this.requestLifecycleBaselineSync);
+    window.removeEventListener("pagehide", this.handleFrontendLeft);
+    window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    this.desktopLayoutQuery?.removeEventListener("change", this.handleDesktopLayoutChange);
+    this.desktopLayoutQuery = null;
+    this.#cancelScheduledBaselineSync();
+    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
     super.disconnectedCallback();
   }
 
@@ -67,16 +155,20 @@ export class SettingsPage extends MobxLitElement {
     }
     if (root.preferencesStore.hasLoaded) {
       this.isLoading = false;
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
       return;
     }
     this.isLoading = true;
     void root.preferencesStore.load().finally(() => {
       this.isLoading = false;
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
     });
   }
 
   updated(changed: Map<string, unknown>): void {
     if (changed.has("selectedAlgorithm")) {
+      this.#cancelScheduledBaselineSync();
+      this.baselineSyncPending = false;
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewFreshness = null;
@@ -84,6 +176,16 @@ export class SettingsPage extends MobxLitElement {
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
+      this.mobilePreviewOpen = false;
+      this.previewAnimationOperation++;
+      this.isPreviewAnimating = false;
+      this.previewNeeded = false;
+      this.historyEntry = null;
+      this.settingsError = "";
+      this.isApplyingHistory = false;
+      this.settingsRevision++;
+      this.baselineRefreshStatus = "";
+      void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
   }
 
@@ -104,87 +206,201 @@ export class SettingsPage extends MobxLitElement {
     const purpose = this.previewPurpose ?? preferences.purpose;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
+    const previewStore = getSettingsPreviewStore();
+    const previewBusy = (previewStore?.isGenerating ?? false) || this.isPreviewAnimating;
+    const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
+    const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
+    const historyLabel = `${historyAction} last settings change`;
+    const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
 
     return html`
-      <div class="sticky-header">
-        <div class="header-row">
-          <button
-            class="hamburger-btn"
-            type="button"
-            aria-label="Open navigation"
-            @click=${() => {
-              this.onOpenMenu?.();
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <h1>Settings</h1>
-          <button
-            class="reset-defaults-btn"
-            type="button"
-            aria-label="Reset settings to defaults"
-            ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
-            @click=${() => {
-              this.#restoreDefaults();
-            }}
-          >
-            <svg viewBox="0 0 640 640" aria-hidden="true">
-              <path
-                d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
-              ></path>
-            </svg>
-            <span class="reset-label-long">Reset defaults</span>
-            <span class="reset-label-short">Defaults</span>
-          </button>
+      <div class="settings-layout ${this.mobilePreviewOpen ? "mobile-preview-open" : ""}">
+        <div class="controls-column">
+          <div class="sticky-header">
+            <div class="header-row">
+              <button
+                class="hamburger-btn"
+                type="button"
+                aria-label="Open navigation"
+                @click=${() => {
+                  this.onOpenMenu?.();
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              </button>
+              <h1 aria-label=${settingsTitle}>
+                <span class="page-title-full">${settingsTitle}</span>
+                <span class="page-title-short" aria-hidden="true">Settings</span>
+              </h1>
+              <div class="mobile-preview-row">
+                <button
+                  class="mobile-preview-btn"
+                  type="button"
+                  ?disabled=${!this.previewNeeded || previewBusy}
+                  @click=${() => {
+                    void this.#previewChanges();
+                  }}
+                >
+                  Preview
+                </button>
+              </div>
+              <button
+                class="history-btn"
+                type="button"
+                aria-label=${historyLabel}
+                title=${historyLabel}
+                ?disabled=${this.isLoading || this.isApplyingHistory || this.historyEntry === null}
+                @click=${() => {
+                  void this.#toggleHistory();
+                }}
+              >
+                <wa-icon
+                  library="app"
+                  name=${this.historyEntry?.mode === "redo" ? "redo" : "undo"}
+                ></wa-icon>
+                <span>${historyAction}</span>
+              </button>
+              <button
+                class="reset-defaults-btn"
+                type="button"
+                aria-label="Reset settings to defaults"
+                ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
+                @click=${() => {
+                  void this.#restoreDefaults();
+                }}
+              >
+                <svg viewBox="0 0 640 640" aria-hidden="true">
+                  <path
+                    d="M320 128C426 128 512 214 512 320C512 426 426 512 320 512C254.8 512 197.1 479.5 162.4 429.7C152.3 415.2 132.3 411.7 117.8 421.8C103.3 431.9 99.8 451.9 109.9 466.4C156.1 532.6 233 576 320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C234.3 64 158.5 106.1 112 170.7L112 144C112 126.3 97.7 112 80 112C62.3 112 48 126.3 48 144L48 256C48 273.7 62.3 288 80 288L104.6 288C105.1 288 105.6 288 106.1 288L192.1 288C209.8 288 224.1 273.7 224.1 256C224.1 238.3 209.8 224 192.1 224L153.8 224C186.9 166.6 249 128 320 128zM344 216C344 202.7 333.3 192 320 192C306.7 192 296 202.7 296 216L296 320C296 326.4 298.5 332.5 303 337L375 409C384.4 418.4 399.6 418.4 408.9 409C418.2 399.6 418.3 384.4 408.9 375.1L343.9 310.1L343.9 216z"
+                  ></path>
+                </svg>
+                <span class="reset-label">Defaults</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="page-content">
+            ${
+              previewStore?.warning
+                ? html`<p class="controls-preview-warning" role="status">
+                    ${previewStore.warning}
+                  </p>`
+                : ""
+            }
+            ${
+              this.settingsError
+                ? html`<p class="controls-preview-warning settings-error" role="alert">
+                    ${this.settingsError}
+                  </p>`
+                : ""
+            }
+            ${
+              this.isLoading
+                ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
+                    Loading your saved settings…
+                  </div>`
+                : html`
+                    <div class="diagram-wrapper">
+                      ${this.#renderCandidateSection(weights, freshness)}
+                      ${
+                        this.selectedAlgorithm === "random"
+                          ? ""
+                          : html`
+                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
+                              ${this.#renderArrow()} ${this.#renderDiversificationSection()}
+                            `
+                      }
+                    </div>
+
+                    <feedback-form
+                      surface="controls"
+                      .selectedFeed=${this.selectedAlgorithm}
+                      prompt="Want to change something or learn more? Tell us!"
+                      placeholder="Share your settings feedback or questions"
+                    ></feedback-form>
+                  `
+            }
+          </div>
         </div>
-      </div>
 
-      <div class="page-content">
-        ${
-          this.isLoading
-            ? html`<div class="saved-settings-loading" role="status" aria-live="polite">
-                Loading your saved settings…
-              </div>`
-            : html`
-                ${
-                this.showRefreshPopup
-                  ? html`<a
-                      class="refresh-popup"
-                      href=${this.blueskyUrl || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      role="status"
-                      aria-live="polite"
-                      aria-label="Refresh your feed in Bluesky"
-                    >
-                      ${this.refreshPopupMessage}
-                    </a>`
-                  : ""
+        <aside class="feed-column" aria-label="Feed preview">
+          <div class="preview-header">
+            <button
+              id="update-preview"
+              class="update-preview-btn"
+              type="button"
+              ?disabled=${!this.previewNeeded || previewBusy}
+              @click=${() => {
+                void this.#previewChanges();
+              }}
+            >
+              ${previewBusy || !hasGeneratedPreview ? "Generating preview" : "Update preview"}
+            </button>
+            <div class="preview-mobile-primary-actions">
+              <button
+                class="preview-close"
+                type="button"
+                aria-label="Back to settings"
+                title="Back to settings"
+                ?disabled=${previewBusy}
+                @click=${() => {
+                  this.#closeMobilePreview();
+                }}
+              >
+                <wa-icon library="app" name="chevron-left"></wa-icon>
+              </button>
+              <span class="mobile-preview-status">Generating Preview</span>
+            </div>
+          </div>
+          ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
+          ${
+            this.baselineRefreshStatus
+              ? html`<p class="preview-sync-status" role="status" aria-live="polite">
+                  ${this.baselineRefreshStatus}
+                </p>`
+              : ""
+          }
+          ${
+            previewStore?.baselineRefreshError
+              ? html`<div class="preview-error baseline-refresh-error" role="status">
+                  <span
+                    >Current feed could not be refreshed. We’ll check again when you return.</span
+                  >
+                </div>`
+              : ""
+          }
+          <div class="feed-scroll">
+            <settings-feed-preview
+              .items=${previewStore?.displayedItems ?? []}
+              .loading=${
+                (previewStore?.isLoadingBaseline ?? false) ||
+                (previewStore?.isGenerating ?? false) ||
+                this.isPreviewAnimating
               }
-                <div class="diagram-wrapper">
-                  ${this.#renderCandidateSection(weights, freshness)}
-                  ${
-                  this.selectedAlgorithm === "random"
-                    ? ""
-                    : html`
-                        ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
-                        ${this.#renderArrow()} ${this.#renderDiversificationSection()}
-                      `
-                }
-                </div>
-
-                <feedback-form
-                  surface="controls"
-                  .selectedFeed=${this.selectedAlgorithm}
-                  prompt="Want to change something or learn more? Tell us!"
-                  placeholder="Share your settings feedback or questions"
-                ></feedback-form>
-              `
-        }
+              .error=${previewStore?.error ?? ""}
+              .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
+            ></settings-feed-preview>
+          </div>
+          ${
+            previewStore?.error && previewStore.displayedItems.length > 0
+              ? html` <div class="preview-error" role="alert">
+                  <span>${previewStore.error}</span>
+                  <button
+                    type="button"
+                    @click=${() => {
+                      void this.#previewChanges();
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>`
+              : ""
+          }
+        </aside>
       </div>
 
       ${
@@ -207,7 +423,19 @@ export class SettingsPage extends MobxLitElement {
   #renderCandidateSection(weights: SourceWeights, freshness: number): TemplateResult {
     return html`
       <section class="section section-candidate">
-        <h2 class="section-title">Sources</h2>
+        <div class="section-heading">
+          <h2 class="section-title">Sources</h2>
+          <button
+            class="section-info-btn"
+            type="button"
+            aria-label="Learn more about Sources"
+            @click=${() => {
+              this.#openNode("sources");
+            }}
+          >
+            <span class="question-icon" aria-hidden="true">i</span>
+          </button>
+        </div>
         <div class="control-card config-card">
           ${this.#titleButton("time_window", "Time Window")}
           <icon-range-slider
@@ -216,7 +444,7 @@ export class SettingsPage extends MobxLitElement {
             step="1"
             .value=${freshness}
             .icons=${FRESHNESS_PRESETS.map((preset) => preset.iconSrc)}
-            thumbIconSize="24"
+            thumbIconSize="20"
             .valueText=${FRESHNESS_PRESETS[freshness]?.label ?? "7d"}
             ariaLabel="Time Window"
             ?disabled=${this.isLoading}
@@ -249,10 +477,6 @@ export class SettingsPage extends MobxLitElement {
     const masterValue = sourceRankPosition(weights);
     const masterDisabled = this.isLoading || this.lockedSources.length > 0;
     return html`
-      <p class="source-controls-help">
-        Enter a whole percentage or lock a source to keep it fixed. The Vertical Source Rank Control
-        is available when every source is unlocked.
-      </p>
       <div class="sources-layout">
         <div class="master-column">
           <span class="master-end-label">Friends</span>
@@ -386,11 +610,16 @@ export class SettingsPage extends MobxLitElement {
               }}
               @keydown=${(event: KeyboardEvent) => {
                 if (event.key === "Enter") {
-                  (event.currentTarget as HTMLInputElement).blur();
+                  event.preventDefault();
+                  const input = event.currentTarget as HTMLInputElement;
+                  const value = input.valueAsNumber;
+                  if (this.#validatePercentageInput(input)) {
+                    this.#commitSourceWeight(weights, key, nodeId, value / 100);
+                  }
+                  input.blur();
                 }
               }}
             />
-            <span class="percentage-suffix" aria-hidden="true">%</span>
           </label>
           <button
             class="source-lock-btn"
@@ -581,10 +810,14 @@ export class SettingsPage extends MobxLitElement {
     );
   }
 
-  #restoreDefaults(): void {
-    const store = getRootStore()?.preferencesStore;
-    if (!store || this.isResetting) return;
-    const feedName = this.selectedAlgorithm;
+  async #restoreDefaults(): Promise<void> {
+    if (this.isResetting) return;
+    const root = getRootStore();
+    if (!root) return;
+    const before = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
+    const after = this.#settingsPatch(DEFAULT_PREFERENCES);
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewFreshness = null;
@@ -592,19 +825,10 @@ export class SettingsPage extends MobxLitElement {
     this.sourceStartWeights = null;
     this.lockedSources = [];
     this.isResetting = true;
-    const reset = store.restoreDefaults(feedName);
-    if (this.selectedAlgorithm === feedName) {
-      this.#showRefreshPopup();
-    }
-    void reset
-      .then((didReset) => {
-        if (!didReset && this.selectedAlgorithm === feedName) {
-          this.#showRefreshPopup("Couldn't reset settings. Please try again.");
-        }
-      })
-      .finally(() => {
-        this.isResetting = false;
-      });
+    await this.#applyImmediateChange(before, after, {
+      ...(after.sourceWeights ? { source_weights: "reset_defaults" as const } : {}),
+    });
+    this.isResetting = false;
   }
 
   #commitSourceWeights(
@@ -613,10 +837,15 @@ export class SettingsPage extends MobxLitElement {
   ): void {
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "source_weights", weights, origin);
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).sourceWeights;
+    if (!current || sourceWeightsEqual(current, weights)) return;
+    void this.#applyImmediateChange(
+      { sourceWeights: { ...current } },
+      { sourceWeights: { ...weights } },
+      { source_weights: origin },
+    );
   }
 
   #validatePercentageInput(input: HTMLInputElement): boolean {
@@ -673,27 +902,317 @@ export class SettingsPage extends MobxLitElement {
 
   #commitFreshness(value: number): void {
     this.previewFreshness = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "freshness", value);
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).freshness;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ freshness: current }, { freshness: value });
   }
 
   #commitPurpose(value: number): void {
     this.previewPurpose = null;
-    this.#showRefreshPopup();
-    const store = getRootStore()?.preferencesStore;
-    if (!store) return;
-    void store.save(this.selectedAlgorithm, "purpose", value);
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).purpose;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ purpose: current }, { purpose: value });
   }
 
-  #showRefreshPopup(message = "Refresh your Bluesky feed to see updates!"): void {
-    this.refreshPopupMessage = message;
-    this.showRefreshPopup = true;
-    if (this.refreshPopupTimer) clearTimeout(this.refreshPopupTimer);
-    this.refreshPopupTimer = setTimeout(() => {
-      this.showRefreshPopup = false;
-    }, 3000);
+  #settingsPatch(values: Preferences): FeedPreferences {
+    const patch: FeedPreferences = { freshness: values.freshness };
+    if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
+    if (this.selectedAlgorithm === "your-feed") {
+      patch.sourceWeights = { ...values.sourceWeights };
+    }
+    return patch;
+  }
+
+  async #applyImmediateChange(
+    before: FeedPreferences,
+    after: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): Promise<boolean> {
+    const root = getRootStore();
+    if (!root || JSON.stringify(before) === JSON.stringify(after)) return false;
+    const previousHistory = this.historyEntry;
+    const entry: SettingsHistoryEntry = {
+      id: ++this.changeSequence,
+      before: clonePatch(before),
+      after: clonePatch(after),
+      mode: "undo",
+      previewNeededBefore: this.previewNeeded,
+    };
+    this.historyEntry = entry;
+    this.previewNeeded = true;
+    this.settingsError = "";
+    this.settingsRevision++;
+
+    const succeeded = await root.preferencesStore.savePatch(
+      this.selectedAlgorithm,
+      clonePatch(after),
+      origins,
+    );
+    const currentHistory = this.#currentHistoryEntry();
+    if (!succeeded && currentHistory?.id === entry.id && currentHistory.mode === "undo") {
+      this.historyEntry = previousHistory;
+      this.previewNeeded = entry.previewNeededBefore;
+      this.settingsError = "Settings could not be updated. Please try again.";
+    }
+    return succeeded;
+  }
+
+  async #toggleHistory(): Promise<void> {
+    const root = getRootStore();
+    const entry = this.historyEntry;
+    if (!root || !entry || this.isApplyingHistory) return;
+    const previousMode = entry.mode;
+    const nextMode = previousMode === "undo" ? "redo" : "undo";
+    const patch = previousMode === "undo" ? entry.before : entry.after;
+    const previewNeededBefore = this.previewNeeded;
+    this.historyEntry = { ...entry, mode: nextMode };
+    this.previewNeeded = true;
+    this.settingsError = "";
+    this.settingsRevision++;
+    this.isApplyingHistory = true;
+    const origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = patch.sourceWeights
+      ? { source_weights: previousMode }
+      : {};
+    const succeeded = await root.preferencesStore.savePatch(
+      this.selectedAlgorithm,
+      clonePatch(patch),
+      origins,
+    );
+    const currentHistory = this.#currentHistoryEntry();
+    if (!succeeded && currentHistory?.id === entry.id && currentHistory.mode === nextMode) {
+      this.historyEntry = entry;
+      this.previewNeeded = previewNeededBefore;
+      this.settingsError = `${previousMode === "undo" ? "Undo" : "Redo"} could not be applied. Please try again.`;
+    }
+    this.isApplyingHistory = false;
+  }
+
+  #currentHistoryEntry(): SettingsHistoryEntry | null {
+    return this.historyEntry;
+  }
+
+  async #previewChanges(): Promise<void> {
+    const store = getSettingsPreviewStore();
+    const root = getRootStore();
+    if (!store || !root || !this.previewNeeded || store.isGenerating || this.isPreviewAnimating) {
+      return;
+    }
+    if (store.isRefreshingBaseline) this.baselineSyncPending = true;
+    const feedName = this.selectedAlgorithm;
+    const revision = this.settingsRevision;
+    const animationOperation = ++this.previewAnimationOperation;
+    const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
+    if (isMobilePreview) this.mobilePreviewOpen = true;
+    this.isPreviewAnimating = true;
+    const persistenceSucceeded = await root.preferencesStore.waitForPendingSaves(feedName);
+    if (
+      !persistenceSucceeded ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      if (!persistenceSucceeded && feedName === this.selectedAlgorithm) {
+        this.settingsError = "Settings could not be saved, so Preview was not updated.";
+      }
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+      return;
+    }
+    const patch = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
+    const generated = await store.preview(patch);
+    if (
+      !generated ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+      return;
+    }
+    let accepted = await store.acceptGeneratedPreview(generated, patch);
+    const shouldRecoverAcceptanceConflict = store.acceptanceConflict;
+    if (
+      !accepted &&
+      shouldRecoverAcceptanceConflict &&
+      revision === this.settingsRevision &&
+      feedName === this.selectedAlgorithm &&
+      animationOperation === this.previewAnimationOperation
+    ) {
+      const synchronized = await root.preferencesStore.syncSnapshot(feedName, patch);
+      if (
+        synchronized &&
+        revision === this.settingsRevision &&
+        feedName === this.selectedAlgorithm &&
+        animationOperation === this.previewAnimationOperation
+      ) {
+        const regenerated = await store.preview(patch);
+        if (
+          regenerated &&
+          revision === this.settingsRevision &&
+          feedName === this.selectedAlgorithm &&
+          animationOperation === this.previewAnimationOperation
+        ) {
+          accepted = await store.acceptGeneratedPreview(regenerated, patch);
+          if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
+        }
+      } else if (
+        !synchronized &&
+        revision === this.settingsRevision &&
+        feedName === this.selectedAlgorithm &&
+        animationOperation === this.previewAnimationOperation
+      ) {
+        store.markPreviewSyncFailure();
+      }
+    }
+    if (
+      !accepted ||
+      revision !== this.settingsRevision ||
+      feedName !== this.selectedAlgorithm ||
+      animationOperation !== this.previewAnimationOperation
+    ) {
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+      return;
+    }
+    const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
+    try {
+      if (isMobilePreview) {
+        // Let the overlay settle briefly before its contents begin moving so
+        // the transition to the Preview screen remains easy to follow.
+        await this.updateComplete;
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, MOBILE_PREVIEW_SETTLE_DELAY_MS);
+        });
+        if (
+          revision !== this.settingsRevision ||
+          feedName !== this.selectedAlgorithm ||
+          animationOperation !== this.previewAnimationOperation
+        ) {
+          return;
+        }
+      }
+      if (feed) await feed.animateTo(accepted.items);
+      if (
+        revision !== this.settingsRevision ||
+        feedName !== this.selectedAlgorithm ||
+        animationOperation !== this.previewAnimationOperation
+      ) {
+        return;
+      }
+      store.acceptPreview(accepted);
+      this.previewNeeded = false;
+    } finally {
+      if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewAnimating = false;
+      }
+      this.#drainBaselineSyncQueue();
+    }
+  }
+
+  async #refreshCurrentFeed(): Promise<BaselineRefreshOutcome> {
+    const store = getSettingsPreviewStore();
+    if (!store) {
+      return { status: "deferred" };
+    }
+
+    const feedName = this.selectedAlgorithm;
+    const outcome = await store.refreshBaselineIfNew(feedName);
+    if (!this.isConnected || feedName !== this.selectedAlgorithm) return outcome;
+
+    if (outcome.status === "updated") {
+      await this.updateComplete;
+      this.renderRoot
+        .querySelector<SettingsFeedPreview>("settings-feed-preview")
+        ?.settleAsOrigin(store.baselineItems);
+      this.#showBaselineRefreshStatus("Current feed updated from Bluesky");
+    }
+    return outcome;
+  }
+
+  async #activateSelectedFeed(feedName: AlgorithmId): Promise<void> {
+    const store = getSettingsPreviewStore();
+    if (!store) return;
+    await store.activateFeed(feedName);
+    if (!this.isConnected || this.selectedAlgorithm !== feedName) return;
+    this.#drainBaselineSyncQueue();
+  }
+
+  #scheduleBaselineSync(): void {
+    if (this.baselineSyncTimer || !this.isConnected || document.visibilityState === "hidden") {
+      return;
+    }
+    this.baselineSyncTimer = setTimeout(() => {
+      this.baselineSyncTimer = null;
+      void this.#requestBaselineSync();
+    }, 0);
+  }
+
+  async #requestBaselineSync(): Promise<void> {
+    if (!this.isConnected || document.visibilityState === "hidden") return;
+    const store = getSettingsPreviewStore();
+    if (!store) return;
+    if (store.isLoadingBaseline || store.isGenerating || this.isPreviewAnimating) {
+      this.baselineSyncPending = true;
+      return;
+    }
+    if (this.baselineSyncPromise) {
+      this.baselineSyncPending = true;
+      await this.baselineSyncPromise;
+      return;
+    }
+
+    this.baselineSyncPending = false;
+    const sync = this.#refreshCurrentFeed().then(() => undefined);
+    this.baselineSyncPromise = sync;
+    try {
+      await sync;
+    } finally {
+      if (this.baselineSyncPromise === sync) this.baselineSyncPromise = null;
+      this.#drainBaselineSyncQueue();
+    }
+  }
+
+  #drainBaselineSyncQueue(): void {
+    if (!this.baselineSyncPending) return;
+    const store = getSettingsPreviewStore();
+    if (
+      !store ||
+      store.isLoadingBaseline ||
+      store.isGenerating ||
+      this.isPreviewAnimating ||
+      this.baselineSyncPromise
+    ) {
+      return;
+    }
+    this.baselineSyncPending = false;
+    this.#scheduleBaselineSync();
+  }
+
+  #cancelScheduledBaselineSync(): void {
+    if (this.baselineSyncTimer) clearTimeout(this.baselineSyncTimer);
+    this.baselineSyncTimer = null;
+  }
+
+  #showBaselineRefreshStatus(message: string): void {
+    this.baselineRefreshStatus = message;
+    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
+    this.baselineRefreshStatusTimer = setTimeout(() => {
+      this.baselineRefreshStatus = "";
+      this.baselineRefreshStatusTimer = null;
+    }, 4_000);
+  }
+
+  #closeMobilePreview(): void {
+    const store = getSettingsPreviewStore();
+    if (store?.isGenerating || this.isPreviewAnimating) return;
+    this.mobilePreviewOpen = false;
   }
 }
 

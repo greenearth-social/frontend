@@ -99,7 +99,7 @@ export class FeedbackPage extends LitElement {
         <feedback-form
           surface="general"
           .selectedFeed=${this.selectedAlgorithm}
-          prompt="We'd love to know what you think of MySky by GreenEarth"
+          prompt="We'd love to know what you think of GreenEarth"
           placeholder="Share your feedback"
         ></feedback-form>
       </div>

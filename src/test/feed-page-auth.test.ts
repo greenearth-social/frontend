@@ -157,6 +157,6 @@ describe("FeedPage sign in", () => {
     await element.updateComplete;
     const styles = element.shadowRoot?.textContent ?? "";
     expect(styles).toContain("@media (max-height: 560px), (max-width: 360px)");
-    expect(styles).toContain("width: 96px");
+    expect(styles).toContain("width: 124px");
   });
 });

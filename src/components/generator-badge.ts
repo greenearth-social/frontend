@@ -1,52 +1,10 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { GENERATOR_PRESENTATIONS, generatorPresentation } from "./generator-presentation";
 
-const GENERATOR_STYLES: Record<string, { bg: string; color: string; border: string }> = {
-  two_tower: {
-    bg: "rgba(56, 189, 248, 0.12)",
-    color: "#38bdf8",
-    border: "rgba(56, 189, 248, 0.35)",
-  },
-  followed_users: {
-    bg: "rgba(52, 211, 153, 0.12)",
-    color: "#34d399",
-    border: "rgba(52, 211, 153, 0.35)",
-  },
-  popularity: {
-    bg: "rgba(244, 114, 182, 0.12)",
-    color: "#f472b6",
-    border: "rgba(244, 114, 182, 0.35)",
-  },
-  post_similarity: {
-    bg: "rgba(192, 132, 252, 0.12)",
-    color: "#c084fc",
-    border: "rgba(192, 132, 252, 0.35)",
-  },
-  network_likes: {
-    bg: "rgba(249, 24, 128, 0.12)",
-    color: "#f91880",
-    border: "rgba(249, 24, 128, 0.35)",
-  },
-  random_posts: {
-    bg: "rgba(113, 118, 123, 0.15)",
-    color: "#71767b",
-    border: "rgba(113, 118, 123, 0.4)",
-  },
-};
-
-const DEFAULT_STYLE = {
-  bg: "rgba(113, 118, 123, 0.15)",
-  color: "#71767b",
-  border: "rgba(113, 118, 123, 0.4)",
-};
-
-export const GENERATOR_LABELS: Record<string, string> = {
-  two_tower: "Author/Topic",
-  followed_users: "Followed",
-  popularity: "Popular",
-  network_likes: "Followed Likes",
-  random_posts: "random",
-};
+export const GENERATOR_LABELS = Object.fromEntries(
+  Object.entries(GENERATOR_PRESENTATIONS).map(([name, value]) => [name, value.label]),
+);
 
 @customElement("generator-badge")
 export class GeneratorBadge extends LitElement {
@@ -60,12 +18,12 @@ export class GeneratorBadge extends LitElement {
   `;
 
   render() {
-    const style = GENERATOR_STYLES[this.name] ?? DEFAULT_STYLE;
+    const style = generatorPresentation(this.name);
 
     return html`
       <span
         style="
-          background: ${style.bg};
+          background: ${style.background};
           color: ${style.color};
           border: 1px solid ${style.border};
           font-size: 0.6875rem;
@@ -75,7 +33,7 @@ export class GeneratorBadge extends LitElement {
           white-space: nowrap;
         "
       >
-        ${GENERATOR_LABELS[this.name] ?? this.name}
+        ${style.label}
       </span>
     `;
   }

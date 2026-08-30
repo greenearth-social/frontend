@@ -11,7 +11,9 @@ export type SourceWeightChangeOrigin =
   | "authors_topics"
   | "popular"
   | "source_mix_master"
-  | "reset_defaults";
+  | "reset_defaults"
+  | "undo"
+  | "redo";
 
 export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
   following: 0.3,
@@ -65,6 +67,22 @@ function emptyControlsByFeed(): Record<AlgorithmId, FeedControlName[]> {
     "your-feed": [],
     "best-of-friends": [],
     random: [],
+  };
+}
+
+function emptyPendingSavesByFeed(): Record<AlgorithmId, Set<Promise<boolean>>> {
+  return {
+    "your-feed": new Set(),
+    "best-of-friends": new Set(),
+    random: new Set(),
+  };
+}
+
+function emptySaveQueuesByFeed(): Record<AlgorithmId, Promise<void>> {
+  return {
+    "your-feed": Promise.resolve(),
+    "best-of-friends": Promise.resolve(),
+    random: Promise.resolve(),
   };
 }
 
@@ -163,10 +181,16 @@ export class PreferencesStore {
   private loadPromise: Promise<void> | null = null;
   private accountGeneration = 0;
   private accountId: string | null = null;
+  private pendingSavePromisesByFeed = emptyPendingSavesByFeed();
+  private saveQueueByFeed = emptySaveQueuesByFeed();
 
   constructor(root: RootStore) {
     this.root = root;
-    makeAutoObservable(this, { root: false });
+    makeAutoObservable<PreferencesStore, "pendingSavePromisesByFeed" | "saveQueueByFeed">(this, {
+      root: false,
+      pendingSavePromisesByFeed: false,
+      saveQueueByFeed: false,
+    });
   }
 
   activateAccount(accountId: string): void {
@@ -229,6 +253,8 @@ export class PreferencesStore {
     this.isLoading = false;
     this.hasLoaded = false;
     this.loadPromise = null;
+    this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
+    this.saveQueueByFeed = emptySaveQueuesByFeed();
   }
 
   async save(
@@ -253,7 +279,7 @@ export class PreferencesStore {
 
     try {
       const patch = { [property]: normalizedValue } as FeedPreferences;
-      const savedValues = await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      const savedValues = await this.enqueuePreferencePatch(feedName, patch);
       if (generation === this.accountGeneration && version === this.saveVersions[key]) {
         const savedValue = savedValues[property] ?? normalizedValue;
         const currentValues = this.valuesFor(feedName);
@@ -289,6 +315,169 @@ export class PreferencesStore {
     }
   }
 
+  savePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): Promise<boolean> {
+    const operation = this.performSavePatch(feedName, patch, origins);
+    return this.trackPendingSave(feedName, operation);
+  }
+
+  syncSnapshot(feedName: AlgorithmId, patch: FeedPreferences): Promise<boolean> {
+    const generation = this.accountGeneration;
+    const snapshot = {
+      ...patch,
+      ...(patch.sourceWeights ? { sourceWeights: { ...patch.sourceWeights } } : {}),
+    };
+    const operation = (async (): Promise<boolean> => {
+      try {
+        await this.enqueuePreferencePatch(feedName, snapshot);
+        return generation === this.accountGeneration;
+      } catch (error) {
+        console.error("Failed to synchronize preference snapshot:", error);
+        return false;
+      }
+    })();
+    return this.trackPendingSave(feedName, operation);
+  }
+
+  async waitForPendingSaves(feedName: AlgorithmId): Promise<boolean> {
+    let succeeded = true;
+    const pending = this.pendingSavePromisesByFeed[feedName];
+    while (pending.size > 0) {
+      const results = await Promise.all([...pending]);
+      succeeded = succeeded && results.every(Boolean);
+    }
+    return succeeded;
+  }
+
+  private async performSavePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>>,
+  ): Promise<boolean> {
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const optimisticValues = clonePreferences(previousValues);
+    const changedControls = (Object.keys(patch) as Array<keyof Preferences>)
+      .map((property) => PROPERTY_CONTROLS[property])
+      .filter((control): control is FeedControlName => control !== undefined)
+      .filter((control) =>
+        controlChanged(control, previousValues, {
+          ...optimisticValues,
+          ...patch,
+          sourceWeights: patch.sourceWeights
+            ? { ...patch.sourceWeights }
+            : optimisticValues.sourceWeights,
+        }),
+      );
+    if (changedControls.length === 0) return true;
+
+    for (const control of changedControls) {
+      const property = CONTROL_PROPERTIES[control];
+      const value = patch[property];
+      if (value === undefined) continue;
+      Object.assign(optimisticValues, {
+        [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+      });
+    }
+
+    const version = ++this.saveSequence;
+    const generation = this.accountGeneration;
+    for (const control of changedControls) {
+      this.saveVersions[`${feedName}:${control}`] = version;
+    }
+    this.valuesByFeed[feedName] = optimisticValues;
+
+    try {
+      const saved = await this.enqueuePreferencePatch(feedName, patch);
+      if (generation !== this.accountGeneration) return false;
+      const finalValues = clonePreferences(this.valuesFor(feedName));
+      for (const control of changedControls) {
+        if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+        const property = CONTROL_PROPERTIES[control];
+        const value = saved[property] ?? optimisticValues[property];
+        Object.assign(finalValues, {
+          [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+        });
+      }
+      this.valuesByFeed[feedName] = finalValues;
+      for (const control of changedControls) {
+        if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+        if (!controlChanged(control, previousValues, finalValues)) continue;
+        this.root.services.analyticsService.capture("feedControlChanged", {
+          ...controlEventProperties(control, previousValues, finalValues, origins[control]),
+          ...feedAnalyticsProperties(feedName),
+        });
+      }
+      return true;
+    } catch (error) {
+      if (generation === this.accountGeneration) {
+        const currentValues = clonePreferences(this.valuesFor(feedName));
+        for (const control of changedControls) {
+          if (this.saveVersions[`${feedName}:${control}`] !== version) continue;
+          const property = CONTROL_PROPERTIES[control];
+          const previousValue = previousValues[property];
+          Object.assign(currentValues, {
+            [property]:
+              control === "source_weights"
+                ? { ...(previousValue as SourceWeights) }
+                : previousValue,
+          });
+          this.root.services.analyticsService.capture("feedControlChangeFailed", {
+            ...controlEventProperties(control, previousValues, optimisticValues, origins[control]),
+            ...feedAnalyticsProperties(feedName),
+            error_category: "preferences_request_failed",
+          });
+        }
+        this.valuesByFeed[feedName] = currentValues;
+      }
+      console.error("Failed to save preferences:", error);
+      return false;
+    }
+  }
+
+  applyAcceptedPatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+    saved: FeedPreferences,
+    origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
+  ): void {
+    const previousValues = clonePreferences(this.valuesFor(feedName));
+    const finalValues = clonePreferences(previousValues);
+    const changedControls = (Object.keys(patch) as Array<keyof Preferences>)
+      .map((property) => PROPERTY_CONTROLS[property])
+      .filter((control): control is FeedControlName => control !== undefined)
+      .filter((control) => {
+        const property = CONTROL_PROPERTIES[control];
+        const value = patch[property];
+        if (value === undefined) return false;
+        const candidate = clonePreferences(previousValues);
+        Object.assign(candidate, {
+          [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+        });
+        return controlChanged(control, previousValues, candidate);
+      });
+
+    for (const control of changedControls) {
+      const property = CONTROL_PROPERTIES[control];
+      const value = saved[property] ?? patch[property];
+      if (value === undefined) continue;
+      Object.assign(finalValues, {
+        [property]: control === "source_weights" ? { ...(value as SourceWeights) } : value,
+      });
+    }
+    this.valuesByFeed[feedName] = finalValues;
+
+    for (const control of changedControls) {
+      if (!controlChanged(control, previousValues, finalValues)) continue;
+      this.root.services.analyticsService.capture("feedControlChanged", {
+        ...controlEventProperties(control, previousValues, finalValues, origins[control]),
+        ...feedAnalyticsProperties(feedName),
+      });
+    }
+  }
+
   async restoreDefaults(feedName: AlgorithmId): Promise<boolean> {
     // Reset what the Settings page exposes, even if an older or partial load
     // did not populate the control metadata. This keeps Sources in
@@ -319,7 +508,7 @@ export class PreferencesStore {
     this.valuesByFeed[feedName] = optimisticValues;
 
     try {
-      await this.root.services.feedApiService.patchPreferences(feedName, patch);
+      await this.enqueuePreferencePatch(feedName, patch);
       if (generation !== this.accountGeneration) return false;
 
       const finalValues = clonePreferences(this.valuesFor(feedName));
@@ -364,6 +553,33 @@ export class PreferencesStore {
       console.error("Failed to restore default preferences:", error);
       return false;
     }
+  }
+
+  private enqueuePreferencePatch(
+    feedName: AlgorithmId,
+    patch: FeedPreferences,
+  ): Promise<FeedPreferences> {
+    const generation = this.accountGeneration;
+    const request = this.saveQueueByFeed[feedName].then(() => {
+      // A request can remain queued after sign-out while an earlier save is in
+      // flight. Do not let that stale callback use the next account's token.
+      if (generation !== this.accountGeneration) return patch;
+      return this.root.services.feedApiService.patchPreferences(feedName, patch);
+    });
+    this.saveQueueByFeed[feedName] = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    return request;
+  }
+
+  private trackPendingSave(feedName: AlgorithmId, operation: Promise<boolean>): Promise<boolean> {
+    const pending = this.pendingSavePromisesByFeed[feedName];
+    pending.add(operation);
+    void operation.finally(() => {
+      pending.delete(operation);
+    });
+    return operation;
   }
 
   valuesFor(feedName: AlgorithmId): Preferences {

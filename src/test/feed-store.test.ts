@@ -175,6 +175,117 @@ describe("FeedStore.loadFeedList", () => {
     expect(api.getFeedDetail).not.toHaveBeenCalled();
   });
 
+  it("replaces the bootstrap empty entry when the first populated snapshot arrives", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({
+      feeds: [
+        {
+          requestId: "first-populated",
+          generatedAt: "2026-08-10T12:05:00Z",
+          feedName: "your-feed",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [],
+        },
+      ],
+    });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const api = (
+      store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }
+    ).root.services.feedApiService;
+    api.getFeedDetail.mockResolvedValue({
+      requestId: "first-populated",
+      generatedAt: "2026-08-10T12:05:00Z",
+      apiReleaseSha: null,
+      items: [makeFeedItem(1)],
+      filteringCounts: {
+        storedItemCount: 1,
+        displayedItemCount: 1,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+      generatorDiagnostics: [],
+    });
+    store.feedList = [
+      {
+        requestId: "bootstrap-empty",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "bootstrap-empty";
+
+    expect(await store.refreshFeedIfNew("your-feed", "bootstrap-empty")).toBe(true);
+    expect(store.feedList.map((feed) => feed.requestId)).toEqual(["first-populated"]);
+    expect(store.currentRequestId).toBe("first-populated");
+    expect(store.items).toHaveLength(1);
+  });
+
+  it("clears a loaded bootstrap entry when the API no longer lists it", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({ feeds: [] });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const api = (
+      store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }
+    ).root.services.feedApiService;
+    store.feedList = [
+      {
+        requestId: "bootstrap-empty",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "bootstrap-empty";
+    store.lastGeneratedAt = "2026-08-10T12:00:00Z";
+
+    expect(await store.refreshFeedIfNew("your-feed", "bootstrap-empty")).toBe(false);
+    expect(store.feedList).toEqual([]);
+    expect(store.currentRequestId).toBeNull();
+    expect(store.lastGeneratedAt).toBeNull();
+    expect(api.getFeedDetail).not.toHaveBeenCalled();
+  });
+
+  it("preserves the loaded snapshot when a background list refresh fails", async () => {
+    const listFeeds = vi.fn().mockRejectedValue(new Error("offline"));
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    store.feedList = [
+      {
+        requestId: "visible-request",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "visible-request";
+    store.lastGeneratedAt = "2026-08-10T12:00:00Z";
+
+    expect(await store.refreshFeedIfNew("your-feed", "visible-request")).toBe(false);
+    expect(store.feedList.map((feed) => feed.requestId)).toEqual(["visible-request"]);
+    expect(store.currentRequestId).toBe("visible-request");
+    expect(store.lastGeneratedAt).toBe("2026-08-10T12:00:00Z");
+    consoleError.mockRestore();
+  });
+
   it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
     let resolveDetail:
       | ((value: {
@@ -245,6 +356,76 @@ describe("FeedStore.loadFeedList", () => {
     });
     expect(await refresh).toBe(true);
     expect(store.currentRequestId).toBe("new-request");
+  });
+
+  it("replaces an older populated snapshot with a newer real empty snapshot", async () => {
+    const listFeeds = vi.fn().mockResolvedValue({
+      feeds: [
+        {
+          requestId: "empty-new",
+          generatedAt: "2026-08-10T13:00:00Z",
+          feedName: "random",
+          apiReleaseSha: null,
+          appliedSocialRadius: null,
+          generatorDiagnostics: [
+            {
+              name: "random_posts",
+              weight: 1,
+              requestedCount: 30,
+              returnedCount: 0,
+              contributedCount: 0,
+              status: "empty",
+              reason: "source_returned_no_candidates",
+              mode: "primary",
+            },
+          ],
+        },
+      ],
+    });
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "random",
+    });
+    const api = (
+      store as unknown as {
+        root: { services: { feedApiService: { getFeedDetail: ReturnType<typeof vi.fn> } } };
+      }
+    ).root.services.feedApiService;
+    api.getFeedDetail.mockResolvedValueOnce({
+      requestId: "populated-old",
+      generatedAt: "2026-08-10T12:00:00Z",
+      apiReleaseSha: null,
+      items: [makeFeedItem(1)],
+      filteringCounts: {
+        storedItemCount: 1,
+        displayedItemCount: 1,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+      generatorDiagnostics: [],
+    });
+    await store.loadFeedDetail("populated-old");
+    expect(store.items).toHaveLength(1);
+    api.getFeedDetail.mockResolvedValueOnce({
+      requestId: "empty-new",
+      generatedAt: "2026-08-10T13:00:00Z",
+      apiReleaseSha: null,
+      items: [],
+      filteringCounts: {
+        storedItemCount: 0,
+        displayedItemCount: 0,
+        publiclyFilteredCount: 0,
+        unavailableCount: 0,
+      },
+      generatorDiagnostics: [],
+    });
+
+    await store.loadFeedList({ feedName: "random", force: true });
+
+    expect(store.currentRequestId).toBe("empty-new");
+    expect(store.items).toEqual([]);
+    expect(store.totalCount).toBe(0);
+    expect(store.currentGeneratorDiagnostics[0]?.reason).toBe("source_returned_no_candidates");
   });
 });
 

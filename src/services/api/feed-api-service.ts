@@ -1,13 +1,12 @@
 import type {
+  AcceptedFeedPreview,
   FeedPreferences,
   FeedPreferencesByFeed,
+  FeedPreviewSession,
   IFeedApiService,
 } from "../types";
-import {
-  canonicalAlgorithmId,
-  isAlgorithmId,
-  type AlgorithmId,
-} from "../../constants/algorithms";
+import { FeedApiError } from "../types";
+import { canonicalAlgorithmId, isAlgorithmId, type AlgorithmId } from "../../constants/algorithms";
 import type {
   ApiFeedItem,
   FeedDetailResponse,
@@ -86,6 +85,7 @@ interface ApiFeedItemResponse {
     like_count: number;
   } | null;
   post_url: string | null;
+  is_partial?: boolean;
 }
 
 interface ApiFeedDetailResponse {
@@ -97,6 +97,21 @@ interface ApiFeedDetailResponse {
   displayed_item_count?: number;
   publicly_filtered_count?: number;
   unavailable_count?: number;
+  partial_item_count?: number;
+  generator_diagnostics?: ApiFeedSummary["generator_diagnostics"];
+}
+
+interface ApiFeedPreviewResponse {
+  request_id: string;
+  feed_name: string;
+  generated_at: string;
+  expires_at: string;
+}
+
+interface ApiAcceptedFeedPreviewResponse {
+  request_id: string;
+  preferences: ApiPreferences;
+  accepted_until?: string | null;
 }
 
 function mapPreferences(prefs: ApiPreferences): FeedPreferences {
@@ -172,6 +187,33 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
         }
       : null,
     postUrl: item.post_url,
+    isPartial: item.is_partial ?? false,
+  };
+}
+
+function mapFeedDetail(response: ApiFeedDetailResponse): FeedDetailResponse {
+  return {
+    requestId: response.request_id,
+    generatedAt: response.generated_at,
+    apiReleaseSha: response.api_release_sha ?? null,
+    items: response.items.map(mapFeedItem),
+    filteringCounts: {
+      storedItemCount: response.stored_item_count ?? response.items.length,
+      displayedItemCount: response.displayed_item_count ?? response.items.length,
+      publiclyFilteredCount: response.publicly_filtered_count ?? 0,
+      unavailableCount: response.unavailable_count ?? 0,
+      partialItemCount: response.partial_item_count ?? 0,
+    },
+    generatorDiagnostics: (response.generator_diagnostics ?? []).map((diagnostic) => ({
+      name: diagnostic.name,
+      weight: diagnostic.weight,
+      requestedCount: diagnostic.requested_count,
+      returnedCount: diagnostic.returned_count,
+      contributedCount: diagnostic.contributed_count,
+      status: diagnostic.status,
+      reason: diagnostic.reason,
+      mode: diagnostic.mode,
+    })),
   };
 }
 
@@ -187,40 +229,84 @@ export class FeedApiService implements IFeedApiService {
       feeds: response.feeds.flatMap((feed) => {
         const feedName = canonicalAlgorithmId(feed.feed_name);
         if (feedName === null) return [];
-        return [{
-          requestId: feed.request_id,
-          generatedAt: feed.generated_at,
-          feedName,
-          apiReleaseSha: feed.api_release_sha ?? null,
-          appliedSocialRadius: feed.applied_social_radius ?? null,
-          generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
-            name: diagnostic.name,
-            weight: diagnostic.weight,
-            requestedCount: diagnostic.requested_count,
-            returnedCount: diagnostic.returned_count,
-            contributedCount: diagnostic.contributed_count,
-            status: diagnostic.status,
-            reason: diagnostic.reason,
-            mode: diagnostic.mode,
-          })),
-        }];
+        return [
+          {
+            requestId: feed.request_id,
+            generatedAt: feed.generated_at,
+            feedName,
+            apiReleaseSha: feed.api_release_sha ?? null,
+            appliedSocialRadius: feed.applied_social_radius ?? null,
+            generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
+              name: diagnostic.name,
+              weight: diagnostic.weight,
+              requestedCount: diagnostic.requested_count,
+              returnedCount: diagnostic.returned_count,
+              contributedCount: diagnostic.contributed_count,
+              status: diagnostic.status,
+              reason: diagnostic.reason,
+              mode: diagnostic.mode,
+            })),
+          },
+        ];
       }),
     };
   }
 
   async getFeedDetail(requestId: string): Promise<FeedDetailResponse> {
     const response = await this._fetch<ApiFeedDetailResponse>(`/api/feeds/${requestId}`);
+    return mapFeedDetail(response);
+  }
+
+  async createFeedPreview(
+    feedName: AlgorithmId,
+    prefs: FeedPreferences,
+  ): Promise<FeedPreviewSession> {
+    const response = await this._fetch<ApiFeedPreviewResponse>(
+      `/api/feeds/${encodeURIComponent(feedName)}/preview`,
+      {
+        method: "POST",
+        body: JSON.stringify(serializePreferences(prefs)),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    const mappedFeedName = canonicalAlgorithmId(response.feed_name);
+    if (mappedFeedName === null) throw new Error("Preview returned an unknown feed");
     return {
       requestId: response.request_id,
+      feedName: mappedFeedName,
       generatedAt: response.generated_at,
-      apiReleaseSha: response.api_release_sha ?? null,
-      items: response.items.map(mapFeedItem),
-      filteringCounts: {
-        storedItemCount: response.stored_item_count ?? response.items.length,
-        displayedItemCount: response.displayed_item_count ?? response.items.length,
-        publiclyFilteredCount: response.publicly_filtered_count ?? 0,
-        unavailableCount: response.unavailable_count ?? 0,
+      expiresAt: response.expires_at,
+    };
+  }
+
+  async getFeedPreview(requestId: string): Promise<FeedDetailResponse> {
+    const response = await this._fetch<ApiFeedDetailResponse>(
+      `/api/feeds/previews/${encodeURIComponent(requestId)}`,
+    );
+    return mapFeedDetail(response);
+  }
+
+  async acceptFeedPreview(
+    feedName: AlgorithmId,
+    requestId: string,
+    prefs: FeedPreferences,
+    displayedItemUris: string[],
+  ): Promise<AcceptedFeedPreview> {
+    const response = await this._fetch<ApiAcceptedFeedPreviewResponse>(
+      `/api/feeds/${encodeURIComponent(feedName)}/previews/${encodeURIComponent(requestId)}/accept`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          preferences: serializePreferences(prefs),
+          displayed_item_uris: displayedItemUris,
+        }),
+        headers: { "Content-Type": "application/json" },
       },
+    );
+    return {
+      requestId: response.request_id,
+      preferences: mapPreferences(response.preferences),
+      acceptedUntil: response.accepted_until ?? null,
     };
   }
 
@@ -233,16 +319,13 @@ export class FeedApiService implements IFeedApiService {
     return mapped;
   }
 
-  async patchPreferences(
-    feedName: AlgorithmId,
-    prefs: FeedPreferences,
-  ): Promise<FeedPreferences> {
+  async patchPreferences(feedName: AlgorithmId, prefs: FeedPreferences): Promise<FeedPreferences> {
     const response = await this._fetch<ApiPreferences>(
       `/api/feeds/preferences/${encodeURIComponent(feedName)}`,
       {
-      method: "PATCH",
-      body: JSON.stringify(serializePreferences(prefs)),
-      headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        body: JSON.stringify(serializePreferences(prefs)),
+        headers: { "Content-Type": "application/json" },
       },
     );
     return mapPreferences(response);
@@ -263,7 +346,7 @@ export class FeedApiService implements IFeedApiService {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "unknown error");
-      throw new Error(`API ${String(res.status)}: ${body}`);
+      throw new FeedApiError(res.status, `API ${String(res.status)}: ${body}`);
     }
     return res.json() as Promise<T>;
   }

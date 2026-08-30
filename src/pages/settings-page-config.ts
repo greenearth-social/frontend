@@ -21,6 +21,12 @@ export interface SettingsNode {
 }
 
 export const SETTINGS_NODES: Record<string, SettingsNode> = {
+  sources: {
+    label: "Sources",
+    type: "config",
+    description:
+      "Percentages control how much each source contributes to your feed. The lifecycle icons show how the source mix moves from friends toward discovery. Lock a source to keep its percentage fixed while adjusting the others.",
+  },
   time_window: {
     label: "Time Window",
     type: "config",

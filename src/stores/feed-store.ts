@@ -1,5 +1,10 @@
 import { makeAutoObservable } from "mobx";
-import type { FeedItemView, FeedSummary, FilteringCounts } from "../models/feed-debug-snapshot";
+import type {
+  FeedItemView,
+  FeedSummary,
+  FilteringCounts,
+  GeneratorDiagnostic,
+} from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
@@ -25,6 +30,7 @@ export class FeedStore {
   feedList: FeedSummary[] = [];
   currentRequestId: string | null = null;
   filteringCountsByRequest: Record<string, FilteringCounts> = {};
+  generatorDiagnosticsByRequest: Record<string, GeneratorDiagnostic[]> = {};
 
   private _feedListLoadSeq: number = 0;
   private _loadSeq: number = 0;
@@ -59,6 +65,25 @@ export class FeedStore {
 
   get hasMore(): boolean {
     return this._currentPage < this.totalPages;
+  }
+
+  get currentSummary(): FeedSummary | null {
+    if (!this.currentRequestId) return null;
+    return this.feedList.find((feed) => feed.requestId === this.currentRequestId) ?? null;
+  }
+
+  get currentFilteringCounts(): FilteringCounts | null {
+    if (!this.currentRequestId) return null;
+    return this.filteringCountsByRequest[this.currentRequestId] ?? null;
+  }
+
+  get currentGeneratorDiagnostics(): GeneratorDiagnostic[] {
+    if (!this.currentRequestId) return [];
+    return (
+      this.generatorDiagnosticsByRequest[this.currentRequestId] ??
+      this.currentSummary?.generatorDiagnostics ??
+      []
+    );
   }
 
   private _updateVisibleItems(): void {
@@ -105,6 +130,8 @@ export class FeedStore {
     this.items = [];
     this.currentRequestId = null;
     this.error = null;
+    this.lastGeneratedAt = null;
+    this.currentApiReleaseSha = null;
   }
 
   reset(): void {
@@ -123,6 +150,7 @@ export class FeedStore {
     this.feedList = [];
     this.currentRequestId = null;
     this.filteringCountsByRequest = {};
+    this.generatorDiagnosticsByRequest = {};
   }
 
   async loadFeedList(options?: { feedName?: AlgorithmId; force?: boolean }): Promise<void> {
@@ -180,16 +208,13 @@ export class FeedStore {
     }
   }
 
-  /**
-   * Quietly check for a snapshot created after the user opened a feed in
-   * Bluesky. Existing content stays in place unless a new request is found.
-   */
+  /** Quietly check for a newer snapshot without replacing existing content on failure. */
   async refreshFeedIfNew(
     feedName: AlgorithmId,
     baselineRequestId: string | null,
   ): Promise<boolean> {
     // Do not supersede an intentional route, tab, or pull-to-refresh load.
-    // The next background poll will retry after that visible load completes.
+    // The page queues a trailing lifecycle sync after that visible load completes.
     if (this.isLoading) return false;
     const seq = ++this._feedListLoadSeq;
 
@@ -197,6 +222,9 @@ export class FeedStore {
       const response = await this.root.services.feedApiService.listFeeds();
       if (seq !== this._feedListLoadSeq) return false;
 
+      const currentRequestBelongsToFeed = this.feedList.some(
+        (feed) => feed.requestId === this.currentRequestId && feed.feedName === feedName,
+      );
       this.feedList = response.feeds ?? [];
       this.feedListLoadState = "loaded";
       const latest = this.feedList
@@ -205,6 +233,14 @@ export class FeedStore {
           (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
           undefined,
         );
+
+      if (!latest && currentRequestBelongsToFeed && this.root.uiStore.selectedAlgorithm === feedName) {
+        // A successful list response is authoritative. This notably removes a
+        // bootstrap-empty snapshot after the API classifies it as pre-history,
+        // instead of leaving its previously loaded detail visible in memory.
+        this.clearFeedDetail();
+        return false;
+      }
 
       if (
         !latest ||
@@ -218,7 +254,7 @@ export class FeedStore {
       return this.currentRequestId === latest.requestId;
     } catch (error) {
       // This is a background convenience refresh. Keep the current snapshot
-      // visible and let the next scheduled check retry quietly.
+      // visible and let the next lifecycle trigger retry quietly.
       console.error("FeedStore.refreshFeedIfNew error:", error);
       return false;
     }
@@ -238,6 +274,11 @@ export class FeedStore {
 
       this._allItems = transformFeedItems(response.items ?? []);
       this.filteringCountsByRequest[requestId] = response.filteringCounts;
+      this.generatorDiagnosticsByRequest[requestId] =
+        response.generatorDiagnostics && response.generatorDiagnostics.length > 0
+          ? response.generatorDiagnostics
+          : (this.feedList.find((feed) => feed.requestId === requestId)?.generatorDiagnostics ??
+            []);
       this.currentRequestId = requestId;
       this._currentPage = 1;
       this._updateVisibleItems();

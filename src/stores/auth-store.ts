@@ -17,11 +17,13 @@ export class AuthStore {
         this.root.uiStore.activateAccount(user.uid);
         this.root.feedStore.activateAccount(user.uid);
         this.root.preferencesStore.activateAccount(user.uid);
+        this.root.settingsPreviewStore.activateAccount(user.uid);
         this.root.services.analyticsService.identify(user.uid);
       } else {
         this.root.uiStore.deactivateAccount();
         this.root.feedStore.reset();
         this.root.preferencesStore.reset();
+        this.root.settingsPreviewStore.reset();
         this.root.services.analyticsService.reset();
       }
     });

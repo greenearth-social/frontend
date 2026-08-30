@@ -61,6 +61,7 @@ export interface ApiFeedItem {
   media: ApiMediaView | null;
   engagement: ApiEngagementView | null;
   postUrl: string | null;
+  isPartial?: boolean;
 }
 
 export interface FeedDetailResponse {
@@ -69,6 +70,7 @@ export interface FeedDetailResponse {
   apiReleaseSha: string | null;
   items: ApiFeedItem[] | null | undefined;
   filteringCounts: FilteringCounts;
+  generatorDiagnostics?: GeneratorDiagnostic[];
 }
 
 export interface FilteringCounts {
@@ -76,6 +78,7 @@ export interface FilteringCounts {
   displayedItemCount: number;
   publiclyFilteredCount: number;
   unavailableCount: number;
+  partialItemCount?: number;
 }
 
 export interface FeedItemView {
@@ -104,6 +107,7 @@ export interface FeedItemView {
   replyCount: number;
   repostCount: number;
   likeCount: number;
+  isPartial?: boolean;
 }
 
 export function weightedRankScore(modelScores: ModelScoreView[]): number | null {
@@ -145,5 +149,6 @@ export function transformFeedItems(apiItems: ApiFeedItem[] | null | undefined): 
     replyCount: item.engagement?.replyCount ?? 0,
     repostCount: item.engagement?.repostCount ?? 0,
     likeCount: item.engagement?.likeCount ?? 0,
+    isPartial: item.isPartial ?? false,
   }));
 }

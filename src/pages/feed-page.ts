@@ -14,16 +14,11 @@ import type { FeedTabs } from "../components/feed-tabs";
 
 const PULL_REFRESH_THRESHOLD = 56;
 const PULL_REFRESH_MAX_DISTANCE = 88;
-const BLUESKY_REFRESH_INITIAL_DELAY_MS = 1_000;
-const BLUESKY_REFRESH_POLL_INTERVAL_MS = 2_500;
-const BLUESKY_REFRESH_TIMEOUT_MS = 45_000;
 
 @customElement("feed-page")
 export class FeedPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
   @property({ type: String }) authFailureMessage = "";
-  @state() private _showEmptyInsteadOfLoading = false;
-  @state() private _loadTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private _handle = "";
   @state() private _signInPending = false;
   @state() private _signInError = "";
@@ -31,13 +26,10 @@ export class FeedPage extends MobxLitElement {
   @state() private _pullTracking = false;
   @state() private _pullRefreshing = false;
   private _pullStart: { x: number; y: number } | null = null;
-  private _blueskyRefreshSession: {
-    feedName: AlgorithmId;
-    baselineRequestId: string | null;
-    expiresAt: number | null;
-  } | null = null;
-  private _blueskyRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  private _blueskyRefreshInFlight = false;
+  private _lifecycleSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private _lifecycleSyncPromise: Promise<void> | null = null;
+  private _lifecycleSyncPending = false;
+  private _lifecycleSyncKey: string | null = null;
 
   static styles = css`
     :host {
@@ -163,24 +155,18 @@ export class FeedPage extends MobxLitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener("blur", this.#handleFrontendLeft);
-    window.addEventListener("focus", this.#resumeBlueskyRefresh);
+    window.addEventListener("focus", this.#requestLifecycleSync);
     window.addEventListener("pagehide", this.#handleFrontendLeft);
-    window.addEventListener("pageshow", this.#resumeBlueskyRefresh);
+    window.addEventListener("pageshow", this.#requestLifecycleSync);
     document.addEventListener("visibilitychange", this.#handleVisibilityChange);
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener("blur", this.#handleFrontendLeft);
-    window.removeEventListener("focus", this.#resumeBlueskyRefresh);
+    window.removeEventListener("focus", this.#requestLifecycleSync);
     window.removeEventListener("pagehide", this.#handleFrontendLeft);
-    window.removeEventListener("pageshow", this.#resumeBlueskyRefresh);
+    window.removeEventListener("pageshow", this.#requestLifecycleSync);
     document.removeEventListener("visibilitychange", this.#handleVisibilityChange);
-    this.#cancelBlueskyRefresh();
-    if (this._loadTimer) {
-      clearTimeout(this._loadTimer);
-      this._loadTimer = null;
-    }
+    this.#cancelScheduledLifecycleSync();
     super.disconnectedCallback();
   }
 
@@ -188,27 +174,23 @@ export class FeedPage extends MobxLitElement {
     super.updated(changedProperties);
     const store = getRootStore();
     const isLoading = store?.feedStore.isLoading ?? false;
+    const signedInDid =
+      store?.authStore.isSignedIn && store.accountStore.activeAccount
+        ? store.accountStore.activeAccount.did
+        : null;
 
-    if (
-      changedProperties.has("_showEmptyInsteadOfLoading") ||
-      changedProperties.has("_loadTimer")
-    ) {
-      return;
+    const feedName = store?.uiStore.selectedAlgorithm ?? "your-feed";
+    const lifecycleSyncKey = signedInDid ? `${signedInDid}:${feedName}` : null;
+    if (lifecycleSyncKey !== this._lifecycleSyncKey) {
+      this._lifecycleSyncKey = lifecycleSyncKey;
+      this.#cancelScheduledLifecycleSync();
+      this._lifecycleSyncPending = false;
+      // An activation load already fetches the newest list. Only add a
+      // lifecycle check when the page becomes active with no visible load.
+      if (lifecycleSyncKey && !isLoading) this.#scheduleLifecycleSync();
     }
 
-    if (isLoading) {
-      if (!this._loadTimer) {
-        this._loadTimer = setTimeout(() => {
-          this._showEmptyInsteadOfLoading = true;
-        }, 1000);
-      }
-    } else {
-      if (this._loadTimer) {
-        clearTimeout(this._loadTimer);
-        this._loadTimer = null;
-      }
-      this._showEmptyInsteadOfLoading = false;
-    }
+    this.#drainLifecycleSyncQueue();
   }
 
   render() {
@@ -224,8 +206,14 @@ export class FeedPage extends MobxLitElement {
       return html`
         <div class="logged-out-page">
           <div class="logged-out-content">
-            <img src="/assets/caterpillar.png" alt="MySky by GreenEarth" class="logged-out-logo" />
-            <h1 class="logged-out-title">MySky by GreenEarth</h1>
+            <img
+              src="/assets/mysky-logo.png"
+              alt="MySky"
+              class="logged-out-logo"
+              width="640"
+              height="476"
+            />
+            <h1 class="logged-out-title">MySky</h1>
             <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>
             <form class="sign-in-form" @submit=${this.#signIn}>
               <label class="handle-label" for="account-handle">Account handle</label>
@@ -280,9 +268,9 @@ export class FeedPage extends MobxLitElement {
             width: 100%;
           }
           .logged-out-logo {
-            width: min(44vw, 150px);
+            width: min(52vw, 190px);
             height: auto;
-            margin-bottom: -0.5rem;
+            margin-bottom: -0.625rem;
           }
           .logged-out-title {
             font-size: clamp(2rem, 10vw, 2.5rem);
@@ -365,8 +353,8 @@ export class FeedPage extends MobxLitElement {
               padding-top: 0.5rem;
             }
             .logged-out-logo {
-              width: 96px;
-              margin-bottom: -0.375rem;
+              width: 124px;
+              margin-bottom: -0.5rem;
             }
             .logged-out-title {
               font-size: 1.75rem;
@@ -387,8 +375,8 @@ export class FeedPage extends MobxLitElement {
               padding-top: 10dvh;
             }
             .logged-out-logo {
-              width: 220px;
-              margin-bottom: -0.875rem;
+              width: 280px;
+              margin-bottom: -1rem;
             }
             .logged-out-title {
               font-size: 3rem;
@@ -477,8 +465,6 @@ export class FeedPage extends MobxLitElement {
               .sort((a, b) => (a.generatedAt > b.generatedAt ? -1 : 1))}
             .activeRequestId=${feedStore.currentRequestId}
             .filteringCountsByRequest=${feedStore.filteringCountsByRequest}
-            .selectedAlgorithm=${uiStore.selectedAlgorithm}
-            .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
             @tab-change=${(e: CustomEvent<{ requestId: string }>) => {
               const feed = feedStore.feedList.find((f) => f.requestId === e.detail.requestId);
               if (feed && ALGORITHM_FEED_NAME_SET.has(feed.feedName)) {
@@ -524,47 +510,45 @@ export class FeedPage extends MobxLitElement {
             : ""
         }
         ${
-          feedStore.isLoading && !this._showEmptyInsteadOfLoading
+          feedStore.isLoading && feedStore.items.length === 0
             ? html`
                 <div class="loader-container" style="color: var(--bluesky-text-secondary)">
                   <wa-spinner style="font-size: 2rem; --wa-spinner-track-width: 2px"></wa-spinner>
                   <p class="text-sm mt-3">Loading feed...</p>
                 </div>
               `
-            : feedStore.isLoading && this._showEmptyInsteadOfLoading
-              ? html`
-                  <div class="empty-state">
-                    <p>No posts found</p>
-                  </div>
-                `
-              : html`
-                  <feed-view
-                    .items=${feedStore.items}
-                    .selectedUri=${uiStore.selectedItemUri}
-                    .algorithmId=${uiStore.selectedAlgorithm}
-                    .engagingInfluence=${1 - selectedPreferences.purpose}
-                    .constructiveInfluence=${selectedPreferences.purpose}
-                    .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
-                    .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
-                    @bluesky-feed-opened=${this.#handleBlueskyFeedOpened}
-                    @select-item=${(e: CustomEvent<{ uri: string }>) => {
-                      uiStore.toggleSelectedItem(e.detail.uri);
-                    }}
-                  ></feed-view>
+            : html`
+                <feed-view
+                  .items=${feedStore.items}
+                  .selectedUri=${uiStore.selectedItemUri}
+                  .algorithmId=${uiStore.selectedAlgorithm}
+                  .engagingInfluence=${1 - selectedPreferences.purpose}
+                  .constructiveInfluence=${selectedPreferences.purpose}
+                  .blueskyUrl=${ALGORITHMS[uiStore.selectedAlgorithm ?? "your-feed"].blueskyUrl}
+                  .algorithmLabel=${uiStore.selectedAlgorithm ? ALGORITHMS[uiStore.selectedAlgorithm].label : ""}
+                  .localUserDid=${import.meta.env.DEV ? accountStore.activeAccount.did : ""}
+                  .hasSnapshot=${feedStore.currentRequestId !== null}
+                  .generatedAt=${feedStore.lastGeneratedAt ?? ""}
+                  .filteringCounts=${feedStore.currentFilteringCounts}
+                  .generatorDiagnostics=${feedStore.currentGeneratorDiagnostics}
+                  @select-item=${(e: CustomEvent<{ uri: string }>) => {
+                    uiStore.toggleSelectedItem(e.detail.uri);
+                  }}
+                ></feed-view>
 
-                  <pagination-control
-                    .currentPage=${feedStore.currentPage}
-                    .totalPages=${feedStore.totalPages}
-                    .totalItems=${feedStore.totalCount}
-                    .itemsPerPage=${feedStore.postsPerPage}
-                    @page-change=${(e: CustomEvent<{ page: number }>) => {
-                      feedStore.goToPage(e.detail.page);
-                    }}
-                    @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
-                      feedStore.setPostsPerPage(e.detail.perPage);
-                    }}
-                  ></pagination-control>
-                `
+                <pagination-control
+                  .currentPage=${feedStore.currentPage}
+                  .totalPages=${feedStore.totalPages}
+                  .totalItems=${feedStore.totalCount}
+                  .itemsPerPage=${feedStore.postsPerPage}
+                  @page-change=${(e: CustomEvent<{ page: number }>) => {
+                    feedStore.goToPage(e.detail.page);
+                  }}
+                  @per-page-change=${(e: CustomEvent<{ perPage: number }>) => {
+                    feedStore.setPostsPerPage(e.detail.perPage);
+                  }}
+                ></pagination-control>
+              `
         }
       </div>
     `;
@@ -644,97 +628,81 @@ export class FeedPage extends MobxLitElement {
     }
   }
 
-  #handleBlueskyFeedOpened = (): void => {
-    this.#armBlueskyRefresh(true);
+  #handleFrontendLeft = (): void => {
+    this.#cancelScheduledLifecycleSync();
   };
 
-  #handleFrontendLeft = (): void => {
-    this.#armBlueskyRefresh(false);
+  #requestLifecycleSync = (): void => {
+    if (document.visibilityState === "hidden") return;
+    this.#scheduleLifecycleSync();
   };
 
   #handleVisibilityChange = (): void => {
     if (document.visibilityState === "hidden") {
       this.#handleFrontendLeft();
     } else {
-      this.#resumeBlueskyRefresh();
+      this.#requestLifecycleSync();
     }
   };
 
-  #armBlueskyRefresh(startImmediately: boolean): void {
-    const store = getRootStore();
-    if (!store) return;
-    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
-    if (this._blueskyRefreshSession?.feedName === feedName) {
-      if (startImmediately) {
-        this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
-        this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
-      }
+  #scheduleLifecycleSync(): void {
+    if (this._lifecycleSyncTimer || !this.isConnected || document.visibilityState === "hidden") {
       return;
     }
-    const latest = store.feedStore.feedList
+    this._lifecycleSyncTimer = setTimeout(() => {
+      this._lifecycleSyncTimer = null;
+      void this.#runLifecycleSync();
+    }, 0);
+  }
+
+  async #runLifecycleSync(): Promise<void> {
+    if (!this.isConnected || document.visibilityState === "hidden") return;
+    const store = getRootStore();
+    if (!store?.authStore.isSignedIn || !store.accountStore.activeAccount) return;
+    if (store.feedStore.isLoading || this._pullRefreshing) {
+      this._lifecycleSyncPending = true;
+      return;
+    }
+    if (this._lifecycleSyncPromise) {
+      this._lifecycleSyncPending = true;
+      await this._lifecycleSyncPromise;
+      return;
+    }
+
+    const feedName = store.uiStore.selectedAlgorithm ?? "your-feed";
+    const feedList = Array.isArray(store.feedStore.feedList) ? store.feedStore.feedList : [];
+    const latestKnown = feedList
       .filter((feed) => feed.feedName === feedName)
-      .reduce<(typeof store.feedStore.feedList)[number] | undefined>(
+      .reduce<(typeof feedList)[number] | undefined>(
         (best, feed) => (!best || feed.generatedAt > best.generatedAt ? feed : best),
         undefined,
       );
-
-    this.#cancelBlueskyRefresh();
-    this._blueskyRefreshSession = {
-      feedName,
-      baselineRequestId: latest?.requestId ?? null,
-      expiresAt: startImmediately ? Date.now() + BLUESKY_REFRESH_TIMEOUT_MS : null,
-    };
-    if (startImmediately) this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_INITIAL_DELAY_MS);
+    this._lifecycleSyncPending = false;
+    const sync = store.feedStore
+      .refreshFeedIfNew(feedName, latestKnown?.requestId ?? null)
+      .then(() => undefined);
+    this._lifecycleSyncPromise = sync;
+    try {
+      await sync;
+    } finally {
+      if (this._lifecycleSyncPromise === sync) this._lifecycleSyncPromise = null;
+      this.#drainLifecycleSyncQueue();
+    }
   }
 
-  #resumeBlueskyRefresh = (): void => {
-    if (document.visibilityState === "hidden" || !this._blueskyRefreshSession) return;
-    // Give every actual return from Bluesky a complete polling window, even
-    // when the user spent several minutes away from the frontend.
-    this._blueskyRefreshSession.expiresAt = Date.now() + BLUESKY_REFRESH_TIMEOUT_MS;
-    this.#scheduleBlueskyRefresh(0);
-  };
-
-  #scheduleBlueskyRefresh(delay: number): void {
-    if (!this._blueskyRefreshSession || this._blueskyRefreshInFlight) return;
-    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
-    this._blueskyRefreshTimer = setTimeout(() => {
-      this._blueskyRefreshTimer = null;
-      void this.#pollForBlueskySnapshot();
-    }, delay);
-  }
-
-  async #pollForBlueskySnapshot(): Promise<void> {
-    const session = this._blueskyRefreshSession;
+  #drainLifecycleSyncQueue(): void {
+    if (!this._lifecycleSyncPending || !this.isConnected) return;
     const store = getRootStore();
-    if (!session || !store || this._blueskyRefreshInFlight) return;
-    if (
-      session.expiresAt === null ||
-      Date.now() >= session.expiresAt ||
-      store.uiStore.selectedAlgorithm !== session.feedName
-    ) {
-      this.#cancelBlueskyRefresh();
+    if (!store || store.feedStore.isLoading || this._pullRefreshing || this._lifecycleSyncPromise) {
       return;
     }
-
-    this._blueskyRefreshInFlight = true;
-    const found = await store.feedStore.refreshFeedIfNew(
-      session.feedName,
-      session.baselineRequestId,
-    );
-    this._blueskyRefreshInFlight = false;
-    if (this._blueskyRefreshSession !== session) return;
-    if (found) {
-      this.#cancelBlueskyRefresh();
-      return;
-    }
-    this.#scheduleBlueskyRefresh(BLUESKY_REFRESH_POLL_INTERVAL_MS);
+    this._lifecycleSyncPending = false;
+    this.#scheduleLifecycleSync();
   }
 
-  #cancelBlueskyRefresh(): void {
-    if (this._blueskyRefreshTimer) clearTimeout(this._blueskyRefreshTimer);
-    this._blueskyRefreshTimer = null;
-    this._blueskyRefreshSession = null;
+  #cancelScheduledLifecycleSync(): void {
+    if (this._lifecycleSyncTimer) clearTimeout(this._lifecycleSyncTimer);
+    this._lifecycleSyncTimer = null;
   }
 
   async #signIn(event: SubmitEvent): Promise<void> {
