@@ -363,7 +363,7 @@ export class SettingsPage extends MobxLitElement {
               ${
                 previewGenerating
                   ? html`<span class="mobile-preview-status">Generating Preview</span>`
-                  : ""
+                  : html`<span class="mobile-preview-status">Preview</span>`
               }
             </div>
           </div>

@@ -683,13 +683,14 @@ describe("SettingsPage", () => {
     const mobileActions = element.shadowRoot?.querySelector(".preview-mobile-primary-actions");
     expect(Array.from(mobileActions?.children ?? []).map((child) => child.className)).toEqual([
       "preview-close",
+      "mobile-preview-status",
     ]);
     const back = mobileActions?.firstElementChild as HTMLButtonElement | null;
     expect(back?.getAttribute("aria-label")).toBe("Back to settings");
     expect(back?.textContent.trim()).toBe("");
     expect(back?.querySelector("wa-icon")?.getAttribute("name")).toBe("chevron-left");
     expect(mobileActions?.querySelector(".mobile-preview-title")).toBeNull();
-    expect(mobileActions?.querySelector(".mobile-preview-status")).toBeNull();
+    expect(mobileActions?.querySelector(".mobile-preview-status")?.textContent).toBe("Preview");
     expect(element.shadowRoot?.querySelector(".source-controls-help")).toBeNull();
     expect(element.shadowRoot?.querySelector(".percentage-suffix")).toBeNull();
     expect(element.shadowRoot?.textContent).not.toContain("Enter a whole percentage");
@@ -822,7 +823,9 @@ describe("SettingsPage", () => {
     await element.updateComplete;
     expect(updatePreview?.textContent.trim()).toBe("Update preview");
     expect(updatePreview?.disabled).toBe(true);
-    expect(element.shadowRoot?.querySelector(".mobile-preview-status")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
+      "Preview",
+    );
 
     finishAnimation?.();
     await vi.waitFor(() => {

@@ -402,7 +402,7 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
   await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
-  await expect(settings.locator(".mobile-preview-status")).toHaveCount(0);
+  await expect(settings.locator(".mobile-preview-status")).toHaveText("Preview");
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
@@ -574,7 +574,18 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   );
   await expect(mobileActions.locator("button")).toHaveCount(1);
   await expect(mobileActions.getByRole("heading", { name: "Settings" })).toHaveCount(0);
-  await expect(mobileActions.locator(".mobile-preview-status")).toHaveCount(0);
+  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("Preview");
+  const previewHeaderAlignment = await settings.locator(".preview-header").evaluate((header) => {
+    const headerRect = header.getBoundingClientRect();
+    const statusRect = header.querySelector(".mobile-preview-status")?.getBoundingClientRect();
+    return {
+      headerCenter: headerRect.left + headerRect.width / 2,
+      statusCenter: statusRect ? statusRect.left + statusRect.width / 2 : 0,
+    };
+  });
+  expect(
+    Math.abs(previewHeaderAlignment.headerCenter - previewHeaderAlignment.statusCenter),
+  ).toBeLessThan(1);
   await expect(mobileActions.locator(".history-btn, .reset-defaults-btn")).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   await expect(settings.locator("settings-feed-preview .card")).not.toHaveCount(0);
