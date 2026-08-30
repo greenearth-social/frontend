@@ -820,6 +820,7 @@ describe("SettingsPage", () => {
     await vi.waitFor(() => {
       expect(feed.animateTo).toHaveBeenCalledTimes(1);
     });
+    expect(feed.animateTo).toHaveBeenCalledWith(generated.items, []);
     await element.updateComplete;
     expect(updatePreview?.textContent.trim()).toBe("Update preview");
     expect(updatePreview?.disabled).toBe(true);

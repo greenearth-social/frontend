@@ -53,9 +53,7 @@ export const PREVIEW_PAGE_SIZE = 20;
 export const PREVIEW_ANIMATION_TIMINGS = {
   fadeOut: 450,
   fadeOutStagger: 225,
-  removeSpace: 400,
-  rerank: 1550,
-  insertSpace: 400,
+  move: 1550,
   fadeIn: 450,
   fadeInStagger: 225,
   reducedMotion: 160,
@@ -105,6 +103,13 @@ export function previewPageTransition(
   };
 }
 
+function blueskyPostUrl(item: FeedItemView): string | null {
+  if (item.postUrl) return item.postUrl;
+  const match = /^at:\/\/([^/]+)\/app\.bsky\.feed\.post\/([^/?#]+)$/.exec(item.atUri);
+  if (!match?.[1] || !match[2]) return null;
+  return `https://bsky.app/profile/${match[1]}/post/${encodeURIComponent(match[2])}`;
+}
+
 @customElement("settings-feed-preview")
 export class SettingsFeedPreview extends LitElement {
   @property({ attribute: false }) items: FeedItemView[] = [];
@@ -114,8 +119,7 @@ export class SettingsFeedPreview extends LitElement {
   @state() private renderedItems: FeedItemView[] = [];
   @state() private comparisonItems: FeedItemView[] = [];
   @state() private currentPage = 1;
-  @state() private phase: "idle" | "fade-out" | "compact" | "rerank" | "insert-space" | "fade-in" =
-    "idle";
+  @state() private phase: "idle" | "fade-out" | "move" | "fade-in" = "idle";
   @state() private removedUris = new Set<string>();
   @state() private newUris = new Set<string>();
   private isAnimating = false;
@@ -189,6 +193,7 @@ export class SettingsFeedPreview extends LitElement {
 
     .card {
       box-sizing: border-box;
+      display: block;
       overflow: hidden;
       min-height: 4.375rem;
       max-height: 8rem;
@@ -196,14 +201,22 @@ export class SettingsFeedPreview extends LitElement {
       border: 2px solid var(--source-border);
       border-radius: 0.875rem;
       background: var(--surface, #16181c);
+      color: inherit;
       opacity: 1;
-      transition:
-        min-height 400ms ease,
-        max-height 400ms ease,
-        padding 400ms ease,
-        opacity 450ms ease,
-        margin 400ms ease;
+      text-decoration: none;
+      transition: opacity 450ms ease;
       will-change: transform, opacity;
+    }
+
+    a.card {
+      cursor: pointer;
+    }
+
+    a.card:hover,
+    a.card:focus-visible {
+      background: color-mix(in srgb, var(--surface, #16181c) 92%, white);
+      outline: 2px solid var(--bluesky-brand, #1083fe);
+      outline-offset: 1px;
     }
 
     .metadata {
@@ -230,17 +243,6 @@ export class SettingsFeedPreview extends LitElement {
 
     .card.partial .author {
       color: var(--text-secondary, #8b98a5);
-    }
-
-    .partial-link {
-      color: var(--bluesky-brand, #1083fe);
-      text-decoration: none;
-    }
-
-    .partial-link:hover,
-    .partial-link:focus-visible {
-      text-decoration: underline;
-      outline: none;
     }
 
     .content-row {
@@ -333,36 +335,13 @@ export class SettingsFeedPreview extends LitElement {
       transition-delay: var(--removal-delay, 0ms);
     }
 
-    .compact .card.removed {
-      min-height: 0;
-      max-height: 0;
-      padding-top: 0;
-      padding-bottom: 0;
-      border-width: 0;
+    .move .card.new {
       opacity: 0;
-    }
-
-    .insert-space .card.new {
-      animation: open-card 400ms ease both;
     }
 
     .fade-in .card.new {
       animation: reveal-card 450ms ease both;
       animation-delay: var(--reveal-delay, 0ms);
-    }
-
-    @keyframes open-card {
-      from {
-        min-height: 0;
-        max-height: 0;
-        padding-top: 0;
-        padding-bottom: 0;
-        border-width: 0;
-        opacity: 0;
-      }
-      to {
-        opacity: 0;
-      }
     }
 
     @keyframes reveal-card {
@@ -456,73 +435,53 @@ export class SettingsFeedPreview extends LitElement {
       );
       if (!this.isCurrentAnimation(animationOperation)) return;
 
-      this.phase = "compact";
-      await this.updateComplete;
-      if (!this.isCurrentAnimation(animationOperation)) return;
-      await delay(PREVIEW_ANIMATION_TIMINGS.removeSpace);
-      if (!this.isCurrentAnimation(animationOperation)) return;
-
-      const survivingCurrentPage = currentVisible.filter((item) => nextVisibleUris.has(item.atUri));
-      const survivingNextPage = nextVisible.filter((item) => currentVisibleUris.has(item.atUri));
-      const hasReordering = survivingCurrentPage.some(
-        (item, index) => item.atUri !== survivingNextPage[index]?.atUri,
+      const oldElements = [...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]")];
+      const oldRects = new Map(
+        oldElements
+          .filter((element) => nextVisibleUris.has(element.dataset.uri ?? ""))
+          .map((element) => [element.dataset.uri ?? "", element.getBoundingClientRect()]),
       );
+      const movingUris = new Set(
+        nextVisible
+          .filter((item, nextIndex) => {
+            const oldIndex = currentVisible.findIndex(
+              (candidate) => candidate.atUri === item.atUri,
+            );
+            return oldIndex >= 0 && oldIndex !== nextIndex;
+          })
+          .map((item) => item.atUri),
+      );
+
       this.currentSlate = next;
-      this.renderedItems = survivingCurrentPage;
       this.removedUris = new Set();
-      if (hasReordering) {
-        this.phase = "rerank";
-        await this.updateComplete;
-        if (!this.isCurrentAnimation(animationOperation)) return;
-
-        const oldElements = [
-          ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
-        ];
-        const oldRects = new Map(
-          oldElements.map((element) => [
-            element.dataset.uri ?? "",
-            element.getBoundingClientRect(),
-          ]),
-        );
-
-        this.renderedItems = survivingNextPage;
-        await this.updateComplete;
-        const animations = [
-          ...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]"),
-        ].map((element) => {
-          const oldRect = oldRects.get(element.dataset.uri ?? "");
-          const newRect = element.getBoundingClientRect();
-          const offset = oldRect ? oldRect.top - newRect.top : 0;
-          return this.waitForAnimation(
-            element.animate(
-              [{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }],
-              {
-                duration: PREVIEW_ANIMATION_TIMINGS.rerank,
-                easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-              },
-            ),
-          );
-        });
-        await Promise.all(animations);
-        if (!this.isCurrentAnimation(animationOperation)) return;
-      } else {
-        // Deletions and insertions can change the visible page without changing
-        // the relative order of its surviving posts. Move directly to the next
-        // phase instead of holding on an imperceptible rerank animation.
-        this.renderedItems = survivingNextPage;
-        await this.updateComplete;
-        if (!this.isCurrentAnimation(animationOperation)) return;
-      }
-
       this.newUris = new Set(
         nextVisible.filter((item) => !currentVisibleUris.has(item.atUri)).map((item) => item.atUri),
       );
       this.renderedItems = nextVisible;
-      this.phase = "insert-space";
+      this.phase = "move";
       await this.updateComplete;
       if (!this.isCurrentAnimation(animationOperation)) return;
-      await delay(PREVIEW_ANIMATION_TIMINGS.insertSpace);
-      if (!this.isCurrentAnimation(animationOperation)) return;
+
+      if (movingUris.size > 0) {
+        const animations = [...this.renderRoot.querySelectorAll<HTMLElement>(".feed > [data-uri]")]
+          .filter((element) => movingUris.has(element.dataset.uri ?? ""))
+          .map((element) => {
+            const oldRect = oldRects.get(element.dataset.uri ?? "");
+            const newRect = element.getBoundingClientRect();
+            const offset = oldRect ? oldRect.top - newRect.top : 0;
+            return this.waitForAnimation(
+              element.animate(
+                [{ transform: `translateY(${String(offset)}px)` }, { transform: "none" }],
+                {
+                  duration: PREVIEW_ANIMATION_TIMINGS.move,
+                  easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+                },
+              ),
+            );
+          });
+        await Promise.all(animations);
+        if (!this.isCurrentAnimation(animationOperation)) return;
+      }
 
       this.phase = "fade-in";
       await this.updateComplete;
@@ -533,10 +492,9 @@ export class SettingsFeedPreview extends LitElement {
       );
     } finally {
       if (this.isCurrentAnimation(animationOperation)) {
-        // Intermediate phases intentionally render the old ordering while
-        // measuring movement against the new slate. Re-assert the settled
-        // page before marking the animation idle so a delayed Lit update can
-        // never leave an old top card paired with its future rank badge.
+        // Re-assert the final page before marking the animation idle so a
+        // delayed Lit update can never leave a card paired with the wrong
+        // comparison badge.
         this.currentSlate = next;
         this.comparisonItems = current;
         this.currentPage = animationPage;
@@ -664,6 +622,7 @@ export class SettingsFeedPreview extends LitElement {
   private renderCard(item: FeedItemView) {
     const source = generatorPresentation(item.generators[0]?.name);
     const contentLabels = countedMediaLabels(item);
+    const postUrl = blueskyPostUrl(item);
     const movement = rankMovement(item.atUri, this.comparisonItems, this.currentSlate);
     const delta = movement.delta === null ? "" : String(Math.abs(movement.delta));
     const movementText =
@@ -676,50 +635,53 @@ export class SettingsFeedPreview extends LitElement {
     const newItems = this.renderedItems.filter((candidate) => this.newUris.has(candidate.atUri));
     const revealIndex = newItems.findIndex((candidate) => candidate.atUri === item.atUri);
     const revealDelay = revealCascadeDelay(revealIndex, newItems.length);
-    return html`
-      <article
-        class="card ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}"
-        data-uri=${item.atUri}
-        style="--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms"
-      >
-        <div class="metadata">
-          <span class="author"
-            >${item.isPartial ? "Post details unavailable" : item.displayName || item.author}</span
-          >
-          <span class="source-pill candidate-pill">${source.label}</span>
-          <span
-            class="movement ${movement.kind}"
-            aria-label=${movement.label}
-            title=${movement.label}
-          >
-            <wa-icon library="app" name=${movement.icon}></wa-icon>${movementText || nothing}
-          </span>
-        </div>
-        <div class="snippet">
-          ${
-            item.isPartial
-              ? item.postUrl
-                ? html`Ranked by MySky.
-                    <a
-                      class="partial-link"
-                      href=${item.postUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Open this post in Bluesky</a
-                    >.`
-                : "Ranked by MySky. Full post details are temporarily unavailable."
-              : item.content || item.mediaLabels.join(", ") || "Post"
-          }
-        </div>
+    const content = html`
+      <div class="metadata">
+        <span class="author"
+          >${item.isPartial ? "Post details unavailable" : item.displayName || item.author}</span
+        >
+        <span class="source-pill candidate-pill">${source.label}</span>
+        <span
+          class="movement ${movement.kind}"
+          aria-label=${movement.label}
+          title=${movement.label}
+        >
+          <wa-icon library="app" name=${movement.icon}></wa-icon>${movementText || nothing}
+        </span>
+      </div>
+      <div class="snippet">
         ${
-          contentLabels.length > 0
-            ? html`<div class="content-row">
-                ${contentLabels.map((label) => html`<span class="content-pill">${label}</span>`)}
-              </div>`
-            : nothing
+          item.isPartial
+            ? postUrl
+              ? "Ranked by MySky. Open this post in Bluesky."
+              : "Ranked by MySky. Full post details are temporarily unavailable."
+            : item.content || item.mediaLabels.join(", ") || "Post"
         }
-      </article>
+      </div>
+      ${
+        contentLabels.length > 0
+          ? html`<div class="content-row">
+              ${contentLabels.map((label) => html`<span class="content-pill">${label}</span>`)}
+            </div>`
+          : nothing
+      }
     `;
+    const className = `card ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}`;
+    const style = `--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms`;
+    return postUrl
+      ? html`<a
+          class=${className}
+          data-uri=${item.atUri}
+          style=${style}
+          href=${postUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open post by ${item.displayName || item.author} in Bluesky"
+          >${content}</a
+        >`
+      : html`<article class=${className} data-uri=${item.atUri} style=${style}>
+          ${content}
+        </article>`;
   }
 }
 

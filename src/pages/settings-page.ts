@@ -342,9 +342,11 @@ export class SettingsPage extends MobxLitElement {
               }}
             >
               ${
-                previewGenerating || (!hasGeneratedPreview && !this.isPreviewAnimating)
+                previewGenerating
                   ? "Generating preview"
-                  : "Update preview"
+                  : hasGeneratedPreview || this.isPreviewAnimating
+                    ? "Update preview"
+                    : "Preview"
               }
             </button>
             <div class="preview-mobile-primary-actions">
@@ -1121,7 +1123,7 @@ export class SettingsPage extends MobxLitElement {
       }
       this.isPreviewPreparing = false;
       this.isPreviewAnimating = true;
-      if (feed) await feed.animateTo(accepted.items);
+      if (feed) await feed.animateTo(accepted.items, [...store.displayedItems]);
       if (
         revision !== this.settingsRevision ||
         feedName !== this.selectedAlgorithm ||
