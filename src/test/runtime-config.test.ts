@@ -1,8 +1,21 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { runtimeConfig as defaultRuntimeConfig } from "../config";
 import {
   loadRuntimeConfig,
   parseRuntimeConfig,
 } from "../config/runtime-config";
+
+const productionRuntimeConfig = JSON.parse(
+  readFileSync(resolve(process.cwd(), "public/config.prod.json"), "utf8"),
+) as unknown;
+
+const expectedProductionBlueskyUrls = {
+  "your-feed": "https://bsky.app/profile/mysky.social/feed/your-feed",
+  "best-of-friends": "https://bsky.app/profile/mysky.social/feed/best-of-friends",
+  random: "https://bsky.app/profile/mysky.social/feed/random",
+};
 
 afterEach(() => {
   vi.useRealTimers();
@@ -10,6 +23,13 @@ afterEach(() => {
 });
 
 describe("parseRuntimeConfig", () => {
+  it("routes every production feed to its published Bluesky record", () => {
+    expect(defaultRuntimeConfig.blueskyUrls).toEqual(expectedProductionBlueskyUrls);
+    expect(parseRuntimeConfig(productionRuntimeConfig).blueskyUrls).toEqual(
+      expectedProductionBlueskyUrls,
+    );
+  });
+
   it("defaults missing feedback configuration to no-network test mode", () => {
     expect(
       parseRuntimeConfig({
