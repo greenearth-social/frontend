@@ -491,6 +491,15 @@ test("preview pagination remains available and the baseline refreshes automatica
   await nextPage.click();
   await expect(settings.getByText("Page 2 of 3", { exact: true })).toBeVisible();
 
+  await releaseFreshness(page, "4");
+  await settings.getByRole("button", { name: "Update preview", exact: true }).click();
+  await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible({
+    timeout: 12_000,
+  });
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
+    timeout: 12_000,
+  });
+
   await publishNewServedSlate(page, "served-after-bluesky-refresh");
   await expect(settings.getByRole("button", { name: "Refresh current feed" })).toHaveCount(0);
   await page.evaluate(() => {

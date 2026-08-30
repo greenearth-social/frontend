@@ -383,7 +383,7 @@ describe("settings feed movement presentation", () => {
     });
   });
 
-  it("adopts off-page changes without animating them", async () => {
+  it("returns to the first page when a new preview replaces a later page", async () => {
     const before = Array.from({ length: 40 }, (_, index) => item(`post-${String(index + 1)}`));
     const after = [item("off-page-new"), ...before.slice(1)];
     const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
@@ -410,11 +410,11 @@ describe("settings feed movement presentation", () => {
 
     try {
       await element.animateTo(after);
-      element.shadowRoot
-        ?.querySelector<HTMLButtonElement>('button[aria-label="Previous preview page"]')
-        ?.click();
       await element.updateComplete;
 
+      expect(element.shadowRoot?.querySelector(".pagination")?.textContent).toContain(
+        "Page 1 of 2",
+      );
       expect(element.shadowRoot?.querySelector<HTMLElement>(".card")?.dataset.uri).toBe(
         "off-page-new",
       );
