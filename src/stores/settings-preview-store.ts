@@ -12,6 +12,7 @@ import type { RootStore } from "./root-store";
 
 const BASELINE_MAX_AGE_MS = 10 * 60 * 1000;
 const HYDRATION_RETRY_DELAYS_MS = [300, 700, 1_500] as const;
+const PREVIEW_CACHE_MAX_ENTRIES = 8;
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -33,7 +34,20 @@ function generatorLabel(name: string): string {
 }
 
 function signature(feedName: AlgorithmId, patch: FeedPreferences): string {
-  return JSON.stringify({ feedName, patch });
+  return JSON.stringify({
+    feedName,
+    sourceWeights: patch.sourceWeights
+      ? {
+          following: patch.sourceWeights.following,
+          networkLikes: patch.sourceWeights.networkLikes,
+          authorsTopics: patch.sourceWeights.authorsTopics,
+          popular: patch.sourceWeights.popular,
+        }
+      : undefined,
+    freshness: patch.freshness,
+    politics: patch.politics,
+    purpose: patch.purpose,
+  });
 }
 
 function sameSlate(a: FeedItemView[], b: FeedItemView[]): boolean {
@@ -45,6 +59,7 @@ export interface GeneratedSettingsPreview {
   generation: number;
   requestId: string;
   generatedAt: string;
+  expiresAt: string;
   items: FeedItemView[];
   filteringCounts: FilteringCounts;
   generatorDiagnostics: GeneratorDiagnostic[];
@@ -92,18 +107,24 @@ export class SettingsPreviewStore {
   private refreshPromiseFeed: AlgorithmId | null = null;
   private accountId: string | null = null;
   private lastObservedServedRequestId: string | null = null;
+  private previewCache = new Map<string, GeneratedSettingsPreview>();
 
   constructor(root: RootStore) {
     this.root = root;
     makeAutoObservable<
       this,
-      "activationPromise" | "activationPromiseFeed" | "refreshPromise" | "refreshPromiseFeed"
+      | "activationPromise"
+      | "activationPromiseFeed"
+      | "refreshPromise"
+      | "refreshPromiseFeed"
+      | "previewCache"
     >(this, {
       root: false,
       activationPromise: false,
       activationPromiseFeed: false,
       refreshPromise: false,
       refreshPromiseFeed: false,
+      previewCache: false,
     });
   }
 
@@ -141,6 +162,7 @@ export class SettingsPreviewStore {
     this.lastPreviewRequestId = null;
     this.lastPreviewGeneratedAt = null;
     this.lastObservedServedRequestId = null;
+    this.previewCache.clear();
   }
 
   async activateFeed(feedName: AlgorithmId): Promise<void> {
@@ -353,9 +375,12 @@ export class SettingsPreviewStore {
     const previewOperation = ++this.previewOperation;
     this.refreshOperation++;
     this.isRefreshingBaseline = false;
-    this.isGenerating = true;
     this.acceptanceConflict = false;
     this.error = null;
+    const cached = this.cachedPreview(previewSignature, generation);
+    if (cached) return cached;
+
+    this.isGenerating = true;
     try {
       const generated = await this.generatePreview(feedName, patch, previewSignature, generation);
       if (previewOperation !== this.previewOperation || !this.isCurrentFeed(feedName, generation)) {
@@ -484,6 +509,41 @@ export class SettingsPreviewStore {
     return this.activeFeed === feedName && this.feedGeneration === generation;
   }
 
+  private cachedPreview(
+    previewSignature: string,
+    generation: number,
+  ): GeneratedSettingsPreview | null {
+    const cached = this.previewCache.get(previewSignature);
+    if (!cached) return null;
+    const expiresAt = Date.parse(cached.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      this.previewCache.delete(previewSignature);
+      return null;
+    }
+    // Refresh insertion order so the bounded cache keeps recently revisited
+    // Undo/Redo states available for the duration of the server-side TTL.
+    this.previewCache.delete(previewSignature);
+    this.previewCache.set(previewSignature, cached);
+    return {
+      ...cached,
+      generation,
+      items: [...cached.items],
+      filteringCounts: { ...cached.filteringCounts },
+      generatorDiagnostics: [...cached.generatorDiagnostics],
+    };
+  }
+
+  private rememberPreview(preview: GeneratedSettingsPreview): GeneratedSettingsPreview {
+    this.previewCache.delete(preview.signature);
+    this.previewCache.set(preview.signature, preview);
+    while (this.previewCache.size > PREVIEW_CACHE_MAX_ENTRIES) {
+      const oldest = this.previewCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.previewCache.delete(oldest);
+    }
+    return preview;
+  }
+
   private async generatePreview(
     feedName: AlgorithmId,
     patch: FeedPreferences,
@@ -524,15 +584,16 @@ export class SettingsPreviewStore {
         `Preview could not load ${sources.join(" and ")} posts. Your current preview was kept; try again.`,
       );
     }
-    return {
+    return this.rememberPreview({
       feedName,
       generation,
       requestId: session.requestId,
       generatedAt: detail.generatedAt,
+      expiresAt: session.expiresAt,
       items: transformFeedItems(detail.items),
       filteringCounts: detail.filteringCounts,
       generatorDiagnostics: diagnostics,
       signature: previewSignature,
-    };
+    });
   }
 }

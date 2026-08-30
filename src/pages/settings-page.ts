@@ -82,6 +82,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewPurpose: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private mobilePreviewOpen = false;
+  @state() private isPreviewPreparing = false;
   @state() private isPreviewAnimating = false;
   @state() private isResetting = false;
   @state() private isApplyingHistory = false;
@@ -178,6 +179,7 @@ export class SettingsPage extends MobxLitElement {
       this.selectedNode = null;
       this.mobilePreviewOpen = false;
       this.previewAnimationOperation++;
+      this.isPreviewPreparing = false;
       this.isPreviewAnimating = false;
       this.previewNeeded = false;
       this.historyEntry = null;
@@ -207,7 +209,8 @@ export class SettingsPage extends MobxLitElement {
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
-    const previewBusy = (previewStore?.isGenerating ?? false) || this.isPreviewAnimating;
+    const previewGenerating = (previewStore?.isGenerating ?? false) || this.isPreviewPreparing;
+    const previewBusy = previewGenerating || this.isPreviewAnimating;
     const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
     const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
     const historyLabel = `${historyAction} last settings change`;
@@ -338,7 +341,11 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              ${previewBusy || !hasGeneratedPreview ? "Generating preview" : "Update preview"}
+              ${
+                previewGenerating || (!hasGeneratedPreview && !this.isPreviewAnimating)
+                  ? "Generating preview"
+                  : "Update preview"
+              }
             </button>
             <div class="preview-mobile-primary-actions">
               <button
@@ -353,7 +360,11 @@ export class SettingsPage extends MobxLitElement {
               >
                 <wa-icon library="app" name="chevron-left"></wa-icon>
               </button>
-              <span class="mobile-preview-status">Generating Preview</span>
+              ${
+                previewGenerating
+                  ? html`<span class="mobile-preview-status">Generating Preview</span>`
+                  : html`<span class="mobile-preview-status">Preview</span>`
+              }
             </div>
           </div>
           ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
@@ -379,7 +390,7 @@ export class SettingsPage extends MobxLitElement {
               .loading=${
                 (previewStore?.isLoadingBaseline ?? false) ||
                 (previewStore?.isGenerating ?? false) ||
-                this.isPreviewAnimating
+                this.isPreviewPreparing
               }
               .error=${previewStore?.error ?? ""}
               .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
@@ -994,7 +1005,14 @@ export class SettingsPage extends MobxLitElement {
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
-    if (!store || !root || !this.previewNeeded || store.isGenerating || this.isPreviewAnimating) {
+    if (
+      !store ||
+      !root ||
+      !this.previewNeeded ||
+      store.isGenerating ||
+      this.isPreviewPreparing ||
+      this.isPreviewAnimating
+    ) {
       return;
     }
     if (store.isRefreshingBaseline) this.baselineSyncPending = true;
@@ -1003,7 +1021,7 @@ export class SettingsPage extends MobxLitElement {
     const animationOperation = ++this.previewAnimationOperation;
     const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
     if (isMobilePreview) this.mobilePreviewOpen = true;
-    this.isPreviewAnimating = true;
+    this.isPreviewPreparing = true;
     const persistenceSucceeded = await root.preferencesStore.waitForPendingSaves(feedName);
     if (
       !persistenceSucceeded ||
@@ -1015,6 +1033,7 @@ export class SettingsPage extends MobxLitElement {
         this.settingsError = "Settings could not be saved, so Preview was not updated.";
       }
       if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewPreparing = false;
         this.isPreviewAnimating = false;
       }
       this.#drainBaselineSyncQueue();
@@ -1029,6 +1048,7 @@ export class SettingsPage extends MobxLitElement {
       animationOperation !== this.previewAnimationOperation
     ) {
       if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewPreparing = false;
         this.isPreviewAnimating = false;
       }
       this.#drainBaselineSyncQueue();
@@ -1076,6 +1096,7 @@ export class SettingsPage extends MobxLitElement {
       animationOperation !== this.previewAnimationOperation
     ) {
       if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewPreparing = false;
         this.isPreviewAnimating = false;
       }
       this.#drainBaselineSyncQueue();
@@ -1098,6 +1119,8 @@ export class SettingsPage extends MobxLitElement {
           return;
         }
       }
+      this.isPreviewPreparing = false;
+      this.isPreviewAnimating = true;
       if (feed) await feed.animateTo(accepted.items);
       if (
         revision !== this.settingsRevision ||
@@ -1110,6 +1133,7 @@ export class SettingsPage extends MobxLitElement {
       this.previewNeeded = false;
     } finally {
       if (animationOperation === this.previewAnimationOperation) {
+        this.isPreviewPreparing = false;
         this.isPreviewAnimating = false;
       }
       this.#drainBaselineSyncQueue();
@@ -1158,7 +1182,12 @@ export class SettingsPage extends MobxLitElement {
     if (!this.isConnected || document.visibilityState === "hidden") return;
     const store = getSettingsPreviewStore();
     if (!store) return;
-    if (store.isLoadingBaseline || store.isGenerating || this.isPreviewAnimating) {
+    if (
+      store.isLoadingBaseline ||
+      store.isGenerating ||
+      this.isPreviewPreparing ||
+      this.isPreviewAnimating
+    ) {
       this.baselineSyncPending = true;
       return;
     }
@@ -1186,6 +1215,7 @@ export class SettingsPage extends MobxLitElement {
       !store ||
       store.isLoadingBaseline ||
       store.isGenerating ||
+      this.isPreviewPreparing ||
       this.isPreviewAnimating ||
       this.baselineSyncPromise
     ) {
@@ -1211,7 +1241,7 @@ export class SettingsPage extends MobxLitElement {
 
   #closeMobilePreview(): void {
     const store = getSettingsPreviewStore();
-    if (store?.isGenerating || this.isPreviewAnimating) return;
+    if (store?.isGenerating || this.isPreviewPreparing || this.isPreviewAnimating) return;
     this.mobilePreviewOpen = false;
   }
 }

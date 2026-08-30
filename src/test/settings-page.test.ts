@@ -690,9 +690,7 @@ describe("SettingsPage", () => {
     expect(back?.textContent.trim()).toBe("");
     expect(back?.querySelector("wa-icon")?.getAttribute("name")).toBe("chevron-left");
     expect(mobileActions?.querySelector(".mobile-preview-title")).toBeNull();
-    expect(mobileActions?.querySelector(".mobile-preview-status")?.textContent).toBe(
-      "Generating Preview",
-    );
+    expect(mobileActions?.querySelector(".mobile-preview-status")?.textContent).toBe("Preview");
     expect(element.shadowRoot?.querySelector(".source-controls-help")).toBeNull();
     expect(element.shadowRoot?.querySelector(".percentage-suffix")).toBeNull();
     expect(element.shadowRoot?.textContent).not.toContain("Enter a whole percentage");
@@ -763,6 +761,7 @@ describe("SettingsPage", () => {
   it("keeps an empty Preview loading through server acceptance", async () => {
     const generated = { items: [{ atUri: "at://did:plc:author/app.bsky.feed.post/new" }] };
     let finishAcceptance: (() => void) | undefined;
+    let finishAnimation: (() => void) | undefined;
     testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
     testState.rootStore.settingsPreviewStore.acceptGeneratedPreview.mockImplementation(
       () =>
@@ -791,7 +790,12 @@ describe("SettingsPage", () => {
 
     const feed = element.shadowRoot?.querySelector("settings-feed-preview");
     if (!feed) throw new Error("Settings feed preview was not rendered");
-    vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+    vi.spyOn(feed, "animateTo").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishAnimation = resolve;
+        }),
+    );
     element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
     await vi.waitFor(() => {
       expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledTimes(
@@ -814,14 +818,19 @@ describe("SettingsPage", () => {
 
     finishAcceptance?.();
     await vi.waitFor(() => {
-      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
+      expect(feed.animateTo).toHaveBeenCalledTimes(1);
     });
     await element.updateComplete;
     expect(updatePreview?.textContent.trim()).toBe("Update preview");
     expect(updatePreview?.disabled).toBe(true);
     expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
-      "Generating Preview",
+      "Preview",
     );
+
+    finishAnimation?.();
+    await vi.waitFor(() => {
+      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("recovers a 409 by synchronizing the captured snapshot and regenerating once", async () => {

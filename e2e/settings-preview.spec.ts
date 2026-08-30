@@ -402,6 +402,10 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
   await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
+  await expect(settings.locator(".mobile-preview-status")).toHaveText("Preview");
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
+    timeout: 12_000,
+  });
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
   await expect(freshness).toHaveValue("5");
@@ -570,7 +574,7 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   );
   await expect(mobileActions.locator("button")).toHaveCount(1);
   await expect(mobileActions.getByRole("heading", { name: "Settings" })).toHaveCount(0);
-  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("Generating Preview");
+  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("Preview");
   const previewHeaderAlignment = await settings.locator(".preview-header").evaluate((header) => {
     const headerRect = header.getBoundingClientRect();
     const statusRect = header.querySelector(".mobile-preview-status")?.getBoundingClientRect();

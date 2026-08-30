@@ -316,7 +316,6 @@ export class MockFeedApiService implements IFeedApiService {
     if (!this.previewPreferences.has(requestId)) {
       return Promise.reject(new Error("Mock preview expired"));
     }
-    this.previewPreferences.delete(requestId);
     return Promise.resolve({
       requestId,
       preferences: prefs,

@@ -533,6 +533,14 @@ export class SettingsFeedPreview extends LitElement {
       );
     } finally {
       if (this.isCurrentAnimation(animationOperation)) {
+        // Intermediate phases intentionally render the old ordering while
+        // measuring movement against the new slate. Re-assert the settled
+        // page before marking the animation idle so a delayed Lit update can
+        // never leave an old top card paired with its future rank badge.
+        this.currentSlate = next;
+        this.comparisonItems = current;
+        this.currentPage = animationPage;
+        this.renderedItems = nextVisible;
         this.removedUris = new Set();
         this.newUris = new Set();
         this.phase = "idle";
