@@ -216,6 +216,29 @@ describe("PreferencesStore.save", () => {
     expect(capture).not.toHaveBeenCalled();
   });
 
+  it("does not dispatch a queued save after the account changes", async () => {
+    let resolveFirst: ((value: FeedPreferences) => void) | undefined;
+    const firstRequest = new Promise<FeedPreferences>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const patch = vi.fn().mockReturnValueOnce(firstRequest);
+    const { store } = makeStore(patch);
+    await store.load();
+
+    const firstSave = store.save("your-feed", "freshness", 2);
+    const queuedSave = store.save("your-feed", "freshness", 4);
+    await vi.waitFor(() => {
+      expect(patch).toHaveBeenCalledTimes(1);
+    });
+
+    store.reset();
+    resolveFirst?.({ freshness: 2 });
+    await Promise.all([firstSave, queuedSave]);
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(store.valuesFor("your-feed").freshness).toBe(5);
+  });
+
   it("captures freshness semantics for the initiating feed", async () => {
     const { store, capture } = makeStore(vi.fn().mockResolvedValue({ freshness: 2 }));
     await store.load();

@@ -259,6 +259,33 @@ describe("FeedStore.loadFeedList", () => {
     expect(api.getFeedDetail).not.toHaveBeenCalled();
   });
 
+  it("preserves the loaded snapshot when a background list refresh fails", async () => {
+    const listFeeds = vi.fn().mockRejectedValue(new Error("offline"));
+    const store = makeStore(listFeeds, {
+      setSelectedAlgorithm: vi.fn(),
+      selectedAlgorithm: "your-feed",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    store.feedList = [
+      {
+        requestId: "visible-request",
+        generatedAt: "2026-08-10T12:00:00Z",
+        feedName: "your-feed",
+        apiReleaseSha: null,
+        appliedSocialRadius: null,
+        generatorDiagnostics: [],
+      },
+    ];
+    store.currentRequestId = "visible-request";
+    store.lastGeneratedAt = "2026-08-10T12:00:00Z";
+
+    expect(await store.refreshFeedIfNew("your-feed", "visible-request")).toBe(false);
+    expect(store.feedList.map((feed) => feed.requestId)).toEqual(["visible-request"]);
+    expect(store.currentRequestId).toBe("visible-request");
+    expect(store.lastGeneratedAt).toBe("2026-08-10T12:00:00Z");
+    consoleError.mockRestore();
+  });
+
   it("keeps the current screen stable while a returned Bluesky snapshot downloads", async () => {
     let resolveDetail:
       | ((value: {

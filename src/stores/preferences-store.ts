@@ -559,9 +559,13 @@ export class PreferencesStore {
     feedName: AlgorithmId,
     patch: FeedPreferences,
   ): Promise<FeedPreferences> {
-    const request = this.saveQueueByFeed[feedName].then(() =>
-      this.root.services.feedApiService.patchPreferences(feedName, patch),
-    );
+    const generation = this.accountGeneration;
+    const request = this.saveQueueByFeed[feedName].then(() => {
+      // A request can remain queued after sign-out while an earlier save is in
+      // flight. Do not let that stale callback use the next account's token.
+      if (generation !== this.accountGeneration) return patch;
+      return this.root.services.feedApiService.patchPreferences(feedName, patch);
+    });
     this.saveQueueByFeed[feedName] = request.then(
       () => undefined,
       () => undefined,
