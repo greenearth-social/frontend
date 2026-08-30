@@ -249,6 +249,57 @@ describe("settings feed movement presentation", () => {
     }
   });
 
+  it("settles the visible order before exposing final movement badges", async () => {
+    vi.useFakeTimers();
+    const before = Array.from({ length: 20 }, (_, index) => item(`post-${String(index + 1)}`));
+    const displacedTop = before[0];
+    const finalPost = before[19];
+    if (!displacedTop || !finalPost) throw new Error("Expected a complete preview page");
+    const after = [...before.slice(1, 19), displacedTop, finalPost];
+    const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    const originalAnimate = HTMLElement.prototype.animate;
+    Object.defineProperty(HTMLElement.prototype, "animate", {
+      configurable: true,
+      value: vi.fn(() => ({ finished: Promise.resolve() })),
+    });
+    const element = document.createElement("settings-feed-preview");
+    element.items = before;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    try {
+      const finished = element.animateTo(after);
+      await vi.runAllTimersAsync();
+      await finished;
+      await element.updateComplete;
+
+      const firstCard = element.shadowRoot?.querySelector<HTMLElement>(".card");
+      expect(firstCard?.dataset.uri).toBe("post-2");
+      expect(firstCard?.querySelector(".movement")?.classList).toContain("up");
+      expect(firstCard?.querySelector(".movement")?.getAttribute("aria-label")).toBe(
+        "Moved up 1 position",
+      );
+      expect(firstCard?.querySelector(".movement")?.classList).not.toContain("down");
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, "animate", {
+        configurable: true,
+        value: originalAnimate,
+      });
+      matchMedia.mockRestore();
+      element.remove();
+      vi.useRealTimers();
+    }
+  });
+
   it("settles an incoming feed baseline after the previous feed is cleared", async () => {
     const element = document.createElement("settings-feed-preview");
     element.items = ["feed-a-1", "feed-a-2"].map(item);

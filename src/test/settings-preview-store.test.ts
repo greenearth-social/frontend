@@ -145,6 +145,54 @@ describe("SettingsPreviewStore", () => {
     expect(store.isDisplayingBaseline).toBe(false);
   });
 
+  it("reuses the exact cached slate when Undo and Redo revisit settings", async () => {
+    const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const firstPatch = { freshness: 2, purpose: 0.4 };
+    const secondPatch = { purpose: 0.7, freshness: 4 };
+    createFeedPreview
+      .mockResolvedValueOnce({
+        requestId: "preview-a",
+        feedName: "your-feed",
+        generatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        requestId: "preview-b",
+        feedName: "your-feed",
+        generatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      });
+    getFeedPreview
+      .mockResolvedValueOnce(detail("preview-a", ["a-1", "a-2"]))
+      .mockResolvedValueOnce(detail("preview-b", ["b-1", "b-2"]));
+
+    const first = await store.preview(firstPatch);
+    if (first) await store.acceptGeneratedPreview(first, firstPatch);
+    const second = await store.preview(secondPatch);
+    if (second) await store.acceptGeneratedPreview(second, secondPatch);
+    const undo = await store.preview({ purpose: 0.4, freshness: 2 });
+    if (undo) await store.acceptGeneratedPreview(undo, firstPatch);
+    const redo = await store.preview({ freshness: 4, purpose: 0.7 });
+    if (redo) await store.acceptGeneratedPreview(redo, secondPatch);
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+    expect(getFeedPreview).toHaveBeenCalledTimes(2);
+    expect(undo?.requestId).toBe("preview-a");
+    expect(undo?.items.map((item) => item.atUri)).toEqual(["a-1", "a-2"]);
+    expect(redo?.requestId).toBe("preview-b");
+    expect(redo?.items.map((item) => item.atUri)).toEqual(["b-1", "b-2"]);
+    expect(acceptFeedPreview).toHaveBeenNthCalledWith(3, "your-feed", "preview-a", firstPatch, [
+      "a-1",
+      "a-2",
+    ]);
+    expect(acceptFeedPreview).toHaveBeenNthCalledWith(4, "your-feed", "preview-b", secondPatch, [
+      "b-1",
+      "b-2",
+    ]);
+  });
+
   it("regenerates and accepts once when the Preview cache expires", async () => {
     const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
@@ -181,6 +229,10 @@ describe("SettingsPreviewStore", () => {
       "replacement",
     ]);
     expect(accepted?.requestId).toBe("preview-2");
+
+    const reused = await store.preview(patch);
+    expect(reused?.requestId).toBe("preview-2");
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
   });
 
   it("exposes a stale-preference conflict only as an internal recovery signal", async () => {
