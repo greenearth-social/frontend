@@ -115,19 +115,15 @@ describe("settings feed movement presentation", () => {
     expect(PREVIEW_ANIMATION_TIMINGS).toEqual({
       fadeOut: 450,
       fadeOutStagger: 225,
-      removeSpace: 400,
-      rerank: 1550,
-      insertSpace: 400,
+      move: 1550,
       fadeIn: 450,
       fadeInStagger: 225,
       reducedMotion: 160,
     });
-    expect(SettingsFeedPreview.styles.cssText).toContain("min-height 400ms ease");
     expect(SettingsFeedPreview.styles.cssText).toContain("opacity 450ms ease");
     expect(SettingsFeedPreview.styles.cssText).toContain(
       "transition-delay: var(--removal-delay, 0ms)",
     );
-    expect(SettingsFeedPreview.styles.cssText).toContain("animation: open-card 400ms ease both");
     expect(SettingsFeedPreview.styles.cssText).toContain("animation: reveal-card 450ms ease both");
     expect(SettingsFeedPreview.styles.cssText).toContain(
       "animation-delay: var(--reveal-delay, 0ms)",
@@ -148,7 +144,7 @@ describe("settings feed movement presentation", () => {
     expect(revealCascadeDelay(3, 4)).toBe(675);
   });
 
-  it("fades departures before removing their space and reordering full cards", async () => {
+  it("fades departures, moves survivors once to their final slots, then reveals additions", async () => {
     vi.useFakeTimers();
     const animationResolvers: Array<() => void> = [];
     const originalAnimate = HTMLElement.prototype.animate;
@@ -172,19 +168,18 @@ describe("settings feed movement presentation", () => {
 
       await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeOut);
       await element.updateComplete;
-      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("compact");
-      expect(element.shadowRoot?.querySelectorAll(".compact .card")).toHaveLength(3);
-      expect(SettingsFeedPreview.styles.cssText).not.toContain(".compact .snippet");
-      expect(SettingsFeedPreview.styles.cssText).not.toContain(".rerank .snippet");
-      expect(SettingsFeedPreview.styles.cssText).toContain(".compact .card.removed");
-
-      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.removeSpace);
-      await element.updateComplete;
-      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("rerank");
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("move");
+      expect(element.shadowRoot?.querySelectorAll(".move .card")).toHaveLength(3);
+      expect(element.shadowRoot?.querySelectorAll(".move .card.new")).toHaveLength(1);
+      expect(
+        [...(element.shadowRoot?.querySelectorAll<HTMLElement>(".move .card") ?? [])].map(
+          (card) => card.dataset.uri,
+        ),
+      ).toEqual(["c", "b", "new"]);
       expect(HTMLElement.prototype.animate).toHaveBeenCalledWith(
         expect.any(Array),
         expect.objectContaining({
-          duration: PREVIEW_ANIMATION_TIMINGS.rerank,
+          duration: PREVIEW_ANIMATION_TIMINGS.move,
           easing: "cubic-bezier(0.4, 0, 0.2, 1)",
         }),
       );
@@ -193,10 +188,6 @@ describe("settings feed movement presentation", () => {
         resolve();
       });
       for (let index = 0; index < 4; index++) await Promise.resolve();
-      await element.updateComplete;
-      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("insert-space");
-
-      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.insertSpace);
       await element.updateComplete;
       expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-in");
 
@@ -214,7 +205,7 @@ describe("settings feed movement presentation", () => {
     }
   });
 
-  it("skips the rerank pause when surviving posts keep their order", async () => {
+  it("skips movement when surviving posts already occupy their final slots", async () => {
     vi.useFakeTimers();
     const originalAnimate = HTMLElement.prototype.animate;
     const animate = vi.fn(() => ({ finished: Promise.resolve() }));
@@ -228,15 +219,13 @@ describe("settings feed movement presentation", () => {
     await element.updateComplete;
 
     try {
-      const finished = element.animateTo(["b", "c", "new"].map(item));
+      const finished = element.animateTo(["a", "b", "new"].map(item));
       await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeOut);
-      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.removeSpace);
       await element.updateComplete;
 
       expect(animate).not.toHaveBeenCalled();
-      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("insert-space");
+      expect(element.shadowRoot?.querySelector(".feed")?.classList).toContain("fade-in");
 
-      await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.insertSpace);
       await vi.advanceTimersByTimeAsync(PREVIEW_ANIMATION_TIMINGS.fadeIn);
       await finished;
     } finally {
@@ -340,6 +329,22 @@ describe("settings feed movement presentation", () => {
     expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-brand, #1083fe)");
     expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-danger, #f4212e)");
     expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-repost, #00ba7c)");
+    element.remove();
+  });
+
+  it("opens the original Bluesky post from anywhere on a preview card", async () => {
+    const linkedItem = item("at://did:plc:author/app.bsky.feed.post/post-1");
+    linkedItem.postUrl = "https://bsky.app/profile/did:plc:author/post/post-1";
+    const element = document.createElement("settings-feed-preview");
+    element.items = [linkedItem];
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const card = element.shadowRoot?.querySelector<HTMLAnchorElement>("a.card");
+    expect(card?.href).toBe("https://bsky.app/profile/did:plc:author/post/post-1");
+    expect(card?.target).toBe("_blank");
+    expect(card?.rel).toBe("noopener noreferrer");
+    expect(card?.textContent).toContain("Post");
     element.remove();
   });
 

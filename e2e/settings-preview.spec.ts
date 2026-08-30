@@ -91,6 +91,7 @@ async function publishNewServedSlate(page: Page, requestId: string): Promise<voi
 test("desktop keeps posts visible at 1280px with the divider chevron", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSettings(page);
+  await expect(page).toHaveTitle("MySky Settings");
 
   const sidebar = page.locator(".left-sidebar-desktop");
   const sidebarToggle = sidebar.getByRole("button", { name: "Collapse navigation" });
@@ -118,7 +119,7 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
-  const updatePreview = settings.getByRole("button", { name: "Generating preview" });
+  const updatePreview = settings.getByRole("button", { name: "Preview", exact: true });
   await expect(updatePreview).toBeDisabled();
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
   const previewHeaderGeometry = await settings.locator(".feed-column").evaluate((column) => {
@@ -134,6 +135,8 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
   ).toBeLessThanOrEqual(1);
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
   const previewCard = settings.locator("settings-feed-preview .card").first();
+  await expect(previewCard).toHaveAttribute("href", /^https:\/\/bsky\.app\/profile\//);
+  await expect(previewCard).toHaveAttribute("target", "_blank");
   const candidate = previewCard.locator(".metadata .candidate-pill");
   await expect(candidate).toBeVisible();
   await expect(candidate).toHaveText(/\S+/);
@@ -244,7 +247,7 @@ test("100% Liked by Following reaches Preview and preserves ranked fallback card
   });
 
   await setSourcePercentage(page, "Liked by Following", "100");
-  const preview = page.getByRole("button", { name: "Generating preview" });
+  const preview = page.getByRole("button", { name: "Preview", exact: true });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect(page.locator("settings-page settings-feed-preview .card.partial")).toHaveCount(2, {
@@ -306,7 +309,7 @@ test("100% Following reaches persistence and Preview with every other source at 
   });
 
   await setSourcePercentage(page, "Following", "100");
-  const preview = page.getByRole("button", { name: "Generating preview" });
+  const preview = page.getByRole("button", { name: "Preview", exact: true });
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect
@@ -332,7 +335,7 @@ test("1024px is desktop: the populated post pane remains beside settings without
   await expect(settings.locator(".controls-column")).toBeVisible();
   await expect(settings.locator(".feed-column")).toBeVisible();
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
-  await expect(settings.getByRole("button", { name: "Generating preview" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
   const overflow = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -386,7 +389,7 @@ test("changes persist immediately and each displayed Preview is accepted exactly
 
   const settings = page.locator("settings-page");
   const preview = settings.locator("#update-preview");
-  await expect(preview).toHaveText("Generating preview");
+  await expect(preview).toHaveText("Preview");
   const freshness = page.getByRole("slider", { name: "Time Window" });
   await expect(preview).toBeDisabled();
   await releaseFreshness(page, "2");
@@ -482,7 +485,7 @@ test("preview pagination remains available and the baseline refreshes automatica
   const settings = page.locator("settings-page");
 
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Generating preview" }).click();
+  await settings.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(settings.getByText("Page 1 of 3", { exact: true })).toBeVisible({ timeout: 6_000 });
   const nextPage = settings.getByRole("button", { name: "Next preview page" });
   await nextPage.click();
@@ -910,7 +913,7 @@ test("feed switching clears stale preview work and enables Preview after the nex
 
   const settings = page.locator("settings-page");
   await releaseFreshness(page, "2");
-  await settings.getByRole("button", { name: "Generating preview" }).click();
+  await settings.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
 
   await page.evaluate(() => {
@@ -918,10 +921,10 @@ test("feed switching clears stale preview work and enables Preview after the nex
   });
   await expect(page).toHaveURL(/#\/settings\/random$/);
   await expect(settings.getByRole("heading", { name: "Random Settings" })).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Generating preview" })).toBeDisabled();
+  await expect(settings.getByRole("button", { name: "Preview", exact: true })).toBeDisabled();
   await releaseFreshness(page, "2");
   const preview = settings.locator("#update-preview");
-  await expect(preview).toHaveText("Generating preview");
+  await expect(preview).toHaveText("Preview");
   await expect(preview).toBeEnabled();
   await preview.click();
   await expect(preview).toHaveText("Update preview", { timeout: 6_000 });
