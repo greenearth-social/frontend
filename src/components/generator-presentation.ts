@@ -43,9 +43,9 @@ export const GENERATOR_PRESENTATIONS = {
     label: "Similar",
   },
   network_likes: {
-    background: "rgba(251, 113, 133, 0.12)",
-    color: "#fb7185",
-    border: "rgba(251, 113, 133, 0.8)",
+    background: "rgba(251, 191, 36, 0.12)",
+    color: "#fbbf24",
+    border: "rgba(251, 191, 36, 0.8)",
     label: "Followed Likes",
   },
   random_posts: RANDOM,
