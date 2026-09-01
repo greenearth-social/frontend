@@ -54,8 +54,8 @@ describe("GeneratorBadge", () => {
       border: "rgba(244, 114, 182, 0.8)",
     });
     expect(generatorPresentation("network_likes")).toMatchObject({
-      color: "#fb7185",
-      border: "rgba(251, 113, 133, 0.8)",
+      color: "#fbbf24",
+      border: "rgba(251, 191, 36, 0.8)",
     });
     expect(generatorPresentation("popularity")).toMatchObject({
       color: "#34d399",
