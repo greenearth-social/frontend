@@ -11,7 +11,7 @@ export type RankMovement =
   | {
       kind: "up" | "down" | "unchanged";
       delta: number;
-      icon: "chevron-up" | "chevron-down" | "minus";
+      icon: "arrow-up" | "arrow-down" | "minus";
       label: string;
     };
 
@@ -31,7 +31,7 @@ export function rankMovement(
     return {
       kind: "up",
       delta,
-      icon: "chevron-up",
+      icon: "arrow-up",
       label: `Moved up ${String(delta)} ${delta === 1 ? "position" : "positions"}`,
     };
   }
@@ -39,7 +39,7 @@ export function rankMovement(
   return {
     kind: "down",
     delta,
-    icon: "chevron-down",
+    icon: "arrow-down",
     label: `Moved down ${String(absoluteDelta)} ${absoluteDelta === 1 ? "position" : "positions"}`,
   };
 }

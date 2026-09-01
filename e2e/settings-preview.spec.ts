@@ -21,10 +21,10 @@ async function releaseFreshness(page: Page, value: string): Promise<void> {
 
 async function setSourcePercentage(page: Page, label: string, value: string): Promise<void> {
   await page
-    .getByRole("spinbutton", { name: `${label} percentage`, exact: true })
+    .getByRole("slider", { name: `${label} amount`, exact: true })
     .evaluate((input, next) => {
-      if (!(input instanceof HTMLInputElement)) throw new Error("Expected a number input");
-      input.value = next;
+      if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
+      input.value = String(Number(next) / 100);
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }, value);
@@ -119,6 +119,7 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
+  await expect(settings.locator(".preview-movement-help")).toHaveCount(0);
   const updatePreview = settings.getByRole("button", { name: "Preview", exact: true });
   await expect(updatePreview).toBeDisabled();
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
@@ -254,10 +255,13 @@ test("100% Liked by Following reaches Preview and preserves ranked fallback card
     timeout: 12_000,
   });
   await expect(
-    page
-      .locator("settings-page .feed-column .preview-warning")
-      .filter({ hasText: /ranked posts are shown with limited details/ }),
-  ).toBeVisible();
+    page.locator(
+      "settings-page .feed-column .preview-warning, settings-page .feed-column .preview-sync-status, settings-page .feed-column .baseline-refresh-error",
+    ),
+  ).toHaveCount(0);
+  await expect(page.locator("settings-page .feed-column .preview-movement-help")).toHaveText(
+    "Here’s how far up or down each post moved",
+  );
 
   const payloads = await page.evaluate(() => ({
     saved: Reflect.get(window, "__myskySavedPatch") as Record<string, unknown>,
@@ -409,11 +413,15 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
+  await expect(settings.locator(".preview-movement-help")).toHaveText(
+    "Here’s how far up or down each post moved",
+  );
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
   await expect(freshness).toHaveValue("5");
   await expect(settings.getByRole("button", { name: "Redo last settings change" })).toBeEnabled();
   await expect(preview).toBeEnabled();
+  await expect(settings.locator(".preview-movement-help")).toBeVisible();
 
   await preview.click();
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/fade-out/);
@@ -505,9 +513,6 @@ test("preview pagination remains available and the baseline refreshes automatica
   await page.evaluate(() => {
     window.dispatchEvent(new PageTransitionEvent("pageshow"));
   });
-  await expect(
-    settings.getByText("Current feed updated from Bluesky", { exact: true }),
-  ).toBeVisible();
   await expect(settings.getByText("Served from Bluesky", { exact: true })).toBeVisible();
 });
 

@@ -178,7 +178,7 @@ test.describe("feed-scoped navigation", () => {
     );
   });
 
-  test("places Politics in Ranking and applies both source-rank endpoints", async ({ page }) => {
+  test("places Politics in Ranking without the combined source-rank control", async ({ page }) => {
     await page.evaluate(() => {
       window.location.hash = "/settings/your-feed";
     });
@@ -186,13 +186,7 @@ test.describe("feed-scoped navigation", () => {
     const settings = page.locator("settings-page");
     const ranking = settings.locator(".section-ranking");
     await expect(settings.getByRole("heading", { name: "Sources" })).toBeVisible();
-    await settings.getByRole("button", { name: "Learn more about Sources" }).click();
-    const sourcesDialog = settings.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toContainText(
-      "Percentages control how much each source contributes",
-    );
-    await expect(sourcesDialog).toContainText("lifecycle icons");
-    await sourcesDialog.getByRole("button", { name: "Close detail" }).click();
+    await expect(settings.getByRole("button", { name: "Learn more about Sources" })).toHaveCount(0);
     const politics = ranking.locator(".ranking-grid > .politics-card");
     await expect(politics).toBeVisible();
     expect(
@@ -202,42 +196,9 @@ test.describe("feed-scoped navigation", () => {
       })),
     ).toEqual({ start: "1", end: "-1" });
 
-    const sourceRank = page.getByRole("slider", { name: "Source rank" });
-    const setSourceRank = (value: string) =>
-      sourceRank.evaluate((input, nextValue) => {
-        if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
-        input.value = nextValue;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      }, value);
-
-    await setSourceRank("4");
-    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
-      "0",
-    );
-    await expect(
-      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
-    ).toHaveValue("0.1");
-    await expect(
-      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
-    ).toHaveValue("0.45");
-    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
-      "0.45",
-    );
-
-    await setSourceRank("0");
-    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
-      "1",
-    );
-    await expect(
-      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
-    ).toHaveValue("0");
-    await expect(
-      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
-    ).toHaveValue("0");
-    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
-      "0",
-    );
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
+    await expect(page.getByText("Friends", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("All", { exact: true })).toHaveCount(0);
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -259,8 +220,7 @@ test.describe("feed-scoped navigation", () => {
     ]) {
       await expect(page.getByRole("slider", { name, exact: true })).toBeVisible();
     }
-    await expect(page.getByText("Friends", { exact: true })).toBeVisible();
-    await expect(page.getByText("All", { exact: true })).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
     const following = page.getByRole("slider", {
       name: "Following amount",
       exact: true,
@@ -302,59 +262,101 @@ test.describe("feed-scoped navigation", () => {
     await expect(page).toHaveURL(/#\/settings\/your-feed$/);
 
     const settings = page.locator("settings-page");
-    const sourceRank = page.getByRole("slider", { name: "Source rank" });
-    await expect(sourceRank).toBeVisible();
-    await expect(sourceRank).toHaveAttribute("aria-valuemin", "0");
-    await expect(sourceRank).toHaveAttribute("aria-valuemax", "4");
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
+
+    const timeWindowTitleBox = await settings
+      .getByRole("button", { name: "Learn more about Time Window" })
+      .boundingBox();
+    expect(timeWindowTitleBox).not.toBeNull();
+    for (const label of ["Following", "Liked by Following", "Liked Authors/Topics", "Popular"]) {
+      const sourceTitleBox = await settings
+        .getByRole("button", { name: `Learn more about ${label}`, exact: true })
+        .boundingBox();
+      expect(sourceTitleBox).not.toBeNull();
+      if (timeWindowTitleBox && sourceTitleBox) {
+        expect(
+          Math.abs(
+            sourceTitleBox.x +
+              sourceTitleBox.width / 2 -
+              (timeWindowTitleBox.x + timeWindowTitleBox.width / 2),
+          ),
+        ).toBeLessThanOrEqual(1);
+      }
+    }
 
     const firstSourceCard = settings.locator(".source-slider-card").first();
     const cardBox = await firstSourceCard.boundingBox();
+    const sliderBox = await firstSourceCard.locator("icon-range-slider").boundingBox();
     const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
+    const lockBox = await firstSourceCard.locator(".source-lock-btn").boundingBox();
     expect(cardBox).not.toBeNull();
+    expect(sliderBox).not.toBeNull();
     expect(trackBox).not.toBeNull();
-    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.75);
-    if (cardBox && trackBox) {
+    expect(lockBox).not.toBeNull();
+    expect(lockBox).toMatchObject({ width: 38, height: 38 });
+    expect((trackBox?.width ?? 0) / (sliderBox?.width ?? 1)).toBeGreaterThan(0.75);
+    if (cardBox && sliderBox && trackBox && lockBox) {
       const narrowThumbRadius = 16;
-      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(cardBox.x);
+      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(sliderBox.x);
       expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
-        cardBox.x + cardBox.width,
+        sliderBox.x + sliderBox.width,
       );
+      expect(
+        Math.abs(lockBox.y + lockBox.height / 2 - (cardBox.y + cardBox.height / 2)),
+      ).toBeLessThan(1);
+      const sliderToLockGap = lockBox.x - (trackBox.x + trackBox.width);
+      const lockToRightBorder = cardBox.x + cardBox.width - (lockBox.x + lockBox.width);
+      expect(Math.abs(sliderToLockGap - lockToRightBorder)).toBeLessThanOrEqual(2);
     }
 
-    await expect(
-      page.getByRole("spinbutton", {
-        name: "Following percentage",
-        exact: true,
+    const lockBoxes = await settings.locator(".source-lock-btn").evaluateAll((locks) =>
+      locks.map((lock) => {
+        const box = lock.getBoundingClientRect();
+        return { top: box.top, bottom: box.bottom };
       }),
-    ).toHaveValue("30");
+    );
+    for (let index = 1; index < lockBoxes.length; index += 1) {
+      const current = lockBoxes[index];
+      const previous = lockBoxes[index - 1];
+      if (!current || !previous) throw new Error("Expected adjacent source lock buttons");
+      expect(current.top - previous.bottom).toBeGreaterThanOrEqual(16);
+    }
+
+    const following = page.getByRole("slider", {
+      name: "Following amount",
+      exact: true,
+    });
+    const followingCard = settings.locator(".source-slider-card").filter({ has: following });
+    await expect(followingCard.locator(".value")).toHaveText("30%");
     const networkLock = page.getByRole("button", {
       name: "Lock Liked by Following weight",
     });
+    await expect(
+      networkLock.locator("xpath=ancestor::*[contains(@class, 'source-slider-card')]"),
+    ).toHaveCount(1);
     await networkLock.click();
     await expect(
       page.getByRole("button", {
         name: "Unlock Liked by Following weight",
       }),
     ).toHaveAttribute("aria-pressed", "true");
-    await expect(sourceRank).toBeDisabled();
     await expect(
-      page.getByRole("slider", {
-        name: "Following amount",
-        exact: true,
+      page.getByRole("button", {
+        name: "Unlock Liked by Following weight",
       }),
-    ).toHaveAttribute("aria-valuemax", "0.8");
-    const followingPercentage = page.getByRole("spinbutton", {
-      name: "Following percentage",
-      exact: true,
+    ).toHaveCSS("background-color", "rgb(145, 189, 63)");
+    await expect(following).toHaveAttribute("aria-valuemax", "0.8");
+    await following.evaluate((input) => {
+      if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
+      input.value = "0.4";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await followingPercentage.fill("40");
-    await followingPercentage.press("Enter");
-    await expect(followingPercentage).toHaveValue("40");
-    await expect(
-      page.getByRole("spinbutton", {
-        name: "Liked by Following percentage",
-      }),
-    ).toHaveValue("20");
+    await expect(followingCard.locator(".value")).toHaveText("40%");
+    const networkCard = settings.locator(".source-slider-card").filter({
+      has: page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
+    });
+    await expect(networkCard.locator(".value")).toHaveText("20%");
 
     await page
       .getByRole("button", {
@@ -362,19 +364,14 @@ test.describe("feed-scoped navigation", () => {
       })
       .click();
     await page.getByRole("button", { name: "Lock Popular weight" }).click();
-    await expect(
-      page.getByRole("slider", {
-        name: "Following amount",
-        exact: true,
-      }),
-    ).toBeDisabled();
-    await expect(followingPercentage).toBeDisabled();
-    await expect(followingPercentage).toHaveValue("40");
+    await expect(following).toBeDisabled();
+    await expect(followingCard.locator(".value")).toHaveText("40%");
     await expect(
       page.getByRole("button", {
         name: "Lock Following weight",
       }),
     ).toBeDisabled();
+    await expect(page.getByRole("spinbutton")).toHaveCount(0);
     await expect(settings.locator(".source-controls-help, .percentage-suffix")).toHaveCount(0);
     const sliderGeometry = await firstSourceCard.locator("icon-range-slider").evaluate((slider) => {
       const root = slider.shadowRoot;

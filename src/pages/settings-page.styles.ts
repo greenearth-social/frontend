@@ -211,27 +211,17 @@ export const settingsPageStyles = css`
     overscroll-behavior: contain;
   }
 
-  .preview-warning,
-  .preview-sync-status,
-  .preview-error {
+  .preview-movement-help {
     margin: 0;
     padding: 0.6rem 0.9rem;
     border-bottom: 1px solid var(--bluesky-border);
     color: var(--bluesky-text-secondary);
     font-size: 0.75rem;
     line-height: 1.35;
+    text-align: center;
   }
 
-  .preview-sync-status {
-    margin: 0;
-    padding: 0.6rem 0.9rem;
-    border-bottom: 1px solid var(--bluesky-border);
-    color: var(--bluesky-text-secondary);
-    font-size: 0.75rem;
-    line-height: 1.35;
-  }
-
-  .controls-preview-warning {
+  .settings-error {
     margin: 0.75rem 1rem 0;
     padding: 0.7rem 0.8rem;
     border: 1px solid var(--bluesky-border);
@@ -242,19 +232,17 @@ export const settingsPageStyles = css`
     line-height: 1.4;
   }
 
-  @media (min-width: 1024px) {
-    .controls-preview-warning {
-      display: none;
-    }
-  }
-
   .preview-error {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    margin: 0;
+    padding: 0.6rem 0.9rem;
     border-top: 1px solid var(--bluesky-border);
-    border-bottom: 0;
+    color: var(--bluesky-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
   }
 
   .sticky-header {
@@ -568,32 +556,7 @@ export const settingsPageStyles = css`
   }
 
   .sources-layout {
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 0.5rem;
-    align-items: stretch;
-  }
-
-  .master-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     min-width: 0;
-  }
-
-  .master-end-label {
-    color: rgba(226, 232, 240, 0.82);
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: 0.01em;
-    text-align: center;
-    text-transform: uppercase;
-  }
-
-  .master-column icon-range-slider {
-    flex: 1;
-    min-height: 330px;
   }
 
   .source-slider-card icon-range-slider {
@@ -609,85 +572,35 @@ export const settingsPageStyles = css`
     min-width: 0;
   }
 
-  .source-adjustment-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 44px;
-    gap: 0.375rem;
-    align-items: stretch;
-    min-width: 0;
-  }
-
   .source-slider-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-rows: auto auto;
+    column-gap: 0.125rem;
+    align-items: center;
     min-width: 0;
     padding: 0.375rem 0.5rem;
   }
 
-  .source-editor {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.125rem;
-    align-items: center;
-  }
-
-  .percentage-field {
-    display: flex;
-    width: 44px;
-    align-items: center;
-    justify-content: center;
+  .source-slider-main {
+    grid-column: 1;
+    grid-row: 2;
     min-width: 0;
-    height: 44px;
-    padding-inline: 0.2rem;
-    border: 1px solid rgba(255, 255, 255, 0.62);
-    border-radius: 9px;
-    background: rgba(37, 99, 235, 0.42);
-    box-sizing: border-box;
-    color: #fff;
-    transition:
-      opacity 150ms ease,
-      background-color 150ms ease,
-      border-color 150ms ease;
   }
 
-  .percentage-field:focus-within {
-    outline: 3px solid rgba(255, 255, 255, 0.72);
-    outline-offset: 2px;
-  }
-
-  .percentage-input {
-    width: 100%;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    appearance: textfield;
-  }
-
-  .percentage-input::-webkit-inner-spin-button,
-  .percentage-input::-webkit-outer-spin-button {
-    margin: 0;
-    appearance: none;
-  }
-
-  .percentage-field:has(.percentage-input[aria-invalid="true"]),
-  .percentage-field:has(.percentage-input:invalid) {
-    border-color: #f87171;
-    outline: 2px solid #ef4444;
-    outline-offset: 1px;
+  .source-slider-card > .component-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
 
   .source-lock-btn {
+    grid-column: 2;
+    grid-row: 1 / 3;
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
+    transform: translateX(-7px);
     padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.58);
     border-radius: 9px;
@@ -701,23 +614,15 @@ export const settingsPageStyles = css`
   }
 
   .source-lock-btn[aria-pressed="true"] {
-    border-color: #dcfce7;
-    background: #166534;
-    color: #fff;
-    box-shadow: 0 0 0 2px rgba(220, 252, 231, 0.25);
+    border-color: #d9f99d;
+    background: #91bd3f;
+    color: #132a0e;
+    box-shadow: 0 0 0 2px rgba(180, 220, 84, 0.3);
   }
 
   .source-lock-btn:focus-visible {
     outline: 3px solid rgba(255, 255, 255, 0.75);
     outline-offset: 2px;
-  }
-
-  .source-editor.is-locked .percentage-field,
-  .source-editor.is-derived .percentage-field {
-    border-color: rgba(148, 163, 184, 0.32);
-    background: rgba(71, 85, 105, 0.48);
-    color: rgba(226, 232, 240, 0.72);
-    opacity: 0.58;
   }
 
   .source-lock-btn:disabled {
@@ -728,37 +633,10 @@ export const settingsPageStyles = css`
     opacity: 0.58;
   }
 
-  .percentage-input:disabled {
-    cursor: not-allowed;
-    opacity: 1;
-  }
-
   .source-lock-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     fill: currentColor;
-  }
-
-  .master-lock-note {
-    max-width: 48px;
-    margin-top: 0.25rem;
-    color: rgba(226, 232, 240, 0.68);
-    font-size: 0.5625rem;
-    font-weight: 700;
-    line-height: 1.15;
-    text-align: center;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   .fixed-source {
@@ -1264,21 +1142,12 @@ export const settingsPageStyles = css`
       padding-inline: 0.5rem;
     }
 
-    .sources-layout {
-      grid-template-columns: 44px minmax(0, 1fr);
-      gap: 0.35rem;
-    }
-
     .control-card {
       padding-inline: 0.5rem;
     }
 
-    .source-adjustment-row {
-      gap: 0.35rem;
-    }
-
     .source-slider-card {
-      padding-inline: 0.125rem;
+      padding-inline: 0.25rem;
     }
 
     .source-slider-card icon-range-slider {

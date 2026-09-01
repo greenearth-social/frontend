@@ -134,7 +134,7 @@ describe("SettingsPage", () => {
     document.body.replaceChildren();
   });
 
-  it("renders the full GreenEarth pipeline and disabled Politics control", async () => {
+  it("renders the full MySky pipeline and disabled Politics control", async () => {
     const element = document.createElement("settings-page");
     element.selectedAlgorithm = "your-feed";
     document.body.appendChild(element);
@@ -167,33 +167,25 @@ describe("SettingsPage", () => {
     const sources = sliders.filter((slider) => slider.ariaLabel.endsWith(" amount"));
     expect(sources).toHaveLength(4);
     expect(sources.every((slider) => slider.min === 0 && slider.max === 1)).toBe(true);
-    expect(
-      Array.from(
-        element.shadowRoot?.querySelectorAll<HTMLInputElement>(".percentage-input") ?? [],
-      ).map((input) => input.value),
-    ).toEqual(["30", "20", "25", "25"]);
+    expect(sources.map((slider) => slider.valueText)).toEqual(["30%", "20%", "25%", "25%"]);
+    expect(sources.every((slider) => slider.showValue)).toBe(true);
     expect(element.shadowRoot?.querySelectorAll(".source-lock-btn")).toHaveLength(4);
-    const sourceRows = element.shadowRoot?.querySelectorAll(".source-adjustment-row");
-    expect(sourceRows).toHaveLength(4);
-    for (const row of sourceRows ?? []) {
-      expect(Array.from(row.children)[0]?.classList.contains("source-slider-card")).toBe(true);
-      expect(Array.from(row.children)[1]?.classList.contains("source-editor")).toBe(true);
-      expect(row.querySelector(".source-slider-card .percentage-field")).toBeNull();
+    const sourceCards = element.shadowRoot?.querySelectorAll(".source-slider-card");
+    expect(sourceCards).toHaveLength(4);
+    for (const card of sourceCards ?? []) {
+      expect(
+        Array.from(card.children).some((child) => child.classList.contains("source-lock-btn")),
+      ).toBe(true);
+      expect(
+        Array.from(card.children).some((child) => child.classList.contains("component-title")),
+      ).toBe(true);
+      expect(card.querySelector(".source-slider-main icon-range-slider")).not.toBeNull();
     }
 
-    const sourceRank = sliders.find((slider) => slider.ariaLabel === "Source rank");
     const timeWindow = sliders.find((slider) => slider.ariaLabel === "Time Window");
     expect(timeWindow?.thumbIconSize).toBe(20);
-    expect(sourceRank?.max).toBe(4);
-    expect(sourceRank?.icons[0]).toContain("Eggs-slider.png");
-    expect(sourceRank?.icons.at(-1)).toContain("butterfly-slider.png");
-    expect(sourceRank?.showValue).toBe(false);
-    expect(sourceRank?.valueText).toBe("Balanced");
-    expect(
-      Array.from(element.shadowRoot?.querySelectorAll(".master-end-label") ?? []).map(
-        (label) => label.textContent,
-      ),
-    ).toEqual(["Friends", "All"]);
+    expect(sliders.find((slider) => slider.ariaLabel === "Source rank")).toBeUndefined();
+    expect(element.shadowRoot?.querySelector(".source-master-column")).toBeNull();
     expect(element.shadowRoot?.textContent).toContain("Liked by Following");
     expect(element.shadowRoot?.textContent).toContain("Liked Authors/Topics");
     expect(
@@ -485,7 +477,7 @@ describe("SettingsPage", () => {
     );
   });
 
-  it("edits whole percentages while preserving locked sources", async () => {
+  it("edits source percentages while preserving locked sources", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -502,28 +494,20 @@ describe("SettingsPage", () => {
     expect(
       slidersAfterLock.find((slider) => slider.ariaLabel === "Liked by Following amount")?.disabled,
     ).toBe(true);
-    expect(slidersAfterLock.find((slider) => slider.ariaLabel === "Source rank")?.disabled).toBe(
-      true,
-    );
+    expect(slidersAfterLock.find((slider) => slider.ariaLabel === "Source rank")).toBeUndefined();
     const cappedFollowing = slidersAfterLock.find(
       (slider) => slider.ariaLabel === "Following amount",
     );
     expect(cappedFollowing?.max).toBe(0.8);
     expect(cappedFollowing?.scaleMin).toBe(0);
     expect(cappedFollowing?.scaleMax).toBe(1);
-    expect(element.shadowRoot?.querySelector(".master-lock-note")?.textContent).toContain(
-      "Unlock all",
+    cappedFollowing?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 0.4 },
+      }),
     );
-
-    const followingInput = element.shadowRoot?.querySelector<HTMLInputElement>(
-      '[aria-label="Following percentage"]',
-    );
-    expect(followingInput).toBeDefined();
-    if (followingInput) {
-      followingInput.value = "40";
-      followingInput.dispatchEvent(new Event("input", { bubbles: true }));
-      followingInput.dispatchEvent(new Event("change", { bubbles: true }));
-    }
 
     expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledWith(
       "your-feed",
@@ -556,12 +540,8 @@ describe("SettingsPage", () => {
     expect(derivedFollowing?.min).toBe(0);
     expect(derivedFollowing?.max).toBe(1);
     expect(derivedFollowing?.value).toBe(0.4);
-    const derivedInput = element.shadowRoot?.querySelector<HTMLInputElement>(
-      '[aria-label="Following percentage"]',
-    );
-    expect(derivedInput?.disabled).toBe(true);
-    expect(derivedInput?.value).toBe("40");
-    expect(derivedInput?.closest(".source-editor")?.classList.contains("is-derived")).toBe(true);
+    expect(derivedFollowing?.showValue).toBe(true);
+    expect(derivedFollowing?.valueText).toBe("40%");
 
     derivedFollowing?.dispatchEvent(
       new CustomEvent("slider-change", {
@@ -582,37 +562,6 @@ describe("SettingsPage", () => {
         ?.querySelector('[aria-label="Lock Following weight"] svg path')
         ?.getAttribute("d"),
     ).toContain("M416 160C416 124.7");
-  });
-
-  it("rejects fractional and out-of-range source percentages", async () => {
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const input = element.shadowRoot?.querySelector<HTMLInputElement>(
-      '[aria-label="Following percentage"]',
-    );
-    expect(input).toBeDefined();
-    if (!input) return;
-
-    expect(input.required).toBe(true);
-    expect(input.step).toBe("1");
-    expect(input.min).toBe("0");
-    expect(input.max).toBe("100");
-
-    for (const invalidValue of ["12.5", "101", "-1", ""]) {
-      input.value = invalidValue;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      expect(input.getAttribute("aria-invalid")).toBe("true");
-    }
-    expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
-
-    input.value = "40";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(input.getAttribute("aria-invalid")).toBe("false");
-    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledTimes(1);
   });
 
   it("persists Ranking controls immediately and enables Preview", async () => {
@@ -712,25 +661,15 @@ describe("SettingsPage", () => {
     expect(settingsPageStyles.cssText).toMatch(/\.component-title\s*\{[^}]*min-height:\s*32px/s);
   });
 
-  it("explains source percentages and lifecycle icons from the Sources info control", async () => {
+  it("does not show an info control beside the Sources heading", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const info = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[aria-label="Learn more about Sources"]',
-    );
-    expect(info?.querySelector(".question-icon")?.textContent).toBe("i");
-    info?.click();
-    await element.updateComplete;
-
-    expect(element.shadowRoot?.querySelector(".popup-title")?.textContent).toBe("Sources");
-    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
-      "Percentages control how much each source contributes",
-    );
-    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
-      "lifecycle icons",
-    );
+    expect(element.shadowRoot?.querySelector('[aria-label="Learn more about Sources"]')).toBeNull();
+    expect(
+      element.shadowRoot?.querySelector(".section-candidate .section-heading")?.textContent.trim(),
+    ).toBe("Sources");
   });
 
   it("keeps Preview available during baseline loading and background refresh", async () => {
@@ -774,6 +713,7 @@ describe("SettingsPage", () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).toBeNull();
 
     const freshness = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -832,6 +772,15 @@ describe("SettingsPage", () => {
     await vi.waitFor(() => {
       expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
     });
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")?.textContent.trim()).toBe(
+      "Here’s how far up or down each post moved",
+    );
+
+    testState.rootStore.settingsPreviewStore.lastPreviewRequestId = null;
+    element.requestUpdate();
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).not.toBeNull();
   });
 
   it("recovers a 409 by synchronizing the captured snapshot and regenerating once", async () => {
@@ -993,15 +942,18 @@ describe("SettingsPage", () => {
     }
   });
 
-  it("reports baseline sync errors without a manual Retry control", async () => {
+  it("keeps preview diagnostics and the movement explanation hidden before a preview", async () => {
     testState.rootStore.settingsPreviewStore.baselineRefreshError = "offline";
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const error = element.shadowRoot?.querySelector(".baseline-refresh-error");
-    expect(error?.textContent).toContain("check again when you return");
-    expect(error?.querySelector("button")).toBeNull();
+    expect(
+      element.shadowRoot?.querySelector(
+        ".baseline-refresh-error, .preview-warning, .preview-sync-status",
+      ),
+    ).toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).toBeNull();
   });
 
   it("coalesces lifecycle syncs without starting a repeating timer", async () => {
