@@ -484,8 +484,8 @@ export class SettingsPage extends MobxLitElement {
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
     return html`
       <div class="control-card source-card source-slider-card">
+        ${this.#titleButton(nodeId, label)}
         <div class="source-slider-main">
-          ${this.#titleButton(nodeId, label)}
           <icon-range-slider
             min="0"
             .max=${sliderMax}

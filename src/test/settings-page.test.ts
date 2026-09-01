@@ -176,6 +176,9 @@ describe("SettingsPage", () => {
       expect(
         Array.from(card.children).some((child) => child.classList.contains("source-lock-btn")),
       ).toBe(true);
+      expect(
+        Array.from(card.children).some((child) => child.classList.contains("component-title")),
+      ).toBe(true);
       expect(card.querySelector(".source-slider-main icon-range-slider")).not.toBeNull();
     }
 

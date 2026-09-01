@@ -264,6 +264,26 @@ test.describe("feed-scoped navigation", () => {
     const settings = page.locator("settings-page");
     await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
 
+    const timeWindowTitleBox = await settings
+      .getByRole("button", { name: "Learn more about Time Window" })
+      .boundingBox();
+    expect(timeWindowTitleBox).not.toBeNull();
+    for (const label of ["Following", "Liked by Following", "Liked Authors/Topics", "Popular"]) {
+      const sourceTitleBox = await settings
+        .getByRole("button", { name: `Learn more about ${label}`, exact: true })
+        .boundingBox();
+      expect(sourceTitleBox).not.toBeNull();
+      if (timeWindowTitleBox && sourceTitleBox) {
+        expect(
+          Math.abs(
+            sourceTitleBox.x +
+              sourceTitleBox.width / 2 -
+              (timeWindowTitleBox.x + timeWindowTitleBox.width / 2),
+          ),
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+
     const firstSourceCard = settings.locator(".source-slider-card").first();
     const cardBox = await firstSourceCard.boundingBox();
     const sliderBox = await firstSourceCard.locator("icon-range-slider").boundingBox();
@@ -273,6 +293,7 @@ test.describe("feed-scoped navigation", () => {
     expect(sliderBox).not.toBeNull();
     expect(trackBox).not.toBeNull();
     expect(lockBox).not.toBeNull();
+    expect(lockBox).toMatchObject({ width: 38, height: 38 });
     expect((trackBox?.width ?? 0) / (sliderBox?.width ?? 1)).toBeGreaterThan(0.75);
     if (cardBox && sliderBox && trackBox && lockBox) {
       const narrowThumbRadius = 16;
@@ -280,11 +301,10 @@ test.describe("feed-scoped navigation", () => {
       expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
         sliderBox.x + sliderBox.width,
       );
-      expect(lockBox.x).toBeGreaterThanOrEqual(sliderBox.x + sliderBox.width);
       expect(
         Math.abs(lockBox.y + lockBox.height / 2 - (cardBox.y + cardBox.height / 2)),
       ).toBeLessThan(1);
-      const sliderToLockGap = lockBox.x - (sliderBox.x + sliderBox.width);
+      const sliderToLockGap = lockBox.x - (trackBox.x + trackBox.width);
       const lockToRightBorder = cardBox.x + cardBox.width - (lockBox.x + lockBox.width);
       expect(Math.abs(sliderToLockGap - lockToRightBorder)).toBeLessThanOrEqual(2);
     }
@@ -320,6 +340,11 @@ test.describe("feed-scoped navigation", () => {
         name: "Unlock Liked by Following weight",
       }),
     ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("button", {
+        name: "Unlock Liked by Following weight",
+      }),
+    ).toHaveCSS("background-color", "rgb(145, 189, 63)");
     await expect(following).toHaveAttribute("aria-valuemax", "0.8");
     await following.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");

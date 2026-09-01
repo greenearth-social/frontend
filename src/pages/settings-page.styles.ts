@@ -574,22 +574,33 @@ export const settingsPageStyles = css`
 
   .source-slider-card {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 44px;
-    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-rows: auto auto;
+    column-gap: 0.125rem;
     align-items: center;
     min-width: 0;
     padding: 0.375rem 0.5rem;
   }
 
   .source-slider-main {
+    grid-column: 1;
+    grid-row: 2;
     min-width: 0;
   }
 
+  .source-slider-card > .component-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
   .source-lock-btn {
+    grid-column: 2;
+    grid-row: 1 / 3;
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
+    transform: translateX(-7px);
     padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.58);
     border-radius: 9px;
@@ -603,10 +614,10 @@ export const settingsPageStyles = css`
   }
 
   .source-lock-btn[aria-pressed="true"] {
-    border-color: #dcfce7;
-    background: #166534;
-    color: #fff;
-    box-shadow: 0 0 0 2px rgba(220, 252, 231, 0.25);
+    border-color: #d9f99d;
+    background: #91bd3f;
+    color: #132a0e;
+    box-shadow: 0 0 0 2px rgba(180, 220, 84, 0.3);
   }
 
   .source-lock-btn:focus-visible {
@@ -1137,10 +1148,6 @@ export const settingsPageStyles = css`
 
     .source-slider-card {
       padding-inline: 0.25rem;
-    }
-
-    .source-slider-card {
-      gap: 0.25rem;
     }
 
     .source-slider-card icon-range-slider {
