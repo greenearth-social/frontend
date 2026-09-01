@@ -119,6 +119,7 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
 
   const settings = page.locator("settings-page");
   await expect(settings.locator(".feed-column")).toBeVisible();
+  await expect(settings.locator(".preview-movement-help")).toHaveCount(0);
   const updatePreview = settings.getByRole("button", { name: "Preview", exact: true });
   await expect(updatePreview).toBeDisabled();
   await expect(settings.getByRole("button", { name: "Show post color legend" })).toHaveCount(0);
@@ -412,11 +413,15 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
+  await expect(settings.locator(".preview-movement-help")).toHaveText(
+    "Here’s how far up or down each post moved",
+  );
 
   await settings.getByRole("button", { name: "Undo last settings change" }).click();
   await expect(freshness).toHaveValue("5");
   await expect(settings.getByRole("button", { name: "Redo last settings change" })).toBeEnabled();
   await expect(preview).toBeEnabled();
+  await expect(settings.locator(".preview-movement-help")).toBeVisible();
 
   await preview.click();
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/fade-out/);

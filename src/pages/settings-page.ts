@@ -82,6 +82,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private isResetting = false;
   @state() private isApplyingHistory = false;
   @state() private previewNeeded = false;
+  @state() private hasCompletedPreview = false;
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
@@ -172,6 +173,7 @@ export class SettingsPage extends MobxLitElement {
       this.isPreviewPreparing = false;
       this.isPreviewAnimating = false;
       this.previewNeeded = false;
+      this.hasCompletedPreview = false;
       this.historyEntry = null;
       this.settingsError = "";
       this.isApplyingHistory = false;
@@ -349,7 +351,11 @@ export class SettingsPage extends MobxLitElement {
               }
             </div>
           </div>
-          <p class="preview-movement-help">Here’s how far up or down each post moved</p>
+          ${
+            this.hasCompletedPreview
+              ? html`<p class="preview-movement-help">Here’s how far up or down each post moved</p>`
+              : ""
+          }
           <div class="feed-scroll">
             <settings-feed-preview
               .items=${previewStore?.displayedItems ?? []}
@@ -478,8 +484,8 @@ export class SettingsPage extends MobxLitElement {
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
     return html`
       <div class="control-card source-card source-slider-card">
-        ${this.#titleButton(nodeId, label)}
-        <div class="source-slider-row">
+        <div class="source-slider-main">
+          ${this.#titleButton(nodeId, label)}
           <icon-range-slider
             min="0"
             .max=${sliderMax}
@@ -500,28 +506,28 @@ export class SettingsPage extends MobxLitElement {
               this.#commitSourceWeight(weights, key, nodeId, event.detail.value);
             }}
           ></icon-range-slider>
-          <button
-            class="source-lock-btn"
-            type="button"
-            aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
-            aria-pressed=${isLocked ? "true" : "false"}
-            title=${
-              canLock
-                ? isLocked
-                  ? `Unlock ${label}`
-                  : `Keep ${label} fixed when other sources change`
-                : "At least one source must remain unlocked"
-            }
-            ?disabled=${!canLock}
-            @click=${() => {
-              this.#toggleSourceLock(key);
-            }}
-          >
-            <svg viewBox="0 0 640 640" aria-hidden="true">
-              <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
-            </svg>
-          </button>
         </div>
+        <button
+          class="source-lock-btn"
+          type="button"
+          aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
+          aria-pressed=${isLocked ? "true" : "false"}
+          title=${
+            canLock
+              ? isLocked
+                ? `Unlock ${label}`
+                : `Keep ${label} fixed when other sources change`
+              : "At least one source must remain unlocked"
+          }
+          ?disabled=${!canLock}
+          @click=${() => {
+            this.#toggleSourceLock(key);
+          }}
+        >
+          <svg viewBox="0 0 640 640" aria-hidden="true">
+            <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
+          </svg>
+        </button>
       </div>
     `;
   }
@@ -978,6 +984,7 @@ export class SettingsPage extends MobxLitElement {
         return;
       }
       store.acceptPreview(accepted);
+      this.hasCompletedPreview = true;
       this.previewNeeded = false;
     } finally {
       if (animationOperation === this.previewAnimationOperation) {

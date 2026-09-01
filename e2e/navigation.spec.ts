@@ -274,7 +274,7 @@ test.describe("feed-scoped navigation", () => {
     expect(trackBox).not.toBeNull();
     expect(lockBox).not.toBeNull();
     expect((trackBox?.width ?? 0) / (sliderBox?.width ?? 1)).toBeGreaterThan(0.75);
-    if (sliderBox && trackBox && lockBox) {
+    if (cardBox && sliderBox && trackBox && lockBox) {
       const narrowThumbRadius = 16;
       expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(sliderBox.x);
       expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
@@ -282,8 +282,11 @@ test.describe("feed-scoped navigation", () => {
       );
       expect(lockBox.x).toBeGreaterThanOrEqual(sliderBox.x + sliderBox.width);
       expect(
-        Math.abs(lockBox.y + lockBox.height / 2 - (trackBox.y + trackBox.height / 2)),
-      ).toBeLessThan(8);
+        Math.abs(lockBox.y + lockBox.height / 2 - (cardBox.y + cardBox.height / 2)),
+      ).toBeLessThan(1);
+      const sliderToLockGap = lockBox.x - (sliderBox.x + sliderBox.width);
+      const lockToRightBorder = cardBox.x + cardBox.width - (lockBox.x + lockBox.width);
+      expect(Math.abs(sliderToLockGap - lockToRightBorder)).toBeLessThanOrEqual(2);
     }
 
     const lockBoxes = await settings.locator(".source-lock-btn").evaluateAll((locks) =>

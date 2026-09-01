@@ -573,15 +573,15 @@ export const settingsPageStyles = css`
   }
 
   .source-slider-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 0.5rem;
+    align-items: center;
     min-width: 0;
     padding: 0.375rem 0.5rem;
   }
 
-  .source-slider-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 44px;
-    gap: 0.5rem;
-    align-items: start;
+  .source-slider-main {
     min-width: 0;
   }
 
@@ -1139,8 +1139,8 @@ export const settingsPageStyles = css`
       padding-inline: 0.25rem;
     }
 
-    .source-slider-row {
-      gap: 0.375rem;
+    .source-slider-card {
+      gap: 0.25rem;
     }
 
     .source-slider-card icon-range-slider {

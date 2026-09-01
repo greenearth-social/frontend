@@ -173,9 +173,10 @@ describe("SettingsPage", () => {
     const sourceCards = element.shadowRoot?.querySelectorAll(".source-slider-card");
     expect(sourceCards).toHaveLength(4);
     for (const card of sourceCards ?? []) {
-      const row = card.querySelector(".source-slider-row");
-      expect(row?.querySelector(".source-lock-btn")).not.toBeNull();
-      expect(row?.querySelector("icon-range-slider")).not.toBeNull();
+      expect(
+        Array.from(card.children).some((child) => child.classList.contains("source-lock-btn")),
+      ).toBe(true);
+      expect(card.querySelector(".source-slider-main icon-range-slider")).not.toBeNull();
     }
 
     const timeWindow = sliders.find((slider) => slider.ariaLabel === "Time Window");
@@ -709,6 +710,7 @@ describe("SettingsPage", () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).toBeNull();
 
     const freshness = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -767,6 +769,15 @@ describe("SettingsPage", () => {
     await vi.waitFor(() => {
       expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
     });
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")?.textContent.trim()).toBe(
+      "Here’s how far up or down each post moved",
+    );
+
+    testState.rootStore.settingsPreviewStore.lastPreviewRequestId = null;
+    element.requestUpdate();
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).not.toBeNull();
   });
 
   it("recovers a 409 by synchronizing the captured snapshot and regenerating once", async () => {
@@ -928,7 +939,7 @@ describe("SettingsPage", () => {
     }
   });
 
-  it("keeps preview diagnostics out of the movement explanation area", async () => {
+  it("keeps preview diagnostics and the movement explanation hidden before a preview", async () => {
     testState.rootStore.settingsPreviewStore.baselineRefreshError = "offline";
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
@@ -939,9 +950,7 @@ describe("SettingsPage", () => {
         ".baseline-refresh-error, .preview-warning, .preview-sync-status",
       ),
     ).toBeNull();
-    expect(element.shadowRoot?.querySelector(".preview-movement-help")?.textContent.trim()).toBe(
-      "Here’s how far up or down each post moved",
-    );
+    expect(element.shadowRoot?.querySelector(".preview-movement-help")).toBeNull();
   });
 
   it("coalesces lifecycle syncs without starting a repeating timer", async () => {
