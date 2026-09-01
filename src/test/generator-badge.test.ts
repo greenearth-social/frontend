@@ -48,18 +48,21 @@ describe("GeneratorBadge", () => {
     );
   });
 
-  it("uses related rose shades for Following sources and a distinct green for Popular", () => {
+  it("uses a unique color for every generator source", () => {
     expect(generatorPresentation("followed_users")).toMatchObject({
-      color: "#fb7185",
-      border: "rgba(251, 113, 133, 0.8)",
+      color: "#fbbf24",
+      border: "rgba(251, 191, 36, 0.8)",
     });
     expect(generatorPresentation("network_likes")).toMatchObject({
-      color: "#f91880",
-      border: "rgba(249, 24, 128, 0.8)",
+      color: "#fb7185",
+      border: "rgba(251, 113, 133, 0.8)",
     });
     expect(generatorPresentation("popularity")).toMatchObject({
       color: "#34d399",
       border: "rgba(52, 211, 153, 0.8)",
     });
+
+    const colors = GENERATOR_LEGEND.map(({ color }) => color);
+    expect(new Set(colors)).toHaveLength(colors.length);
   });
 });
