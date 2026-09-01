@@ -25,9 +25,9 @@ export const GENERATOR_PRESENTATIONS = {
   two_tower: AUTHOR_TOPIC,
   two_tower_empty_history: AUTHOR_TOPIC,
   followed_users: {
-    background: "rgba(251, 113, 133, 0.12)",
-    color: "#fb7185",
-    border: "rgba(251, 113, 133, 0.8)",
+    background: "rgba(251, 191, 36, 0.12)",
+    color: "#fbbf24",
+    border: "rgba(251, 191, 36, 0.8)",
     label: "Following",
   },
   popularity: {
@@ -43,9 +43,9 @@ export const GENERATOR_PRESENTATIONS = {
     label: "Similar",
   },
   network_likes: {
-    background: "rgba(249, 24, 128, 0.12)",
-    color: "#f91880",
-    border: "rgba(249, 24, 128, 0.8)",
+    background: "rgba(251, 113, 133, 0.12)",
+    color: "#fb7185",
+    border: "rgba(251, 113, 133, 0.8)",
     label: "Followed Likes",
   },
   random_posts: RANDOM,
