@@ -15,12 +15,7 @@ import type {
 } from "../stores/settings-preview-store";
 import type { RootStore } from "../stores/root-store";
 import {
-  applySourceLocks,
-  blendSourceWeightsToRank,
   redistributeSourceWeights,
-  SOURCE_RANK_MAX,
-  sourceRankPosition,
-  sourceRankValueText,
   sourceWeightRange,
   type SourceWeightKey,
 } from "../utils/source-weight-math";
@@ -90,13 +85,10 @@ export class SettingsPage extends MobxLitElement {
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
-  @state() private baselineRefreshStatus = "";
-  private masterStartWeights: SourceWeights | null = null;
   private sourceStartWeights: SourceWeights | null = null;
   private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private baselineSyncPromise: Promise<void> | null = null;
   private baselineSyncPending = false;
-  private baselineRefreshStatusTimer: ReturnType<typeof setTimeout> | null = null;
   private desktopLayoutQuery: MediaQueryList | null = null;
   private changeSequence = 0;
   private settingsRevision = 0;
@@ -144,7 +136,6 @@ export class SettingsPage extends MobxLitElement {
     this.desktopLayoutQuery?.removeEventListener("change", this.handleDesktopLayoutChange);
     this.desktopLayoutQuery = null;
     this.#cancelScheduledBaselineSync();
-    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
     super.disconnectedCallback();
   }
 
@@ -173,7 +164,6 @@ export class SettingsPage extends MobxLitElement {
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewFreshness = null;
-      this.masterStartWeights = null;
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
@@ -186,7 +176,6 @@ export class SettingsPage extends MobxLitElement {
       this.settingsError = "";
       this.isApplyingHistory = false;
       this.settingsRevision++;
-      this.baselineRefreshStatus = "";
       void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
   }
@@ -288,17 +277,8 @@ export class SettingsPage extends MobxLitElement {
 
           <div class="page-content">
             ${
-              previewStore?.warning
-                ? html`<p class="controls-preview-warning" role="status">
-                    ${previewStore.warning}
-                  </p>`
-                : ""
-            }
-            ${
               this.settingsError
-                ? html`<p class="controls-preview-warning settings-error" role="alert">
-                    ${this.settingsError}
-                  </p>`
+                ? html`<p class="settings-error" role="alert">${this.settingsError}</p>`
                 : ""
             }
             ${
@@ -369,23 +349,7 @@ export class SettingsPage extends MobxLitElement {
               }
             </div>
           </div>
-          ${previewStore?.warning ? html`<p class="preview-warning">${previewStore.warning}</p>` : ""}
-          ${
-            this.baselineRefreshStatus
-              ? html`<p class="preview-sync-status" role="status" aria-live="polite">
-                  ${this.baselineRefreshStatus}
-                </p>`
-              : ""
-          }
-          ${
-            previewStore?.baselineRefreshError
-              ? html`<div class="preview-error baseline-refresh-error" role="status">
-                  <span
-                    >Current feed could not be refreshed. We’ll check again when you return.</span
-                  >
-                </div>`
-              : ""
-          }
+          <p class="preview-movement-help">Here’s how far up or down each post moved</p>
           <div class="feed-scroll">
             <settings-feed-preview
               .items=${previewStore?.displayedItems ?? []}
@@ -487,49 +451,8 @@ export class SettingsPage extends MobxLitElement {
   }
 
   #renderAdjustableSources(weights: SourceWeights): TemplateResult {
-    const masterValue = sourceRankPosition(weights);
-    const masterDisabled = this.isLoading || this.lockedSources.length > 0;
     return html`
       <div class="sources-layout">
-        <div class="master-column">
-          <span class="master-end-label">Friends</span>
-          <icon-range-slider
-            orientation="vertical"
-            min="0"
-            .max=${SOURCE_RANK_MAX}
-            step="0.01"
-            .value=${masterValue}
-            .icons=${LIFECYCLE_ICONS}
-            .showValue=${false}
-            .valueText=${sourceRankValueText(masterValue)}
-            ariaLabel="Source rank"
-            ?disabled=${masterDisabled}
-            @slider-preview=${(event: CustomEvent<{ value: number }>) => {
-              if (masterDisabled) return;
-              if (!this.masterStartWeights) this.masterStartWeights = { ...weights };
-              const target = blendSourceWeightsToRank(this.masterStartWeights, event.detail.value);
-              this.previewSourceWeights = applySourceLocks(
-                this.masterStartWeights,
-                target,
-                this.lockedSources,
-              );
-            }}
-            @slider-change=${(event: CustomEvent<{ value: number }>) => {
-              if (masterDisabled) return;
-              const start = this.masterStartWeights ?? weights;
-              const target = blendSourceWeightsToRank(start, event.detail.value);
-              const next = applySourceLocks(start, target, this.lockedSources);
-              this.masterStartWeights = null;
-              this.#commitSourceWeights(next, "source_mix_master");
-            }}
-          ></icon-range-slider>
-          <span class="master-end-label">All</span>
-          ${
-            this.lockedSources.length > 0
-              ? html`<span class="master-lock-note">Unlock all to adjust</span>`
-              : ""
-          }
-        </div>
         <div class="source-list">
           ${this.#renderSourceControl("following", "following", "Following", weights)}
           ${this.#renderSourceControl(
@@ -564,98 +487,49 @@ export class SettingsPage extends MobxLitElement {
     const adjustmentDisabled = this.isLoading || isLocked || isDerived;
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
     return html`
-      <div class="source-adjustment-row">
-        <div class="control-card source-card source-slider-card">
-          ${this.#titleButton(nodeId, label)}
-          <icon-range-slider
-            min="0"
-            .max=${sliderMax}
-            .scaleMin=${0}
-            .scaleMax=${1}
-            step="0.01"
-            .value=${weights[key]}
-            .icons=${LIFECYCLE_ICONS}
-            .showValue=${false}
-            .valueText=${`${String(Math.round(weights[key] * 100))}%`}
-            .ariaLabel=${`${label} amount`}
-            ?disabled=${adjustmentDisabled}
-            @slider-preview=${(event: CustomEvent<{ value: number }>) => {
-              if (adjustmentDisabled) return;
-              this.#previewSourceWeight(weights, key, event.detail.value);
-            }}
-            @slider-change=${(event: CustomEvent<{ value: number }>) => {
-              if (adjustmentDisabled) return;
-              this.#commitSourceWeight(weights, key, nodeId, event.detail.value);
-            }}
-          ></icon-range-slider>
-        </div>
-        <div class="source-editor ${isLocked ? "is-locked" : ""} ${isDerived ? "is-derived" : ""}">
-          <label class="percentage-field">
-            <span class="sr-only">${label} percentage</span>
-            <input
-              class="percentage-input"
-              type="number"
-              inputmode="numeric"
-              step="1"
-              .min=${String(Math.round(bounds.min * 100))}
-              .max=${String(Math.round(bounds.max * 100))}
-              .value=${String(Math.round(weights[key] * 100))}
-              aria-label=${`${label} percentage`}
-              aria-invalid="false"
-              required
-              ?disabled=${adjustmentDisabled}
-              @focus=${(event: FocusEvent) => {
-                (event.currentTarget as HTMLInputElement).select();
-              }}
-              @input=${(event: Event) => {
-                const input = event.currentTarget as HTMLInputElement;
-                const value = input.valueAsNumber;
-                if (this.#validatePercentageInput(input)) {
-                  this.#previewSourceWeight(weights, key, value / 100);
-                }
-              }}
-              @change=${(event: Event) => {
-                const input = event.currentTarget as HTMLInputElement;
-                const value = input.valueAsNumber;
-                if (this.#validatePercentageInput(input)) {
-                  this.#commitSourceWeight(weights, key, nodeId, value / 100);
-                }
-              }}
-              @keydown=${(event: KeyboardEvent) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  const input = event.currentTarget as HTMLInputElement;
-                  const value = input.valueAsNumber;
-                  if (this.#validatePercentageInput(input)) {
-                    this.#commitSourceWeight(weights, key, nodeId, value / 100);
-                  }
-                  input.blur();
-                }
-              }}
-            />
-          </label>
-          <button
-            class="source-lock-btn"
-            type="button"
-            aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
-            aria-pressed=${isLocked ? "true" : "false"}
-            title=${
-              canLock
-                ? isLocked
-                  ? `Unlock ${label}`
-                  : `Keep ${label} fixed when other sources change`
-                : "At least one source must remain unlocked"
-            }
-            ?disabled=${!canLock}
-            @click=${() => {
-              this.#toggleSourceLock(key);
-            }}
-          >
-            <svg viewBox="0 0 640 640" aria-hidden="true">
-              <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
-            </svg>
-          </button>
-        </div>
+      <div class="control-card source-card source-slider-card">
+        ${this.#titleButton(nodeId, label)}
+        <button
+          class="source-lock-btn"
+          type="button"
+          aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
+          aria-pressed=${isLocked ? "true" : "false"}
+          title=${
+            canLock
+              ? isLocked
+                ? `Unlock ${label}`
+                : `Keep ${label} fixed when other sources change`
+              : "At least one source must remain unlocked"
+          }
+          ?disabled=${!canLock}
+          @click=${() => {
+            this.#toggleSourceLock(key);
+          }}
+        >
+          <svg viewBox="0 0 640 640" aria-hidden="true">
+            <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
+          </svg>
+        </button>
+        <icon-range-slider
+          min="0"
+          .max=${sliderMax}
+          .scaleMin=${0}
+          .scaleMax=${1}
+          step="0.01"
+          .value=${weights[key]}
+          .icons=${LIFECYCLE_ICONS}
+          .valueText=${`${String(Math.round(weights[key] * 100))}%`}
+          .ariaLabel=${`${label} amount`}
+          ?disabled=${adjustmentDisabled}
+          @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+            if (adjustmentDisabled) return;
+            this.#previewSourceWeight(weights, key, event.detail.value);
+          }}
+          @slider-change=${(event: CustomEvent<{ value: number }>) => {
+            if (adjustmentDisabled) return;
+            this.#commitSourceWeight(weights, key, nodeId, event.detail.value);
+          }}
+        ></icon-range-slider>
       </div>
     `;
   }
@@ -834,7 +708,6 @@ export class SettingsPage extends MobxLitElement {
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewFreshness = null;
-    this.masterStartWeights = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
     this.isResetting = true;
@@ -846,7 +719,7 @@ export class SettingsPage extends MobxLitElement {
 
   #commitSourceWeights(
     weights: SourceWeights,
-    origin: "following" | "network_likes" | "authors_topics" | "popular" | "source_mix_master",
+    origin: "following" | "network_likes" | "authors_topics" | "popular",
   ): void {
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
@@ -859,24 +732,6 @@ export class SettingsPage extends MobxLitElement {
       { sourceWeights: { ...weights } },
       { source_weights: origin },
     );
-  }
-
-  #validatePercentageInput(input: HTMLInputElement): boolean {
-    const value = input.valueAsNumber;
-    const min = Number(input.min);
-    const max = Number(input.max);
-    const isValid =
-      input.value.trim() !== "" &&
-      Number.isFinite(value) &&
-      Number.isInteger(value) &&
-      value >= min &&
-      value <= max;
-
-    input.setCustomValidity(
-      isValid ? "" : `Enter a whole percentage between ${String(min)} and ${String(max)}.`,
-    );
-    input.setAttribute("aria-invalid", String(!isValid));
-    return isValid;
   }
 
   #previewSourceWeight(weights: SourceWeights, key: SourceWeightKey, value: number): void {
@@ -907,7 +762,6 @@ export class SettingsPage extends MobxLitElement {
     if (!isLocked && this.lockedSources.length >= 3) return;
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
-    this.masterStartWeights = null;
     this.lockedSources = isLocked
       ? this.lockedSources.filter((source) => source !== key)
       : [...this.lockedSources, key];
@@ -1157,7 +1011,6 @@ export class SettingsPage extends MobxLitElement {
       this.renderRoot
         .querySelector<SettingsFeedPreview>("settings-feed-preview")
         ?.settleAsOrigin(store.baselineItems);
-      this.#showBaselineRefreshStatus("Current feed updated from Bluesky");
     }
     return outcome;
   }
@@ -1230,15 +1083,6 @@ export class SettingsPage extends MobxLitElement {
   #cancelScheduledBaselineSync(): void {
     if (this.baselineSyncTimer) clearTimeout(this.baselineSyncTimer);
     this.baselineSyncTimer = null;
-  }
-
-  #showBaselineRefreshStatus(message: string): void {
-    this.baselineRefreshStatus = message;
-    if (this.baselineRefreshStatusTimer) clearTimeout(this.baselineRefreshStatusTimer);
-    this.baselineRefreshStatusTimer = setTimeout(() => {
-      this.baselineRefreshStatus = "";
-      this.baselineRefreshStatusTimer = null;
-    }, 4_000);
   }
 
   #closeMobilePreview(): void {

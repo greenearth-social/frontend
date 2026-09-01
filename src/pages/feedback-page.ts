@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { ALGORITHMS } from "../constants/algorithms";
 import type { AlgorithmId } from "../constants/algorithms";
 import "../components/feedback-form";
 
@@ -99,7 +100,7 @@ export class FeedbackPage extends LitElement {
         <feedback-form
           surface="general"
           .selectedFeed=${this.selectedAlgorithm}
-          prompt="We'd love to know what you think of GreenEarth"
+          .prompt=${`We'd love to know what you think of ${ALGORITHMS[this.selectedAlgorithm].label}`}
           placeholder="Share your feedback"
         ></feedback-form>
       </div>

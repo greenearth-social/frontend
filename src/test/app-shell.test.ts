@@ -490,7 +490,7 @@ describe("AppShell authentication UI", () => {
     await page?.updateComplete;
     const form = page?.shadowRoot?.querySelector("feedback-form");
 
-    expect(form?.prompt).toBe("We'd love to know what you think of GreenEarth");
+    expect(form?.prompt).toBe("We'd love to know what you think of MySky");
     expect(form?.selectedFeed).toBe("your-feed");
   });
 
@@ -698,7 +698,24 @@ describe("AppShell algorithm selector", () => {
     expect(window.location.hash).toBe("#/feedback/best-of-friends");
     expect(page?.selectedAlgorithm).toBe("best-of-friends");
     expect(form?.selectedFeed).toBe("best-of-friends");
+    expect(form?.prompt).toBe("We'd love to know what you think of Best of Friends");
     expect(form?.shadowRoot?.textContent).toContain("Feed: Best of Friends");
+
+    const randomButton = Array.from(
+      element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".left-sidebar-desktop .algo-btn") ??
+        [],
+    ).find((button) => button.getAttribute("aria-label") === "Random");
+    randomButton?.click();
+    await element.updateComplete;
+
+    const randomPage = element.shadowRoot?.querySelector("feedback-page");
+    await randomPage?.updateComplete;
+    const randomForm = randomPage?.shadowRoot?.querySelector("feedback-form");
+    expect(window.location.hash).toBe("#/feedback/random");
+    expect(randomPage?.selectedAlgorithm).toBe("random");
+    expect(randomForm?.selectedFeed).toBe("random");
+    expect(randomForm?.prompt).toBe("We'd love to know what you think of Random");
+    expect(randomForm?.shadowRoot?.textContent).toContain("Feed: Random");
   });
 
   it("does not render a Latest button in the algo selector", async () => {

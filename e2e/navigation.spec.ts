@@ -178,7 +178,7 @@ test.describe("feed-scoped navigation", () => {
     );
   });
 
-  test("places Politics in Ranking and applies both source-rank endpoints", async ({ page }) => {
+  test("places Politics in Ranking without the combined source-rank control", async ({ page }) => {
     await page.evaluate(() => {
       window.location.hash = "/settings/your-feed";
     });
@@ -202,42 +202,9 @@ test.describe("feed-scoped navigation", () => {
       })),
     ).toEqual({ start: "1", end: "-1" });
 
-    const sourceRank = page.getByRole("slider", { name: "Source rank" });
-    const setSourceRank = (value: string) =>
-      sourceRank.evaluate((input, nextValue) => {
-        if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
-        input.value = nextValue;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      }, value);
-
-    await setSourceRank("4");
-    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
-      "0",
-    );
-    await expect(
-      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
-    ).toHaveValue("0.1");
-    await expect(
-      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
-    ).toHaveValue("0.45");
-    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
-      "0.45",
-    );
-
-    await setSourceRank("0");
-    await expect(page.getByRole("slider", { name: "Following amount", exact: true })).toHaveValue(
-      "1",
-    );
-    await expect(
-      page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
-    ).toHaveValue("0");
-    await expect(
-      page.getByRole("slider", { name: "Liked Authors/Topics amount", exact: true }),
-    ).toHaveValue("0");
-    await expect(page.getByRole("slider", { name: "Popular amount", exact: true })).toHaveValue(
-      "0",
-    );
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
+    await expect(page.getByText("Friends", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("All", { exact: true })).toHaveCount(0);
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -259,8 +226,7 @@ test.describe("feed-scoped navigation", () => {
     ]) {
       await expect(page.getByRole("slider", { name, exact: true })).toBeVisible();
     }
-    await expect(page.getByText("Friends", { exact: true })).toBeVisible();
-    await expect(page.getByText("All", { exact: true })).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
     const following = page.getByRole("slider", {
       name: "Following amount",
       exact: true,
@@ -302,10 +268,7 @@ test.describe("feed-scoped navigation", () => {
     await expect(page).toHaveURL(/#\/settings\/your-feed$/);
 
     const settings = page.locator("settings-page");
-    const sourceRank = page.getByRole("slider", { name: "Source rank" });
-    await expect(sourceRank).toBeVisible();
-    await expect(sourceRank).toHaveAttribute("aria-valuemin", "0");
-    await expect(sourceRank).toHaveAttribute("aria-valuemax", "4");
+    await expect(page.getByRole("slider", { name: "Source rank" })).toHaveCount(0);
 
     const firstSourceCard = settings.locator(".source-slider-card").first();
     const cardBox = await firstSourceCard.boundingBox();
@@ -321,40 +284,36 @@ test.describe("feed-scoped navigation", () => {
       );
     }
 
-    await expect(
-      page.getByRole("spinbutton", {
-        name: "Following percentage",
-        exact: true,
-      }),
-    ).toHaveValue("30");
+    const following = page.getByRole("slider", {
+      name: "Following amount",
+      exact: true,
+    });
+    const followingCard = settings.locator(".source-slider-card").filter({ has: following });
+    await expect(followingCard.locator(".value")).toHaveText("30%");
     const networkLock = page.getByRole("button", {
       name: "Lock Liked by Following weight",
     });
+    await expect(
+      networkLock.locator("xpath=ancestor::*[contains(@class, 'source-slider-card')]"),
+    ).toHaveCount(1);
     await networkLock.click();
     await expect(
       page.getByRole("button", {
         name: "Unlock Liked by Following weight",
       }),
     ).toHaveAttribute("aria-pressed", "true");
-    await expect(sourceRank).toBeDisabled();
-    await expect(
-      page.getByRole("slider", {
-        name: "Following amount",
-        exact: true,
-      }),
-    ).toHaveAttribute("aria-valuemax", "0.8");
-    const followingPercentage = page.getByRole("spinbutton", {
-      name: "Following percentage",
-      exact: true,
+    await expect(following).toHaveAttribute("aria-valuemax", "0.8");
+    await following.evaluate((input) => {
+      if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
+      input.value = "0.4";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await followingPercentage.fill("40");
-    await followingPercentage.press("Enter");
-    await expect(followingPercentage).toHaveValue("40");
-    await expect(
-      page.getByRole("spinbutton", {
-        name: "Liked by Following percentage",
-      }),
-    ).toHaveValue("20");
+    await expect(followingCard.locator(".value")).toHaveText("40%");
+    const networkCard = settings.locator(".source-slider-card").filter({
+      has: page.getByRole("slider", { name: "Liked by Following amount", exact: true }),
+    });
+    await expect(networkCard.locator(".value")).toHaveText("20%");
 
     await page
       .getByRole("button", {
@@ -362,19 +321,14 @@ test.describe("feed-scoped navigation", () => {
       })
       .click();
     await page.getByRole("button", { name: "Lock Popular weight" }).click();
-    await expect(
-      page.getByRole("slider", {
-        name: "Following amount",
-        exact: true,
-      }),
-    ).toBeDisabled();
-    await expect(followingPercentage).toBeDisabled();
-    await expect(followingPercentage).toHaveValue("40");
+    await expect(following).toBeDisabled();
+    await expect(followingCard.locator(".value")).toHaveText("40%");
     await expect(
       page.getByRole("button", {
         name: "Lock Following weight",
       }),
     ).toBeDisabled();
+    await expect(page.getByRole("spinbutton")).toHaveCount(0);
     await expect(settings.locator(".source-controls-help, .percentage-suffix")).toHaveCount(0);
     const sliderGeometry = await firstSourceCard.locator("icon-range-slider").evaluate((slider) => {
       const root = slider.shadowRoot;

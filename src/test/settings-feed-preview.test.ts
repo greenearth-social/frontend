@@ -45,13 +45,13 @@ describe("settings feed rank movement", () => {
     expect(rankMovement("a", before, after)).toMatchObject({
       kind: "down",
       delta: -1,
-      icon: "chevron-down",
+      icon: "arrow-down",
       label: "Moved down 1 position",
     });
     expect(rankMovement("d", before, after)).toMatchObject({
       kind: "up",
       delta: 3,
-      icon: "chevron-up",
+      icon: "arrow-up",
       label: "Moved up 3 positions",
     });
   });
