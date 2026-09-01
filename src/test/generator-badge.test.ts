@@ -50,8 +50,8 @@ describe("GeneratorBadge", () => {
 
   it("uses a unique color for every generator source", () => {
     expect(generatorPresentation("followed_users")).toMatchObject({
-      color: "#fbbf24",
-      border: "rgba(251, 191, 36, 0.8)",
+      color: "#f472b6",
+      border: "rgba(244, 114, 182, 0.8)",
     });
     expect(generatorPresentation("network_likes")).toMatchObject({
       color: "#fb7185",
