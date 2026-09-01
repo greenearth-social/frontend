@@ -38,6 +38,57 @@ test.describe("feed-scoped navigation", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("shows each Bluesky View Feed link before its internal pages", async ({ page }) => {
+    const desktop = page.locator(".left-sidebar-desktop");
+
+    for (const id of ["your-feed", "best-of-friends", "random"] as const) {
+      const subnav = desktop.locator(`#desktop-${id}-pages`);
+      const viewFeed = subnav.locator(":scope > .view-feed-link");
+      await expect(viewFeed).toHaveAttribute("href", ALGORITHMS[id].blueskyUrl);
+      await expect(viewFeed).toHaveAttribute("target", "_blank");
+      await expect(viewFeed.locator('wa-icon[name="bluesky"]')).toHaveCount(1);
+      await expect(viewFeed.locator('wa-icon[name="external-link"]')).toHaveCount(1);
+      await expect(subnav.locator(":scope > a").first()).toHaveClass(/view-feed-link/);
+      await expect(subnav.locator(":scope > a").nth(1)).toContainText("Why Am I Seeing This?");
+    }
+
+    await page.context().route("https://bsky.app/**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "text/html", body: "Bluesky feed" });
+    });
+    const popupPromise = page.waitForEvent("popup");
+    await desktop.locator("#desktop-your-feed-pages .view-feed-link").click();
+    const blueskyFeed = await popupPromise;
+    await expect.poll(() => blueskyFeed.url()).toBe(ALGORITHMS["your-feed"].blueskyUrl);
+    await blueskyFeed.close();
+  });
+
+  test("selected feed titles collapse their pages on desktop and mobile", async ({ page }) => {
+    const desktop = page.locator(".left-sidebar-desktop");
+    const desktopPages = desktop.locator("#desktop-your-feed-pages");
+    await expect(desktopPages).toBeVisible();
+
+    await desktop.locator('.algo-btn[aria-label="MySky"]').click();
+    await expect(desktopPages).toBeHidden();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.locator("feed-page").getByRole("button", { name: "Open navigation" }).click();
+    const drawer = page.locator(".drawer.open");
+    await expect(drawer).toBeVisible();
+
+    await drawer.getByRole("button", { name: "Expand MySky pages" }).click();
+    const drawerPages = drawer.locator("#drawer-your-feed-pages");
+    await expect(drawerPages).toBeVisible();
+    await drawer.locator('.algo-btn[aria-label="MySky"]').click();
+    await expect(drawerPages).toBeHidden();
+    await expect(drawer).toBeVisible();
+    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+
+    await drawer.locator('.algo-btn[aria-label="Best of Friends"]').click();
+    await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
+    await expect(drawer.locator("#drawer-best-of-friends-pages")).toBeVisible();
+  });
+
   test("anchors the collapsible desktop navigation across every page", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 520 });
     const desktop = page.locator(".left-sidebar-desktop");

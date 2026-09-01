@@ -645,6 +645,44 @@ test("mobile opens Preview on the first tap and keeps generation status in the S
   await expect(settings.locator(".mobile-preview-title")).toHaveCount(0);
   await expect(settings.locator(".mobile-preview-status")).toHaveText("Generating Preview");
   await expect(settings.locator(".preview-generating")).toHaveCount(0);
+
+  const mobileGeometry = await settings.locator(".mobile-preview-status").evaluate((status) => {
+    const header = status.closest(".preview-header");
+    const back = header?.querySelector(".preview-close")?.getBoundingClientRect();
+    const progress = status.querySelector(".preview-progress")?.getBoundingClientRect();
+    const butterfly = status.querySelector(".preview-butterfly")?.getBoundingClientRect();
+    return {
+      statusHeight: status.getBoundingClientRect().height,
+      progressRight: progress?.right ?? 0,
+      butterflyLeft: butterfly?.left ?? 0,
+      backRight: back?.right ?? 0,
+      headerOverflow: (header?.scrollWidth ?? 0) - (header?.clientWidth ?? 0),
+    };
+  });
+  expect(mobileGeometry.statusHeight).toBeLessThanOrEqual(24);
+  expect(mobileGeometry.butterflyLeft).toBeGreaterThanOrEqual(mobileGeometry.progressRight);
+  expect(mobileGeometry.butterflyLeft).toBeGreaterThan(mobileGeometry.backRight);
+  expect(mobileGeometry.headerOverflow).toBeLessThanOrEqual(0);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const desktopButton = settings.locator("#update-preview");
+  await expect(desktopButton).toBeVisible();
+  const desktopGeometry = await desktopButton.evaluate((button) => {
+    const buttonRect = button.getBoundingClientRect();
+    const butterfly = button.querySelector(".preview-butterfly")?.getBoundingClientRect();
+    return {
+      height: buttonRect.height,
+      whiteSpace: getComputedStyle(button).whiteSpace,
+      butterflyLeft: butterfly?.left ?? 0,
+      butterflyRight: butterfly?.right ?? 0,
+      buttonLeft: buttonRect.left,
+      buttonRight: buttonRect.right,
+    };
+  });
+  expect(desktopGeometry.height).toBeLessThanOrEqual(44);
+  expect(desktopGeometry.whiteSpace).toBe("nowrap");
+  expect(desktopGeometry.butterflyLeft).toBeGreaterThan(desktopGeometry.buttonLeft);
+  expect(desktopGeometry.butterflyRight).toBeLessThanOrEqual(desktopGeometry.buttonRight);
 });
 
 test("320px visually shortens the accessible title and wraps header controls cleanly", async ({

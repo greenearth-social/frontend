@@ -413,6 +413,21 @@ describe("AppShell authentication UI", () => {
     reopenedFeedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
     await element.updateComplete;
 
+    const viewFeed = drawer?.querySelector<HTMLAnchorElement>(
+      ".feed-group.active-feed .view-feed-link",
+    );
+    expect(viewFeed?.getAttribute("href")).toBe(ALGORITHMS["best-of-friends"].blueskyUrl);
+    viewFeed?.addEventListener("click", (event) => {
+      event.preventDefault();
+    });
+    viewFeed?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(false);
+
+    reopenedFeedPage?.shadowRoot?.querySelector<HTMLButtonElement>(".hamburger-btn")?.click();
+    await element.updateComplete;
+    expect(drawer?.classList.contains("open")).toBe(true);
+
     drawer?.querySelector<HTMLButtonElement>(".drawer-close")?.click();
     await element.updateComplete;
     expect(drawer?.classList.contains("open")).toBe(false);
@@ -625,6 +640,35 @@ describe("AppShell algorithm selector", () => {
     expect(buttons?.length).toBe(3);
   });
 
+  it("renders a Bluesky View Feed link first in every feed group", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const groups = Array.from(
+      element.shadowRoot?.querySelectorAll<HTMLElement>(".left-sidebar-desktop .feed-group") ?? [],
+    );
+    expect(groups).toHaveLength(3);
+
+    groups.forEach((group, index) => {
+      const id = ["your-feed", "best-of-friends", "random"][index] as
+        "your-feed" | "best-of-friends" | "random";
+      const links = Array.from(group.querySelectorAll<HTMLAnchorElement>(".feed-subnav > a"));
+      const viewFeed = links[0];
+
+      expect(viewFeed?.classList.contains("view-feed-link")).toBe(true);
+      expect(viewFeed?.textContent.trim()).toBe("View Feed");
+      expect(viewFeed?.getAttribute("href")).toBe(ALGORITHMS[id].blueskyUrl);
+      expect(viewFeed?.getAttribute("target")).toBe("_blank");
+      expect(viewFeed?.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(viewFeed?.querySelector("wa-icon:first-child")?.getAttribute("name")).toBe("bluesky");
+      expect(viewFeed?.querySelector(".external-link-icon")?.getAttribute("name")).toBe(
+        "external-link",
+      );
+      expect(links[1]?.textContent.trim()).toBe("Why Am I Seeing This?");
+    });
+  });
+
   it("marks the active algorithm button", async () => {
     testState.rootStore.uiStore.selectedAlgorithm = "best-of-friends";
     const element = document.createElement("app-shell");
@@ -805,6 +849,41 @@ describe("AppShell algorithm selector", () => {
       (node) => node.id,
     );
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("collapses the selected feed from its title on desktop and mobile", async () => {
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const desktopPages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
+    const drawerPages = element.shadowRoot?.querySelector<HTMLElement>("#drawer-your-feed-pages");
+    const desktopFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '.left-sidebar-desktop .algo-btn[aria-label="MySky"]',
+    );
+
+    expect(desktopPages?.hidden).toBe(false);
+    expect(drawerPages?.hidden).toBe(false);
+    desktopFeed?.click();
+    await element.updateComplete;
+
+    expect(desktopPages?.hidden).toBe(true);
+    expect(drawerPages?.hidden).toBe(true);
+    expect(window.location.hash).toBe("#/feed/your-feed");
+    expect(testState.rootStore.uiStore.setSelectedAlgorithm).not.toHaveBeenCalled();
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('.drawer .algo-toggle[aria-label="Expand MySky pages"]')
+      ?.click();
+    await element.updateComplete;
+    expect(drawerPages?.hidden).toBe(false);
+
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('.drawer .algo-btn[aria-label="MySky"]')
+      ?.click();
+    await element.updateComplete;
+    expect(desktopPages?.hidden).toBe(true);
+    expect(drawerPages?.hidden).toBe(true);
   });
 
   it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
