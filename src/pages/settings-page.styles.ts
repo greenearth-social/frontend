@@ -573,25 +573,23 @@ export const settingsPageStyles = css`
   }
 
   .source-slider-card {
-    position: relative;
     min-width: 0;
     padding: 0.375rem 0.5rem;
   }
 
-  .source-slider-card .component-title {
-    box-sizing: border-box;
-    padding-inline: 2.4rem;
+  .source-slider-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 0.5rem;
+    align-items: start;
+    min-width: 0;
   }
 
   .source-lock-btn {
-    position: absolute;
-    top: 0.375rem;
-    right: 0.5rem;
-    z-index: 1;
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.58);
     border-radius: 9px;
@@ -1141,8 +1139,8 @@ export const settingsPageStyles = css`
       padding-inline: 0.25rem;
     }
 
-    .source-lock-btn {
-      right: 0.25rem;
+    .source-slider-row {
+      gap: 0.375rem;
     }
 
     .source-slider-card icon-range-slider {

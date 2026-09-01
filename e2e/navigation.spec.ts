@@ -186,13 +186,7 @@ test.describe("feed-scoped navigation", () => {
     const settings = page.locator("settings-page");
     const ranking = settings.locator(".section-ranking");
     await expect(settings.getByRole("heading", { name: "Sources" })).toBeVisible();
-    await settings.getByRole("button", { name: "Learn more about Sources" }).click();
-    const sourcesDialog = settings.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toContainText(
-      "Percentages control how much each source contributes",
-    );
-    await expect(sourcesDialog).toContainText("lifecycle icons");
-    await sourcesDialog.getByRole("button", { name: "Close detail" }).click();
+    await expect(settings.getByRole("button", { name: "Learn more about Sources" })).toHaveCount(0);
     const politics = ranking.locator(".ranking-grid > .politics-card");
     await expect(politics).toBeVisible();
     expect(
@@ -272,16 +266,37 @@ test.describe("feed-scoped navigation", () => {
 
     const firstSourceCard = settings.locator(".source-slider-card").first();
     const cardBox = await firstSourceCard.boundingBox();
+    const sliderBox = await firstSourceCard.locator("icon-range-slider").boundingBox();
     const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
+    const lockBox = await firstSourceCard.locator(".source-lock-btn").boundingBox();
     expect(cardBox).not.toBeNull();
+    expect(sliderBox).not.toBeNull();
     expect(trackBox).not.toBeNull();
-    expect((trackBox?.width ?? 0) / (cardBox?.width ?? 1)).toBeGreaterThan(0.75);
-    if (cardBox && trackBox) {
+    expect(lockBox).not.toBeNull();
+    expect((trackBox?.width ?? 0) / (sliderBox?.width ?? 1)).toBeGreaterThan(0.75);
+    if (sliderBox && trackBox && lockBox) {
       const narrowThumbRadius = 16;
-      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(cardBox.x);
+      expect(trackBox.x - narrowThumbRadius).toBeGreaterThanOrEqual(sliderBox.x);
       expect(trackBox.x + trackBox.width + narrowThumbRadius).toBeLessThanOrEqual(
-        cardBox.x + cardBox.width,
+        sliderBox.x + sliderBox.width,
       );
+      expect(lockBox.x).toBeGreaterThanOrEqual(sliderBox.x + sliderBox.width);
+      expect(
+        Math.abs(lockBox.y + lockBox.height / 2 - (trackBox.y + trackBox.height / 2)),
+      ).toBeLessThan(8);
+    }
+
+    const lockBoxes = await settings.locator(".source-lock-btn").evaluateAll((locks) =>
+      locks.map((lock) => {
+        const box = lock.getBoundingClientRect();
+        return { top: box.top, bottom: box.bottom };
+      }),
+    );
+    for (let index = 1; index < lockBoxes.length; index += 1) {
+      const current = lockBoxes[index];
+      const previous = lockBoxes[index - 1];
+      if (!current || !previous) throw new Error("Expected adjacent source lock buttons");
+      expect(current.top - previous.bottom).toBeGreaterThanOrEqual(16);
     }
 
     const following = page.getByRole("slider", {

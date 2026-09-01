@@ -402,16 +402,6 @@ export class SettingsPage extends MobxLitElement {
       <section class="section section-candidate">
         <div class="section-heading">
           <h2 class="section-title">Sources</h2>
-          <button
-            class="section-info-btn"
-            type="button"
-            aria-label="Learn more about Sources"
-            @click=${() => {
-              this.#openNode("sources");
-            }}
-          >
-            <span class="question-icon" aria-hidden="true">i</span>
-          </button>
         </div>
         <div class="control-card config-card">
           ${this.#titleButton("time_window", "Time Window")}
@@ -489,47 +479,49 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <div class="control-card source-card source-slider-card">
         ${this.#titleButton(nodeId, label)}
-        <button
-          class="source-lock-btn"
-          type="button"
-          aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
-          aria-pressed=${isLocked ? "true" : "false"}
-          title=${
-            canLock
-              ? isLocked
-                ? `Unlock ${label}`
-                : `Keep ${label} fixed when other sources change`
-              : "At least one source must remain unlocked"
-          }
-          ?disabled=${!canLock}
-          @click=${() => {
-            this.#toggleSourceLock(key);
-          }}
-        >
-          <svg viewBox="0 0 640 640" aria-hidden="true">
-            <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
-          </svg>
-        </button>
-        <icon-range-slider
-          min="0"
-          .max=${sliderMax}
-          .scaleMin=${0}
-          .scaleMax=${1}
-          step="0.01"
-          .value=${weights[key]}
-          .icons=${LIFECYCLE_ICONS}
-          .valueText=${`${String(Math.round(weights[key] * 100))}%`}
-          .ariaLabel=${`${label} amount`}
-          ?disabled=${adjustmentDisabled}
-          @slider-preview=${(event: CustomEvent<{ value: number }>) => {
-            if (adjustmentDisabled) return;
-            this.#previewSourceWeight(weights, key, event.detail.value);
-          }}
-          @slider-change=${(event: CustomEvent<{ value: number }>) => {
-            if (adjustmentDisabled) return;
-            this.#commitSourceWeight(weights, key, nodeId, event.detail.value);
-          }}
-        ></icon-range-slider>
+        <div class="source-slider-row">
+          <icon-range-slider
+            min="0"
+            .max=${sliderMax}
+            .scaleMin=${0}
+            .scaleMax=${1}
+            step="0.01"
+            .value=${weights[key]}
+            .icons=${LIFECYCLE_ICONS}
+            .valueText=${`${String(Math.round(weights[key] * 100))}%`}
+            .ariaLabel=${`${label} amount`}
+            ?disabled=${adjustmentDisabled}
+            @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+              if (adjustmentDisabled) return;
+              this.#previewSourceWeight(weights, key, event.detail.value);
+            }}
+            @slider-change=${(event: CustomEvent<{ value: number }>) => {
+              if (adjustmentDisabled) return;
+              this.#commitSourceWeight(weights, key, nodeId, event.detail.value);
+            }}
+          ></icon-range-slider>
+          <button
+            class="source-lock-btn"
+            type="button"
+            aria-label=${isLocked ? `Unlock ${label} weight` : `Lock ${label} weight`}
+            aria-pressed=${isLocked ? "true" : "false"}
+            title=${
+              canLock
+                ? isLocked
+                  ? `Unlock ${label}`
+                  : `Keep ${label} fixed when other sources change`
+                : "At least one source must remain unlocked"
+            }
+            ?disabled=${!canLock}
+            @click=${() => {
+              this.#toggleSourceLock(key);
+            }}
+          >
+            <svg viewBox="0 0 640 640" aria-hidden="true">
+              <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
   }

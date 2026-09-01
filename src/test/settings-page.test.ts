@@ -173,8 +173,9 @@ describe("SettingsPage", () => {
     const sourceCards = element.shadowRoot?.querySelectorAll(".source-slider-card");
     expect(sourceCards).toHaveLength(4);
     for (const card of sourceCards ?? []) {
-      expect(card.querySelector(".source-lock-btn")).not.toBeNull();
-      expect(card.querySelector("icon-range-slider")).not.toBeNull();
+      const row = card.querySelector(".source-slider-row");
+      expect(row?.querySelector(".source-lock-btn")).not.toBeNull();
+      expect(row?.querySelector("icon-range-slider")).not.toBeNull();
     }
 
     const timeWindow = sliders.find((slider) => slider.ariaLabel === "Time Window");
@@ -656,25 +657,15 @@ describe("SettingsPage", () => {
     expect(settingsPageStyles.cssText).toMatch(/\.component-title\s*\{[^}]*min-height:\s*32px/s);
   });
 
-  it("explains source percentages and lifecycle icons from the Sources info control", async () => {
+  it("does not show an info control beside the Sources heading", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const info = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[aria-label="Learn more about Sources"]',
-    );
-    expect(info?.querySelector(".question-icon")?.textContent).toBe("i");
-    info?.click();
-    await element.updateComplete;
-
-    expect(element.shadowRoot?.querySelector(".popup-title")?.textContent).toBe("Sources");
-    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
-      "Percentages control how much each source contributes",
-    );
-    expect(element.shadowRoot?.querySelector(".popup-description")?.textContent).toContain(
-      "lifecycle icons",
-    );
+    expect(element.shadowRoot?.querySelector('[aria-label="Learn more about Sources"]')).toBeNull();
+    expect(
+      element.shadowRoot?.querySelector(".section-candidate .section-heading")?.textContent.trim(),
+    ).toBe("Sources");
   });
 
   it("keeps Preview available during baseline loading and background refresh", async () => {
