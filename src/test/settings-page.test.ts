@@ -160,6 +160,9 @@ describe("SettingsPage", () => {
     ).find((slider) => slider.ariaLabel.startsWith("Politics"));
     expect(politics?.disabled).toBe(true);
     expect(politics?.valueText).toBe("1.00 · Neutral");
+    expect(politics?.showValue).toBe(false);
+    await politics?.updateComplete;
+    expect(politics?.shadowRoot?.querySelector(".value")).toBeNull();
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -357,6 +360,12 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector("h1")?.getAttribute("aria-label")).toBe(
       "Best of Friends Settings",
     );
+    const politics = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel.startsWith("Politics"));
+    expect(politics?.showValue).toBe(false);
+    await politics?.updateComplete;
+    expect(politics?.shadowRoot?.querySelector(".value")).toBeNull();
 
     element.shadowRoot
       ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Following"]')
@@ -695,6 +704,34 @@ describe("SettingsPage", () => {
     expect(
       element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.disabled,
     ).toBe(false);
+  });
+
+  it("breathes the butterfly icon while generating a Preview", async () => {
+    testState.rootStore.settingsPreviewStore.isGenerating = true;
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const updatePreview =
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn");
+    const butterfly = updatePreview?.querySelector<HTMLImageElement>(".preview-butterfly");
+
+    expect(updatePreview?.getAttribute("aria-busy")).toBe("true");
+    expect(updatePreview?.textContent.trim()).toBe("Generating preview");
+    expect(butterfly?.getAttribute("src")).toBe("/assets/slider/butterfly-slider.png");
+    expect(butterfly?.getAttribute("aria-hidden")).toBe("true");
+    expect(butterfly?.width).toBe(16);
+    expect(butterfly?.height).toBe(16);
+    expect(settingsPageStyles.cssText).toContain("@keyframes preview-butterfly-breathe");
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.update-preview-btn\s*\{[^}]*white-space:\s*nowrap/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /\.preview-butterfly\s*\{[^}]*position:\s*absolute/s,
+    );
+    expect(settingsPageStyles.cssText).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.preview-butterfly\s*\{[^}]*animation:\s*none/s,
+    );
   });
 
   it("keeps an empty Preview loading through server acceptance", async () => {

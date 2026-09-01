@@ -55,7 +55,38 @@ export const settingsPageStyles = css`
     background: var(--bluesky-brand);
     color: #fff;
     font-size: 0.875rem;
+    white-space: nowrap;
     box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
+  }
+
+  .preview-progress {
+    position: relative;
+    display: inline-block;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .preview-butterfly {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 0.375rem);
+    width: 1rem;
+    height: 1rem;
+    object-fit: contain;
+    pointer-events: none;
+    transform-origin: center;
+    animation: preview-butterfly-breathe 900ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  @keyframes preview-butterfly-breathe {
+    0%,
+    100% {
+      transform: translateY(-50%) scale(1.12);
+    }
+
+    50% {
+      transform: translateY(-50%) scale(0.65);
+    }
   }
 
   .mobile-preview-btn {
@@ -148,6 +179,17 @@ export const settingsPageStyles = css`
     border-color: var(--bluesky-border);
     background: var(--bluesky-bg-card);
     box-shadow: none;
+  }
+
+  .update-preview-btn.is-generating:disabled {
+    padding-right: 1.75rem;
+    padding-left: 1rem;
+    border-color: color-mix(in srgb, var(--bluesky-brand) 82%, white);
+    background: color-mix(in srgb, var(--bluesky-brand) 88%, black);
+    color: #fff;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
+    cursor: progress;
+    opacity: 1;
   }
 
   .preview-header h2 {
@@ -893,6 +935,13 @@ export const settingsPageStyles = css`
 
     .ranking-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .preview-butterfly {
+      animation: none;
+      transform: translateY(-50%);
     }
   }
 

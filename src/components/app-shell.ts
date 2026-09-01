@@ -327,6 +327,11 @@ export class AppShell extends MobxLitElement {
       flex-shrink: 0;
     }
 
+    .view-feed-link .external-link-icon {
+      margin-left: auto;
+      font-size: 1rem;
+    }
+
     .nav-label {
       display: inline;
       min-width: 0;
@@ -522,6 +527,7 @@ export class AppShell extends MobxLitElement {
       .shell-container.sidebar-collapsed .algo-label,
       .shell-container.sidebar-collapsed .algo-toggle,
       .shell-container.sidebar-collapsed .nav-label,
+      .shell-container.sidebar-collapsed .external-link-icon,
       .shell-container.sidebar-collapsed .user-details {
         display: none;
       }
@@ -899,7 +905,7 @@ export class AppShell extends MobxLitElement {
                     <button
                       class="algo-btn"
                       @click=${() => {
-                        if (togglesCollapsedActiveFeed) {
+                        if (isActiveFeed) {
                           this.#toggleAlgorithmExpanded(id);
                           return;
                         }
@@ -937,6 +943,25 @@ export class AppShell extends MobxLitElement {
                     </button>
                   </div>
                   <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
+                    <a
+                      href=${algo.blueskyUrl}
+                      class="nav-link view-feed-link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label=${`View ${algo.label} feed in Bluesky (opens in a new tab)`}
+                      title=${`View ${algo.label} feed in Bluesky`}
+                      @click=${() => {
+                        if (surface === "drawer") this.#closeDrawer();
+                      }}
+                    >
+                      <wa-icon name="bluesky" library="app"></wa-icon>
+                      <span class="nav-label">View Feed</span>
+                      <wa-icon
+                        class="external-link-icon"
+                        name="external-link"
+                        library="app"
+                      ></wa-icon>
+                    </a>
                     ${NAV_ITEMS.map((item) => {
                       const isActive = isActiveFeed && this._currentPage === item.page;
                       const path = feedScopedPath(item.page, id);

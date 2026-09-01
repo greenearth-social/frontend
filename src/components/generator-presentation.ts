@@ -25,15 +25,15 @@ export const GENERATOR_PRESENTATIONS = {
   two_tower: AUTHOR_TOPIC,
   two_tower_empty_history: AUTHOR_TOPIC,
   followed_users: {
-    background: "rgba(52, 211, 153, 0.12)",
-    color: "#34d399",
-    border: "rgba(52, 211, 153, 0.8)",
+    background: "rgba(251, 113, 133, 0.12)",
+    color: "#fb7185",
+    border: "rgba(251, 113, 133, 0.8)",
     label: "Following",
   },
   popularity: {
-    background: "rgba(244, 114, 182, 0.12)",
-    color: "#f472b6",
-    border: "rgba(244, 114, 182, 0.8)",
+    background: "rgba(52, 211, 153, 0.12)",
+    color: "#34d399",
+    border: "rgba(52, 211, 153, 0.8)",
     label: "Popular",
   },
   post_similarity: {

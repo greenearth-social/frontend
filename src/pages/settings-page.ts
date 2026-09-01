@@ -67,6 +67,22 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
 
 export const MOBILE_PREVIEW_SETTLE_DELAY_MS = 300;
 
+function renderPreviewProgress(label: string): TemplateResult {
+  return html`
+    <span class="preview-progress">
+      <img
+        class="preview-butterfly"
+        src="/assets/slider/butterfly-slider.png"
+        alt=""
+        width="16"
+        height="16"
+        aria-hidden="true"
+      />
+      <span>${label}</span>
+    </span>
+  `;
+}
+
 @customElement("settings-page")
 export class SettingsPage extends MobxLitElement {
   @property({ type: Object }) onOpenMenu: (() => void) | undefined;
@@ -316,8 +332,9 @@ export class SettingsPage extends MobxLitElement {
           <div class="preview-header">
             <button
               id="update-preview"
-              class="update-preview-btn"
+              class="update-preview-btn ${previewGenerating ? "is-generating" : ""}"
               type="button"
+              aria-busy=${previewGenerating ? "true" : "false"}
               ?disabled=${!this.previewNeeded || previewBusy}
               @click=${() => {
                 void this.#previewChanges();
@@ -325,7 +342,7 @@ export class SettingsPage extends MobxLitElement {
             >
               ${
                 previewGenerating
-                  ? "Generating preview"
+                  ? renderPreviewProgress("Generating preview")
                   : hasGeneratedPreview || this.isPreviewAnimating
                     ? "Update preview"
                     : "Preview"
@@ -346,7 +363,9 @@ export class SettingsPage extends MobxLitElement {
               </button>
               ${
                 previewGenerating
-                  ? html`<span class="mobile-preview-status">Generating Preview</span>`
+                  ? html`<span class="mobile-preview-status" role="status" aria-live="polite">
+                      ${renderPreviewProgress("Generating Preview")}
+                    </span>`
                   : html`<span class="mobile-preview-status">Preview</span>`
               }
             </div>
@@ -627,6 +646,7 @@ export class SettingsPage extends MobxLitElement {
             value="1"
             .icons=${LIFECYCLE_ICONS}
             valueText="1.00 · Neutral"
+            .showValue=${false}
             ariaLabel="Politics multiplier, coming soon"
             disabled
           ></icon-range-slider>
