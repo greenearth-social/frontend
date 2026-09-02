@@ -1,7 +1,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedbackSurface } from "../config/runtime-config";
-import { ALGORITHMS, type AlgorithmId } from "../constants/algorithms";
+import type { AlgorithmId } from "../constants/algorithms";
 import type { FeedbackEventPayload } from "../services/feedback/types";
 import { getRootStore } from "../main";
 
@@ -36,16 +36,6 @@ export class FeedbackForm extends LitElement {
       font-size: 1rem;
       font-weight: 700;
       line-height: 1.4;
-    }
-    .feed-context {
-      display: inline-flex;
-      margin-bottom: 0.625rem;
-      padding: 0.25rem 0.625rem;
-      border: 1px solid var(--bluesky-border);
-      border-radius: 9999px;
-      color: var(--bluesky-text-secondary);
-      font-size: 0.75rem;
-      font-weight: 600;
     }
     textarea {
       display: block;
@@ -155,7 +145,6 @@ export class FeedbackForm extends LitElement {
 
     return html`
       <form class="feedback-card" @submit=${this.#handleSubmit}>
-        <div class="feed-context">${ALGORITHMS[this.selectedFeed].label}</div>
         <label for="feedback-input">${this.prompt}</label>
         <textarea
           id="feedback-input"
