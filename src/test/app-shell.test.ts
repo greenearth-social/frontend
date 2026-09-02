@@ -743,7 +743,8 @@ describe("AppShell algorithm selector", () => {
     expect(page?.selectedAlgorithm).toBe("best-of-friends");
     expect(form?.selectedFeed).toBe("best-of-friends");
     expect(form?.prompt).toBe("We'd love to know what you think of Best of Friends");
-    expect(form?.shadowRoot?.textContent).toContain("Feed: Best of Friends");
+    expect(form?.shadowRoot?.textContent).toContain("Best of Friends");
+    expect(form?.shadowRoot?.textContent).not.toContain("Feed: Best of Friends");
 
     const randomButton = Array.from(
       element.shadowRoot?.querySelectorAll<HTMLButtonElement>(".left-sidebar-desktop .algo-btn") ??
@@ -759,7 +760,8 @@ describe("AppShell algorithm selector", () => {
     expect(randomPage?.selectedAlgorithm).toBe("random");
     expect(randomForm?.selectedFeed).toBe("random");
     expect(randomForm?.prompt).toBe("We'd love to know what you think of Random");
-    expect(randomForm?.shadowRoot?.textContent).toContain("Feed: Random");
+    expect(randomForm?.shadowRoot?.textContent).toContain("Random");
+    expect(randomForm?.shadowRoot?.textContent).not.toContain("Feed: Random");
   });
 
   it("does not render a Latest button in the algo selector", async () => {
