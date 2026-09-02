@@ -155,7 +155,7 @@ export class FeedbackForm extends LitElement {
 
     return html`
       <form class="feedback-card" @submit=${this.#handleSubmit}>
-        <div class="feed-context">Feed: ${ALGORITHMS[this.selectedFeed].label}</div>
+        <div class="feed-context">${ALGORITHMS[this.selectedFeed].label}</div>
         <label for="feedback-input">${this.prompt}</label>
         <textarea
           id="feedback-input"
