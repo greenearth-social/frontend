@@ -596,11 +596,11 @@ describe("SettingsPage", () => {
   });
 
   it.each([
-    { value: 0, label: "0 · no politics" },
-    { value: 0.5, label: "0.5 · less politics" },
-    { value: 1, label: "1.0 · default" },
-    { value: 1.5, label: "1.5 · more politics" },
-    { value: 2, label: "2.0 · max politics" },
+    { value: 0, label: "0 · No Politics" },
+    { value: 0.5, label: "0.5 · Less Politics" },
+    { value: 1, label: "1.0 · Default" },
+    { value: 1.5, label: "1.5 · More Politics" },
+    { value: 2, label: "2.0 · Max Politics" },
   ])(
     "shows saved Politics $value with its label in the slider and explanation",
     async ({ value, label }) => {
