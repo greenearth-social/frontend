@@ -96,6 +96,14 @@ export function formatWeight(value: number): string {
   return value.toFixed(2);
 }
 
+const POLITICS_LABELS: Record<number, string> = {
+  0: "0 · no politics",
+  0.5: "0.5 · less politics",
+  1: "1.0 · default",
+  1.5: "1.5 · more politics",
+  2: "2.0 · max politics",
+};
+
 export function formatPolitics(value: number): string {
-  return value === 1 ? "1.00 · Neutral" : value.toFixed(2);
+  return POLITICS_LABELS[value] ?? value.toFixed(2);
 }

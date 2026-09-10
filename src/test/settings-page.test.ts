@@ -184,10 +184,10 @@ describe("SettingsPage", () => {
     expect(politics?.max).toBe(2);
     expect(politics?.step).toBe(0.5);
     expect(politics?.ariaLabel).toBe("Politics multiplier");
-    expect(politics?.valueText).toBe("1.00 · Neutral");
+    expect(politics?.valueText).toBe("1.0 · default");
     expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.00 · Neutral");
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.0 · default");
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -595,24 +595,28 @@ describe("SettingsPage", () => {
     ).toContain("M416 160C416 124.7");
   });
 
-  it.each([0, 0.5, 1.5, 2])(
-    "shows saved Politics %s in the slider and explanation",
-    async (value) => {
+  it.each([
+    { value: 0, label: "0 · no politics" },
+    { value: 0.5, label: "0.5 · less politics" },
+    { value: 1, label: "1.0 · default" },
+    { value: 1.5, label: "1.5 · more politics" },
+    { value: 2, label: "2.0 · max politics" },
+  ])(
+    "shows saved Politics $value with its label in the slider and explanation",
+    async ({ value, label }) => {
       testState.values.politics = value;
       const element = document.createElement("settings-page");
       document.body.appendChild(element);
       await element.updateComplete;
 
       expect(politicsSlider(element).value).toBe(value);
-      expect(politicsSlider(element).valueText).toBe(value.toFixed(2));
+      expect(politicsSlider(element).valueText).toBe(label);
       element.shadowRoot
         ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Politics"]')
         ?.click();
       await element.updateComplete;
 
-      expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe(
-        value.toFixed(2),
-      );
+      expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe(label);
       expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
     },
   );
