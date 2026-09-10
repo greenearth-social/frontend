@@ -117,6 +117,13 @@ describe("FeedApiService", () => {
               content: "hello",
               generators: [{ name: "two_tower", score: 0.8 }],
               model_scores: [{ name: "ranker", weight: 1, score: 0.9 }],
+              politics_adjustment: {
+                setting: 2,
+                topic_score: 0.5,
+                score_multiplier: 1.5,
+                score_before: 0.6,
+                score_after: 0.9,
+              },
               diversification: {
                 relevance: 0.9,
                 score: 0.8,
@@ -157,10 +164,79 @@ describe("FeedApiService", () => {
       afterRankPosition: 2,
       author: { displayName: "Alice", avatarUrl: null },
       modelScores: [{ name: "ranker", weight: 1, score: 0.9 }],
+      politicsAdjustment: {
+        setting: 2,
+        topicScore: 0.5,
+        scoreMultiplier: 1.5,
+        scoreBefore: 0.6,
+        scoreAfter: 0.9,
+      },
       diversification: { authorPenalty: 0.1, contentPenalty: 0.2 },
       media: { imageUrls: ["https://example.com/image.jpg"] },
       engagement: { replyCount: 1, repostCount: 2, likeCount: 3 },
       postUrl: "https://bsky.app/post/1",
+    });
+  });
+
+  it.each([undefined, null])("accepts legacy politics metadata: %s", async (adjustment) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          request_id: "legacy",
+          generated_at: "2026-07-15T12:00:00Z",
+          items: [
+            {
+              at_uri: "at://post/legacy",
+              politics_adjustment: adjustment,
+              generators: [],
+              model_scores: [],
+            },
+          ],
+        }),
+      ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    const response = await service.getFeedDetail("legacy");
+
+    expect(response.items?.[0]?.politicsAdjustment).toBeNull();
+  });
+
+  it("preserves zero and missing topic values in a preview's politics adjustment", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          request_id: "preview",
+          generated_at: "2026-07-15T12:00:00Z",
+          items: [
+            {
+              at_uri: "at://post/preview",
+              generators: [],
+              model_scores: [],
+              politics_adjustment: {
+                setting: 0,
+                topic_score: null,
+                score_multiplier: 1,
+                score_before: 0,
+                score_after: 0,
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    const response = await service.getFeedPreview("preview");
+
+    expect(response.items?.[0]?.politicsAdjustment).toEqual({
+      setting: 0,
+      topicScore: null,
+      scoreMultiplier: 1,
+      scoreBefore: 0,
+      scoreAfter: 0,
     });
   });
 
@@ -179,8 +255,9 @@ describe("FeedApiService", () => {
               },
               freshness: 4,
               purpose: 0.65,
+              politics: 0,
             },
-            "best-of-friends": { freshness: 2, purpose: 0.35 },
+            "best-of-friends": { freshness: 2, purpose: 0.35, politics: 2 },
             random: { freshness: 1 },
           },
         }),
@@ -198,8 +275,9 @@ describe("FeedApiService", () => {
         },
         freshness: 4,
         purpose: 0.65,
+        politics: 0,
       },
-      "best-of-friends": { freshness: 2, purpose: 0.35 },
+      "best-of-friends": { freshness: 2, purpose: 0.35, politics: 2 },
       random: { freshness: 1 },
     });
   });
@@ -247,6 +325,28 @@ describe("FeedApiService", () => {
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body as string)).toEqual({ freshness: 2 });
   });
+
+  it.each(
+    (["your-feed", "best-of-friends"] as const).flatMap((feedName) =>
+      [0, 1.75, 2].map((politics) => ({ feedName, politics })),
+    ),
+  )(
+    "round-trips a sparse politics patch of $politics for $feedName",
+    async ({ feedName, politics }) => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ politics }));
+      vi.stubGlobal("fetch", fetchMock);
+      const service = new FeedApiService("", () => Promise.resolve("token"));
+
+      await expect(service.patchPreferences(feedName, { politics })).resolves.toEqual({
+        politics,
+      });
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/feeds/preferences/${feedName}`);
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      expect(init.method).toBe("PATCH");
+      expect(JSON.parse(init.body as string)).toEqual({ politics });
+    },
+  );
 
   it("serializes atomic source weights as snake_case", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -324,7 +424,7 @@ describe("FeedApiService", () => {
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(
-      service.createFeedPreview("your-feed", { freshness: 2, purpose: 0.65 }),
+      service.createFeedPreview("your-feed", { freshness: 2, purpose: 0.65, politics: 0 }),
     ).resolves.toEqual({
       requestId: "preview-1",
       feedName: "your-feed",
@@ -334,7 +434,7 @@ describe("FeedApiService", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/your-feed/preview");
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ freshness: 2, purpose: 0.65 });
+    expect(JSON.parse(init.body as string)).toEqual({ freshness: 2, purpose: 0.65, politics: 0 });
   });
 
   it("sends an empty object when refreshing a saved-settings baseline", async () => {
@@ -377,7 +477,7 @@ describe("FeedApiService", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         request_id: "preview-1",
-        preferences: { freshness: 2, purpose: 0.65 },
+        preferences: { freshness: 2, purpose: 0.65, politics: 0 },
         accepted_until: null,
       }),
     );
@@ -385,20 +485,22 @@ describe("FeedApiService", () => {
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(
-      service.acceptFeedPreview("your-feed", "preview-1", { freshness: 2, purpose: 0.65 }, [
-        "at://post/2",
-        "at://post/1",
-      ]),
+      service.acceptFeedPreview(
+        "your-feed",
+        "preview-1",
+        { freshness: 2, purpose: 0.65, politics: 0 },
+        ["at://post/2", "at://post/1"],
+      ),
     ).resolves.toEqual({
       requestId: "preview-1",
-      preferences: { freshness: 2, purpose: 0.65 },
+      preferences: { freshness: 2, purpose: 0.65, politics: 0 },
       acceptedUntil: null,
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/your-feed/previews/preview-1/accept");
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
-      preferences: { freshness: 2, purpose: 0.65 },
+      preferences: { freshness: 2, purpose: 0.65, politics: 0 },
       displayed_item_uris: ["at://post/2", "at://post/1"],
     });
   });

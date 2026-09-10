@@ -130,11 +130,15 @@ Preference state is keyed by `AlgorithmId`; never reuse a global preference valu
 when the selected feed changes. The API feed-preference response is the canonical
 source of enabled controls:
 
-- `your-feed`: Source Weights, Time Window, Purpose
-- `best-of-friends`: Time Window, Purpose
+- `your-feed`: Source Weights, Time Window, Purpose, Politics
+- `best-of-friends`: Time Window, Purpose, Politics
 - `random`: Time Window
-- Politics stays a local disabled "Coming Soon" presentation and must not be sent
-  to the API.
+
+Politics uses a 0–2 multiplier with five slider positions (0, 0.5, 1, 1.5, 2)
+and neutral/default 1. Render it and include it in settings patches only when
+`supportsControl(feedName, "politics")` is true. Older API deployments that omit
+politics keep it hidden. Political posts may still appear at 0; this control
+adjusts ranking scores rather than applying a categorical content filter.
 
 `PreferencesStore.valuesByFeed` holds resolved UI values and
 `controlsByFeed` records the sparse controls returned for each feed. Components
@@ -163,7 +167,8 @@ The preference wire contract is:
         "popular": 0.3
       },
       "freshness": 5,
-      "purpose": 0.5
+      "purpose": 0.5,
+      "politics": 1.0
     }
   }
 }

@@ -40,7 +40,7 @@ describe("preference presets", () => {
 
   it("defines five politics presets centered at 1.00", () => {
     expect(POLITICS_PRESETS.map((preset) => preset.value)).toEqual([
-      0.5, 0.75, 1, 1.25, 1.5,
+      0, 0.5, 1, 1.5, 2,
     ]);
     expect(POLITICS_PRESETS[2]?.displayLines).toEqual(["1.00"]);
   });

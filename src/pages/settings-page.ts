@@ -30,6 +30,7 @@ import {
   LOCKED_ICON_PATH,
   SETTINGS_NODES,
   UNLOCKED_ICON_PATH,
+  formatPolitics,
 } from "./settings-page-config";
 
 function getSettingsPreviewStore(): SettingsPreviewStore | undefined {
@@ -91,6 +92,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private selectedNode: string | null = null;
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
+  @state() private previewPolitics: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private mobilePreviewOpen = false;
   @state() private isPreviewPreparing = false;
@@ -180,6 +182,7 @@ export class SettingsPage extends MobxLitElement {
       this.baselineSyncPending = false;
       this.previewSourceWeights = null;
       this.previewPurpose = null;
+      this.previewPolitics = null;
       this.previewFreshness = null;
       this.sourceStartWeights = null;
       this.lockedSources = [];
@@ -213,6 +216,7 @@ export class SettingsPage extends MobxLitElement {
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
+    const politics = this.previewPolitics ?? preferences.politics;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
@@ -311,7 +315,7 @@ export class SettingsPage extends MobxLitElement {
                         this.selectedAlgorithm === "random"
                           ? ""
                           : html`
-                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose)}
+                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                             `
                       }
@@ -412,6 +416,7 @@ export class SettingsPage extends MobxLitElement {
               nodeId: this.selectedNode,
               weights,
               purpose,
+              politics,
               freshness,
               selectedAlgorithm: this.selectedAlgorithm,
               onClose: () => {
@@ -551,7 +556,7 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  #renderRankingSection(purpose: number): TemplateResult {
+  #renderRankingSection(purpose: number, politics: number): TemplateResult {
     const engaging = 1 - purpose;
     return html`
       <section class="section section-ranking">
@@ -595,7 +600,7 @@ export class SettingsPage extends MobxLitElement {
               }}
             ></icon-range-slider>
           </div>
-          ${this.#renderPolitics()}
+          ${this.#supportsPolitics() ? this.#renderPolitics(politics) : ""}
         </div>
       </section>
     `;
@@ -631,24 +636,34 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  #renderPolitics(): TemplateResult {
+  #supportsPolitics(): boolean {
+    return (
+      getRootStore()?.preferencesStore.supportsControl(this.selectedAlgorithm, "politics") ?? false
+    );
+  }
+
+  #renderPolitics(politics: number): TemplateResult {
     return html`
       <div class="politics-card">
         <div class="politics-heading">
           ${this.#titleButton("politics", "Politics")}
-          <span class="coming-soon">Coming Soon!</span>
         </div>
         <div class="politics-control">
           <icon-range-slider
-            min="0.5"
-            max="1.5"
-            step="0.25"
-            value="1"
+            min="0"
+            max="2"
+            step="0.5"
+            .value=${politics}
             .icons=${LIFECYCLE_ICONS}
-            valueText="1.00 · Neutral"
-            .showValue=${false}
-            ariaLabel="Politics multiplier, coming soon"
-            disabled
+            .valueText=${formatPolitics(politics)}
+            ariaLabel="Politics multiplier"
+            ?disabled=${this.isLoading}
+            @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+              this.previewPolitics = event.detail.value;
+            }}
+            @slider-change=${(event: CustomEvent<{ value: number }>) => {
+              this.#commitPolitics(event.detail.value);
+            }}
           ></icon-range-slider>
         </div>
       </div>
@@ -694,11 +709,10 @@ export class SettingsPage extends MobxLitElement {
     });
   }
 
-  #isAtDefaults(preferences: {
-    sourceWeights: SourceWeights;
-    freshness: number;
-    purpose: number;
-  }): boolean {
+  #isAtDefaults(preferences: Preferences): boolean {
+    if (this.#supportsPolitics() && preferences.politics !== DEFAULT_PREFERENCES.politics) {
+      return false;
+    }
     if (preferences.freshness !== DEFAULT_PREFERENCES.freshness) return false;
     if (
       this.selectedAlgorithm !== "random" &&
@@ -725,6 +739,7 @@ export class SettingsPage extends MobxLitElement {
 
     this.previewSourceWeights = null;
     this.previewPurpose = null;
+    this.previewPolitics = null;
     this.previewFreshness = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
@@ -799,8 +814,17 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ purpose: current }, { purpose: value });
   }
 
+  #commitPolitics(value: number): void {
+    this.previewPolitics = null;
+    if (!this.#supportsPolitics()) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).politics;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ politics: current }, { politics: value });
+  }
+
   #settingsPatch(values: Preferences): FeedPreferences {
     const patch: FeedPreferences = { freshness: values.freshness };
+    if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {
       patch.sourceWeights = { ...values.sourceWeights };

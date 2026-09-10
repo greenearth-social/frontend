@@ -482,7 +482,9 @@ export class PreferencesStore {
     // Reset what the Settings page exposes, even if an older or partial load
     // did not populate the control metadata. This keeps Sources in
     // the same atomic reset as freshness and ranking.
-    const controls = RESETTABLE_CONTROLS_BY_FEED[feedName];
+    const controls = [...RESETTABLE_CONTROLS_BY_FEED[feedName]];
+    // Older API versions reject politics until they explicitly expose it.
+    if (this.supportsControl(feedName, "politics")) controls.push("politics");
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const changedControls = controls.filter((control) =>
       controlChanged(control, previousValues, DEFAULT_PREFERENCES),

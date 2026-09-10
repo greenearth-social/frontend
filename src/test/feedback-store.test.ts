@@ -52,7 +52,7 @@ function makeRoot(currentRequestId: string | null) {
         if (feedName === "random") {
           return { ...this.values, freshness: 1, purpose: 0.5 };
         }
-        return this.values;
+        return { ...this.values, politics: 0 };
       },
     },
     services: {
@@ -82,12 +82,26 @@ describe("FeedbackStore", () => {
       feedName: "best-of-friends",
       feedLabel: "Best of Friends",
       apiReleaseSha: "friends-api-sha",
+      preferences: { politics: 1 },
       snapshot: {
         requestId: "friends-request",
         feedName: "best-of-friends",
       },
     });
     expect(sent.submissionId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("includes the selected MySky politics value when another feed snapshot is open", async () => {
+    const { root, submit } = makeRoot("friends-request");
+
+    await new FeedbackStore(root).submit("controls", "Feedback about politics.", "your-feed");
+
+    const sent = submit.mock.calls[0]?.[0] as unknown as FeedbackSubmission;
+    expect(sent).toMatchObject({
+      feedName: "your-feed",
+      preferences: { politics: 0 },
+      snapshot: null,
+    });
   });
 
   it("does not attach the current snapshot when another feed is selected", async () => {

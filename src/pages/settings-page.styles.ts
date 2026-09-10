@@ -778,17 +778,6 @@ export const settingsPageStyles = css`
     color: var(--bluesky-text);
   }
 
-  .coming-soon {
-    color: var(--bluesky-text-secondary);
-    font-size: 0.6875rem;
-    font-style: italic;
-    font-weight: 600;
-  }
-
-  .politics-control {
-    opacity: 0.55;
-  }
-
   feedback-form {
     margin-top: 1.5rem;
   }

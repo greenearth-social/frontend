@@ -19,7 +19,8 @@ const testState = vi.hoisted(() => {
     rootStore: {
       preferencesStore: {
         hasLoaded: true,
-        valuesFor: vi.fn(() => values),
+        valuesFor: vi.fn((_feedName: string) => values),
+        supportsControl: vi.fn((_feedName: string, _control: string) => false),
         load: vi.fn().mockResolvedValue(undefined),
         save: vi.fn(),
         savePatch: vi.fn(),
@@ -67,6 +68,20 @@ import type { IconRangeSlider } from "../components/icon-range-slider";
 import { MOBILE_PREVIEW_SETTLE_DELAY_MS } from "../pages/settings-page";
 import { settingsPageStyles } from "../pages/settings-page.styles";
 
+const POLITICS_FEEDS = ["your-feed", "best-of-friends"] as const;
+
+function politicsSlider(element: HTMLElement): IconRangeSlider {
+  const slider = element.shadowRoot?.querySelector<IconRangeSlider>(
+    ".politics-card icon-range-slider",
+  );
+  if (!slider) throw new Error("Politics slider was not rendered");
+  return slider;
+}
+
+function changeSlider(slider: IconRangeSlider, value: number, type = "slider-change"): void {
+  slider.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail: { value } }));
+}
+
 describe("SettingsPage", () => {
   beforeEach(() => {
     document.body.replaceChildren();
@@ -79,6 +94,14 @@ describe("SettingsPage", () => {
     testState.values.freshness = 5;
     testState.values.politics = 1;
     testState.values.purpose = 0.5;
+    testState.rootStore.preferencesStore.valuesFor.mockReset();
+    testState.rootStore.preferencesStore.valuesFor.mockReturnValue(testState.values);
+    testState.rootStore.preferencesStore.supportsControl.mockReset();
+    testState.rootStore.preferencesStore.supportsControl.mockImplementation((feedName, control) => {
+      if (control === "source_weights") return feedName === "your-feed";
+      if (control === "purpose" || control === "politics") return feedName !== "random";
+      return control === "freshness";
+    });
     testState.rootStore.preferencesStore.save.mockReset();
     testState.rootStore.preferencesStore.save.mockResolvedValue(undefined);
     testState.rootStore.preferencesStore.savePatch.mockReset();
@@ -134,7 +157,7 @@ describe("SettingsPage", () => {
     document.body.replaceChildren();
   });
 
-  it("renders the full MySky pipeline and disabled Politics control", async () => {
+  it("renders the full MySky pipeline and enabled Politics control", async () => {
     const element = document.createElement("settings-page");
     element.selectedAlgorithm = "your-feed";
     document.body.appendChild(element);
@@ -146,9 +169,7 @@ describe("SettingsPage", () => {
       element.shadowRoot?.querySelectorAll(".section-title") ?? [],
     ).map((title) => title.textContent.trim());
     expect(sectionTitles).toEqual(["Sources", "Ranking", "Diversification"]);
-    expect(element.shadowRoot?.querySelector(".politics-card .coming-soon")?.textContent).toContain(
-      "Coming Soon",
-    );
+    expect(element.shadowRoot?.querySelector(".politics-card .coming-soon")).toBeNull();
     expect(
       element.shadowRoot?.querySelector(".section-ranking .ranking-grid > .politics-card"),
     ).not.toBeNull();
@@ -158,11 +179,15 @@ describe("SettingsPage", () => {
     const politics = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
     ).find((slider) => slider.ariaLabel.startsWith("Politics"));
-    expect(politics?.disabled).toBe(true);
+    expect(politics?.disabled).toBe(false);
+    expect(politics?.min).toBe(0);
+    expect(politics?.max).toBe(2);
+    expect(politics?.step).toBe(0.5);
+    expect(politics?.ariaLabel).toBe("Politics multiplier");
     expect(politics?.valueText).toBe("1.00 · Neutral");
-    expect(politics?.showValue).toBe(false);
+    expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")).toBeNull();
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.00 · Neutral");
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -280,6 +305,7 @@ describe("SettingsPage", () => {
         },
         freshness: 5,
         purpose: 0.5,
+        politics: 1,
       },
       { source_weights: "reset_defaults" },
     );
@@ -360,12 +386,8 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector("h1")?.getAttribute("aria-label")).toBe(
       "Best of Friends Settings",
     );
-    const politics = Array.from(
-      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
-    ).find((slider) => slider.ariaLabel.startsWith("Politics"));
-    expect(politics?.showValue).toBe(false);
-    await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")).toBeNull();
+    expect(politicsSlider(element).disabled).toBe(false);
+    expect(politicsSlider(element).value).toBe(1);
 
     element.shadowRoot
       ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Following"]')
@@ -572,6 +594,294 @@ describe("SettingsPage", () => {
         ?.getAttribute("d"),
     ).toContain("M416 160C416 124.7");
   });
+
+  it.each([0, 0.5, 1.5, 2])(
+    "shows saved Politics %s in the slider and explanation",
+    async (value) => {
+      testState.values.politics = value;
+      const element = document.createElement("settings-page");
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      expect(politicsSlider(element).value).toBe(value);
+      expect(politicsSlider(element).valueText).toBe(value.toFixed(2));
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Politics"]')
+        ?.click();
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".popup-metric-value")?.textContent).toBe(
+        value.toFixed(2),
+      );
+      expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(POLITICS_FEEDS)(
+    "previews Politics input locally and commits %s on release",
+    async (feedName) => {
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      changeSlider(politicsSlider(element), 0.5, "slider-preview");
+      await element.updateComplete;
+      expect(politicsSlider(element).value).toBe(0.5);
+      expect(testState.values.politics).toBe(1);
+      expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
+
+      changeSlider(politicsSlider(element), 0.5);
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
+        feedName,
+        { politics: 0.5 },
+        {},
+      );
+      expect(testState.values.politics).toBe(0.5);
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.disabled,
+      ).toBe(false);
+    },
+  );
+
+  it("clears Politics previews and preserves independent saved values when switching feeds", async () => {
+    testState.values.politics = 1.5;
+    const friendsValues = {
+      ...testState.values,
+      sourceWeights: { ...testState.values.sourceWeights },
+      politics: 1,
+    };
+    testState.rootStore.preferencesStore.valuesFor.mockImplementation((feedName) =>
+      feedName === "your-feed" ? testState.values : friendsValues,
+    );
+    testState.rootStore.preferencesStore.savePatch.mockImplementation(
+      (feedName: string, patch: Partial<typeof testState.values>) => {
+        Object.assign(testState.rootStore.preferencesStore.valuesFor(feedName), patch);
+        return Promise.resolve(true);
+      },
+    );
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    changeSlider(politicsSlider(element), 0, "slider-preview");
+    await element.updateComplete;
+    expect(politicsSlider(element).value).toBe(0);
+
+    element.selectedAlgorithm = "best-of-friends";
+    await element.updateComplete;
+    // The feed change clears the temporary value in updated(), scheduling a second render.
+    await element.updateComplete;
+    expect(politicsSlider(element).value).toBe(1);
+    expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
+
+    changeSlider(politicsSlider(element), 0.5);
+    await Promise.resolve();
+    await element.updateComplete;
+    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
+      "best-of-friends",
+      { politics: 0.5 },
+      {},
+    );
+    expect(friendsValues.politics).toBe(0.5);
+    expect(testState.values.politics).toBe(1.5);
+
+    element.selectedAlgorithm = "your-feed";
+    await element.updateComplete;
+    expect(politicsSlider(element).value).toBe(1.5);
+    element.selectedAlgorithm = "best-of-friends";
+    await element.updateComplete;
+    expect(politicsSlider(element).value).toBe(0.5);
+  });
+
+  it.each(POLITICS_FEEDS)(
+    "undoes, redoes, and resets a Politics-only change for %s",
+    async (feedName) => {
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      changeSlider(politicsSlider(element), 2);
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
+      ).toBe(false);
+
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.click();
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
+        feedName,
+        { politics: 1 },
+        {},
+      );
+      expect(politicsSlider(element).value).toBe(1);
+
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[aria-label="Redo last settings change"]')
+        ?.click();
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
+        feedName,
+        { politics: 2 },
+        {},
+      );
+      expect(politicsSlider(element).value).toBe(2);
+
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.click();
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
+        feedName,
+        expect.objectContaining({ politics: 1 }),
+        feedName === "your-feed" ? { source_weights: "reset_defaults" } : {},
+      );
+      expect(politicsSlider(element).value).toBe(1);
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
+      ).toBe(true);
+
+      element.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.click();
+      await Promise.resolve();
+      await element.updateComplete;
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
+        feedName,
+        expect.objectContaining({ politics: 2 }),
+        feedName === "your-feed" ? { source_weights: "undo" } : {},
+      );
+      expect(politicsSlider(element).value).toBe(2);
+    },
+  );
+
+  it.each(POLITICS_FEEDS)(
+    "clears the temporary Politics value and history when saving %s fails",
+    async (feedName) => {
+      testState.rootStore.preferencesStore.savePatch.mockResolvedValueOnce(false);
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      changeSlider(politicsSlider(element), 0.5, "slider-preview");
+      await element.updateComplete;
+      changeSlider(politicsSlider(element), 0.5);
+      await Promise.resolve();
+      await element.updateComplete;
+
+      expect(politicsSlider(element).value).toBe(1);
+      expect(element.shadowRoot?.querySelector(".settings-error")?.textContent).toContain(
+        "Settings could not be updated",
+      );
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(
+          '[aria-label="Undo last settings change"]',
+        )?.disabled,
+      ).toBe(true);
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.disabled,
+      ).toBe(true);
+    },
+  );
+
+  it.each(POLITICS_FEEDS)(
+    "includes Politics in the generated and accepted %s preview snapshot",
+    async (feedName) => {
+      const generated = { items: [] };
+      testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      changeSlider(politicsSlider(element), 0);
+      await Promise.resolve();
+      await element.updateComplete;
+      const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+      if (!feed) throw new Error("Settings feed preview was not rendered");
+      vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+      await vi.waitFor(() => {
+        expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(
+          generated,
+        );
+      });
+
+      const expected = {
+        freshness: testState.values.freshness,
+        purpose: testState.values.purpose,
+        politics: 0,
+        ...(feedName === "your-feed" ? { sourceWeights: testState.values.sourceWeights } : {}),
+      };
+      expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledExactlyOnceWith(
+        expected,
+      );
+      expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledWith(
+        generated,
+        expected,
+      );
+    },
+  );
+
+  it.each(["your-feed", "best-of-friends", "random"] as const)(
+    "omits unsupported Politics on %s from the UI, defaults, and previews",
+    async (feedName) => {
+      testState.rootStore.preferencesStore.supportsControl.mockImplementation((feed, control) => {
+        if (control === "source_weights") return feed === "your-feed";
+        if (control === "purpose") return feed !== "random";
+        return control === "freshness";
+      });
+      testState.values.politics = 2;
+      const generated = { items: [] };
+      testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+      expect(element.shadowRoot?.querySelector(".politics-card")).toBeNull();
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
+      ).toBe(true);
+
+      const freshness = Array.from(
+        element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+      ).find((slider) => slider.ariaLabel === "Time Window");
+      if (!freshness) throw new Error("Time Window slider was not rendered");
+      changeSlider(freshness, 2);
+      await Promise.resolve();
+      await element.updateComplete;
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.click();
+      await Promise.resolve();
+      await element.updateComplete;
+      const resetPatch: unknown =
+        testState.rootStore.preferencesStore.savePatch.mock.calls.at(-1)?.[1];
+      expect(resetPatch).not.toHaveProperty("politics");
+
+      const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+      if (!feed) throw new Error("Settings feed preview was not rendered");
+      vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+      await vi.waitFor(() => {
+        expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(
+          generated,
+        );
+      });
+      const snapshot: unknown = testState.rootStore.settingsPreviewStore.preview.mock.calls[0]?.[0];
+      expect(snapshot).not.toHaveProperty("politics");
+      expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).toHaveBeenCalledWith(
+        generated,
+        snapshot,
+      );
+    },
+  );
 
   it("persists Ranking controls immediately and enables Preview", async () => {
     const element = document.createElement("settings-page");

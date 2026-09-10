@@ -204,9 +204,17 @@ describe("RankScoresChart", () => {
     element.remove();
   });
 
-  it("uses the configured Engaging and Constructive influences in score math", async () => {
+  it("uses recorded weights even when current Purpose preferences have changed", async () => {
     const element = document.createElement("rank-scores-chart");
-    element.item = { ...item(), diversification: null };
+    element.item = {
+      ...item(),
+      diversification: null,
+      rankScore: 0.54,
+      modelScores: [
+        { name: "heavy_ranker", weight: 2, score: 0.7 },
+        { name: "perspective", weight: 8, score: 0.5 },
+      ],
+    };
     element.engagingInfluence = 0.7;
     element.constructiveInfluence = 0.3;
     document.body.appendChild(element);
@@ -216,16 +224,18 @@ describe("RankScoresChart", () => {
     await element.updateComplete;
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
-    expect(text).toContain("(0.700 × 0.70) + (0.500 × 0.30) = 0.640");
-    expect(text).not.toContain("× 1.00");
+    expect(text).toContain("(0.700 × 0.20) + (0.500 × 0.80) = 0.540");
+    expect(text).toContain("Relevance score 0.540");
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.54");
     element.remove();
   });
 
-  it("ignores raw 1.00 model weights in favor of the default 0.50 influences", async () => {
+  it("normalizes recorded raw model weights for a legacy score fallback", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = {
       ...item(),
       diversification: null,
+      rankScore: null,
       modelScores: [
         { name: "heavy_ranker", weight: 1, score: 1 },
         { name: "perspective", weight: 1, score: 0.47 },
@@ -243,6 +253,190 @@ describe("RankScoresChart", () => {
     expect(text).not.toContain("× 1.00");
     element.remove();
   });
+
+  it.each([
+    { topicScore: 1, scoreMultiplier: 2, scoreAfter: 1.2, relevance: 1 },
+    { topicScore: 0, scoreMultiplier: 1, scoreAfter: 0.6, relevance: 0.5 },
+  ])("uses the same batch leader for politics topic score $topicScore", async (adjustment) => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: adjustment.scoreAfter,
+      politicsAdjustment: {
+        setting: 2,
+        topicScore: adjustment.topicScore,
+        scoreMultiplier: adjustment.scoreMultiplier,
+        scoreBefore: 0.6,
+        scoreAfter: adjustment.scoreAfter,
+      },
+      diversification: {
+        relevance: adjustment.relevance,
+        score: 0.3 * adjustment.relevance,
+        authorPenalty: 0,
+        contentPenalty: 0,
+      },
+    };
+    element.engagingInfluence = 0.9;
+    element.constructiveInfluence = 0.1;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("(0.700 × 0.50) + (0.500 × 0.50) = 0.600");
+    expect(text).toContain("Recorded Politics setting 2.000");
+    expect(text).toContain(`Political topic score ${adjustment.topicScore.toFixed(3)}`);
+    expect(text).toContain(
+      `0.600 × ${adjustment.scoreMultiplier.toFixed(3)} = ${adjustment.scoreAfter.toFixed(3)}`,
+    );
+    expect(text).toContain(
+      `${adjustment.scoreAfter.toFixed(3)} ÷ 1.200 = ${adjustment.relevance.toFixed(3)} relevance`,
+    );
+    element.remove();
+  });
+
+  it.each([1.2, 0])("shows the adjusted score %s without diversification", async (scoreAfter) => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: scoreAfter,
+      diversification: null,
+      politicsAdjustment: {
+        setting: scoreAfter === 0 ? 0 : 2,
+        topicScore: 1,
+        scoreMultiplier: scoreAfter === 0 ? 0 : 2,
+        scoreBefore: 0.6,
+        scoreAfter,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe(
+      scoreAfter.toFixed(2),
+    );
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain(`Relevance score ${scoreAfter.toFixed(3)}`);
+    expect(text).toContain(
+      `0.600 × ${scoreAfter === 0 ? "0.000" : "2.000"} = ${scoreAfter.toFixed(3)}`,
+    );
+    expect(text).not.toContain("strongest post");
+    element.remove();
+  });
+
+  it.each([0, 1])("preserves zero rank scores with relevance %s", async (relevance) => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: 0,
+      politicsAdjustment: {
+        setting: 0,
+        topicScore: 1,
+        scoreMultiplier: 0,
+        scoreBefore: 0.6,
+        scoreAfter: 0,
+      },
+      diversification: {
+        relevance,
+        score: 0.3 * relevance - 0.1,
+        authorPenalty: 0.1,
+        contentPenalty: 0,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe(
+      (0.3 * relevance - 0.1).toFixed(2),
+    );
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("Recorded rank score 0.000");
+    expect(text).toContain(`Recorded normalized relevance ${relevance.toFixed(3)}`);
+    expect(text).not.toContain("÷");
+    expect(text).not.toContain("NaN");
+    expect(text).not.toContain("Infinity");
+    element.remove();
+  });
+
+  it("explains missing topic scores with the recorded unchanged multiplier", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      politicsAdjustment: {
+        setting: 0,
+        topicScore: null,
+        scoreMultiplier: 1,
+        scoreBefore: 0.6,
+        scoreAfter: 0.6,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("Political topic score —");
+    expect(text).toContain(
+      "No political topic score was available, so this post's score was unchanged",
+    );
+    expect(text).toContain("0.600 × 1.000 = 0.600");
+    element.remove();
+  });
+
+  it("uses the recorded politics score when rankScore and model scores are missing", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: null,
+      modelScores: [],
+      diversification: null,
+      politicsAdjustment: {
+        setting: 2,
+        topicScore: 1,
+        scoreMultiplier: 2,
+        scoreBefore: 0.6,
+        scoreAfter: 1.2,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("1.20");
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("0.600 × 2.000 = 1.200");
+    expect(text).toContain("Relevance score 1.200");
+    element.remove();
+  });
+
+  it.each([undefined, null])(
+    "keeps legacy snapshots without politics metadata graceful: %s",
+    async (politicsAdjustment) => {
+      const element = document.createElement("rank-scores-chart");
+      element.item = { ...item(), rankScore: 0.8, diversification: null, politicsAdjustment };
+      document.body.appendChild(element);
+      await element.updateComplete;
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.80");
+      const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+      expect(text).toContain("Relevance score 0.800");
+      expect(text).not.toContain("Politics");
+      element.remove();
+    },
+  );
 
   it("makes every explanation header clickable", async () => {
     const element = document.createElement("rank-scores-chart");

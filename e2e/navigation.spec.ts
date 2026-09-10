@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ALGORITHMS } from "../src/constants/algorithms";
+import type { RootStore } from "../src/stores/root-store";
 
 test.describe("feed-scoped navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -240,6 +241,14 @@ test.describe("feed-scoped navigation", () => {
     await expect(settings.getByRole("button", { name: "Learn more about Sources" })).toHaveCount(0);
     const politics = ranking.locator(".ranking-grid > .politics-card");
     await expect(politics).toBeVisible();
+    const politicsSlider = politics.getByRole("slider", { name: "Politics multiplier" });
+    await expect(politicsSlider).toBeEnabled();
+    await expect(politicsSlider).toHaveAttribute("min", "0");
+    await expect(politicsSlider).toHaveAttribute("max", "2");
+    await expect(politicsSlider).toHaveAttribute("step", "0.5");
+    await expect(politicsSlider).toHaveValue("1");
+    await expect(politics.getByText("1.00 · Neutral", { exact: true })).toBeVisible();
+    await expect(politics.getByText("Coming Soon")).toHaveCount(0);
     expect(
       await politics.evaluate((element) => ({
         start: getComputedStyle(element).gridColumnStart,
@@ -252,11 +261,164 @@ test.describe("feed-scoped navigation", () => {
     await expect(page.getByText("All", { exact: true })).toHaveCount(0);
 
     await page.evaluate(() => {
+      window.location.hash = "/settings/best-of-friends";
+    });
+    await expect(page).toHaveURL(/#\/settings\/best-of-friends$/);
+    await expect(settings.getByRole("heading", { name: "Best of Friends Settings" })).toBeVisible();
+    await expect(politics).toBeVisible();
+    await expect(politicsSlider).toBeEnabled();
+    await expect(politicsSlider).toHaveValue("1");
+    await expect(politics.getByText("1.00 · Neutral", { exact: true })).toBeVisible();
+
+    await page.evaluate(() => {
       window.location.hash = "/settings/random";
     });
     await expect(page).toHaveURL(/#\/settings\/random$/);
     await expect(settings.locator(".politics-card")).toHaveCount(0);
   });
+
+  for (const feedName of ["your-feed", "best-of-friends"] as const) {
+    test(`saves ${feedName} Politics immediately, preserves it across feeds, and includes it in Preview`, async ({
+      page,
+    }) => {
+      const otherFeed = feedName === "your-feed" ? "best-of-friends" : "your-feed";
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.evaluate((feed) => {
+        window.location.hash = `/settings/${feed}`;
+      }, feedName);
+      const settings = page.locator("settings-page");
+      await expect(
+        settings.getByRole("heading", { name: `${ALGORITHMS[feedName].label} Settings` }),
+      ).toBeVisible();
+      const politics = settings.getByRole("slider", { name: "Politics multiplier" });
+      await expect(politics).toHaveValue("1");
+      await page.evaluate(async () => {
+        const modulePath = "/src/main.ts";
+        const appModule = (await import(modulePath)) as { getRootStore(): RootStore | null };
+        const service = appModule.getRootStore()?.services.feedApiService;
+        if (!service) throw new Error("Mock feed service unavailable");
+        const originalPatch = service.patchPreferences.bind(service);
+        const originalCreate = service.createFeedPreview.bind(service);
+        const originalAccept = service.acceptFeedPreview.bind(service);
+        service.patchPreferences = (feedName, patch) => {
+          Reflect.set(window, "__politicsSaved", { feedName, patch });
+          return originalPatch(feedName, patch);
+        };
+        service.createFeedPreview = (feedName, patch) => {
+          Reflect.set(window, "__politicsPreview", { feedName, patch });
+          return originalCreate(feedName, patch);
+        };
+        service.acceptFeedPreview = (feedName, requestId, patch, displayedItemUris) => {
+          Reflect.set(window, "__politicsAccepted", { feedName, patch });
+          return originalAccept(feedName, requestId, patch, displayedItemUris);
+        };
+      });
+
+      await politics.focus();
+      await politics.press("ArrowRight");
+      await expect(politics).toHaveValue("1.5");
+      await expect
+        .poll(() => page.evaluate(() => Reflect.get(window, "__politicsSaved") as unknown))
+        .toEqual({ feedName, patch: { politics: 1.5 } });
+      expect(
+        await page.evaluate(async () => {
+          const modulePath = "/src/main.ts";
+          const appModule = (await import(modulePath)) as { getRootStore(): RootStore | null };
+          return appModule.getRootStore()?.services.feedApiService.getPreferences();
+        }),
+      ).toMatchObject({
+        [feedName]: { politics: 1.5 },
+        [otherFeed]: { politics: 1 },
+        random: { freshness: 5 },
+      });
+
+      const preview = settings.locator("#update-preview");
+      await expect(preview).toBeEnabled();
+      await preview.click();
+      await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+      await expect(preview).toBeDisabled();
+      const payloads = await page.evaluate(() => ({
+        preview: Reflect.get(window, "__politicsPreview") as unknown,
+        accepted: Reflect.get(window, "__politicsAccepted") as unknown,
+      }));
+      expect(payloads).toMatchObject({
+        preview: { feedName, patch: { politics: 1.5 } },
+        accepted: { feedName, patch: { politics: 1.5 } },
+      });
+
+      await page.evaluate((feed) => {
+        window.location.hash = `/settings/${feed}`;
+      }, otherFeed);
+      await expect(politics).toHaveValue("1");
+      await politics.focus();
+      await politics.press("ArrowLeft");
+      await expect(politics).toHaveValue("0.5");
+      await expect
+        .poll(() => page.evaluate(() => Reflect.get(window, "__politicsSaved") as unknown))
+        .toEqual({ feedName: otherFeed, patch: { politics: 0.5 } });
+      expect(
+        await page.evaluate(async () => {
+          const modulePath = "/src/main.ts";
+          const appModule = (await import(modulePath)) as { getRootStore(): RootStore | null };
+          return appModule.getRootStore()?.services.feedApiService.getPreferences();
+        }),
+      ).toMatchObject({
+        [feedName]: { politics: 1.5 },
+        [otherFeed]: { politics: 0.5 },
+        random: { freshness: 5 },
+      });
+
+      await page.evaluate(() => {
+        window.location.hash = "/settings/random";
+      });
+      await expect(politics).toHaveCount(0);
+      await page.evaluate((feed) => {
+        window.location.hash = `/settings/${feed}`;
+      }, feedName);
+      await expect(politics).toHaveValue("1.5");
+      await page.evaluate((feed) => {
+        window.location.hash = `/settings/${feed}`;
+      }, otherFeed);
+      await expect(politics).toHaveValue("0.5");
+    });
+
+    test(`supports ${feedName} keyboard Politics endpoints, Undo, Redo, and Defaults`, async ({
+      page,
+    }) => {
+      await page.evaluate((feed) => {
+        window.location.hash = `/settings/${feed}`;
+      }, feedName);
+      const settings = page.locator("settings-page");
+      await expect(
+        settings.getByRole("heading", { name: `${ALGORITHMS[feedName].label} Settings` }),
+      ).toBeVisible();
+      const politics = settings.getByRole("slider", { name: "Politics multiplier" });
+      const undo = settings.getByRole("button", { name: "Undo last settings change" });
+      const redo = settings.getByRole("button", { name: "Redo last settings change" });
+      const reset = settings.getByRole("button", { name: "Reset settings to defaults" });
+      await expect(reset).toBeDisabled();
+      await politics.focus();
+      await politics.press("Home");
+      await expect(politics).toHaveValue("0");
+      await expect(reset).toBeEnabled();
+      await politics.press("End");
+      await expect(politics).toHaveValue("2");
+      await undo.click();
+      await expect(politics).toHaveValue("0");
+      await redo.click();
+      await expect(politics).toHaveValue("2");
+
+      await reset.click();
+      await expect(politics).toHaveValue("1");
+      await expect(reset).toBeDisabled();
+      await undo.click();
+      await expect(politics).toHaveValue("2");
+      await expect(reset).toBeEnabled();
+      await redo.click();
+      await expect(politics).toHaveValue("1");
+      await expect(reset).toBeDisabled();
+    });
+  }
 
   test("resets changed Settings controls to their defaults", async ({ page }) => {
     await page.evaluate(() => {

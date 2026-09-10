@@ -2,12 +2,13 @@ import { html, type TemplateResult } from "lit";
 import type { AlgorithmId } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { SourceWeights } from "../services/types";
-import { formatWeight, SETTINGS_NODES } from "./settings-page-config";
+import { formatPolitics, formatWeight, SETTINGS_NODES } from "./settings-page-config";
 
 interface SettingsDetailDialogOptions {
   nodeId: string | null;
   weights: SourceWeights;
   purpose: number;
+  politics: number;
   freshness: number;
   selectedAlgorithm: AlgorithmId;
   onClose: () => void;
@@ -29,7 +30,7 @@ function metrics(values: Array<[string, string]>): TemplateResult {
 }
 
 function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
-  const { nodeId, weights, purpose, freshness, selectedAlgorithm } = options;
+  const { nodeId, weights, purpose, politics, freshness, selectedAlgorithm } = options;
   if (nodeId === "time_window") {
     return metrics([["Current", FRESHNESS_PRESETS[freshness]?.label ?? "7d"]]);
   }
@@ -47,7 +48,7 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
   if (nodeId === "popular") return metrics([["Weight", formatWeight(weights.popular)]]);
   if (nodeId === "predict_like") return metrics([["Weight", (1 - purpose).toFixed(2)]]);
   if (nodeId === "constructiveness") return metrics([["Weight", purpose.toFixed(2)]]);
-  if (nodeId === "politics") return metrics([["Current", "1.00 · Neutral"]]);
+  if (nodeId === "politics") return metrics([["Current", formatPolitics(politics)]]);
   return html``;
 }
 
