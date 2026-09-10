@@ -184,10 +184,10 @@ describe("SettingsPage", () => {
     expect(politics?.max).toBe(2);
     expect(politics?.step).toBe(0.5);
     expect(politics?.ariaLabel).toBe("Politics multiplier");
-    expect(politics?.valueText).toBe("1.0 · default");
+    expect(politics?.valueText).toBe("1.0 · Default");
     expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.0 · default");
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.0 · Default");
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
