@@ -97,7 +97,7 @@ export function formatWeight(value: number): string {
 }
 
 const POLITICS_LABELS: Record<number, string> = {
-  0: "0 · No Politics",
+  0: "0 · Min Politics",
   0.5: "0.5 · Less Politics",
   1: "1.0 · Default",
   1.5: "1.5 · More Politics",

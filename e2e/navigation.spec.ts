@@ -410,9 +410,9 @@ test.describe("feed-scoped navigation", () => {
       await politics.focus();
       await politics.press("Home");
       await expect(politics).toHaveValue("0");
-      await expect(politics).toHaveAttribute("aria-valuetext", "0 · No Politics");
+      await expect(politics).toHaveAttribute("aria-valuetext", "0 · Min Politics");
       await expect(
-        settings.locator(".politics-card").getByText("0 · No Politics", { exact: true }),
+        settings.locator(".politics-card").getByText("0 · Min Politics", { exact: true }),
       ).toBeVisible();
       await expect(reset).toBeEnabled();
       await politics.press("End");

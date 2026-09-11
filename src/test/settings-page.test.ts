@@ -596,7 +596,7 @@ describe("SettingsPage", () => {
   });
 
   it.each([
-    { value: 0, label: "0 · No Politics" },
+    { value: 0, label: "0 · Min Politics" },
     { value: 0.5, label: "0.5 · Less Politics" },
     { value: 1, label: "1.0 · Default" },
     { value: 1.5, label: "1.5 · More Politics" },
