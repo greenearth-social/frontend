@@ -388,7 +388,7 @@ describe("RankScoresChart", () => {
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
     expect(text).toContain(
-      "The politics multiplier is based on the politics setting and the politics classification score of the post. The post's score is adjusted by this multiplier.",
+      "The politics multiplier is based on the politics setting and the politics classification score of the post. The post's combined ranker score is adjusted by this multiplier.",
     );
     expect(text).not.toContain("Political topic score");
     expect(text).not.toContain("No political topic score was available");
