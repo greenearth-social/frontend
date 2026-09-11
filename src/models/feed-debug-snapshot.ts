@@ -47,6 +47,14 @@ export interface ApiEngagementView {
   likeCount: number;
 }
 
+export interface PoliticsAdjustmentView {
+  setting: number;
+  topicScore: number | null;
+  scoreMultiplier: number;
+  scoreBefore: number;
+  scoreAfter: number;
+}
+
 export interface ApiFeedItem {
   atUri: string;
   rank: number | null;
@@ -57,6 +65,7 @@ export interface ApiFeedItem {
   content: string | null;
   generators: GeneratorView[];
   modelScores: ModelScoreView[];
+  politicsAdjustment?: PoliticsAdjustmentView | null;
   diversification: DiversificationView | null;
   media: ApiMediaView | null;
   engagement: ApiEngagementView | null;
@@ -103,6 +112,7 @@ export interface FeedItemView {
   rankScore: number | null;
   afterRankPosition: number | null;
   modelScores: ModelScoreView[];
+  politicsAdjustment?: PoliticsAdjustmentView | null;
   diversification: DiversificationView | null;
   replyCount: number;
   repostCount: number;
@@ -145,6 +155,7 @@ export function transformFeedItems(apiItems: ApiFeedItem[] | null | undefined): 
     rankScore: item.rankScore ?? null,
     afterRankPosition: item.afterRankPosition ?? null,
     modelScores: item.modelScores,
+    politicsAdjustment: item.politicsAdjustment ?? null,
     diversification: item.diversification,
     replyCount: item.engagement?.replyCount ?? 0,
     repostCount: item.engagement?.repostCount ?? 0,

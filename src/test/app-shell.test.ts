@@ -81,8 +81,8 @@ const testState = vi.hoisted(() => ({
         control: "source_weights" | "freshness" | "politics" | "purpose",
       ) {
         if (control === "source_weights") return feedName === "your-feed";
-        if (control === "purpose") return feedName !== "random";
-        return control === "freshness";
+        if (control === "purpose" || control === "politics") return feedName !== "random";
+        return true;
       },
       engagingWeightFor() {
         return 1 - this.values.purpose;

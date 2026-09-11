@@ -88,10 +88,22 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     label: "Politics",
     type: "config",
     description:
-      "Controls the score multiplier applied to political content. 1.00 is neutral; lower values reduce scores and higher values increase them.",
+      "Adjusts the ranking score of political content. 1.00 is neutral; lower values reduce scores and higher values increase them. Political posts can still appear at 0.",
   },
 };
 
 export function formatWeight(value: number): string {
   return value.toFixed(2);
+}
+
+const POLITICS_LABELS: Record<number, string> = {
+  0: "0 · Min Politics",
+  0.5: "0.5 · Less Politics",
+  1: "1.0 · Default",
+  1.5: "1.5 · More Politics",
+  2: "2.0 · Max Politics",
+};
+
+export function formatPolitics(value: number): string {
+  return POLITICS_LABELS[value] ?? value.toFixed(2);
 }

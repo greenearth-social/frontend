@@ -1,4 +1,4 @@
-import type { FeedPreferences, IFeedApiService } from "../types";
+import type { FeedPreferences, FeedPreferencesByFeed, IFeedApiService } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -211,6 +211,21 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
 export class MockFeedApiService implements IFeedApiService {
   private previewPreferences = new Map<string, FeedPreferences>();
   private previewSequence = 0;
+  private preferencesByFeed: FeedPreferencesByFeed = {
+    "your-feed": {
+      sourceWeights: {
+        following: 0.3,
+        networkLikes: 0.2,
+        authorsTopics: 0.25,
+        popular: 0.25,
+      },
+      freshness: 5,
+      purpose: 0.5,
+      politics: 1,
+    },
+    "best-of-friends": { freshness: 5, purpose: 0.5, politics: 1 },
+    random: { freshness: 5 },
+  };
 
   listFeeds(): Promise<FeedListResponse> {
     return Promise.resolve({
@@ -323,27 +338,18 @@ export class MockFeedApiService implements IFeedApiService {
     });
   }
 
-  getPreferences(): Promise<import("../types").FeedPreferencesByFeed> {
-    return Promise.resolve({
-      "your-feed": {
-        sourceWeights: {
-          following: 0.3,
-          networkLikes: 0.2,
-          authorsTopics: 0.25,
-          popular: 0.25,
-        },
-        freshness: 5,
-        purpose: 0.5,
-      },
-      "best-of-friends": { freshness: 5, purpose: 0.5 },
-      random: { freshness: 5 },
-    });
+  getPreferences(): Promise<FeedPreferencesByFeed> {
+    return Promise.resolve(structuredClone(this.preferencesByFeed));
   }
 
   patchPreferences(
-    _feedName: import("../../constants/algorithms").AlgorithmId,
-    prefs: import("../types").FeedPreferences,
-  ): Promise<import("../types").FeedPreferences> {
-    return Promise.resolve(prefs);
+    feedName: import("../../constants/algorithms").AlgorithmId,
+    prefs: FeedPreferences,
+  ): Promise<FeedPreferences> {
+    this.preferencesByFeed[feedName] = {
+      ...this.preferencesByFeed[feedName],
+      ...structuredClone(prefs),
+    };
+    return Promise.resolve(structuredClone(prefs));
   }
 }

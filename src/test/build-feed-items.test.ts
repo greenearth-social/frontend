@@ -106,6 +106,28 @@ describe("transformFeedItems", () => {
     expect(withDiv?.diversification).toHaveProperty("authorPenalty");
   });
 
+  it("preserves recorded politics adjustments, including zero values", () => {
+    const politicsAdjustment = {
+      setting: 0,
+      topicScore: 1,
+      scoreMultiplier: 0,
+      scoreBefore: 0.6,
+      scoreAfter: 0,
+    };
+    const result = transformFeedItems(
+      items.map((item) => ({ ...item, rankScore: 0, politicsAdjustment })),
+    );
+
+    expect(result[0]?.politicsAdjustment).toEqual(politicsAdjustment);
+    expect(result[0]?.rankScore).toBe(0);
+  });
+
+  it.each([undefined, null])("accepts legacy politics adjustments: %s", (politicsAdjustment) => {
+    const result = transformFeedItems(items.map((item) => ({ ...item, politicsAdjustment })));
+
+    expect(result[0]?.politicsAdjustment).toBeNull();
+  });
+
   it("handles missing media gracefully", () => {
     const noMedia: ApiFeedItem[] = [
       {

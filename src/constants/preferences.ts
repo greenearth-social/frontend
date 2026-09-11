@@ -64,7 +64,7 @@ export const FRESHNESS_PRESETS = [
 ];
 
 export const POLITICS_PRESETS: LifecyclePreset<number>[] = [
-  0.5, 0.75, 1, 1.25, 1.5,
+  0, 0.5, 1, 1.5, 2,
 ].map((value) => ({
   value,
   displayLines: [value.toFixed(2)],

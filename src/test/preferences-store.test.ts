@@ -13,21 +13,23 @@ const loaded: FeedPreferencesByFeed = {
       popular: 0.25,
     },
     freshness: 5,
+    politics: 1,
     purpose: 0.5,
   },
-  "best-of-friends": { freshness: 3, purpose: 0.65 },
+  "best-of-friends": { freshness: 3, purpose: 0.65, politics: 1 },
   random: { freshness: 1 },
 };
 
 function makeStore(
   patchPreferences: (feedName: AlgorithmId, values: FeedPreferences) => Promise<FeedPreferences>,
+  preferences: FeedPreferencesByFeed = loaded,
 ) {
   const capture = vi.fn();
   const root = {
     services: {
       feedApiService: {
         patchPreferences,
-        getPreferences: vi.fn().mockResolvedValue(loaded),
+        getPreferences: vi.fn().mockResolvedValue(preferences),
       },
       analyticsService: { capture },
     },
@@ -44,8 +46,26 @@ describe("PreferencesStore.load", () => {
     expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
     expect(store.valuesFor("best-of-friends")).toMatchObject({ freshness: 3, purpose: 0.65 });
     expect(store.valuesFor("random").freshness).toBe(1);
-    expect(store.controlsByFeed["best-of-friends"]).toEqual(["freshness", "purpose"]);
+    expect(store.controlsByFeed["best-of-friends"]).toEqual(["freshness", "purpose", "politics"]);
     expect(store.supportsControl("random", "purpose")).toBe(false);
+    expect(store.supportsControl("your-feed", "politics")).toBe(true);
+    expect(store.supportsControl("best-of-friends", "politics")).toBe(true);
+    expect(store.supportsControl("random", "politics")).toBe(false);
+  });
+
+  it("preserves a zero politics preference and leaves omitted controls unavailable", async () => {
+    const { store } = makeStore(vi.fn(), {
+      ...loaded,
+      "your-feed": { ...loaded["your-feed"], politics: 0 },
+      "best-of-friends": { freshness: 3, purpose: 0.65 },
+    });
+
+    await store.load();
+
+    expect(store.valuesFor("your-feed").politics).toBe(0);
+    expect(store.supportsControl("your-feed", "politics")).toBe(true);
+    expect(store.valuesFor("best-of-friends").politics).toBe(1);
+    expect(store.supportsControl("best-of-friends", "politics")).toBe(false);
   });
 
   it("shares one in-flight load", async () => {
@@ -116,6 +136,66 @@ describe("PreferencesStore.load", () => {
 });
 
 describe("PreferencesStore.save", () => {
+  it.each([
+    { feedName: "your-feed", otherFeed: "best-of-friends", feedLabel: "GreenEarth" },
+    { feedName: "best-of-friends", otherFeed: "your-feed", feedLabel: "Best of Friends" },
+  ] as const)(
+    "saves zero politics only for $feedName and attributes its analytics",
+    async ({ feedName, otherFeed, feedLabel }) => {
+      const patch = vi.fn().mockResolvedValue({ politics: 0 });
+      const { store, capture } = makeStore(patch);
+      await store.load();
+
+      const originalPurpose = store.valuesFor(feedName).purpose;
+      const save = store.save(feedName, "politics", 0);
+      expect(store.valuesFor(feedName).politics).toBe(0);
+      await save;
+
+      expect(patch).toHaveBeenCalledWith(feedName, { politics: 0 });
+      expect(store.valuesFor(feedName).purpose).toBe(originalPurpose);
+      expect(store.valuesFor(otherFeed).politics).toBe(1);
+      expect(store.valuesFor("random").politics).toBe(1);
+      expect(capture).toHaveBeenCalledWith("feedControlChanged", {
+        control_name: "politics",
+        previous_value: 1,
+        new_value: 0,
+        previous_label: "1.00",
+        new_label: "0.00",
+        feed_name: feedName,
+        feed_label: feedLabel,
+      });
+    },
+  );
+
+  it("rolls back a failed politics edit without reverting another feed", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const patch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ politics: 0 });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await Promise.all([
+      store.save("best-of-friends", "politics", 2),
+      store.save("your-feed", "politics", 0),
+    ]);
+
+    expect(store.valuesFor("best-of-friends").politics).toBe(1);
+    expect(store.valuesFor("best-of-friends").freshness).toBe(3);
+    expect(store.valuesFor("your-feed").politics).toBe(0);
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChangeFailed",
+      expect.objectContaining({
+        feed_name: "best-of-friends",
+        control_name: "politics",
+        previous_value: 1,
+        new_value: 2,
+      }),
+    );
+    consoleError.mockRestore();
+  });
+
   it("updates only the selected feed", async () => {
     const patch = vi.fn().mockResolvedValue({ freshness: 2 });
     const { store } = makeStore(patch);
@@ -145,25 +225,25 @@ describe("PreferencesStore.save", () => {
     consoleError.mockRestore();
   });
 
-  it("does not let an older failed request roll back a newer save", async () => {
+  it("does not let an older failed politics request roll back a newer save", async () => {
     let rejectFirst: ((reason: Error) => void) | undefined;
     const firstRequest = new Promise<FeedPreferences>((_resolve, reject) => {
       rejectFirst = reject;
     });
-    const patch = vi.fn().mockReturnValueOnce(firstRequest).mockResolvedValueOnce({ freshness: 4 });
+    const patch = vi.fn().mockReturnValueOnce(firstRequest).mockResolvedValueOnce({ politics: 2 });
     const { store } = makeStore(patch);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     await store.load();
 
-    const firstSave = store.save("your-feed", "freshness", 2);
-    const secondSave = store.save("your-feed", "freshness", 4);
+    const firstSave = store.save("your-feed", "politics", 0);
+    const secondSave = store.save("your-feed", "politics", 2);
     await vi.waitFor(() => {
       expect(patch).toHaveBeenCalledTimes(1);
     });
     rejectFirst?.(new Error("late failure"));
     await Promise.all([firstSave, secondSave]);
 
-    expect(store.valuesFor("your-feed").freshness).toBe(4);
+    expect(store.valuesFor("your-feed").politics).toBe(2);
     consoleError.mockRestore();
   });
 
@@ -314,15 +394,16 @@ describe("PreferencesStore.save", () => {
 
 describe("PreferencesStore.savePatch", () => {
   it("saves every dirty control through one request and emits analytics after success", async () => {
-    const patch = vi.fn().mockResolvedValue({ freshness: 2, purpose: 0.8 });
+    const next = { freshness: 2, purpose: 0.8, politics: 0 };
+    const patch = vi.fn().mockResolvedValue(next);
     const { store, capture } = makeStore(patch);
     await store.load();
 
-    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(true);
+    await expect(store.savePatch("your-feed", next)).resolves.toBe(true);
 
     expect(patch).toHaveBeenCalledOnce();
-    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 2, purpose: 0.8 });
-    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
+    expect(patch).toHaveBeenCalledWith("your-feed", next);
+    expect(store.valuesFor("your-feed")).toMatchObject(next);
     expect(capture).toHaveBeenCalledWith(
       "feedControlChanged",
       expect.objectContaining({ control_name: "freshness", feed_name: "your-feed" }),
@@ -330,6 +411,10 @@ describe("PreferencesStore.savePatch", () => {
     expect(capture).toHaveBeenCalledWith(
       "feedControlChanged",
       expect.objectContaining({ control_name: "purpose", feed_name: "your-feed" }),
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ control_name: "politics", new_value: 0, feed_name: "your-feed" }),
     );
   });
 
@@ -340,13 +425,13 @@ describe("PreferencesStore.savePatch", () => {
 
     store.applyAcceptedPatch(
       "your-feed",
-      { freshness: 2, purpose: 0.8 },
-      { freshness: 2, purpose: 0.8 },
+      { freshness: 2, purpose: 0.8, politics: 0 },
+      { freshness: 2, purpose: 0.8, politics: 0 },
     );
 
     expect(patch).not.toHaveBeenCalled();
-    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8 });
-    expect(capture).toHaveBeenCalledTimes(2);
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 2, purpose: 0.8, politics: 0 });
+    expect(capture).toHaveBeenCalledTimes(3);
   });
 
   it("rolls the whole optimistic patch back while leaving the caller's draft intact", async () => {
@@ -354,9 +439,11 @@ describe("PreferencesStore.savePatch", () => {
     const { store, capture } = makeStore(vi.fn().mockRejectedValue(new Error("offline")));
     await store.load();
 
-    await expect(store.savePatch("your-feed", { freshness: 2, purpose: 0.8 })).resolves.toBe(false);
+    await expect(
+      store.savePatch("your-feed", { freshness: 2, purpose: 0.8, politics: 2 }),
+    ).resolves.toBe(false);
 
-    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5, politics: 1 });
     expect(capture).not.toHaveBeenCalledWith("feedControlChanged", expect.anything());
     consoleError.mockRestore();
   });
@@ -434,6 +521,7 @@ describe("PreferencesStore.restoreDefaults", () => {
       },
       freshness: 5,
       purpose: 0.5,
+      politics: 1,
     };
     const patch = vi.fn().mockResolvedValue(defaults);
     const { store, capture } = makeStore(patch);
@@ -448,6 +536,7 @@ describe("PreferencesStore.restoreDefaults", () => {
       },
       freshness: 2,
       purpose: 0.65,
+      politics: 0,
     };
 
     await expect(store.restoreDefaults("your-feed")).resolves.toBe(true);
@@ -455,6 +544,10 @@ describe("PreferencesStore.restoreDefaults", () => {
     expect(patch).toHaveBeenCalledOnce();
     expect(patch).toHaveBeenCalledWith("your-feed", defaults);
     expect(store.valuesFor("your-feed")).toMatchObject(defaults);
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({ feed_name: "your-feed", control_name: "politics", new_value: 1 }),
+    );
     expect(capture).toHaveBeenCalledWith(
       "feedControlChanged",
       expect.objectContaining({
@@ -499,6 +592,21 @@ describe("PreferencesStore.restoreDefaults", () => {
     });
   });
 
+  it("omits politics from resets when the API has not enabled it", async () => {
+    const patch = vi.fn().mockResolvedValue({ freshness: 5 });
+    const { store } = makeStore(patch, {
+      ...loaded,
+      "your-feed": { freshness: 2, purpose: 0.5 },
+    });
+    await store.load();
+    store.valuesByFeed["your-feed"].politics = 0;
+
+    await expect(store.restoreDefaults("your-feed")).resolves.toBe(true);
+
+    expect(patch).toHaveBeenCalledWith("your-feed", { freshness: 5 });
+    expect(store.valuesFor("your-feed").politics).toBe(0);
+  });
+
   it("does not rebound to stale response values after a successful reset", async () => {
     const staleResponse = {
       sourceWeights: {
@@ -532,20 +640,25 @@ describe("PreferencesStore.restoreDefaults", () => {
   });
 
   it("resets only controls supported by the selected feed", async () => {
-    const patch = vi.fn().mockResolvedValue({ freshness: 5, purpose: 0.5 });
+    const patch = vi.fn().mockResolvedValue({ freshness: 5, purpose: 0.5, politics: 1 });
     const { store } = makeStore(patch);
     await store.load();
+    store.valuesByFeed["best-of-friends"].politics = 0;
+    store.valuesByFeed["your-feed"].politics = 2;
 
     await store.restoreDefaults("best-of-friends");
 
     expect(patch).toHaveBeenCalledWith("best-of-friends", {
       freshness: 5,
       purpose: 0.5,
+      politics: 1,
     });
     expect(store.valuesFor("best-of-friends")).toMatchObject({
       freshness: 5,
       purpose: 0.5,
+      politics: 1,
     });
+    expect(store.valuesFor("your-feed").politics).toBe(2);
     expect(store.valuesFor("random").freshness).toBe(1);
   });
 

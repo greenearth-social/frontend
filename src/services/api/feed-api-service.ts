@@ -65,6 +65,13 @@ interface ApiFeedItemResponse {
   content: string | null;
   generators: Array<{ name: string; score: number | null }>;
   model_scores: Array<{ name: string; weight: number; score: number }>;
+  politics_adjustment?: {
+    setting: number;
+    topic_score: number | null;
+    score_multiplier: number;
+    score_before: number;
+    score_after: number;
+  } | null;
   diversification: {
     relevance: number;
     score: number;
@@ -161,6 +168,15 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
     content: item.content,
     generators: item.generators,
     modelScores: item.model_scores,
+    politicsAdjustment: item.politics_adjustment
+      ? {
+          setting: item.politics_adjustment.setting,
+          topicScore: item.politics_adjustment.topic_score,
+          scoreMultiplier: item.politics_adjustment.score_multiplier,
+          scoreBefore: item.politics_adjustment.score_before,
+          scoreAfter: item.politics_adjustment.score_after,
+        }
+      : null,
     diversification: item.diversification
       ? {
           relevance: item.diversification.relevance,

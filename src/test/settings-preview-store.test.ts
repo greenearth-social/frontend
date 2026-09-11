@@ -127,6 +127,7 @@ describe("SettingsPreviewStore", () => {
       },
       freshness: 2,
       purpose: 0.65,
+      politics: 0,
     };
 
     const preview = await store.preview(patch);
@@ -145,12 +146,12 @@ describe("SettingsPreviewStore", () => {
     expect(store.isDisplayingBaseline).toBe(false);
   });
 
-  it("reuses the exact cached slate when Undo and Redo revisit settings", async () => {
+  it("keeps politics variants distinct and reuses their slates on Undo and Redo", async () => {
     const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
-    const firstPatch = { freshness: 2, purpose: 0.4 };
-    const secondPatch = { purpose: 0.7, freshness: 4 };
+    const firstPatch = { freshness: 2, purpose: 0.4, politics: 0 };
+    const secondPatch = { politics: 2, purpose: 0.4, freshness: 2 };
     createFeedPreview
       .mockResolvedValueOnce({
         requestId: "preview-a",
@@ -172,9 +173,9 @@ describe("SettingsPreviewStore", () => {
     if (first) await store.acceptGeneratedPreview(first, firstPatch);
     const second = await store.preview(secondPatch);
     if (second) await store.acceptGeneratedPreview(second, secondPatch);
-    const undo = await store.preview({ purpose: 0.4, freshness: 2 });
+    const undo = await store.preview({ politics: 0, purpose: 0.4, freshness: 2 });
     if (undo) await store.acceptGeneratedPreview(undo, firstPatch);
-    const redo = await store.preview({ freshness: 4, purpose: 0.7 });
+    const redo = await store.preview({ freshness: 2, purpose: 0.4, politics: 2 });
     if (redo) await store.acceptGeneratedPreview(redo, secondPatch);
 
     expect(createFeedPreview).toHaveBeenCalledTimes(2);
