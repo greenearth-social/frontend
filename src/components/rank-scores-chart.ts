@@ -862,23 +862,11 @@ export class RankScoresChart extends LitElement {
 
     return html`
       <p>
-        Politics adjusts the combined ranker score using the setting used when this feed was
-        generated. A setting of 1 is neutral.
-      </p>
-      <div class="formula-values">
-        ${this.#formulaRow("Recorded Politics setting", adjustment.setting)}
-        ${this.#formulaRow("Political topic score", adjustment.topicScore)}
-        ${this.#formulaRow("Politics multiplier", adjustment.scoreMultiplier)}
-      </div>
-      <p>
-        ${
-          adjustment.topicScore === null
-            ? "No political topic score was available, so this post's score was unchanged."
-            : "The political topic score estimates how strongly this post concerns politics. It determines how much the recorded setting changes this post's score."
-        }
+        The politics multiplier is based on the politics setting and the politics classification
+        score of the post. The post's combined ranker score is adjusted by this multiplier.
       </p>
       <div class="score-formula politics-score-formula">
-        ${adjustment.scoreBefore.toFixed(3)} × ${adjustment.scoreMultiplier.toFixed(3)} =
+        (${adjustment.scoreBefore.toFixed(3)} × ${adjustment.scoreMultiplier.toFixed(3)}) =
         ${adjustment.scoreAfter.toFixed(3)}
       </div>
     `;

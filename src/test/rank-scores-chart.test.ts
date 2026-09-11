@@ -286,10 +286,13 @@ describe("RankScoresChart", () => {
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
     expect(text).toContain("(0.700 × 0.50) + (0.500 × 0.50) = 0.600");
-    expect(text).toContain("Recorded Politics setting 2.000");
-    expect(text).toContain(`Political topic score ${adjustment.topicScore.toFixed(3)}`);
     expect(text).toContain(
-      `0.600 × ${adjustment.scoreMultiplier.toFixed(3)} = ${adjustment.scoreAfter.toFixed(3)}`,
+      "The politics multiplier is based on the politics setting and the politics classification score of the post. The post's combined ranker score is adjusted by this multiplier.",
+    );
+    expect(text).not.toContain("Recorded Politics setting");
+    expect(text).not.toContain("Political topic score");
+    expect(text).toContain(
+      `(0.600 × ${adjustment.scoreMultiplier.toFixed(3)}) = ${adjustment.scoreAfter.toFixed(3)}`,
     );
     expect(text).toContain(
       `${adjustment.scoreAfter.toFixed(3)} ÷ 1.200 = ${adjustment.relevance.toFixed(3)} relevance`,
@@ -323,7 +326,7 @@ describe("RankScoresChart", () => {
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
     expect(text).toContain(`Relevance score ${scoreAfter.toFixed(3)}`);
     expect(text).toContain(
-      `0.600 × ${scoreAfter === 0 ? "0.000" : "2.000"} = ${scoreAfter.toFixed(3)}`,
+      `(0.600 × ${scoreAfter === 0 ? "0.000" : "2.000"}) = ${scoreAfter.toFixed(3)}`,
     );
     expect(text).not.toContain("strongest post");
     element.remove();
@@ -366,7 +369,7 @@ describe("RankScoresChart", () => {
     element.remove();
   });
 
-  it("explains missing topic scores with the recorded unchanged multiplier", async () => {
+  it("shows the recorded unchanged multiplier when the topic score is missing", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = {
       ...item(),
@@ -384,11 +387,12 @@ describe("RankScoresChart", () => {
     await element.updateComplete;
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
-    expect(text).toContain("Political topic score —");
     expect(text).toContain(
-      "No political topic score was available, so this post's score was unchanged",
+      "The politics multiplier is based on the politics setting and the politics classification score of the post. The post's score is adjusted by this multiplier.",
     );
-    expect(text).toContain("0.600 × 1.000 = 0.600");
+    expect(text).not.toContain("Political topic score");
+    expect(text).not.toContain("No political topic score was available");
+    expect(text).toContain("(0.600 × 1.000) = 0.600");
     element.remove();
   });
 
@@ -415,7 +419,7 @@ describe("RankScoresChart", () => {
     await element.updateComplete;
 
     const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
-    expect(text).toContain("0.600 × 2.000 = 1.200");
+    expect(text).toContain("(0.600 × 2.000) = 1.200");
     expect(text).toContain("Relevance score 1.200");
     element.remove();
   });
@@ -433,7 +437,8 @@ describe("RankScoresChart", () => {
       expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.80");
       const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
       expect(text).toContain("Relevance score 0.800");
-      expect(text).not.toContain("Politics");
+      expect(text).not.toContain("politics multiplier");
+      expect(element.shadowRoot?.querySelector(".politics-score-formula")).toBeNull();
       element.remove();
     },
   );
