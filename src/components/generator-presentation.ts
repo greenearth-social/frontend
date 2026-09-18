@@ -48,6 +48,12 @@ export const GENERATOR_PRESENTATIONS = {
     border: "rgba(251, 191, 36, 0.8)",
     label: "Followed Likes",
   },
+  llm_query_vector: {
+    background: "rgba(255, 171, 145, 0.12)",
+    color: "#ffab91",
+    border: "rgba(255, 171, 145, 0.8)",
+    label: "Prompt",
+  },
   random_posts: RANDOM,
 } satisfies Record<string, GeneratorPresentation>;
 
@@ -55,6 +61,7 @@ export const GENERATOR_LEGEND: readonly GeneratorPresentation[] = [
   AUTHOR_TOPIC,
   GENERATOR_PRESENTATIONS.followed_users,
   GENERATOR_PRESENTATIONS.network_likes,
+  GENERATOR_PRESENTATIONS.llm_query_vector,
   GENERATOR_PRESENTATIONS.popularity,
   GENERATOR_PRESENTATIONS.post_similarity,
   { ...NEUTRAL, label: "Random" },
