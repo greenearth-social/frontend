@@ -7,6 +7,7 @@ const testState = vi.hoisted(() => {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     },
     freshness: 5,
     politics: 1,
@@ -19,6 +20,7 @@ const testState = vi.hoisted(() => {
     rootStore: {
       preferencesStore: {
         hasLoaded: true,
+        llmPromptFitted: false,
         valuesFor: vi.fn((_feedName: string) => values),
         supportsControl: vi.fn((_feedName: string, _control: string) => false),
         load: vi.fn().mockResolvedValue(undefined),
@@ -90,6 +92,7 @@ describe("SettingsPage", () => {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     };
     testState.values.freshness = 5;
     testState.values.politics = 1;
@@ -257,6 +260,7 @@ describe("SettingsPage", () => {
       networkLikes: 0.15,
       authorsTopics: 0.2,
       popular: 0.1,
+      llm: 0,
     };
     testState.values.freshness = 2;
     testState.values.purpose = 0.65;
@@ -279,6 +283,7 @@ describe("SettingsPage", () => {
       networkLikes: 0.1,
       authorsTopics: 0.1,
       popular: 0.1,
+      llm: 0,
     };
     testState.values.freshness = 2;
     testState.values.purpose = 0.65;
@@ -302,6 +307,7 @@ describe("SettingsPage", () => {
           networkLikes: 0.2,
           authorsTopics: 0.25,
           popular: 0.25,
+          llm: 0,
         },
         freshness: 5,
         purpose: 0.5,
@@ -326,6 +332,7 @@ describe("SettingsPage", () => {
       networkLikes: 0.1,
       authorsTopics: 0.1,
       popular: 0.1,
+      llm: 0,
     };
     let finishReset: ((value: boolean) => void) | undefined;
     testState.rootStore.preferencesStore.savePatch.mockImplementation(
@@ -464,6 +471,7 @@ describe("SettingsPage", () => {
           networkLikes: 0.12,
           authorsTopics: 0.14,
           popular: 0.14,
+          llm: 0,
         },
       },
       { source_weights: "following" },
@@ -502,6 +510,7 @@ describe("SettingsPage", () => {
           networkLikes: 0.28,
           authorsTopics: 0.36,
           popular: 0.36,
+          llm: 0,
         },
       },
       { source_weights: "following" },
@@ -548,6 +557,7 @@ describe("SettingsPage", () => {
           networkLikes: 0.2,
           authorsTopics: 0.2,
           popular: 0.2,
+          llm: 0,
         },
       },
       { source_weights: "following" },

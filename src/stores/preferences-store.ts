@@ -1,6 +1,6 @@
 import { makeAutoObservable } from "mobx";
 import type { RootStore } from "./root-store";
-import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
+import type { FeedPreferences, LlmPrompt, Preferences, SourceWeights } from "../services/types";
 import { ALGORITHM_IDS, feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
 import type { FeedControlEventProperties, FeedControlName } from "../services/analytics/types";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
@@ -10,6 +10,7 @@ export type SourceWeightChangeOrigin =
   | "network_likes"
   | "authors_topics"
   | "popular"
+  | "llm"
   | "source_mix_master"
   | "reset_defaults"
   | "undo"
@@ -20,6 +21,7 @@ export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
   networkLikes: 0.2,
   authorsTopics: 0.25,
   popular: 0.25,
+  llm: 0,
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -91,7 +93,8 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
     a.following === b.following &&
     a.networkLikes === b.networkLikes &&
     a.authorsTopics === b.authorsTopics &&
-    a.popular === b.popular
+    a.popular === b.popular &&
+    a.llm === b.llm
   );
 }
 
@@ -167,6 +170,8 @@ function controlEventProperties(
     new_authors_topics_weight: newValues.sourceWeights.authorsTopics,
     previous_popular_weight: previousValues.sourceWeights.popular,
     new_popular_weight: newValues.sourceWeights.popular,
+    previous_llm_weight: previousValues.sourceWeights.llm,
+    new_llm_weight: newValues.sourceWeights.llm,
   };
 }
 
@@ -176,6 +181,7 @@ export class PreferencesStore {
   controlsByFeed = emptyControlsByFeed();
   isLoading = false;
   hasLoaded = false;
+  llmPrompt: LlmPrompt | null = null;
   private saveSequence = 0;
   private saveVersions: Record<string, number> = {};
   private loadPromise: Promise<void> | null = null;
@@ -201,6 +207,18 @@ export class PreferencesStore {
     void this.load();
   }
 
+  // The llm source weight may only rise above 0 once a prompt is fitted and
+  // stored; the server is the source of truth for that.
+  get llmPromptFitted(): boolean {
+    return this.llmPrompt !== null;
+  }
+
+  async fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
+    const fitted = await this.root.services.feedApiService.fitLlmPrompt(prompt);
+    this.llmPrompt = fitted;
+    return fitted;
+  }
+
   async load(): Promise<void> {
     if (this.hasLoaded) return;
     if (this.loadPromise) return this.loadPromise;
@@ -209,8 +227,12 @@ export class PreferencesStore {
     const promise = (async () => {
       let loadedSuccessfully = false;
       try {
-        const loadedValues = await this.root.services.feedApiService.getPreferences();
+        const [loadedValues, llmPrompt] = await Promise.all([
+          this.root.services.feedApiService.getPreferences(),
+          this.root.services.feedApiService.getLlmPrompt(),
+        ]);
         if (generation === this.accountGeneration) {
+          this.llmPrompt = llmPrompt;
           for (const feedName of ALGORITHM_IDS) {
             const feedValues = loadedValues[feedName] ?? {};
             this.valuesByFeed[feedName] = {
@@ -252,6 +274,7 @@ export class PreferencesStore {
     this.controlsByFeed = emptyControlsByFeed();
     this.isLoading = false;
     this.hasLoaded = false;
+    this.llmPrompt = null;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
     this.saveQueueByFeed = emptySaveQueuesByFeed();

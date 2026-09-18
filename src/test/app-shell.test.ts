@@ -60,6 +60,7 @@ const testState = vi.hoisted(() => ({
           networkLikes: 0.2,
           authorsTopics: 0.25,
           popular: 0.25,
+          llm: 0,
         },
         freshness: 5,
         politics: 1,

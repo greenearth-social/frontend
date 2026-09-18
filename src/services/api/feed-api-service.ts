@@ -4,6 +4,7 @@ import type {
   FeedPreferencesByFeed,
   FeedPreviewSession,
   IFeedApiService,
+  LlmPrompt,
 } from "../types";
 import { FeedApiError } from "../types";
 import { canonicalAlgorithmId, isAlgorithmId, type AlgorithmId } from "../../constants/algorithms";
@@ -19,10 +20,17 @@ interface ApiPreferences {
     network_likes?: number;
     authors_topics: number;
     popular: number;
+    llm?: number;
   };
   freshness?: number;
   politics?: number;
   purpose?: number;
+}
+
+interface ApiLlmPrompt {
+  prompt_key: string;
+  prompt: string;
+  created_at: string;
 }
 
 interface ApiPreferencesResponse {
@@ -129,6 +137,7 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
       networkLikes: prefs.source_weights.network_likes ?? 0,
       authorsTopics: prefs.source_weights.authors_topics,
       popular: prefs.source_weights.popular,
+      llm: prefs.source_weights.llm ?? 0,
     };
   }
   if (prefs.freshness !== undefined) mapped.freshness = prefs.freshness;
@@ -145,6 +154,7 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
       network_likes: prefs.sourceWeights.networkLikes,
       authors_topics: prefs.sourceWeights.authorsTopics,
       popular: prefs.sourceWeights.popular,
+      llm: prefs.sourceWeights.llm,
     };
   }
   if (prefs.freshness !== undefined) serialized.freshness = prefs.freshness;
@@ -349,6 +359,25 @@ export class FeedApiService implements IFeedApiService {
       },
     );
     return mapPreferences(response);
+  }
+
+  async getLlmPrompt(): Promise<LlmPrompt | null> {
+    const response = await this._fetch<ApiLlmPrompt | null>("/api/feeds/llm-query-vectors/current");
+    if (response == null) return null;
+    return {
+      promptKey: response.prompt_key,
+      prompt: response.prompt,
+      createdAt: response.created_at,
+    };
+  }
+
+  async fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
+    const response = await this._fetch<{ vector_id: string }>("/api/feeds/llm-query-vectors/fit", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+      headers: { "Content-Type": "application/json" },
+    });
+    return { promptKey: response.vector_id, prompt, createdAt: new Date().toISOString() };
   }
 
   private async _fetch<T>(path: string, init?: RequestInit): Promise<T> {

@@ -42,6 +42,7 @@ const preferences: Preferences = {
     networkLikes: 0.2,
     authorsTopics: 0.25,
     popular: 0.25,
+    llm: 0,
   },
   freshness: 5,
   politics: 1,
@@ -62,6 +63,8 @@ describe("AuthStore account changes", () => {
         markSettingsVisited: vi.fn(),
         getPreferences: vi.fn().mockResolvedValue({ "your-feed": preferences }),
         patchPreferences: vi.fn(),
+        getLlmPrompt: vi.fn().mockResolvedValue(null),
+        fitLlmPrompt: vi.fn(),
       },
       analyticsService: {
         identify: vi.fn(),
@@ -101,6 +104,8 @@ describe("AuthStore account changes", () => {
         markSettingsVisited: vi.fn(),
         getPreferences: vi.fn().mockResolvedValue({}),
         patchPreferences: vi.fn(),
+        getLlmPrompt: vi.fn().mockResolvedValue(null),
+        fitLlmPrompt: vi.fn(),
       },
       analyticsService: {
         identify: vi.fn(),

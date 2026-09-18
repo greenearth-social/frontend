@@ -206,6 +206,7 @@ export class SettingsPage extends MobxLitElement {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -325,7 +326,8 @@ export class SettingsPage extends MobxLitElement {
                         this.selectedAlgorithm === "random"
                           ? ""
                           : html`
-                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose, politics)}
+                              ${this.#renderArrow()}
+                              ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                             `
                       }
@@ -510,13 +512,20 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  // The lock list the sum-to-1 math sees: the user's locks, plus llm while no
+  // prompt is fitted so the llm weight can never rise above 0 on its own.
+  #mathLocks(): SourceWeightKey[] {
+    const promptFitted = getRootStore()?.preferencesStore.llmPromptFitted ?? false;
+    return promptFitted ? this.lockedSources : [...this.lockedSources, "llm"];
+  }
+
   #renderSourceControl(
     key: SourceWeightKey,
     nodeId: "following" | "network_likes" | "authors_topics" | "popular",
     label: string,
     weights: SourceWeights,
   ): TemplateResult {
-    const bounds = sourceWeightRange(weights, key, this.lockedSources);
+    const bounds = sourceWeightRange(weights, key, this.#mathLocks());
     const isLocked = this.lockedSources.includes(key);
     const canLock = isLocked || this.lockedSources.length < 3;
     const canAdjust = bounds.max - bounds.min > 0.0001;
@@ -662,9 +671,7 @@ export class SettingsPage extends MobxLitElement {
   #renderPolitics(politics: number): TemplateResult {
     return html`
       <div class="politics-card">
-        <div class="politics-heading">
-          ${this.#titleButton("politics", "Politics")}
-        </div>
+        <div class="politics-heading">${this.#titleButton("politics", "Politics")}</div>
         <div class="politics-control">
           <icon-range-slider
             min="0"
@@ -790,7 +797,7 @@ export class SettingsPage extends MobxLitElement {
       this.sourceStartWeights,
       key,
       value,
-      this.lockedSources,
+      this.#mathLocks(),
     );
   }
 
@@ -802,7 +809,7 @@ export class SettingsPage extends MobxLitElement {
   ): void {
     const start = this.sourceStartWeights ?? weights;
     const next =
-      this.previewSourceWeights ?? redistributeSourceWeights(start, key, value, this.lockedSources);
+      this.previewSourceWeights ?? redistributeSourceWeights(start, key, value, this.#mathLocks());
     this.sourceStartWeights = null;
     this.#commitSourceWeights(next, origin);
   }

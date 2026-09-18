@@ -15,6 +15,7 @@ export interface SourceWeights {
   networkLikes: number;
   authorsTopics: number;
   popular: number;
+  llm: number;
 }
 
 export interface Preferences {
@@ -25,6 +26,12 @@ export interface Preferences {
 }
 
 export type FeedPreferences = Partial<Preferences>;
+
+export interface LlmPrompt {
+  promptKey: string;
+  prompt: string;
+  createdAt: string;
+}
 
 export interface FeedPreviewSession {
   requestId: string;
@@ -77,4 +84,6 @@ export interface IFeedApiService {
     feedName: import("../constants/algorithms").AlgorithmId,
     prefs: FeedPreferences,
   ): Promise<FeedPreferences>;
+  getLlmPrompt(): Promise<LlmPrompt | null>;
+  fitLlmPrompt(prompt: string): Promise<LlmPrompt>;
 }

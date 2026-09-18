@@ -14,26 +14,32 @@ describe("source-weight math", () => {
   it("preserves the other three sources proportionally", () => {
     expect(
       redistributeSourceWeights(
-        { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
+        { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25, llm: 0 },
         "following",
         0.4,
       ),
-    ).toEqual({ following: 0.4, networkLikes: 0.17, authorsTopics: 0.22, popular: 0.21 });
+    ).toEqual({ following: 0.4, networkLikes: 0.17, authorsTopics: 0.22, popular: 0.21, llm: 0 });
   });
 
   it("allows every source to reach zero or one while preserving exact cents", () => {
     const maximum = redistributeSourceWeights(
-      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
+      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25, llm: 0 },
       "networkLikes",
       1,
     );
-    expect(maximum).toEqual({ following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 });
+    expect(maximum).toEqual({
+      following: 0,
+      networkLikes: 1,
+      authorsTopics: 0,
+      popular: 0,
+      llm: 0,
+    });
     expect(maximum.following + maximum.networkLikes + maximum.authorsTopics + maximum.popular).toBe(
       1,
     );
 
     const quantized = redistributeSourceWeights(
-      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
+      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25, llm: 0 },
       "following",
       0.537,
     );
@@ -47,11 +53,22 @@ describe("source-weight math", () => {
   it("splits the remainder deterministically when the other sources are zero", () => {
     expect(
       redistributeSourceWeights(
-        { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 },
+        { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0, llm: 0 },
+        "following",
+        0,
+        ["llm"],
+      ),
+    ).toEqual({ following: 0, networkLikes: 0.34, authorsTopics: 0.33, popular: 0.33, llm: 0 });
+  });
+
+  it("shares weight with an unlocked llm source like any other", () => {
+    expect(
+      redistributeSourceWeights(
+        { following: 0.5, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1, llm: 0.2 },
         "following",
         0,
       ),
-    ).toEqual({ following: 0, networkLikes: 0.34, authorsTopics: 0.33, popular: 0.33 });
+    ).toEqual({ following: 0, networkLikes: 0.2, authorsTopics: 0.2, popular: 0.2, llm: 0.4 });
   });
 
   it("keeps locked sources fixed and redistributes whole percentage points", () => {
@@ -60,6 +77,7 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     };
     const changed = redistributeSourceWeights(current, "following", 0.41, [
       "networkLikes",
@@ -70,6 +88,7 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.14,
       popular: 0.25,
+      llm: 0,
     });
     expect(
       Object.values(changed).every(
@@ -84,9 +103,10 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     };
     expect(
-      sourceWeightRange(current, "popular", ["following", "networkLikes", "authorsTopics"]),
+      sourceWeightRange(current, "popular", ["following", "networkLikes", "authorsTopics", "llm"]),
     ).toEqual({ min: 0.25, max: 0.25 });
     const friendsPreset = SOURCE_RANK_PRESETS[0];
     if (!friendsPreset) throw new Error("Expected Friends preset");
@@ -95,16 +115,17 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0,
       popular: 0,
+      llm: 0,
     });
   });
 
   it("matches all five API presets and interpolates between them", () => {
     expect(SOURCE_RANK_PRESETS).toEqual([
-      { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 },
-      { following: 0.7, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1 },
-      { following: 0.5, networkLikes: 0.2, authorsTopics: 0.15, popular: 0.15 },
-      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
-      { following: 0, networkLikes: 0.1, authorsTopics: 0.45, popular: 0.45 },
+      { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0, llm: 0 },
+      { following: 0.7, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1, llm: 0 },
+      { following: 0.5, networkLikes: 0.2, authorsTopics: 0.15, popular: 0.15, llm: 0 },
+      { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25, llm: 0 },
+      { following: 0, networkLikes: 0.1, authorsTopics: 0.45, popular: 0.45, llm: 0 },
     ]);
     SOURCE_RANK_PRESETS.forEach((preset, index) => {
       expect(sourceWeightsAtRank(index)).toEqual(preset);
@@ -119,6 +140,7 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.2,
       popular: 0.2,
+      llm: 0,
     });
   });
 
@@ -128,23 +150,26 @@ describe("source-weight math", () => {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     };
     expect(redistributeSourceWeights(current, "following", 0)).toEqual({
       following: 0,
       networkLikes: 0.28,
       authorsTopics: 0.36,
       popular: 0.36,
+      llm: 0,
     });
     expect(redistributeSourceWeights(current, "following", 0, ["networkLikes"])).toEqual({
       following: 0,
       networkLikes: 0.2,
       authorsTopics: 0.4,
       popular: 0.4,
+      llm: 0,
     });
   });
 
   it("places Network Likes in the middle and blends custom mixes without jumping", () => {
-    const networkOnly = { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 };
+    const networkOnly = { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0, llm: 0 };
     expect(sourceRankPosition(networkOnly)).toBeCloseTo(2.5, 6);
     expect(blendSourceWeightsToRank(networkOnly, 2.5)).toEqual(networkOnly);
     expect(sourceRankPosition(blendSourceWeightsToRank(networkOnly, 2.75))).toBeCloseTo(2.75, 1);
