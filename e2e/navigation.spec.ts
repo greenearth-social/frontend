@@ -519,7 +519,7 @@ test.describe("feed-scoped navigation", () => {
       }
     }
 
-    const firstSourceCard = settings.locator(".source-slider-card").first();
+    const firstSourceCard = settings.locator(".source-slider-card:not(.prompt-card)").first();
     const cardBox = await firstSourceCard.boundingBox();
     const sliderBox = await firstSourceCard.locator("icon-range-slider").boundingBox();
     const trackBox = await firstSourceCard.locator(".range-shell").boundingBox();
