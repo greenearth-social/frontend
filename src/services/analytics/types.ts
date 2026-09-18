@@ -31,6 +31,7 @@ export interface AnalyticsEventProperties {
   };
   settingsViewed: FeedAnalyticsProperties;
   howItWorksViewed: FeedAnalyticsProperties;
+  promptFitted: FeedAnalyticsProperties;
   howItWorksComponentClicked: FeedAnalyticsProperties & {
     component_id: string;
     component_label: string;

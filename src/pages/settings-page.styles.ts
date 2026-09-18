@@ -663,6 +663,80 @@ export const settingsPageStyles = css`
     padding: 0.375rem 0.5rem;
   }
 
+  .source-slider-card.inactive .source-slider-main,
+  .source-slider-card.inactive .source-lock-btn {
+    opacity: 0.45;
+  }
+
+  .prompt-card {
+    grid-template-rows: auto auto auto;
+  }
+
+  .prompt-card .prompt-editor {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.375rem;
+    align-items: start;
+    margin-bottom: 0.25rem;
+  }
+
+  .prompt-card .source-slider-main,
+  .prompt-card .source-lock-btn {
+    grid-row: 3;
+  }
+
+  .prompt-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 3rem;
+    resize: vertical;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 0.75rem;
+    outline: none;
+    background: rgba(15, 40, 90, 0.35);
+    color: #fff;
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .prompt-input::placeholder {
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .prompt-input:focus {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: rgba(15, 40, 90, 0.45);
+  }
+
+  .prompt-send-btn {
+    height: 36px;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--bluesky-brand);
+    border-radius: 999px;
+    background: var(--bluesky-brand);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .prompt-send-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .prompt-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--bluesky-text-secondary);
+    font-size: 0.85rem;
+  }
+
   .source-slider-main {
     grid-column: 1;
     grid-row: 2;

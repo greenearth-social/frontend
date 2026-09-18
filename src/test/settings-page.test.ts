@@ -21,6 +21,8 @@ const testState = vi.hoisted(() => {
       preferencesStore: {
         hasLoaded: true,
         llmPromptFitted: false,
+        llmPrompt: null as { promptKey: string; prompt: string; createdAt: string } | null,
+        fitLlmPrompt: vi.fn(),
         valuesFor: vi.fn((_feedName: string) => values),
         supportsControl: vi.fn((_feedName: string, _control: string) => false),
         load: vi.fn().mockResolvedValue(undefined),
@@ -97,6 +99,9 @@ describe("SettingsPage", () => {
     testState.values.freshness = 5;
     testState.values.politics = 1;
     testState.values.purpose = 0.5;
+    testState.rootStore.preferencesStore.llmPromptFitted = false;
+    testState.rootStore.preferencesStore.llmPrompt = null;
+    testState.rootStore.preferencesStore.fitLlmPrompt.mockReset();
     testState.rootStore.preferencesStore.valuesFor.mockReset();
     testState.rootStore.preferencesStore.valuesFor.mockReturnValue(testState.values);
     testState.rootStore.preferencesStore.supportsControl.mockReset();
@@ -196,13 +201,13 @@ describe("SettingsPage", () => {
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
     );
     const sources = sliders.filter((slider) => slider.ariaLabel.endsWith(" amount"));
-    expect(sources).toHaveLength(4);
+    expect(sources).toHaveLength(5);
     expect(sources.every((slider) => slider.min === 0 && slider.max === 1)).toBe(true);
-    expect(sources.map((slider) => slider.valueText)).toEqual(["30%", "20%", "25%", "25%"]);
+    expect(sources.map((slider) => slider.valueText)).toEqual(["0%", "30%", "20%", "25%", "25%"]);
     expect(sources.every((slider) => slider.showValue)).toBe(true);
-    expect(element.shadowRoot?.querySelectorAll(".source-lock-btn")).toHaveLength(4);
+    expect(element.shadowRoot?.querySelectorAll(".source-lock-btn")).toHaveLength(5);
     const sourceCards = element.shadowRoot?.querySelectorAll(".source-slider-card");
-    expect(sourceCards).toHaveLength(4);
+    expect(sourceCards).toHaveLength(5);
     for (const card of sourceCards ?? []) {
       expect(
         Array.from(card.children).some((child) => child.classList.contains("source-lock-btn")),
@@ -515,6 +520,90 @@ describe("SettingsPage", () => {
       },
       { source_weights: "following" },
     );
+  });
+
+  it("keeps the Prompt source faded and inert until a prompt is fitted", async () => {
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const card = element.shadowRoot?.querySelector(".source-slider-card.inactive");
+    expect(card?.textContent).toContain("Prompt");
+    const slider = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((candidate) => candidate.ariaLabel === "Prompt amount");
+    expect(slider?.disabled).toBe(true);
+    expect(slider?.value).toBe(0);
+    expect(
+      element.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Lock Prompt weight"]')
+        ?.disabled,
+    ).toBe(true);
+  });
+
+  it("wakes the Prompt slider at 20% only after the fit succeeds", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.llmPromptFitted = true;
+      store.llmPrompt = { promptKey: "v1", prompt, createdAt: "2026-09-17T10:00:00Z" };
+      return Promise.resolve(store.llmPrompt);
+    });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    const send = element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn");
+    expect(send?.disabled).toBe(true);
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "hopeful science";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    expect(send?.disabled).toBe(false);
+
+    send?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.fitLlmPrompt).toHaveBeenCalledWith("hopeful science");
+    expect(store.savePatch).toHaveBeenCalledWith(
+      "your-feed",
+      {
+        sourceWeights: {
+          following: 0.24,
+          networkLikes: 0.16,
+          authorsTopics: 0.2,
+          popular: 0.2,
+          llm: 0.2,
+        },
+      },
+      { source_weights: "llm" },
+    );
+    expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).toBeNull();
+  });
+
+  it("shows an error and leaves the weights alone when the fit fails", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.fitLlmPrompt.mockRejectedValue(new Error("boom"));
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "anything";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".prompt-error")?.textContent).toContain(
+      "could not be fitted",
+    );
+    expect(store.savePatch).not.toHaveBeenCalled();
+    expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).not.toBeNull();
   });
 
   it("edits source percentages while preserving locked sources", async () => {
@@ -1555,7 +1644,7 @@ describe("SettingsPage", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(8);
+    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(9);
     expect(element.shadowRoot?.textContent).not.toContain("Engaging vs. Constructive");
     expect(element.shadowRoot?.querySelector(".master-label")).toBeNull();
   });

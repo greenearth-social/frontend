@@ -34,6 +34,7 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
   if (nodeId === "time_window") {
     return metrics([["Current", FRESHNESS_PRESETS[freshness]?.label ?? "7d"]]);
   }
+  if (nodeId === "llm") return metrics([["Weight", formatWeight(weights.llm)]]);
   if (nodeId === "following") {
     return selectedAlgorithm === "your-feed"
       ? metrics([["Weight", formatWeight(weights.following)]])
