@@ -1207,6 +1207,7 @@ export const settingsPageStyles = css`
     }
 
     .update-preview-btn.is-status.is-generating:disabled {
+      padding-right: 1.75rem;
       cursor: progress;
     }
   }
