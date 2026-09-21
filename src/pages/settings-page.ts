@@ -221,6 +221,8 @@ export class SettingsPage extends MobxLitElement {
       this.previewPhase === "generating" || Boolean(previewStore?.isGenerating);
     const previewReordering = this.previewPhase === "reordering";
     const previewBusy = previewGenerating || previewReordering;
+    const previewIsStatus =
+      previewBusy || (this.previewPhase === "complete" && !this.previewNeeded);
     const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
     const previewLabel = previewGenerating
       ? "Generating preview"
@@ -344,7 +346,9 @@ export class SettingsPage extends MobxLitElement {
           <div class="preview-header">
             <button
               id="update-preview"
-              class="update-preview-btn ${previewGenerating ? "is-generating" : ""}"
+              class="update-preview-btn ${previewIsStatus ? "is-status" : ""} ${
+                previewGenerating ? "is-generating" : ""
+              }"
               type="button"
               aria-busy=${previewGenerating ? "true" : "false"}
               ?disabled=${!this.previewNeeded || previewBusy}

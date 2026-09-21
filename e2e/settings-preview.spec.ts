@@ -409,6 +409,25 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
   await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
+  await expect(preview).toHaveClass(/is-status/);
+  await expect
+    .poll(() =>
+      preview.evaluate((element) => {
+        const styles = getComputedStyle(element);
+        return {
+          backgroundColor: styles.backgroundColor,
+          borderTopWidth: styles.borderTopWidth,
+          borderTopLeftRadius: styles.borderTopLeftRadius,
+          boxShadow: styles.boxShadow,
+        };
+      }),
+    )
+    .toEqual({
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderTopWidth: "0px",
+      borderTopLeftRadius: "0px",
+      boxShadow: "none",
+    });
   await expect(settings.locator(".mobile-preview-status")).toHaveText("New Feed");
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,

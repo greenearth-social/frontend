@@ -1190,6 +1190,25 @@ export const settingsPageStyles = css`
       justify-content: center;
       transform: translateX(-50%);
     }
+
+    .update-preview-btn.is-status:disabled {
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--bluesky-text);
+      font-size: 1.125rem;
+      font-weight: 800;
+      line-height: 1.1;
+      box-shadow: none;
+      cursor: default;
+      opacity: 1;
+    }
+
+    .update-preview-btn.is-status.is-generating:disabled {
+      cursor: progress;
+    }
   }
 
   @media (max-width: 340px) {

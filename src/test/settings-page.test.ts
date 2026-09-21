@@ -1032,6 +1032,7 @@ describe("SettingsPage", () => {
 
     expect(updatePreview?.getAttribute("aria-busy")).toBe("true");
     expect(updatePreview?.textContent.trim()).toBe("Generating preview");
+    expect(updatePreview?.classList).toContain("is-status");
     expect(butterfly?.getAttribute("src")).toBe("/assets/slider/butterfly-slider.png");
     expect(butterfly?.getAttribute("aria-hidden")).toBe("true");
     expect(butterfly?.width).toBe(16);
@@ -1163,6 +1164,7 @@ describe("SettingsPage", () => {
     await element.updateComplete;
     expect(updatePreview?.textContent.trim()).toBe("Reordering feed");
     expect(updatePreview?.disabled).toBe(true);
+    expect(updatePreview?.classList).toContain("is-status");
     expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
       "Reordering feed",
     );
@@ -1177,6 +1179,7 @@ describe("SettingsPage", () => {
     });
     await element.updateComplete;
     expect(updatePreview?.textContent.trim()).toBe("New Feed");
+    expect(updatePreview?.classList).toContain("is-status");
     expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
       false,
     );
