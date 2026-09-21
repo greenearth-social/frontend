@@ -1032,6 +1032,7 @@ describe("SettingsPage", () => {
 
     expect(updatePreview?.getAttribute("aria-busy")).toBe("true");
     expect(updatePreview?.textContent.trim()).toBe("Generating preview");
+    expect(updatePreview?.classList).toContain("is-status");
     expect(butterfly?.getAttribute("src")).toBe("/assets/slider/butterfly-slider.png");
     expect(butterfly?.getAttribute("aria-hidden")).toBe("true");
     expect(butterfly?.width).toBe(16);
@@ -1045,6 +1046,51 @@ describe("SettingsPage", () => {
     );
     expect(settingsPageStyles.cssText).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.preview-butterfly\s*\{[^}]*animation:\s*none/s,
+    );
+    expect(element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-viewport")?.classList).toContain(
+      "is-busy",
+    );
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
+      true,
+    );
+  });
+
+  it("restores preview interaction after an unexpected generation failure", async () => {
+    testState.rootStore.settingsPreviewStore.preview.mockRejectedValueOnce(
+      new Error("network failed"),
+    );
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const freshness = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).find((slider) => slider.ariaLabel === "Time Window");
+    freshness?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 2 },
+      }),
+    );
+    await Promise.resolve();
+    await element.updateComplete;
+
+    const updatePreview =
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn");
+    updatePreview?.click();
+    await vi.waitFor(() => {
+      expect(element.shadowRoot?.querySelector(".settings-error")?.textContent).toContain(
+        "Preview could not be generated",
+      );
+    });
+    await element.updateComplete;
+
+    expect(updatePreview?.textContent.trim()).toBe("Preview");
+    expect(element.shadowRoot?.querySelector(".preview-generation-overlay")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
+      false,
     );
   });
 
@@ -1101,9 +1147,12 @@ describe("SettingsPage", () => {
     expect(updatePreview?.textContent.trim()).toBe("Generating preview");
     expect(updatePreview?.disabled).toBe(true);
     expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
-      "Generating Preview",
+      "Generating preview",
     );
-    expect(element.shadowRoot?.querySelector(".preview-generating")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
+      true,
+    );
     expect(feed.shadowRoot?.textContent).toContain("Loading your current feed");
     expect(feed.shadowRoot?.textContent).not.toContain("No posts are available");
 
@@ -1113,10 +1162,15 @@ describe("SettingsPage", () => {
     });
     expect(feed.animateTo).toHaveBeenCalledWith(generated.items, []);
     await element.updateComplete;
-    expect(updatePreview?.textContent.trim()).toBe("Update preview");
+    expect(updatePreview?.textContent.trim()).toBe("Reordering feed");
     expect(updatePreview?.disabled).toBe(true);
+    expect(updatePreview?.classList).toContain("is-status");
     expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
-      "Preview",
+      "Reordering feed",
+    );
+    expect(element.shadowRoot?.querySelector(".preview-generation-overlay")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
+      true,
     );
 
     finishAnimation?.();
@@ -1124,6 +1178,11 @@ describe("SettingsPage", () => {
       expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledTimes(1);
     });
     await element.updateComplete;
+    expect(updatePreview?.textContent.trim()).toBe("New Feed");
+    expect(updatePreview?.classList).toContain("is-status");
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
+      false,
+    );
     expect(element.shadowRoot?.querySelector(".preview-movement-help")?.textContent.trim()).toBe(
       "Here’s how far up or down each post moved",
     );

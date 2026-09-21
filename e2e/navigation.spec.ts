@@ -341,7 +341,7 @@ test.describe("feed-scoped navigation", () => {
       const preview = settings.locator("#update-preview");
       await expect(preview).toBeEnabled();
       await preview.click();
-      await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+      await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
       await expect(preview).toBeDisabled();
       const payloads = await page.evaluate(() => ({
         preview: Reflect.get(window, "__politicsPreview") as unknown,

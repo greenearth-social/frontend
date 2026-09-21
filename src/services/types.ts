@@ -71,6 +71,7 @@ export interface IFeedApiService {
     prefs: FeedPreferences,
     displayedItemUris: string[],
   ): Promise<AcceptedFeedPreview>;
+  markSettingsVisited(): Promise<void>;
   getPreferences(): Promise<FeedPreferencesByFeed>;
   patchPreferences(
     feedName: import("../constants/algorithms").AlgorithmId,

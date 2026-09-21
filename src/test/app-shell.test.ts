@@ -98,6 +98,9 @@ const testState = vi.hoisted(() => ({
       unavailableReasonFor: vi.fn().mockReturnValue(null),
     },
     services: {
+      feedApiService: {
+        markSettingsVisited: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      },
       analyticsService: {
         identify: vi.fn(),
         capture: vi.fn(),
@@ -124,6 +127,8 @@ describe("AppShell authentication UI", () => {
     testState.rootStore.authStore.signInWithCustomToken.mockReset();
     testState.rootStore.authStore.signInWithCustomToken.mockResolvedValue(undefined);
     testState.rootStore.services.analyticsService.capture.mockReset();
+    testState.rootStore.services.feedApiService.markSettingsVisited.mockReset();
+    testState.rootStore.services.feedApiService.markSettingsVisited.mockResolvedValue(undefined);
     testState.rootStore.feedStore.feedListLoadState = "loading";
     testState.rootStore.feedStore.isLoading = true;
     testState.rootStore.feedStore.loadFeedList.mockReset();
@@ -229,6 +234,18 @@ describe("AppShell authentication UI", () => {
       expect(element.shadowRoot?.querySelector("settings-page")).not.toBeNull();
     });
     expect(window.location.hash).toBe("#/settings/random");
+  });
+
+  it("preserves a Settings deep link while signed out", async () => {
+    window.location.hash = "/settings/your-feed";
+    testState.rootStore.authStore.isSignedIn = false;
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(window.location.hash).toBe("#/settings/your-feed");
+    expect(element.shadowRoot?.querySelector("feed-page")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector("settings-page")).toBeNull();
   });
 
   it("routes desktop sidebar wheel gestures to the content panel", async () => {
@@ -523,9 +540,43 @@ describe("AppShell authentication UI", () => {
         feed_label: "GreenEarth",
       },
     );
+    await vi.waitFor(() => {
+      expect(
+        testState.rootStore.services.feedApiService.markSettingsVisited,
+      ).toHaveBeenCalledOnce();
+    });
 
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledOnce();
+    expect(testState.rootStore.services.feedApiService.markSettingsVisited).toHaveBeenCalledOnce();
+  });
+
+  it("retries a failed Settings-visit signal after the user re-enters Settings", async () => {
+    testState.rootStore.services.feedApiService.markSettingsVisited
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(undefined);
+    window.location.hash = "/settings/your-feed";
+    const element = document.createElement("app-shell");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await vi.waitFor(() => {
+      expect(
+        testState.rootStore.services.feedApiService.markSettingsVisited,
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    window.location.hash = "/feed/your-feed";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await element.updateComplete;
+    window.location.hash = "/settings/your-feed";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await element.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(
+        testState.rootStore.services.feedApiService.markSettingsVisited,
+      ).toHaveBeenCalledTimes(2);
+    });
   });
 
   it.each(["/controls", "/how-it-works"])(

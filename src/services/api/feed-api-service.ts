@@ -335,6 +335,10 @@ export class FeedApiService implements IFeedApiService {
     return mapped;
   }
 
+  async markSettingsVisited(): Promise<void> {
+    await this._fetch<unknown>("/api/feeds/settings-visit", { method: "POST" });
+  }
+
   async patchPreferences(feedName: AlgorithmId, prefs: FeedPreferences): Promise<FeedPreferences> {
     const response = await this._fetch<ApiPreferences>(
       `/api/feeds/preferences/${encodeURIComponent(feedName)}`,
@@ -364,6 +368,7 @@ export class FeedApiService implements IFeedApiService {
       const body = await res.text().catch(() => "unknown error");
       throw new FeedApiError(res.status, `API ${String(res.status)}: ${body}`);
     }
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
 }

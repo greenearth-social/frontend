@@ -342,6 +342,10 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(structuredClone(this.preferencesByFeed));
   }
 
+  markSettingsVisited(): Promise<void> {
+    return Promise.resolve();
+  }
+
   patchPreferences(
     feedName: import("../../constants/algorithms").AlgorithmId,
     prefs: FeedPreferences,

@@ -407,9 +407,28 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await preview.click();
   await expect(settings.locator("#update-preview")).toHaveText("Generating preview");
   await expect(settings.getByText(/shown of .* ranked/)).toHaveCount(0);
-  await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+  await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
-  await expect(settings.locator(".mobile-preview-status")).toHaveText("Preview");
+  await expect(preview).toHaveClass(/is-status/);
+  await expect
+    .poll(() =>
+      preview.evaluate((element) => {
+        const styles = getComputedStyle(element);
+        return {
+          backgroundColor: styles.backgroundColor,
+          borderTopWidth: styles.borderTopWidth,
+          borderTopLeftRadius: styles.borderTopLeftRadius,
+          boxShadow: styles.boxShadow,
+        };
+      }),
+    )
+    .toEqual({
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderTopWidth: "0px",
+      borderTopLeftRadius: "0px",
+      boxShadow: "none",
+    });
+  await expect(settings.locator(".mobile-preview-status")).toHaveText("New Feed");
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
@@ -428,7 +447,7 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {
     timeout: 12_000,
   });
-  await expect(preview).toHaveText("Update preview", { timeout: 12_000 });
+  await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
 
   await settings.getByRole("button", { name: "Redo last settings change" }).click();
@@ -591,7 +610,9 @@ test("375px uses the compact Preview/Back overlay while keeping the feed mounted
   );
   await expect(mobileActions.locator("button")).toHaveCount(1);
   await expect(mobileActions.getByRole("heading", { name: "Settings" })).toHaveCount(0);
-  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("Preview");
+  await expect(mobileActions.locator(".mobile-preview-status")).toHaveText("New Feed", {
+    timeout: 12_000,
+  });
   const previewHeaderAlignment = await settings.locator(".preview-header").evaluate((header) => {
     const headerRect = header.getBoundingClientRect();
     const statusRect = header.querySelector(".mobile-preview-status")?.getBoundingClientRect();
@@ -643,7 +664,7 @@ test("mobile opens Preview on the first tap and keeps generation status in the S
 
   await expect(settings.locator(".feed-column")).toBeVisible();
   await expect(settings.locator(".mobile-preview-title")).toHaveCount(0);
-  await expect(settings.locator(".mobile-preview-status")).toHaveText("Generating Preview");
+  await expect(settings.locator(".mobile-preview-status")).toHaveText("Generating preview");
   await expect(settings.locator(".preview-generating")).toHaveCount(0);
 
   const mobileGeometry = await settings.locator(".mobile-preview-status").evaluate((status) => {
@@ -979,7 +1000,7 @@ test("feed switching clears stale preview work and enables Preview after the nex
   await expect(preview).toHaveText("Preview");
   await expect(preview).toBeEnabled();
   await preview.click();
-  await expect(preview).toHaveText("Update preview", { timeout: 6_000 });
+  await expect(preview).toHaveText("New Feed", { timeout: 6_000 });
   await expect(preview).toBeDisabled();
 
   await page.evaluate(() => {
