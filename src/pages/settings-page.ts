@@ -67,6 +67,7 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
 }
 
 export const MOBILE_PREVIEW_SETTLE_DELAY_MS = 300;
+type PreviewPhase = "idle" | "generating" | "reordering" | "complete";
 
 function renderPreviewProgress(label: string): TemplateResult {
   return html`
@@ -95,12 +96,10 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewPolitics: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private mobilePreviewOpen = false;
-  @state() private isPreviewPreparing = false;
-  @state() private isPreviewAnimating = false;
+  @state() private previewPhase: PreviewPhase = "idle";
   @state() private isResetting = false;
   @state() private isApplyingHistory = false;
   @state() private previewNeeded = false;
-  @state() private hasCompletedPreview = false;
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
@@ -189,10 +188,8 @@ export class SettingsPage extends MobxLitElement {
       this.selectedNode = null;
       this.mobilePreviewOpen = false;
       this.previewAnimationOperation++;
-      this.isPreviewPreparing = false;
-      this.isPreviewAnimating = false;
+      this.previewPhase = "idle";
       this.previewNeeded = false;
-      this.hasCompletedPreview = false;
       this.historyEntry = null;
       this.settingsError = "";
       this.isApplyingHistory = false;
@@ -220,9 +217,20 @@ export class SettingsPage extends MobxLitElement {
     const freshness = this.previewFreshness ?? preferences.freshness;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
-    const previewGenerating = (previewStore?.isGenerating ?? false) || this.isPreviewPreparing;
-    const previewBusy = previewGenerating || this.isPreviewAnimating;
+    const previewGenerating =
+      this.previewPhase === "generating" || Boolean(previewStore?.isGenerating);
+    const previewReordering = this.previewPhase === "reordering";
+    const previewBusy = previewGenerating || previewReordering;
     const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
+    const previewLabel = previewGenerating
+      ? "Generating preview"
+      : previewReordering
+        ? "Reordering feed"
+        : this.previewPhase === "complete" && !this.previewNeeded
+          ? "New Feed"
+          : hasGeneratedPreview
+            ? "Update preview"
+            : "Preview";
     const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
     const historyLabel = `${historyAction} last settings change`;
     const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
@@ -345,11 +353,7 @@ export class SettingsPage extends MobxLitElement {
               }}
             >
               ${
-                previewGenerating
-                  ? renderPreviewProgress("Generating preview")
-                  : hasGeneratedPreview || this.isPreviewAnimating
-                    ? "Update preview"
-                    : "Preview"
+                previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel
               }
             </button>
             <div class="preview-mobile-primary-actions">
@@ -365,31 +369,40 @@ export class SettingsPage extends MobxLitElement {
               >
                 <wa-icon library="app" name="chevron-left"></wa-icon>
               </button>
-              ${
-                previewGenerating
-                  ? html`<span class="mobile-preview-status" role="status" aria-live="polite">
-                      ${renderPreviewProgress("Generating Preview")}
-                    </span>`
-                  : html`<span class="mobile-preview-status">Preview</span>`
-              }
+              ${html`<span class="mobile-preview-status" role="status" aria-live="polite">${previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel}</span>`}
             </div>
           </div>
           ${
-            this.hasCompletedPreview
+            this.previewPhase === "complete" ||
+            (hasGeneratedPreview && previewBusy)
               ? html`<p class="preview-movement-help">Here’s how far up or down each post moved</p>`
               : ""
           }
-          <div class="feed-scroll">
-            <settings-feed-preview
-              .items=${previewStore?.displayedItems ?? []}
-              .loading=${
-                (previewStore?.isLoadingBaseline ?? false) ||
-                (previewStore?.isGenerating ?? false) ||
-                this.isPreviewPreparing
-              }
-              .error=${previewStore?.error ?? ""}
-              .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
-            ></settings-feed-preview>
+          <div
+            class="preview-viewport ${previewGenerating ? "is-generating" : ""} ${previewBusy ? "is-busy" : ""}"
+            aria-busy=${previewBusy ? "true" : "false"}
+          >
+            <div class="feed-scroll">
+              <div class="preview-surface" ?inert=${previewBusy}>
+                <settings-feed-preview
+                  .items=${previewStore?.displayedItems ?? []}
+                  .loading=${
+                    (previewStore?.isLoadingBaseline ?? false) ||
+                    (previewStore?.isGenerating ?? false) ||
+                    previewGenerating
+                  }
+                  .error=${previewStore?.error ?? ""}
+                  .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
+                ></settings-feed-preview>
+              </div>
+            </div>
+            ${
+              previewGenerating
+                ? html`<div class="preview-generation-overlay" aria-hidden="true">
+                    <wa-spinner></wa-spinner>
+                  </div>`
+                : ""
+            }
           </div>
           ${
             previewStore?.error && previewStore.displayedItems.length > 0
@@ -907,20 +920,21 @@ export class SettingsPage extends MobxLitElement {
       !store ||
       !root ||
       !this.previewNeeded ||
-      store.isGenerating ||
-      this.isPreviewPreparing ||
-      this.isPreviewAnimating
+      this.#isPreviewBusy(store)
     ) {
       return;
     }
+    const previousPhase: PreviewPhase = this.previewPhase === "complete" ? "complete" : "idle";
     if (store.isRefreshingBaseline) this.baselineSyncPending = true;
     const feedName = this.selectedAlgorithm;
     const revision = this.settingsRevision;
     const animationOperation = ++this.previewAnimationOperation;
     const isMobilePreview = window.matchMedia("(max-width: 1023px)").matches;
     if (isMobilePreview) this.mobilePreviewOpen = true;
-    this.isPreviewPreparing = true;
-    const persistenceSucceeded = await root.preferencesStore.waitForPendingSaves(feedName);
+    this.previewPhase = "generating";
+    const persistenceSucceeded = await root.preferencesStore
+      .waitForPendingSaves(feedName)
+      .catch(() => false);
     if (
       !persistenceSucceeded ||
       revision !== this.settingsRevision ||
@@ -931,14 +945,16 @@ export class SettingsPage extends MobxLitElement {
         this.settingsError = "Settings could not be saved, so Preview was not updated.";
       }
       if (animationOperation === this.previewAnimationOperation) {
-        this.isPreviewPreparing = false;
-        this.isPreviewAnimating = false;
+        this.previewPhase = previousPhase;
       }
       this.#drainBaselineSyncQueue();
       return;
     }
     const patch = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
-    const generated = await store.preview(patch);
+    const generated = await store.preview(patch).catch(() => {
+      this.settingsError = "Preview could not be generated. Please try again.";
+      return null;
+    });
     if (
       !generated ||
       revision !== this.settingsRevision ||
@@ -946,13 +962,15 @@ export class SettingsPage extends MobxLitElement {
       animationOperation !== this.previewAnimationOperation
     ) {
       if (animationOperation === this.previewAnimationOperation) {
-        this.isPreviewPreparing = false;
-        this.isPreviewAnimating = false;
+        this.previewPhase = previousPhase;
       }
       this.#drainBaselineSyncQueue();
       return;
     }
-    let accepted = await store.acceptGeneratedPreview(generated, patch);
+    let accepted = await store.acceptGeneratedPreview(generated, patch).catch(() => {
+      this.settingsError = "Preview could not be synchronized with MySky. Please try again.";
+      return null;
+    });
     const shouldRecoverAcceptanceConflict = store.acceptanceConflict;
     if (
       !accepted &&
@@ -961,21 +979,30 @@ export class SettingsPage extends MobxLitElement {
       feedName === this.selectedAlgorithm &&
       animationOperation === this.previewAnimationOperation
     ) {
-      const synchronized = await root.preferencesStore.syncSnapshot(feedName, patch);
+      const synchronized = await root.preferencesStore
+        .syncSnapshot(feedName, patch)
+        .catch(() => false);
       if (
         synchronized &&
         revision === this.settingsRevision &&
         feedName === this.selectedAlgorithm &&
         animationOperation === this.previewAnimationOperation
       ) {
-        const regenerated = await store.preview(patch);
+        const regenerated = await store.preview(patch).catch(() => {
+          this.settingsError = "Preview could not be generated. Please try again.";
+          return null;
+        });
         if (
           regenerated &&
           revision === this.settingsRevision &&
           feedName === this.selectedAlgorithm &&
           animationOperation === this.previewAnimationOperation
         ) {
-          accepted = await store.acceptGeneratedPreview(regenerated, patch);
+          accepted = await store.acceptGeneratedPreview(regenerated, patch).catch(() => {
+            this.settingsError =
+              "Preview could not be synchronized with MySky. Please try again.";
+            return null;
+          });
           if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
         }
       } else if (
@@ -994,18 +1021,20 @@ export class SettingsPage extends MobxLitElement {
       animationOperation !== this.previewAnimationOperation
     ) {
       if (animationOperation === this.previewAnimationOperation) {
-        this.isPreviewPreparing = false;
-        this.isPreviewAnimating = false;
+        this.previewPhase = previousPhase;
       }
       this.#drainBaselineSyncQueue();
       return;
     }
     const feed = this.renderRoot.querySelector<SettingsFeedPreview>("settings-feed-preview");
     try {
+      this.previewPhase = "reordering";
+      await this.updateComplete;
+      const feedScroll = this.renderRoot.querySelector<HTMLElement>(".feed-scroll");
+      if (feedScroll) feedScroll.scrollTop = 0;
       if (isMobilePreview) {
         // Let the overlay settle briefly before its contents begin moving so
         // the transition to the Preview screen remains easy to follow.
-        await this.updateComplete;
         await new Promise<void>((resolve) => {
           window.setTimeout(resolve, MOBILE_PREVIEW_SETTLE_DELAY_MS);
         });
@@ -1017,8 +1046,6 @@ export class SettingsPage extends MobxLitElement {
           return;
         }
       }
-      this.isPreviewPreparing = false;
-      this.isPreviewAnimating = true;
       if (feed) await feed.animateTo(accepted.items, [...store.displayedItems]);
       if (
         revision !== this.settingsRevision ||
@@ -1028,12 +1055,18 @@ export class SettingsPage extends MobxLitElement {
         return;
       }
       store.acceptPreview(accepted);
-      this.hasCompletedPreview = true;
       this.previewNeeded = false;
-    } finally {
+      this.previewPhase = "complete";
+    } catch {
       if (animationOperation === this.previewAnimationOperation) {
-        this.isPreviewPreparing = false;
-        this.isPreviewAnimating = false;
+        this.settingsError = "Preview could not be reordered. Please try again.";
+      }
+    } finally {
+      if (
+        animationOperation === this.previewAnimationOperation &&
+        this.previewPhase !== "complete"
+      ) {
+        this.previewPhase = previousPhase;
       }
       this.#drainBaselineSyncQueue();
     }
@@ -1082,9 +1115,7 @@ export class SettingsPage extends MobxLitElement {
     if (!store) return;
     if (
       store.isLoadingBaseline ||
-      store.isGenerating ||
-      this.isPreviewPreparing ||
-      this.isPreviewAnimating
+      this.#isPreviewBusy(store)
     ) {
       this.baselineSyncPending = true;
       return;
@@ -1112,9 +1143,7 @@ export class SettingsPage extends MobxLitElement {
     if (
       !store ||
       store.isLoadingBaseline ||
-      store.isGenerating ||
-      this.isPreviewPreparing ||
-      this.isPreviewAnimating ||
+      this.#isPreviewBusy(store) ||
       this.baselineSyncPromise
     ) {
       return;
@@ -1130,8 +1159,16 @@ export class SettingsPage extends MobxLitElement {
 
   #closeMobilePreview(): void {
     const store = getSettingsPreviewStore();
-    if (store?.isGenerating || this.isPreviewPreparing || this.isPreviewAnimating) return;
+    if (this.#isPreviewBusy(store)) return;
     this.mobilePreviewOpen = false;
+  }
+
+  #isPreviewBusy(store = getSettingsPreviewStore()): boolean {
+    return (
+      Boolean(store?.isGenerating) ||
+      this.previewPhase === "generating" ||
+      this.previewPhase === "reordering"
+    );
   }
 }
 

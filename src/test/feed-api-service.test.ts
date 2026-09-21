@@ -13,6 +13,21 @@ describe("FeedApiService", () => {
     vi.unstubAllGlobals();
   });
 
+  it("records a Settings visit through the authenticated API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.markSettingsVisited()).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/feeds/settings-visit",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer token" },
+      }),
+    );
+  });
+
   it("maps feed summaries from snake_case", async () => {
     vi.stubGlobal(
       "fetch",

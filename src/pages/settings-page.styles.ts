@@ -246,11 +246,50 @@ export const settingsPageStyles = css`
     outline-offset: 2px;
   }
 
-  .feed-scroll {
+  .preview-viewport {
+    position: relative;
     min-height: 0;
     flex: 1;
+  }
+
+  .feed-scroll {
+    height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  .preview-surface {
+    min-height: 100%;
+    opacity: 1;
+    transition: opacity 180ms ease;
+  }
+
+  .preview-viewport.is-generating .preview-surface {
+    opacity: 0.24;
+  }
+
+  .preview-viewport.is-busy .feed-scroll {
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
+  .preview-generation-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: grid;
+    background: color-mix(in srgb, var(--bluesky-bg, #0f1720) 24%, transparent);
+    pointer-events: auto;
+    place-items: center;
+    touch-action: none;
+  }
+
+  .preview-generation-overlay wa-spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--bluesky-brand);
+    font-size: 2.5rem;
   }
 
   .preview-movement-help {
@@ -931,6 +970,10 @@ export const settingsPageStyles = css`
     .preview-butterfly {
       animation: none;
       transform: translateY(-50%);
+    }
+
+    .preview-surface {
+      transition: none;
     }
   }
 

@@ -46,6 +46,8 @@ export class AppShell extends MobxLitElement {
   @state() private _authFailureMessage = "";
   private _lastRouteFeed: AlgorithmId | null = null;
   private _lastSettingsViewedFeed: AlgorithmId | null = null;
+  private _settingsVisitReportedForUser: string | null = null;
+  private _settingsVisitInFlightForUser: string | null = null;
   private _lastResolvedAuthState: boolean | null = null;
   private _authFinishInFlight = false;
 
@@ -734,12 +736,38 @@ export class AppShell extends MobxLitElement {
       }
     }
 
+    if (!root?.authStore.isSignedIn) {
+      this._settingsVisitReportedForUser = null;
+      this._settingsVisitInFlightForUser = null;
+    }
+
     if (this._currentPage !== "settings") {
       this._lastSettingsViewedFeed = null;
       return;
     }
     const store = root;
     if (!store?.authStore.isSignedIn) return;
+    const userId = store.authStore.currentUser?.uid;
+    if (
+      userId &&
+      this._settingsVisitReportedForUser !== userId &&
+      this._settingsVisitInFlightForUser !== userId
+    ) {
+      this._settingsVisitInFlightForUser = userId;
+      void store.services.feedApiService
+        .markSettingsVisited()
+        .then(() => {
+          this._settingsVisitReportedForUser = userId;
+        })
+        .catch(() => {
+          // Visiting Settings must remain usable if this best-effort signal fails.
+        })
+        .finally(() => {
+          if (this._settingsVisitInFlightForUser === userId) {
+            this._settingsVisitInFlightForUser = null;
+          }
+        });
+    }
     if (
       store.uiStore.selectedAlgorithm === null &&
       store.feedStore.currentRequestId === null &&
@@ -1097,12 +1125,23 @@ export class AppShell extends MobxLitElement {
     this._lastResolvedAuthState = store.authStore.isSignedIn;
 
     if (!store.authStore.isSignedIn) {
-      this._currentRoute = "/feed";
-      this._currentPage = "feed";
-      this._currentFeed = "your-feed";
+      const path = rawHash.split("?")[0] || "/feed";
+      const resolvedRoute = resolveFeedScopedRoute(path, store.uiStore.selectedAlgorithm);
+      const route = resolvedRoute?.page === "settings" ? resolvedRoute : {
+        page: "feed" as const,
+        feedName: store.uiStore.selectedAlgorithm ?? "your-feed",
+        path: "/feed",
+      };
+      this._currentRoute = route.path;
+      this._currentPage = route.page;
+      this._currentFeed = route.feedName;
       this.requestUpdate();
-      if (rawHash !== "/feed") {
-        window.location.hash = "/feed";
+      if (path !== route.path) {
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${window.location.search}#${route.path}`,
+        );
       }
       return;
     }
