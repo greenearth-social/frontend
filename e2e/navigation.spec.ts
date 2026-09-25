@@ -247,8 +247,8 @@ test.describe("feed-scoped navigation", () => {
     await expect(politicsSlider).toHaveAttribute("max", "2");
     await expect(politicsSlider).toHaveAttribute("step", "0.5");
     await expect(politicsSlider).toHaveValue("0.5");
-    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Default");
-    await expect(politics.getByText("0.5 · Default", { exact: true })).toBeVisible();
+    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Less Politics");
+    await expect(politics.getByText("0.5 · Less Politics", { exact: true })).toBeVisible();
     await expect(politics.getByText("Coming Soon")).toHaveCount(0);
     expect(
       await politics.evaluate((element) => ({
@@ -269,8 +269,8 @@ test.describe("feed-scoped navigation", () => {
     await expect(politics).toBeVisible();
     await expect(politicsSlider).toBeEnabled();
     await expect(politicsSlider).toHaveValue("0.5");
-    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Default");
-    await expect(politics.getByText("0.5 · Default", { exact: true })).toBeVisible();
+    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Less Politics");
+    await expect(politics.getByText("0.5 · Less Politics", { exact: true })).toBeVisible();
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -431,9 +431,9 @@ test.describe("feed-scoped navigation", () => {
 
       await reset.click();
       await expect(politics).toHaveValue("0.5");
-      await expect(politics).toHaveAttribute("aria-valuetext", "0.5 · Default");
+      await expect(politics).toHaveAttribute("aria-valuetext", "0.5 · Less Politics");
       await expect(
-        settings.locator(".politics-card").getByText("0.5 · Default", { exact: true }),
+        settings.locator(".politics-card").getByText("0.5 · Less Politics", { exact: true }),
       ).toBeVisible();
       await expect(reset).toBeDisabled();
       await undo.click();
