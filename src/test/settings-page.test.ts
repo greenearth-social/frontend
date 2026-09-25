@@ -184,10 +184,10 @@ describe("SettingsPage", () => {
     expect(politics?.max).toBe(2);
     expect(politics?.step).toBe(0.5);
     expect(politics?.ariaLabel).toBe("Politics multiplier");
-    expect(politics?.valueText).toBe("0.5 · Default");
+    expect(politics?.valueText).toBe("0.5 · Less Politics");
     expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("0.5 · Default");
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("0.5 · Less Politics");
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -597,7 +597,7 @@ describe("SettingsPage", () => {
 
   it.each([
     { value: 0, label: "0 · Min Politics" },
-    { value: 0.5, label: "0.5 · Default" },
+    { value: 0.5, label: "0.5 · Less Politics" },
     { value: 1, label: "1.0 · Neutral" },
     { value: 1.5, label: "1.5 · More Politics" },
     { value: 2, label: "2.0 · Max Politics" },
