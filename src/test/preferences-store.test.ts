@@ -64,7 +64,7 @@ describe("PreferencesStore.load", () => {
 
     expect(store.valuesFor("your-feed").politics).toBe(0);
     expect(store.supportsControl("your-feed", "politics")).toBe(true);
-    expect(store.valuesFor("best-of-friends").politics).toBe(1);
+    expect(store.valuesFor("best-of-friends").politics).toBe(0.5);
     expect(store.supportsControl("best-of-friends", "politics")).toBe(false);
   });
 
@@ -154,7 +154,7 @@ describe("PreferencesStore.save", () => {
       expect(patch).toHaveBeenCalledWith(feedName, { politics: 0 });
       expect(store.valuesFor(feedName).purpose).toBe(originalPurpose);
       expect(store.valuesFor(otherFeed).politics).toBe(1);
-      expect(store.valuesFor("random").politics).toBe(1);
+      expect(store.valuesFor("random").politics).toBe(0.5);
       expect(capture).toHaveBeenCalledWith("feedControlChanged", {
         control_name: "politics",
         previous_value: 1,
@@ -521,7 +521,7 @@ describe("PreferencesStore.restoreDefaults", () => {
       },
       freshness: 5,
       purpose: 0.5,
-      politics: 1,
+      politics: 0.5,
     };
     const patch = vi.fn().mockResolvedValue(defaults);
     const { store, capture } = makeStore(patch);
@@ -546,7 +546,7 @@ describe("PreferencesStore.restoreDefaults", () => {
     expect(store.valuesFor("your-feed")).toMatchObject(defaults);
     expect(capture).toHaveBeenCalledWith(
       "feedControlChanged",
-      expect.objectContaining({ feed_name: "your-feed", control_name: "politics", new_value: 1 }),
+      expect.objectContaining({ feed_name: "your-feed", control_name: "politics", new_value: 0.5 }),
     );
     expect(capture).toHaveBeenCalledWith(
       "feedControlChanged",
@@ -640,7 +640,7 @@ describe("PreferencesStore.restoreDefaults", () => {
   });
 
   it("resets only controls supported by the selected feed", async () => {
-    const patch = vi.fn().mockResolvedValue({ freshness: 5, purpose: 0.5, politics: 1 });
+    const patch = vi.fn().mockResolvedValue({ freshness: 5, purpose: 0.5, politics: 0.5 });
     const { store } = makeStore(patch);
     await store.load();
     store.valuesByFeed["best-of-friends"].politics = 0;
@@ -651,12 +651,12 @@ describe("PreferencesStore.restoreDefaults", () => {
     expect(patch).toHaveBeenCalledWith("best-of-friends", {
       freshness: 5,
       purpose: 0.5,
-      politics: 1,
+      politics: 0.5,
     });
     expect(store.valuesFor("best-of-friends")).toMatchObject({
       freshness: 5,
       purpose: 0.5,
-      politics: 1,
+      politics: 0.5,
     });
     expect(store.valuesFor("your-feed").politics).toBe(2);
     expect(store.valuesFor("random").freshness).toBe(1);

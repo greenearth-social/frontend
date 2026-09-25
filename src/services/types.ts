@@ -20,7 +20,7 @@ export interface SourceWeights {
 export interface Preferences {
   sourceWeights: SourceWeights;
   freshness: number; // 0-5; default 5 (7 days)
-  politics: number; // 0-2; default 1 (neutral)
+  politics: number; // 0-2; default 0.5, neutral 1
   purpose: number; // 0.2-0.8
 }
 

@@ -9,7 +9,7 @@ const testState = vi.hoisted(() => {
       popular: 0.25,
     },
     freshness: 5,
-    politics: 1,
+    politics: 0.5,
     purpose: 0.5,
   };
   return {
@@ -92,7 +92,7 @@ describe("SettingsPage", () => {
       popular: 0.25,
     };
     testState.values.freshness = 5;
-    testState.values.politics = 1;
+    testState.values.politics = 0.5;
     testState.values.purpose = 0.5;
     testState.rootStore.preferencesStore.valuesFor.mockReset();
     testState.rootStore.preferencesStore.valuesFor.mockReturnValue(testState.values);
@@ -184,10 +184,10 @@ describe("SettingsPage", () => {
     expect(politics?.max).toBe(2);
     expect(politics?.step).toBe(0.5);
     expect(politics?.ariaLabel).toBe("Politics multiplier");
-    expect(politics?.valueText).toBe("1.0 · Default");
+    expect(politics?.valueText).toBe("0.5 · Default");
     expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("1.0 · Default");
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("0.5 · Default");
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -305,7 +305,7 @@ describe("SettingsPage", () => {
         },
         freshness: 5,
         purpose: 0.5,
-        politics: 1,
+        politics: 0.5,
       },
       { source_weights: "reset_defaults" },
     );
@@ -387,7 +387,7 @@ describe("SettingsPage", () => {
       "Best of Friends Settings",
     );
     expect(politicsSlider(element).disabled).toBe(false);
-    expect(politicsSlider(element).value).toBe(1);
+    expect(politicsSlider(element).value).toBe(0.5);
 
     element.shadowRoot
       ?.querySelector<HTMLButtonElement>('[aria-label="Learn more about Following"]')
@@ -597,8 +597,8 @@ describe("SettingsPage", () => {
 
   it.each([
     { value: 0, label: "0 · Min Politics" },
-    { value: 0.5, label: "0.5 · Less Politics" },
-    { value: 1, label: "1.0 · Default" },
+    { value: 0.5, label: "0.5 · Default" },
+    { value: 1, label: "1.0 · Neutral" },
     { value: 1.5, label: "1.5 · More Politics" },
     { value: 2, label: "2.0 · Max Politics" },
   ])(
@@ -629,21 +629,21 @@ describe("SettingsPage", () => {
       document.body.appendChild(element);
       await element.updateComplete;
 
-      changeSlider(politicsSlider(element), 0.5, "slider-preview");
+      changeSlider(politicsSlider(element), 1, "slider-preview");
       await element.updateComplete;
-      expect(politicsSlider(element).value).toBe(0.5);
-      expect(testState.values.politics).toBe(1);
+      expect(politicsSlider(element).value).toBe(1);
+      expect(testState.values.politics).toBe(0.5);
       expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
 
-      changeSlider(politicsSlider(element), 0.5);
+      changeSlider(politicsSlider(element), 1);
       await Promise.resolve();
       await element.updateComplete;
       expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
         feedName,
-        { politics: 0.5 },
+        { politics: 1 },
         {},
       );
-      expect(testState.values.politics).toBe(0.5);
+      expect(testState.values.politics).toBe(1);
       expect(
         element.shadowRoot?.querySelector<HTMLButtonElement>(".mobile-preview-btn")?.disabled,
       ).toBe(false);
@@ -722,10 +722,10 @@ describe("SettingsPage", () => {
       await element.updateComplete;
       expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
         feedName,
-        { politics: 1 },
+        { politics: 0.5 },
         {},
       );
-      expect(politicsSlider(element).value).toBe(1);
+      expect(politicsSlider(element).value).toBe(0.5);
 
       element.shadowRoot
         ?.querySelector<HTMLButtonElement>('[aria-label="Redo last settings change"]')
@@ -744,10 +744,10 @@ describe("SettingsPage", () => {
       await element.updateComplete;
       expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
         feedName,
-        expect.objectContaining({ politics: 1 }),
+        expect.objectContaining({ politics: 0.5 }),
         feedName === "your-feed" ? { source_weights: "reset_defaults" } : {},
       );
-      expect(politicsSlider(element).value).toBe(1);
+      expect(politicsSlider(element).value).toBe(0.5);
       expect(
         element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
       ).toBe(true);
@@ -775,13 +775,13 @@ describe("SettingsPage", () => {
       document.body.appendChild(element);
       await element.updateComplete;
 
-      changeSlider(politicsSlider(element), 0.5, "slider-preview");
+      changeSlider(politicsSlider(element), 1, "slider-preview");
       await element.updateComplete;
-      changeSlider(politicsSlider(element), 0.5);
+      changeSlider(politicsSlider(element), 1);
       await Promise.resolve();
       await element.updateComplete;
 
-      expect(politicsSlider(element).value).toBe(1);
+      expect(politicsSlider(element).value).toBe(0.5);
       expect(element.shadowRoot?.querySelector(".settings-error")?.textContent).toContain(
         "Settings could not be updated",
       );
