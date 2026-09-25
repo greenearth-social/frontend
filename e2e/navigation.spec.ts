@@ -246,9 +246,9 @@ test.describe("feed-scoped navigation", () => {
     await expect(politicsSlider).toHaveAttribute("min", "0");
     await expect(politicsSlider).toHaveAttribute("max", "2");
     await expect(politicsSlider).toHaveAttribute("step", "0.5");
-    await expect(politicsSlider).toHaveValue("1");
-    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "1.0 · Default");
-    await expect(politics.getByText("1.0 · Default", { exact: true })).toBeVisible();
+    await expect(politicsSlider).toHaveValue("0.5");
+    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Default");
+    await expect(politics.getByText("0.5 · Default", { exact: true })).toBeVisible();
     await expect(politics.getByText("Coming Soon")).toHaveCount(0);
     expect(
       await politics.evaluate((element) => ({
@@ -268,9 +268,9 @@ test.describe("feed-scoped navigation", () => {
     await expect(settings.getByRole("heading", { name: "Best of Friends Settings" })).toBeVisible();
     await expect(politics).toBeVisible();
     await expect(politicsSlider).toBeEnabled();
-    await expect(politicsSlider).toHaveValue("1");
-    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "1.0 · Default");
-    await expect(politics.getByText("1.0 · Default", { exact: true })).toBeVisible();
+    await expect(politicsSlider).toHaveValue("0.5");
+    await expect(politicsSlider).toHaveAttribute("aria-valuetext", "0.5 · Default");
+    await expect(politics.getByText("0.5 · Default", { exact: true })).toBeVisible();
 
     await page.evaluate(() => {
       window.location.hash = "/settings/random";
@@ -293,7 +293,7 @@ test.describe("feed-scoped navigation", () => {
         settings.getByRole("heading", { name: `${ALGORITHMS[feedName].label} Settings` }),
       ).toBeVisible();
       const politics = settings.getByRole("slider", { name: "Politics multiplier" });
-      await expect(politics).toHaveValue("1");
+      await expect(politics).toHaveValue("0.5");
       await page.evaluate(async () => {
         const modulePath = "/src/main.ts";
         const appModule = (await import(modulePath)) as { getRootStore(): RootStore | null };
@@ -318,6 +318,9 @@ test.describe("feed-scoped navigation", () => {
 
       await politics.focus();
       await politics.press("ArrowRight");
+      await expect(politics).toHaveValue("1");
+      await expect(politics).toHaveAttribute("aria-valuetext", "1.0 · Neutral");
+      await politics.press("ArrowRight");
       await expect(politics).toHaveValue("1.5");
       await expect(politics).toHaveAttribute("aria-valuetext", "1.5 · More Politics");
       await expect(
@@ -334,7 +337,7 @@ test.describe("feed-scoped navigation", () => {
         }),
       ).toMatchObject({
         [feedName]: { politics: 1.5 },
-        [otherFeed]: { politics: 1 },
+        [otherFeed]: { politics: 0.5 },
         random: { freshness: 5 },
       });
 
@@ -355,17 +358,17 @@ test.describe("feed-scoped navigation", () => {
       await page.evaluate((feed) => {
         window.location.hash = `/settings/${feed}`;
       }, otherFeed);
-      await expect(politics).toHaveValue("1");
+      await expect(politics).toHaveValue("0.5");
       await politics.focus();
       await politics.press("ArrowLeft");
-      await expect(politics).toHaveValue("0.5");
-      await expect(politics).toHaveAttribute("aria-valuetext", "0.5 · Less Politics");
+      await expect(politics).toHaveValue("0");
+      await expect(politics).toHaveAttribute("aria-valuetext", "0 · Min Politics");
       await expect(
-        settings.locator(".politics-card").getByText("0.5 · Less Politics", { exact: true }),
+        settings.locator(".politics-card").getByText("0 · Min Politics", { exact: true }),
       ).toBeVisible();
       await expect
         .poll(() => page.evaluate(() => Reflect.get(window, "__politicsSaved") as unknown))
-        .toEqual({ feedName: otherFeed, patch: { politics: 0.5 } });
+        .toEqual({ feedName: otherFeed, patch: { politics: 0 } });
       expect(
         await page.evaluate(async () => {
           const modulePath = "/src/main.ts";
@@ -374,7 +377,7 @@ test.describe("feed-scoped navigation", () => {
         }),
       ).toMatchObject({
         [feedName]: { politics: 1.5 },
-        [otherFeed]: { politics: 0.5 },
+        [otherFeed]: { politics: 0 },
         random: { freshness: 5 },
       });
 
@@ -389,7 +392,7 @@ test.describe("feed-scoped navigation", () => {
       await page.evaluate((feed) => {
         window.location.hash = `/settings/${feed}`;
       }, otherFeed);
-      await expect(politics).toHaveValue("0.5");
+      await expect(politics).toHaveValue("0");
     });
 
     test(`supports ${feedName} keyboard Politics endpoints, Undo, Redo, and Defaults`, async ({
@@ -427,17 +430,17 @@ test.describe("feed-scoped navigation", () => {
       await expect(politics).toHaveValue("2");
 
       await reset.click();
-      await expect(politics).toHaveValue("1");
-      await expect(politics).toHaveAttribute("aria-valuetext", "1.0 · Default");
+      await expect(politics).toHaveValue("0.5");
+      await expect(politics).toHaveAttribute("aria-valuetext", "0.5 · Default");
       await expect(
-        settings.locator(".politics-card").getByText("1.0 · Default", { exact: true }),
+        settings.locator(".politics-card").getByText("0.5 · Default", { exact: true }),
       ).toBeVisible();
       await expect(reset).toBeDisabled();
       await undo.click();
       await expect(politics).toHaveValue("2");
       await expect(reset).toBeEnabled();
       await redo.click();
-      await expect(politics).toHaveValue("1");
+      await expect(politics).toHaveValue("0.5");
       await expect(reset).toBeDisabled();
     });
   }

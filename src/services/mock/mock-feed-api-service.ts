@@ -221,9 +221,9 @@ export class MockFeedApiService implements IFeedApiService {
       },
       freshness: 5,
       purpose: 0.5,
-      politics: 1,
+      politics: 0.5,
     },
-    "best-of-friends": { freshness: 5, purpose: 0.5, politics: 1 },
+    "best-of-friends": { freshness: 5, purpose: 0.5, politics: 0.5 },
     random: { freshness: 5 },
   };
 
