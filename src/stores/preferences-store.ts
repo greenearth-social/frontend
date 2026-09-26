@@ -181,6 +181,8 @@ export class PreferencesStore {
   controlsByFeed = emptyControlsByFeed();
   isLoading = false;
   hasLoaded = false;
+  // Whether the api lets this account use the prompt source (llm-cg flag).
+  llmCgEnabled = false;
   llmPrompt: LlmPrompt | null = null;
   private saveSequence = 0;
   private saveVersions: Record<string, number> = {};
@@ -227,12 +229,13 @@ export class PreferencesStore {
     const promise = (async () => {
       let loadedSuccessfully = false;
       try {
-        const [loadedValues, llmPrompt] = await Promise.all([
+        const [loadedValues, llmStatus] = await Promise.all([
           this.root.services.feedApiService.getPreferences(),
           this.root.services.feedApiService.getLlmPrompt(),
         ]);
         if (generation === this.accountGeneration) {
-          this.llmPrompt = llmPrompt;
+          this.llmCgEnabled = llmStatus.enabled;
+          this.llmPrompt = llmStatus.enabled ? llmStatus.prompt : null;
           for (const feedName of ALGORITHM_IDS) {
             const feedValues = loadedValues[feedName] ?? {};
             this.valuesByFeed[feedName] = {
@@ -274,6 +277,7 @@ export class PreferencesStore {
     this.controlsByFeed = emptyControlsByFeed();
     this.isLoading = false;
     this.hasLoaded = false;
+    this.llmCgEnabled = false;
     this.llmPrompt = null;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();

@@ -498,7 +498,11 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <div class="sources-layout">
         <div class="source-list">
-          ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
+          ${
+            getRootStore()?.preferencesStore.llmCgEnabled
+              ? this.#renderSourceControl("llm", "llm", "Prompt", weights)
+              : ""
+          }
           ${this.#renderSourceControl("following", "following", "Following", weights)}
           ${this.#renderSourceControl(
             "networkLikes",

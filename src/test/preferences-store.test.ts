@@ -31,7 +31,7 @@ function makeStore(
       feedApiService: {
         patchPreferences,
         getPreferences: vi.fn().mockResolvedValue(preferences),
-        getLlmPrompt: vi.fn().mockResolvedValue(null),
+        getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
       },
       analyticsService: { capture },
     },
@@ -53,6 +53,33 @@ describe("PreferencesStore.load", () => {
     expect(store.supportsControl("your-feed", "politics")).toBe(true);
     expect(store.supportsControl("best-of-friends", "politics")).toBe(true);
     expect(store.supportsControl("random", "politics")).toBe(false);
+  });
+
+  it("keeps the prompt source off when the api says the llm-cg flag is off", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: false });
+
+    await store.load();
+
+    expect(store.llmCgEnabled).toBe(false);
+    expect(store.llmPrompt).toBeNull();
+  });
+
+  it("remembers the fitted prompt when the flag is on", async () => {
+    const { store } = makeStore(vi.fn());
+    const prompt = { promptKey: "v1", prompt: "hopeful science", createdAt: "2026-09-17T10:00:00Z" };
+    store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: true, prompt });
+
+    await store.load();
+
+    expect(store.llmCgEnabled).toBe(true);
+    expect(store.llmPrompt).toEqual(prompt);
+    store.reset();
+    expect(store.llmCgEnabled).toBe(false);
   });
 
   it("preserves a zero politics preference and leaves omitted controls unavailable", async () => {
@@ -82,7 +109,7 @@ describe("PreferencesStore.load", () => {
         feedApiService: {
           getPreferences,
           patchPreferences: vi.fn(),
-          getLlmPrompt: vi.fn().mockResolvedValue(null),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
     } as unknown as RootStore;
@@ -111,7 +138,7 @@ describe("PreferencesStore.load", () => {
         feedApiService: {
           getPreferences,
           patchPreferences: vi.fn(),
-          getLlmPrompt: vi.fn().mockResolvedValue(null),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
     } as unknown as RootStore;
@@ -138,7 +165,7 @@ describe("PreferencesStore.load", () => {
         feedApiService: {
           getPreferences,
           patchPreferences: vi.fn(),
-          getLlmPrompt: vi.fn().mockResolvedValue(null),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
     } as unknown as RootStore;

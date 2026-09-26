@@ -1,4 +1,10 @@
-import type { FeedPreferences, FeedPreferencesByFeed, IFeedApiService, LlmPrompt } from "../types";
+import type {
+  FeedPreferences,
+  FeedPreferencesByFeed,
+  IFeedApiService,
+  LlmPrompt,
+  LlmPromptStatus,
+} from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -359,8 +365,8 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(structuredClone(prefs));
   }
 
-  getLlmPrompt(): Promise<LlmPrompt | null> {
-    return Promise.resolve(this.llmPrompt);
+  getLlmPrompt(): Promise<LlmPromptStatus> {
+    return Promise.resolve({ enabled: true, prompt: this.llmPrompt });
   }
 
   fitLlmPrompt(prompt: string): Promise<LlmPrompt> {

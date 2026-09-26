@@ -5,6 +5,7 @@ import type {
   FeedPreviewSession,
   IFeedApiService,
   LlmPrompt,
+  LlmPromptStatus,
 } from "../types";
 import { FeedApiError } from "../types";
 import { canonicalAlgorithmId, isAlgorithmId, type AlgorithmId } from "../../constants/algorithms";
@@ -361,13 +362,23 @@ export class FeedApiService implements IFeedApiService {
     return mapPreferences(response);
   }
 
-  async getLlmPrompt(): Promise<LlmPrompt | null> {
-    const response = await this._fetch<ApiLlmPrompt | null>("/api/feeds/llm-query-vectors/current");
-    if (response == null) return null;
+  async getLlmPrompt(): Promise<LlmPromptStatus> {
+    let response: ApiLlmPrompt | null;
+    try {
+      response = await this._fetch<ApiLlmPrompt | null>("/api/feeds/llm-query-vectors/current");
+    } catch (error) {
+      // 403 is the api saying the llm-cg feature flag is off for this account.
+      if (error instanceof FeedApiError && error.status === 403) return { enabled: false };
+      throw error;
+    }
+    if (response == null) return { enabled: true, prompt: null };
     return {
-      promptKey: response.prompt_key,
-      prompt: response.prompt,
-      createdAt: response.created_at,
+      enabled: true,
+      prompt: {
+        promptKey: response.prompt_key,
+        prompt: response.prompt,
+        createdAt: response.created_at,
+      },
     };
   }
 

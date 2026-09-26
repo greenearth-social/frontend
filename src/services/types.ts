@@ -33,6 +33,10 @@ export interface LlmPrompt {
   createdAt: string;
 }
 
+// What the api says about the prompt feature for this account: off (the llm-cg
+// feature flag is not on for them), or on with the fitted prompt if any.
+export type LlmPromptStatus = { enabled: false } | { enabled: true; prompt: LlmPrompt | null };
+
 export interface FeedPreviewSession {
   requestId: string;
   feedName: import("../constants/algorithms").AlgorithmId;
@@ -84,6 +88,6 @@ export interface IFeedApiService {
     feedName: import("../constants/algorithms").AlgorithmId,
     prefs: FeedPreferences,
   ): Promise<FeedPreferences>;
-  getLlmPrompt(): Promise<LlmPrompt | null>;
+  getLlmPrompt(): Promise<LlmPromptStatus>;
   fitLlmPrompt(prompt: string): Promise<LlmPrompt>;
 }

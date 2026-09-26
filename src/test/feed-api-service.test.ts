@@ -361,9 +361,12 @@ describe("FeedApiService", () => {
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(service.getLlmPrompt()).resolves.toEqual({
-      promptKey: "v2",
-      prompt: "hopeful science",
-      createdAt: "2026-09-17T10:00:00Z",
+      enabled: true,
+      prompt: {
+        promptKey: "v2",
+        prompt: "hopeful science",
+        createdAt: "2026-09-17T10:00:00Z",
+      },
     });
   });
 
@@ -371,7 +374,24 @@ describe("FeedApiService", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
-    await expect(service.getLlmPrompt()).resolves.toBeNull();
+    await expect(service.getLlmPrompt()).resolves.toEqual({ enabled: true, prompt: null });
+  });
+
+  it("reads a 403 as the llm-cg flag being off for this account", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("forbidden", { status: 403 })),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt()).resolves.toEqual({ enabled: false });
+  });
+
+  it("still surfaces other llm prompt failures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("down", { status: 503 })));
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt()).rejects.toThrow("API 503");
   });
 
   it("posts the prompt to the fit route and keeps the stored vector id", async () => {

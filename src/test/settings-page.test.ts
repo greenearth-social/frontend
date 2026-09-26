@@ -20,6 +20,7 @@ const testState = vi.hoisted(() => {
     rootStore: {
       preferencesStore: {
         hasLoaded: true,
+        llmCgEnabled: true,
         llmPromptFitted: false,
         llmPrompt: null as { promptKey: string; prompt: string; createdAt: string } | null,
         fitLlmPrompt: vi.fn(),
@@ -99,6 +100,7 @@ describe("SettingsPage", () => {
     testState.values.freshness = 5;
     testState.values.politics = 1;
     testState.values.purpose = 0.5;
+    testState.rootStore.preferencesStore.llmCgEnabled = true;
     testState.rootStore.preferencesStore.llmPromptFitted = false;
     testState.rootStore.preferencesStore.llmPrompt = null;
     testState.rootStore.preferencesStore.fitLlmPrompt.mockReset();
@@ -520,6 +522,21 @@ describe("SettingsPage", () => {
       },
       { source_weights: "following" },
     );
+  });
+
+  it("hides the Prompt source when the llm-cg flag is off for this account", async () => {
+    testState.rootStore.preferencesStore.llmCgEnabled = false;
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".prompt-card")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".prompt-input")).toBeNull();
+    const labels = Array.from(
+      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
+    ).map((slider) => slider.ariaLabel);
+    expect(labels).not.toContain("Prompt amount");
+    expect(labels).toContain("Following amount");
   });
 
   it("keeps the Prompt source faded and inert until a prompt is fitted", async () => {
