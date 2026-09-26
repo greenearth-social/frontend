@@ -31,6 +31,7 @@ export interface AnalyticsEventProperties {
   };
   settingsViewed: FeedAnalyticsProperties;
   howItWorksViewed: FeedAnalyticsProperties;
+  promptFitted: FeedAnalyticsProperties;
   howItWorksComponentClicked: FeedAnalyticsProperties & {
     component_id: string;
     component_label: string;
@@ -56,6 +57,7 @@ export interface FeedControlEventProperties {
     | "network_likes"
     | "authors_topics"
     | "popular"
+    | "llm"
     | "source_mix_master"
     | "reset_defaults"
     | "undo"
@@ -72,6 +74,8 @@ export interface FeedControlEventProperties {
   new_authors_topics_weight?: number;
   previous_popular_weight?: number;
   new_popular_weight?: number;
+  previous_llm_weight?: number;
+  new_llm_weight?: number;
   previous_hours?: number;
   new_hours?: number;
   previous_engaging_weight?: number;

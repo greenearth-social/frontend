@@ -6,6 +6,7 @@ import type { AlgorithmId } from "../constants/algorithms";
 import { ALGORITHMS, feedAnalyticsProperties } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
+import { FeedApiError } from "../services/types";
 import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
 import type { SourceWeightChangeOrigin } from "../stores/preferences-store";
@@ -102,6 +103,10 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewNeeded = false;
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
+  // null shows the fitted prompt; a string is what the user is typing.
+  @state() private promptDraft: string | null = null;
+  @state() private isFittingPrompt = false;
+  @state() private promptError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
   private sourceStartWeights: SourceWeights | null = null;
   private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -206,6 +211,7 @@ export class SettingsPage extends MobxLitElement {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -325,7 +331,8 @@ export class SettingsPage extends MobxLitElement {
                         this.selectedAlgorithm === "random"
                           ? ""
                           : html`
-                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose, politics)}
+                              ${this.#renderArrow()}
+                              ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                             `
                       }
@@ -491,6 +498,7 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <div class="sources-layout">
         <div class="source-list">
+          ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
           ${this.#renderSourceControl("following", "following", "Following", weights)}
           ${this.#renderSourceControl(
             "networkLikes",
@@ -510,22 +518,99 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  // The lock list the sum-to-1 math sees: the user's locks, plus llm while no
+  // prompt is fitted so the llm weight can never rise above 0 on its own.
+  #renderPromptEditor(): TemplateResult {
+    const fitted = getRootStore()?.preferencesStore.llmPrompt?.prompt ?? "";
+    const draft = this.promptDraft ?? fitted;
+    const canSend = !this.isLoading && !this.isFittingPrompt && draft.trim().length > 0;
+    return html`
+      <div class="prompt-editor">
+        <textarea
+          class="prompt-input"
+          rows="2"
+          placeholder="Describe what you want to see, e.g. hopeful science news"
+          aria-label="Prompt"
+          .value=${draft}
+          ?disabled=${this.isFittingPrompt}
+          @input=${(event: Event) => {
+            this.promptDraft = (event.target as HTMLTextAreaElement).value;
+          }}
+        ></textarea>
+        <button
+          class="prompt-send-btn"
+          type="button"
+          ?disabled=${!canSend}
+          @click=${() => {
+            void this.#sendPrompt(draft);
+          }}
+        >
+          ${this.isFittingPrompt ? "Fitting…" : "Send"}
+        </button>
+        ${this.promptError ? html`<p class="prompt-error" role="alert">${this.promptError}</p>` : ""}
+      </div>
+    `;
+  }
+
+  // Fit the prompt on the server, then give it a starting share of the feed
+  // if it has none yet. A failed fit leaves the weights untouched.
+  async #sendPrompt(draft: string): Promise<void> {
+    const root = getRootStore();
+    const prompt = draft.trim();
+    if (!root || !prompt || this.isFittingPrompt) return;
+    this.isFittingPrompt = true;
+    this.promptError = "";
+    try {
+      await root.preferencesStore.fitLlmPrompt(prompt);
+      this.promptDraft = null;
+      root.services.analyticsService.capture("promptFitted", {
+        ...feedAnalyticsProperties(this.selectedAlgorithm),
+      });
+      const weights = root.preferencesStore.valuesFor(this.selectedAlgorithm).sourceWeights;
+      if (weights.llm === 0) {
+        this.#commitSourceWeights(
+          redistributeSourceWeights(weights, "llm", 0.2, this.#mathLocks()),
+          "llm",
+        );
+      }
+    } catch (error) {
+      this.promptError =
+        error instanceof FeedApiError && error.status === 422
+          ? "Not enough recent posts match that prompt. Try something broader."
+          : "The prompt could not be fitted. Please try again.";
+    } finally {
+      this.isFittingPrompt = false;
+    }
+  }
+
+  #promptFitted(): boolean {
+    return getRootStore()?.preferencesStore.llmPromptFitted ?? false;
+  }
+
+  #mathLocks(): SourceWeightKey[] {
+    return this.#promptFitted() ? this.lockedSources : [...this.lockedSources, "llm"];
+  }
+
   #renderSourceControl(
     key: SourceWeightKey,
-    nodeId: "following" | "network_likes" | "authors_topics" | "popular",
+    nodeId: "llm" | "following" | "network_likes" | "authors_topics" | "popular",
     label: string,
     weights: SourceWeights,
   ): TemplateResult {
-    const bounds = sourceWeightRange(weights, key, this.lockedSources);
+    const bounds = sourceWeightRange(weights, key, this.#mathLocks());
+    // The prompt source stays off until a prompt is fitted.
+    const inactive = key === "llm" && !this.#promptFitted();
     const isLocked = this.lockedSources.includes(key);
     const canLock = isLocked || this.lockedSources.length < 3;
     const canAdjust = bounds.max - bounds.min > 0.0001;
     const isDerived = !isLocked && !canAdjust;
-    const adjustmentDisabled = this.isLoading || isLocked || isDerived;
+    const adjustmentDisabled = this.isLoading || inactive || isLocked || isDerived;
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
     return html`
-      <div class="control-card source-card source-slider-card">
-        ${this.#titleButton(nodeId, label)}
+      <div
+        class="control-card source-card source-slider-card ${key === "llm" ? "prompt-card" : ""} ${inactive ? "inactive" : ""}"
+      >
+        ${this.#titleButton(nodeId, label)} ${key === "llm" ? this.#renderPromptEditor() : ""}
         <div class="source-slider-main">
           <icon-range-slider
             min="0"
@@ -560,7 +645,7 @@ export class SettingsPage extends MobxLitElement {
                 : `Keep ${label} fixed when other sources change`
               : "At least one source must remain unlocked"
           }
-          ?disabled=${!canLock}
+          ?disabled=${inactive || !canLock}
           @click=${() => {
             this.#toggleSourceLock(key);
           }}
@@ -662,9 +747,7 @@ export class SettingsPage extends MobxLitElement {
   #renderPolitics(politics: number): TemplateResult {
     return html`
       <div class="politics-card">
-        <div class="politics-heading">
-          ${this.#titleButton("politics", "Politics")}
-        </div>
+        <div class="politics-heading">${this.#titleButton("politics", "Politics")}</div>
         <div class="politics-control">
           <icon-range-slider
             min="0"
@@ -769,7 +852,7 @@ export class SettingsPage extends MobxLitElement {
 
   #commitSourceWeights(
     weights: SourceWeights,
-    origin: "following" | "network_likes" | "authors_topics" | "popular",
+    origin: "llm" | "following" | "network_likes" | "authors_topics" | "popular",
   ): void {
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
@@ -790,19 +873,19 @@ export class SettingsPage extends MobxLitElement {
       this.sourceStartWeights,
       key,
       value,
-      this.lockedSources,
+      this.#mathLocks(),
     );
   }
 
   #commitSourceWeight(
     weights: SourceWeights,
     key: SourceWeightKey,
-    origin: "following" | "network_likes" | "authors_topics" | "popular",
+    origin: "llm" | "following" | "network_likes" | "authors_topics" | "popular",
     value: number,
   ): void {
     const start = this.sourceStartWeights ?? weights;
     const next =
-      this.previewSourceWeights ?? redistributeSourceWeights(start, key, value, this.lockedSources);
+      this.previewSourceWeights ?? redistributeSourceWeights(start, key, value, this.#mathLocks());
     this.sourceStartWeights = null;
     this.#commitSourceWeights(next, origin);
   }

@@ -124,6 +124,7 @@ describe("SettingsPreviewStore", () => {
         networkLikes: 0.2,
         authorsTopics: 0.2,
         popular: 0.2,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,

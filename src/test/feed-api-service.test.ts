@@ -267,6 +267,7 @@ describe("FeedApiService", () => {
                 network_likes: 0.2,
                 authors_topics: 0.25,
                 popular: 0.25,
+                llm: 0,
               },
               freshness: 4,
               purpose: 0.65,
@@ -287,6 +288,7 @@ describe("FeedApiService", () => {
           networkLikes: 0.2,
           authorsTopics: 0.25,
           popular: 0.25,
+          llm: 0,
         },
         freshness: 4,
         purpose: 0.65,
@@ -308,6 +310,7 @@ describe("FeedApiService", () => {
                 following: 0.4,
                 authors_topics: 0.3,
                 popular: 0.3,
+                llm: 0,
               },
             },
           },
@@ -323,6 +326,7 @@ describe("FeedApiService", () => {
           networkLikes: 0,
           authorsTopics: 0.3,
           popular: 0.3,
+          llm: 0,
         },
       },
     });
@@ -339,6 +343,49 @@ describe("FeedApiService", () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body as string)).toEqual({ freshness: 2 });
+  });
+
+  it("maps the current llm prompt from snake_case", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({
+            prompt_key: "v2",
+            prompt: "hopeful science",
+            created_at: "2026-09-17T10:00:00Z",
+          }),
+        ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt()).resolves.toEqual({
+      promptKey: "v2",
+      prompt: "hopeful science",
+      createdAt: "2026-09-17T10:00:00Z",
+    });
+  });
+
+  it("reads an empty 204 as no llm prompt", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt()).resolves.toBeNull();
+  });
+
+  it("posts the prompt to the fit route and keeps the stored vector id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ vector_id: "v3", keywords: ["x"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    const fitted = await service.fitLlmPrompt("less complaining");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/llm-query-vectors/fit");
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ prompt: "less complaining" });
+    expect(fitted).toMatchObject({ promptKey: "v3", prompt: "less complaining" });
   });
 
   it.each(
@@ -371,6 +418,7 @@ describe("FeedApiService", () => {
           network_likes: 0.2,
           authors_topics: 0.15,
           popular: 0.25,
+          llm: 0,
         },
       }),
     );
@@ -383,6 +431,7 @@ describe("FeedApiService", () => {
         networkLikes: 0.2,
         authorsTopics: 0.15,
         popular: 0.25,
+        llm: 0,
       },
     });
 
@@ -393,6 +442,7 @@ describe("FeedApiService", () => {
         network_likes: 0.2,
         authors_topics: 0.15,
         popular: 0.25,
+        llm: 0,
       },
     });
   });
@@ -400,13 +450,13 @@ describe("FeedApiService", () => {
   it.each([
     {
       label: "Following",
-      weights: { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0 },
-      wire: { following: 1, network_likes: 0, authors_topics: 0, popular: 0 },
+      weights: { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0, llm: 0 },
+      wire: { following: 1, network_likes: 0, authors_topics: 0, popular: 0, llm: 0 },
     },
     {
       label: "Liked by Following",
-      weights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0 },
-      wire: { following: 0, network_likes: 1, authors_topics: 0, popular: 0 },
+      weights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0, llm: 0 },
+      wire: { following: 0, network_likes: 1, authors_topics: 0, popular: 0, llm: 0 },
     },
   ])("preserves every zero in a 100% $label preview payload", async ({ weights, wire }) => {
     const fetchMock = vi.fn().mockResolvedValue(

@@ -33,6 +33,12 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     description:
       "Defines the lookback period for candidate posts. Only posts within this window are considered for the feed.",
   },
+  llm: {
+    label: "Prompt",
+    type: "source",
+    description:
+      'Posts that match a prompt you write, like "hopeful science news". Send a prompt to turn this source on, then give it a share of your feed.',
+  },
   following: {
     label: "Following",
     type: "source",

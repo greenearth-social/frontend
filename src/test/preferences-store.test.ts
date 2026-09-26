@@ -11,6 +11,7 @@ const loaded: FeedPreferencesByFeed = {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     },
     freshness: 5,
     politics: 1,
@@ -30,6 +31,7 @@ function makeStore(
       feedApiService: {
         patchPreferences,
         getPreferences: vi.fn().mockResolvedValue(preferences),
+        getLlmPrompt: vi.fn().mockResolvedValue(null),
       },
       analyticsService: { capture },
     },
@@ -76,7 +78,13 @@ describe("PreferencesStore.load", () => {
       }),
     );
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue(null),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -99,7 +107,13 @@ describe("PreferencesStore.load", () => {
       .mockReturnValueOnce(firstRequest)
       .mockResolvedValueOnce({ ...loaded, random: { freshness: 4 } });
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue(null),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -120,7 +134,13 @@ describe("PreferencesStore.load", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce(loaded);
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue(null),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -264,6 +284,7 @@ describe("PreferencesStore.save", () => {
       networkLikes: 0.2,
       authorsTopics: 0.15,
       popular: 0.15,
+      llm: 0,
     };
 
     const sourceSave = store.save("your-feed", "source_weights", requestedWeights);
@@ -363,6 +384,7 @@ describe("PreferencesStore.save", () => {
       networkLikes: 0.2,
       authorsTopics: 0.15,
       popular: 0.15,
+      llm: 0,
     };
     const { store, capture } = makeStore(vi.fn().mockResolvedValue({ sourceWeights: next }));
     await store.load();
@@ -518,6 +540,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -533,6 +556,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
@@ -565,6 +589,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
     });
     const { store } = makeStore(patch);
@@ -577,6 +602,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
     };
 
@@ -588,6 +614,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
     });
   });
@@ -614,6 +641,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
@@ -633,6 +661,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -678,6 +707,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 3,
       purpose: 0.65,
@@ -697,6 +727,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
