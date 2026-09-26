@@ -155,7 +155,8 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
       network_likes: prefs.sourceWeights.networkLikes,
       authors_topics: prefs.sourceWeights.authorsTopics,
       popular: prefs.sourceWeights.popular,
-      llm: prefs.sourceWeights.llm,
+      // Only sent when in use, so an api without the field still accepts the save.
+      ...(prefs.sourceWeights.llm > 0 ? { llm: prefs.sourceWeights.llm } : {}),
     };
   }
   if (prefs.freshness !== undefined) serialized.freshness = prefs.freshness;

@@ -231,7 +231,11 @@ export class PreferencesStore {
       try {
         const [loadedValues, llmStatus] = await Promise.all([
           this.root.services.feedApiService.getPreferences(),
-          this.root.services.feedApiService.getLlmPrompt(),
+          this.root.services.feedApiService.getLlmPrompt().catch((error: unknown) => {
+            // The prompt feature must never take the settings page down with it.
+            console.warn("Prompt status unavailable; hiding the prompt source", error);
+            return { enabled: false } as const;
+          }),
         ]);
         if (generation === this.accountGeneration) {
           this.llmCgEnabled = llmStatus.enabled;

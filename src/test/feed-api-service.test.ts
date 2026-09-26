@@ -462,7 +462,33 @@ describe("FeedApiService", () => {
         network_likes: 0.2,
         authors_topics: 0.15,
         popular: 0.25,
-        llm: 0,
+      },
+    });
+  });
+
+  it("sends the llm weight only when it is above zero", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await service.patchPreferences("your-feed", {
+      sourceWeights: {
+        following: 0.3,
+        networkLikes: 0.2,
+        authorsTopics: 0.15,
+        popular: 0.15,
+        llm: 0.2,
+      },
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({
+      source_weights: {
+        following: 0.3,
+        network_likes: 0.2,
+        authors_topics: 0.15,
+        popular: 0.15,
+        llm: 0.2,
       },
     });
   });
@@ -471,12 +497,12 @@ describe("FeedApiService", () => {
     {
       label: "Following",
       weights: { following: 1, networkLikes: 0, authorsTopics: 0, popular: 0, llm: 0 },
-      wire: { following: 1, network_likes: 0, authors_topics: 0, popular: 0, llm: 0 },
+      wire: { following: 1, network_likes: 0, authors_topics: 0, popular: 0 },
     },
     {
       label: "Liked by Following",
       weights: { following: 0, networkLikes: 1, authorsTopics: 0, popular: 0, llm: 0 },
-      wire: { following: 0, network_likes: 1, authors_topics: 0, popular: 0, llm: 0 },
+      wire: { following: 0, network_likes: 1, authors_topics: 0, popular: 0 },
     },
   ])("preserves every zero in a 100% $label preview payload", async ({ weights, wire }) => {
     const fetchMock = vi.fn().mockResolvedValue(

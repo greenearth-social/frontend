@@ -57,9 +57,7 @@ describe("PreferencesStore.load", () => {
 
   it("keeps the prompt source off when the api says the llm-cg flag is off", async () => {
     const { store } = makeStore(vi.fn());
-    store.root.services.feedApiService.getLlmPrompt = vi
-      .fn()
-      .mockResolvedValue({ enabled: false });
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockResolvedValue({ enabled: false });
 
     await store.load();
 
@@ -67,9 +65,26 @@ describe("PreferencesStore.load", () => {
     expect(store.llmPrompt).toBeNull();
   });
 
+  it("still loads preferences when the prompt call fails", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockRejectedValue(new Error("404"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await store.load();
+
+    expect(store.hasLoaded).toBe(true);
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(store.llmCgEnabled).toBe(false);
+    warn.mockRestore();
+  });
+
   it("remembers the fitted prompt when the flag is on", async () => {
     const { store } = makeStore(vi.fn());
-    const prompt = { promptKey: "v1", prompt: "hopeful science", createdAt: "2026-09-17T10:00:00Z" };
+    const prompt = {
+      promptKey: "v1",
+      prompt: "hopeful science",
+      createdAt: "2026-09-17T10:00:00Z",
+    };
     store.root.services.feedApiService.getLlmPrompt = vi
       .fn()
       .mockResolvedValue({ enabled: true, prompt });
