@@ -478,9 +478,9 @@ describe("AppShell authentication UI", () => {
       await feedPage?.updateComplete;
       expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
       const logo = feedPage?.shadowRoot?.querySelector<HTMLImageElement>(".logged-out-logo");
-      expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
-      expect(logo?.getAttribute("width")).toBe("640");
-      expect(logo?.getAttribute("height")).toBe("476");
+      expect(logo?.getAttribute("src")).toBe("/assets/mysky-large.png");
+      expect(logo?.getAttribute("width")).toBe("764");
+      expect(logo?.getAttribute("height")).toBe("764");
       expect(feedPage?.shadowRoot?.querySelector("style")?.textContent).toContain(
         "width: min(52vw, 190px)",
       );
