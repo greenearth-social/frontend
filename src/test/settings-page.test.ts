@@ -895,21 +895,40 @@ describe("SettingsPage", () => {
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
     );
 
-    sliders
-      .find((slider) => slider.ariaLabel === "Constructive weight")
-      ?.dispatchEvent(
-        new CustomEvent("slider-change", {
-          bubbles: true,
-          composed: true,
-          detail: { value: 0.65 },
-        }),
-      );
+    const engaging = sliders.find((slider) => slider.ariaLabel === "Engaging weight");
+    const constructive = sliders.find((slider) => slider.ariaLabel === "Constructive weight");
+    expect(engaging).toMatchObject({ min: 0, max: 1, step: 0.25 });
+    expect(constructive).toMatchObject({ min: 0, max: 1, step: 0.25 });
+
+    engaging?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 1 },
+      }),
+    );
     await Promise.resolve();
     await element.updateComplete;
 
-    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledWith(
+    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
       "your-feed",
-      { purpose: 0.65 },
+      { purpose: 0 },
+      {},
+    );
+
+    constructive?.dispatchEvent(
+      new CustomEvent("slider-change", {
+        bubbles: true,
+        composed: true,
+        detail: { value: 1 },
+      }),
+    );
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
+      "your-feed",
+      { purpose: 1 },
       {},
     );
     expect(

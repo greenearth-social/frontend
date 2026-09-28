@@ -65,6 +65,31 @@ describe("RankScoresChart", () => {
     },
   );
 
+  it("grays out only a ranker whose influence is zero", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = item();
+    element.engagingInfluence = 0;
+    element.constructiveInfluence = 1;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const rows = [...(element.shadowRoot?.querySelectorAll<HTMLElement>(".ranker-item") ?? [])];
+    const engagingRow = rows.find((row) => row.textContent.includes("Engaging"));
+    const constructiveRow = rows.find((row) => row.textContent.includes("Constructive"));
+    expect(engagingRow?.classList.contains("inactive")).toBe(true);
+    expect(engagingRow?.querySelector<HTMLElement>(".ranker-bar-fill")?.style.backgroundColor).toBe(
+      "#71767b",
+    );
+    expect(engagingRow?.querySelector<HTMLElement>(".ranker-bar-outer")?.style.borderColor).toBe(
+      "#71767b",
+    );
+    expect(constructiveRow?.classList.contains("inactive")).toBe(false);
+    expect(
+      constructiveRow?.querySelector<HTMLElement>(".ranker-bar-fill")?.style.backgroundColor,
+    ).toBe("#a78bfa");
+    element.remove();
+  });
+
   it("keeps sources vertical on desktop and lays them out horizontally on mobile", () => {
     const styles = RankScoresChart.styles.cssText;
 

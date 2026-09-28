@@ -71,7 +71,7 @@ export const POLITICS_PRESETS: LifecyclePreset<number>[] = [
 }));
 
 export const PURPOSE_PRESETS: LifecyclePreset<number>[] = [
-  0.2, 0.35, 0.5, 0.65, 0.8,
+  0, 0.25, 0.5, 0.75, 1,
 ].map((constructive) => ({
   value: constructive,
   displayLines: [

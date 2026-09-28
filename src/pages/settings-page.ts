@@ -582,9 +582,9 @@ export class SettingsPage extends MobxLitElement {
           <div class="control-card signal-card">
             ${this.#titleButton("predict_like", "Engaging")}
             <icon-range-slider
-              min="0.2"
-              max="0.8"
-              step="0.15"
+              min="0"
+              max="1"
+              step="0.25"
               .value=${engaging}
               .icons=${LIFECYCLE_ICONS}
               .valueText=${engaging.toFixed(2)}
@@ -601,9 +601,9 @@ export class SettingsPage extends MobxLitElement {
           <div class="control-card signal-card">
             ${this.#titleButton("constructiveness", "Constructive")}
             <icon-range-slider
-              min="0.2"
-              max="0.8"
-              step="0.15"
+              min="0"
+              max="1"
+              step="0.25"
               .value=${purpose}
               .icons=${LIFECYCLE_ICONS}
               .valueText=${purpose.toFixed(2)}

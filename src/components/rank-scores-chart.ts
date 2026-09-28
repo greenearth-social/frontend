@@ -9,6 +9,7 @@ const RANKER_COLORS: Record<string, string> = {
   Engaging: "#fb923c",
   Constructive: "#a78bfa",
 };
+const INACTIVE_RANKER_COLOR = "#71767b";
 
 const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
 
@@ -470,8 +471,18 @@ export class RankScoresChart extends LitElement {
     }
 
     const rankerRows = [
-      { label: "Engaging", score: engagingScore, pct: engagingPct },
-      { label: "Constructive", score: constructiveScore, pct: constructivePct },
+      {
+        label: "Engaging",
+        score: engagingScore,
+        pct: engagingPct,
+        inactive: this.engagingInfluence <= 0,
+      },
+      {
+        label: "Constructive",
+        score: constructiveScore,
+        pct: constructivePct,
+        inactive: this.constructiveInfluence <= 0,
+      },
     ];
 
     if (this.algorithmId === "random") {
@@ -580,10 +591,14 @@ export class RankScoresChart extends LitElement {
             </button>
             <div class="rankers-content">
               ${rankerRows.map((rr) => {
-                const color = RANKER_COLORS[rr.label] ?? "#71767b";
+                const color = rr.inactive
+                  ? INACTIVE_RANKER_COLOR
+                  : (RANKER_COLORS[rr.label] ?? INACTIVE_RANKER_COLOR);
                 return html`
                   <button
-                    class="ranker-item explanation-value-button ranker-value-button"
+                    class="ranker-item explanation-value-button ranker-value-button ${
+                      rr.inactive ? "inactive" : ""
+                    }"
                     type="button"
                     aria-label="Explain ${rr.label} ranker score"
                     @click=${(event: MouseEvent) => {

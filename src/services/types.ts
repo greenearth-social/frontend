@@ -21,7 +21,7 @@ export interface Preferences {
   sourceWeights: SourceWeights;
   freshness: number; // 0-5; default 5 (7 days)
   politics: number; // 0-2; default 1 (neutral)
-  purpose: number; // 0.2-0.8
+  purpose: number; // 0-1
 }
 
 export type FeedPreferences = Partial<Preferences>;
