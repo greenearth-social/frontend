@@ -42,6 +42,7 @@ function signature(feedName: AlgorithmId, patch: FeedPreferences): string {
           networkLikes: patch.sourceWeights.networkLikes,
           authorsTopics: patch.sourceWeights.authorsTopics,
           popular: patch.sourceWeights.popular,
+          llm: patch.sourceWeights.llm,
         }
       : undefined,
     freshness: patch.freshness,
@@ -162,6 +163,12 @@ export class SettingsPreviewStore {
     this.lastPreviewRequestId = null;
     this.lastPreviewGeneratedAt = null;
     this.lastObservedServedRequestId = null;
+    this.previewCache.clear();
+  }
+
+  // For when something the settings do not show changes what they return,
+  // such as a newly fitted prompt.
+  clearPreviewCache(): void {
     this.previewCache.clear();
   }
 

@@ -48,6 +48,7 @@ const testState = vi.hoisted(() => {
         acceptGeneratedPreview: vi.fn().mockResolvedValue(null),
         markPreviewSyncFailure: vi.fn(),
         acceptPreview: vi.fn(),
+        clearPreviewCache: vi.fn(),
         baselineItems: [],
         displayedItems: [],
         displayedFilteringCounts: null,
@@ -621,6 +622,110 @@ describe("SettingsPage", () => {
     );
     expect(store.savePatch).not.toHaveBeenCalled();
     expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).not.toBeNull();
+  });
+
+  it("drops a fit that finished for another account", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.fitLlmPrompt.mockResolvedValue(null);
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "anything";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.savePatch).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
+    expect(element.shadowRoot?.querySelector(".prompt-error")).toBeNull();
+  });
+
+  it("stops the prompt at the api's length limit and shows the count", async () => {
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    expect(input.getAttribute("maxlength")).toBe("2000");
+    input.value = "hopeful science";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".prompt-count")?.textContent).toBe("15 / 2000");
+  });
+
+  it("asks for a new preview when a fitted prompt is replaced", async () => {
+    const store = testState.rootStore.preferencesStore;
+    const previewStore = testState.rootStore.settingsPreviewStore;
+    previewStore.clearPreviewCache.mockReset();
+    testState.values.sourceWeights = {
+      following: 0.24,
+      networkLikes: 0.16,
+      authorsTopics: 0.2,
+      popular: 0.2,
+      llm: 0.2,
+    };
+    store.llmPromptFitted = true;
+    store.llmPrompt = { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" };
+    store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.llmPrompt = { promptKey: "v2", prompt, createdAt: "2026-09-29T10:00:00Z" };
+      return Promise.resolve(store.llmPrompt);
+    });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    const preview = element.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview");
+    expect(preview?.disabled).toBe(true);
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "new";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.savePatch).not.toHaveBeenCalled();
+    expect(previewStore.clearPreviewCache).toHaveBeenCalledTimes(1);
+    expect(preview?.disabled).toBe(false);
+  });
+
+  it("lets four of five sources be locked once a prompt is fitted", async () => {
+    const store = testState.rootStore.preferencesStore;
+    testState.values.sourceWeights = {
+      following: 0.24,
+      networkLikes: 0.16,
+      authorsTopics: 0.2,
+      popular: 0.2,
+      llm: 0.2,
+    };
+    store.llmPromptFitted = true;
+    store.llmPrompt = { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" };
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    const lock = (label: string) =>
+      element.shadowRoot?.querySelector<HTMLButtonElement>(`[aria-label="Lock ${label} weight"]`);
+
+    for (const label of ["Prompt", "Following", "Liked by Following"]) {
+      lock(label)?.click();
+      await element.updateComplete;
+    }
+    expect(lock("Popular")?.disabled).toBe(false);
+
+    lock("Popular")?.click();
+    await element.updateComplete;
+    expect(lock("Liked Authors/Topics")?.disabled).toBe(true);
+    expect(element.shadowRoot?.querySelectorAll('[aria-pressed="true"]')).toHaveLength(4);
   });
 
   it("edits source percentages while preserving locked sources", async () => {

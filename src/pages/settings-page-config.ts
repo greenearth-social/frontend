@@ -12,6 +12,9 @@ export const UNLOCKED_ICON_PATH =
 export const LOCKED_ICON_PATH =
   "M256 160L256 224L384 224L384 160C384 124.7 355.3 96 320 96C284.7 96 256 124.7 256 160zM192 224L192 160C192 89.3 249.3 32 320 32C390.7 32 448 89.3 448 160L448 224C483.3 224 512 252.7 512 288L512 512C512 547.3 483.3 576 448 576L192 576C156.7 576 128 547.3 128 512L128 288C128 252.7 156.7 224 192 224z";
 
+// Same limit as the api's fit route.
+export const MAX_PROMPT_CHARS = 2000;
+
 export type SettingsNodeType = "source" | "signal" | "penalty" | "config";
 
 export interface SettingsNode {

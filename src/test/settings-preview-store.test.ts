@@ -195,6 +195,33 @@ describe("SettingsPreviewStore", () => {
     ]);
   });
 
+  it("generates again for the same settings once the cache is cleared", async () => {
+    const { root, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+
+    await store.preview(patch);
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+
+    store.clearPreviewCache();
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps settings that differ only in the prompt weight distinct", async () => {
+    const { root, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const weights = { following: 0.4, networkLikes: 0.2, authorsTopics: 0.2, popular: 0.2 };
+
+    await store.preview({ sourceWeights: { ...weights, llm: 0 } });
+    await store.preview({ sourceWeights: { ...weights, llm: 0.2 } });
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
   it("regenerates and accepts once when the Preview cache expires", async () => {
     const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);

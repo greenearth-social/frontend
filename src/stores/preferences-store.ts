@@ -215,8 +215,12 @@ export class PreferencesStore {
     return this.llmPrompt !== null;
   }
 
-  async fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
+  // Gives null when the account changed while the fit was running, so one
+  // account's prompt never lands in another's settings.
+  async fitLlmPrompt(prompt: string): Promise<LlmPrompt | null> {
+    const generation = this.accountGeneration;
     const fitted = await this.root.services.feedApiService.fitLlmPrompt(prompt);
+    if (generation !== this.accountGeneration) return null;
     this.llmPrompt = fitted;
     return fitted;
   }

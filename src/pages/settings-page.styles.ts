@@ -730,6 +730,13 @@ export const settingsPageStyles = css`
     cursor: default;
   }
 
+  .prompt-count {
+    grid-column: 1;
+    justify-self: end;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.75rem;
+  }
+
   .prompt-error {
     grid-column: 1 / -1;
     margin: 0;

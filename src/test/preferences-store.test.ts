@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FeedPreferences, FeedPreferencesByFeed } from "../services/types";
+import type { FeedPreferences, FeedPreferencesByFeed, LlmPrompt } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { PreferencesStore } from "../stores/preferences-store";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -95,6 +95,24 @@ describe("PreferencesStore.load", () => {
     expect(store.llmPrompt).toEqual(prompt);
     store.reset();
     expect(store.llmCgEnabled).toBe(false);
+  });
+
+  it("drops a fit that finishes after the account changed", async () => {
+    const { store } = makeStore(vi.fn());
+    let finishFit: ((value: LlmPrompt) => void) | undefined;
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockReturnValue(
+      new Promise<LlmPrompt>((resolve) => {
+        finishFit = resolve;
+      }),
+    );
+    store.activateAccount("account-a");
+    const fit = store.fitLlmPrompt("hopeful science");
+
+    store.activateAccount("account-b");
+    finishFit?.({ promptKey: "v1", prompt: "hopeful science", createdAt: "2026-09-29T10:00:00Z" });
+
+    expect(await fit).toBeNull();
+    expect(store.llmPrompt).toBeNull();
   });
 
   it("preserves a zero politics preference and leaves omitted controls unavailable", async () => {

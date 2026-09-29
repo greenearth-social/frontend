@@ -29,6 +29,7 @@ import { settingsPageStyles } from "./settings-page.styles";
 import {
   LIFECYCLE_ICONS,
   LOCKED_ICON_PATH,
+  MAX_PROMPT_CHARS,
   SETTINGS_NODES,
   UNLOCKED_ICON_PATH,
   formatPolitics,
@@ -535,6 +536,7 @@ export class SettingsPage extends MobxLitElement {
           rows="2"
           placeholder="Describe what you want to see, e.g. hopeful science news"
           aria-label="Prompt"
+          maxlength=${MAX_PROMPT_CHARS}
           .value=${draft}
           ?disabled=${this.isFittingPrompt}
           @input=${(event: Event) => {
@@ -551,6 +553,7 @@ export class SettingsPage extends MobxLitElement {
         >
           ${this.isFittingPrompt ? "Fitting…" : "Send"}
         </button>
+        <span class="prompt-count">${draft.length} / ${MAX_PROMPT_CHARS}</span>
         ${this.promptError ? html`<p class="prompt-error" role="alert">${this.promptError}</p>` : ""}
       </div>
     `;
@@ -565,8 +568,13 @@ export class SettingsPage extends MobxLitElement {
     this.isFittingPrompt = true;
     this.promptError = "";
     try {
-      await root.preferencesStore.fitLlmPrompt(prompt);
+      const fitted = await root.preferencesStore.fitLlmPrompt(prompt);
       this.promptDraft = null;
+      if (!fitted) return;
+      // The same settings now give different posts, so the old preview is stale.
+      getSettingsPreviewStore()?.clearPreviewCache();
+      this.previewNeeded = true;
+      this.settingsRevision++;
       root.services.analyticsService.capture("promptFitted", {
         ...feedAnalyticsProperties(this.selectedAlgorithm),
       });
@@ -591,6 +599,11 @@ export class SettingsPage extends MobxLitElement {
     return getRootStore()?.preferencesStore.llmPromptFitted ?? false;
   }
 
+  // One source must stay unlocked; Prompt only counts once it is fitted.
+  #maxLocks(): number {
+    return this.#promptFitted() ? 4 : 3;
+  }
+
   #mathLocks(): SourceWeightKey[] {
     return this.#promptFitted() ? this.lockedSources : [...this.lockedSources, "llm"];
   }
@@ -605,7 +618,7 @@ export class SettingsPage extends MobxLitElement {
     // The prompt source stays off until a prompt is fitted.
     const inactive = key === "llm" && !this.#promptFitted();
     const isLocked = this.lockedSources.includes(key);
-    const canLock = isLocked || this.lockedSources.length < 3;
+    const canLock = isLocked || this.lockedSources.length < this.#maxLocks();
     const canAdjust = bounds.max - bounds.min > 0.0001;
     const isDerived = !isLocked && !canAdjust;
     const adjustmentDisabled = this.isLoading || inactive || isLocked || isDerived;
@@ -896,7 +909,7 @@ export class SettingsPage extends MobxLitElement {
 
   #toggleSourceLock(key: SourceWeightKey): void {
     const isLocked = this.lockedSources.includes(key);
-    if (!isLocked && this.lockedSources.length >= 3) return;
+    if (!isLocked && this.lockedSources.length >= this.#maxLocks()) return;
     this.previewSourceWeights = null;
     this.sourceStartWeights = null;
     this.lockedSources = isLocked
