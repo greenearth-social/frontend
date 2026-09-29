@@ -740,7 +740,7 @@ export const settingsPageStyles = css`
   .prompt-error {
     grid-column: 1 / -1;
     margin: 0;
-    color: var(--bluesky-text-secondary);
+    color: #fff;
     font-size: 0.85rem;
   }
 
