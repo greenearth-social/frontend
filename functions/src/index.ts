@@ -2,3 +2,4 @@ export { oauthClientMetadata, oauthClientMetadataStage } from "./auth/oauth-clie
 export { oauthJwks, oauthJwksStage } from "./auth/oauth-jwks.js";
 export { authBluesky, authBlueskyStage } from "./auth/auth-bluesky.js";
 export { oauthCallback, oauthCallbackStage } from "./auth/oauth-callback.js";
+export { oauthRevoke, oauthRevokeStage } from "./auth/oauth-revoke.js";
