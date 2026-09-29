@@ -218,7 +218,6 @@ together.
 | `BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` | ES256 private key JWK |
 | `BLUESKY_OAUTH_CLIENT_KID` | Key ID for the above key |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | Public JWKS JSON |
-| `OAUTH_STATE_ENCRYPTION_KEY` | AES-256 key (hex) encrypting the OAuth `state` parameter |
 | `OAUTH_SESSION_ENCRYPTION_KEY` / `OAUTH_SESSION_ENCRYPTION_KEY_STAGE` | AES-256 key (hex) encrypting stored OAuth grants in Firestore `oauth_grants/{did}`; created by api `scripts/gcp_setup.sh`, never rotated |
 | `GE_FIRESTORE_DATABASE` | Functions only: overrides the `oauth_grants` database (emulators/devenv) |
 
