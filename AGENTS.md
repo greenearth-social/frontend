@@ -218,6 +218,9 @@ together.
 | `BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` | ES256 private key JWK |
 | `BLUESKY_OAUTH_CLIENT_KID` | Key ID for the above key |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | Public JWKS JSON |
+| `OAUTH_STATE_ENCRYPTION_KEY` | AES-256 key (hex) encrypting the OAuth `state` parameter |
+| `OAUTH_SESSION_ENCRYPTION_KEY` / `OAUTH_SESSION_ENCRYPTION_KEY_STAGE` | AES-256 key (hex) encrypting stored OAuth grants in Firestore `oauth_grants/{did}`; created by api `scripts/gcp_setup.sh`, never rotated |
+| `GE_FIRESTORE_DATABASE` | Functions only: overrides the `oauth_grants` database (emulators/devenv) |
 
 ## OAuth flow
 
@@ -226,7 +229,7 @@ Cloud Functions in `functions/src/auth/`:
 1. `oauthClientMetadata` — serves `/oauth-client-metadata.json`
 2. `oauthJwks` — serves `/.well-known/jwks.json`
 3. `authBluesky` — `GET /auth/bluesky?return_url=...` initiates OAuth via PAR
-4. `oauthCallback` — exchanges code, mints Firebase custom token, redirects to `/#/auth/finish?token=...`
+4. `oauthCallback` — exchanges code, stores the encrypted grant (refresh token + DPoP key) in Firestore `oauth_grants/{did}` (fails closed if it cannot), mints Firebase custom token, redirects to `/#/auth/finish?token=...`
 
 Frontend `app-shell` handles `#/auth/finish` by calling `signInWithCustomToken` and redirecting to `#/feed`.
 
