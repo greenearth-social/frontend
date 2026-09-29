@@ -150,7 +150,13 @@ describe("grantDatabaseId", () => {
 
 describe("grant documents", () => {
   it("rejects malformed DIDs before touching Firestore", async () => {
-    for (const bad of ["", "did:plc:", "did:plc:a/b", "did:plc:a b", `did:plc:${"a".repeat(2048)}`]) {
+    for (const bad of [
+      "",
+      "did:plc:",
+      "did:plc:a/b",
+      "did:plc:a b",
+      `did:plc:${"a".repeat(2048)}`,
+    ]) {
       await expect(loadGrant(bad)).rejects.toThrow(/Malformed DID/);
     }
     expect(mocks.databases).toEqual([]);

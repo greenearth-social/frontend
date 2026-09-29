@@ -15,6 +15,7 @@ import {
   fetchAuthServerMetadata,
 } from "./auth-discovery.js";
 import { publicHttpsRequest, responseHeader } from "./safe-http.js";
+import { persistLoginGrant } from "./oauth-grants.js";
 
 const OAUTH_REQUEST_TIMEOUT_MS = 10_000;
 const OAUTH_RESPONSE_LIMIT_BYTES = 64 * 1024;
@@ -195,11 +196,13 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
       return;
     }
 
-    let tokenData: { access_token?: string; sub?: string };
+    let tokenData: { access_token?: string; sub?: string; refresh_token?: string; scope?: string };
     try {
       tokenData = JSON.parse(tokenRes.body.toString("utf8")) as {
         access_token?: string;
         sub?: string;
+        refresh_token?: string;
+        scope?: string;
       };
     } catch {
       redirectOAuthFailure(res, "callback_failed", "Token response invalid");
@@ -237,6 +240,23 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
             ? identityError.message
             : "Could not verify the authenticated account";
         redirectOAuthFailure(res, "callback_failed", message);
+        return;
+      }
+    }
+
+    // 4b. Persist the grant so an admin (or the user) can revoke it later. A grant we cannot
+    // store is a grant we cannot revoke, so fail the login closed. Providers that issue no
+    // refresh token leave no long-lived grant to store.
+    if (tokenData.refresh_token) {
+      const stored = await persistLoginGrant({
+        did,
+        issuer: session.authServerIssuer,
+        scope: tokenData.scope ?? "",
+        refreshToken: tokenData.refresh_token,
+        dpopPrivateJwk,
+      });
+      if (!stored) {
+        redirectOAuthFailure(res, "callback_failed", "Failed to store OAuth grant");
         return;
       }
     }
@@ -302,11 +322,23 @@ export async function oauthCallbackHandler(req: Request, res: Response): Promise
 }
 
 export const oauthCallback = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  {
+    secrets: [
+      "BLUESKY_OAUTH_CLIENT_PRIVATE_KEY",
+      "OAUTH_STATE_ENCRYPTION_KEY",
+      "OAUTH_SESSION_ENCRYPTION_KEY",
+    ],
+  },
   oauthCallbackHandler,
 );
 
 export const oauthCallbackStage = onRequest(
-  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_STATE_ENCRYPTION_KEY"] },
+  {
+    secrets: [
+      "BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE",
+      "OAUTH_STATE_ENCRYPTION_KEY",
+      "OAUTH_SESSION_ENCRYPTION_KEY_STAGE",
+    ],
+  },
   oauthCallbackHandler,
 );
