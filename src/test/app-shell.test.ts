@@ -21,14 +21,12 @@ const testState = vi.hoisted(() => ({
           requestId: "r1",
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
         {
           requestId: "r2",
           generatedAt: new Date().toISOString(),
           feedName: "best-of-friends",
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
       ],
@@ -67,14 +65,6 @@ const testState = vi.hoisted(() => ({
       },
       valuesFor() {
         return this.values;
-      },
-      socialRadiusWeights: [
-        { name: "followed_users", weight: 0.4 },
-        { name: "two_tower", weight: 0.3 },
-        { name: "popularity", weight: 0.3 },
-      ],
-      socialRadiusWeightsFor() {
-        return this.socialRadiusWeights;
       },
       supportsControl(
         feedName: "your-feed" | "best-of-friends" | "random",
@@ -997,14 +987,12 @@ describe("AppShell algorithm selector", () => {
         requestId: "r1-recent",
         generatedAt: new Date().toISOString(),
         feedName: "your-feed",
-        appliedSocialRadius: null,
         generatorDiagnostics: [],
       },
       {
         requestId: "r1-old",
         generatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
         feedName: "your-feed",
-        appliedSocialRadius: null,
         generatorDiagnostics: [],
       },
     ];

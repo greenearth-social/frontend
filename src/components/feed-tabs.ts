@@ -321,22 +321,10 @@ export class FeedTabs extends LitElement {
   #renderPopover() {
     const feed = this.feeds.find((item) => item.requestId === this.openBreakdownId);
     if (!feed) return html``;
-    const radiusLabels = ["Friends", "Very close", "Closer", "Balanced", "Everyone"];
-    const radius =
-      feed.appliedSocialRadius === null
-        ? "Unknown"
-        : (radiusLabels[feed.appliedSocialRadius] ?? `Preset ${String(feed.appliedSocialRadius)}`);
-    const sourceNames: Record<string, string> = {
-      followed_users: "Following",
-      two_tower: "Authors/Topics",
-      two_tower_empty_history: "Authors/Topics",
-      popularity: "Popular",
-    };
     const sourceMix = feed.generatorDiagnostics
-      .filter((diagnostic) => sourceNames[diagnostic.name] !== undefined)
       .map(
         (diagnostic) =>
-          `${sourceNames[diagnostic.name] ?? diagnostic.name} ${(diagnostic.weight * 100).toFixed(0)}%`,
+          `${GENERATOR_LABELS[diagnostic.name] ?? diagnostic.name} ${(diagnostic.weight * 100).toFixed(0)}%`,
       )
       .join(" · ");
     const filtering = this.filteringCountsByRequest[feed.requestId];
@@ -365,9 +353,7 @@ export class FeedTabs extends LitElement {
             <span aria-hidden="true">×</span>
           </button>
         </div>
-        <div class="popover-subtitle">
-          ${sourceMix ? `Applied source mix: ${sourceMix}` : `Legacy social radius: ${radius}`}
-        </div>
+        ${sourceMix ? html`<div class="popover-subtitle">Applied source mix: ${sourceMix}</div>` : ""}
         <div class="filter-summary">
           ${
             filtering
@@ -385,7 +371,7 @@ export class FeedTabs extends LitElement {
         ${
           feed.generatorDiagnostics.length === 0
             ? html`<div class="popover-subtitle">
-                Diagnostics are unavailable for this legacy snapshot.
+                Source diagnostics are unavailable for this snapshot.
               </div>`
             : html`
                 <p class="table-scroll-hint">Swipe horizontally to see all columns</p>
