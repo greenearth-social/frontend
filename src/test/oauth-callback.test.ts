@@ -2,15 +2,19 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 import type { PublicHttpsResponse } from "../../functions/src/auth/safe-http";
 
-const edge = vi.hoisted(() => ({
-  ISSUER: "https://pds.example",
-  DID: "did:plc:abc123",
-  dpopPrivateJwk: {} as JsonWebKey,
-  dpopPublicJwk: {} as JsonWebKey,
-  request: vi.fn<() => Promise<PublicHttpsResponse>>(),
-  persist: vi.fn<(input: Record<string, unknown>) => Promise<boolean>>(),
-  createCustomToken: vi.fn<(uid: string) => Promise<string>>(),
-}));
+const edge = vi.hoisted(() => {
+  const dpopPrivateJwk: JsonWebKey = {};
+  const dpopPublicJwk: JsonWebKey = {};
+  return {
+    ISSUER: "https://pds.example",
+    DID: "did:plc:abc123",
+    dpopPrivateJwk,
+    dpopPublicJwk,
+    request: vi.fn<() => Promise<PublicHttpsResponse>>(),
+    persist: vi.fn<(input: Record<string, unknown>) => Promise<boolean>>(),
+    createCustomToken: vi.fn<(uid: string) => Promise<string>>(),
+  };
+});
 
 vi.mock("../../functions/src/auth/helpers", () => ({
   decryptState: () =>
