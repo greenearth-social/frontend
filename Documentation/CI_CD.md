@@ -117,8 +117,10 @@ export const oauthRevokeStage = onRequest(
 
 `POST {"did": "<did>"}` returns `200 {"outcome": "revoked" | "already_revoked" | "no_session" | "failed"}`,
 `400` for a malformed DID and `405` for other methods. `failed` leaves the stored grant untouched and is safe
-to retry. Firebase deploy grants `roles/run.invoker` on the function's Cloud Run service to the listed
-service account only; unauthenticated callers get 403 from Google's front end.
+to retry. Firebase deploy sets the function's Cloud Run service-level `roles/run.invoker` binding to the
+listed service account only; unauthenticated callers get 403 from Google's front end. Project-level roles
+that grant `run.routes.invoke` (`roles/owner`, `roles/editor`, `roles/run.admin`, project-level
+`roles/run.invoker`) still apply, so principals holding those can also invoke it.
 
 Everything else (`APP_ORIGIN`, `BLUESKY_OAUTH_CLIENT_KID`, `BLUESKY_OAUTH_PUBLIC_JWKS`) is non-sensitive and flows through GitHub Variables → `functions/.env` → deployed.
 

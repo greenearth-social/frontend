@@ -116,10 +116,6 @@ export async function saveActiveGrant(input: {
   });
 }
 
-export async function saveTombstone(did: string): Promise<void> {
-  await grantRef(did).set({ did, status: "revoked", revoked_at: new Date() });
-}
-
 export type TombstoneWrite = "tombstoned" | "gone" | "superseded";
 
 /**
