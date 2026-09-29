@@ -51,7 +51,7 @@ Git push to main
 |-------|----------|---------------------------|
 | `BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` | Google Cloud Secret Manager | Set ONCE via CLI. Bound to functions via `{ secrets: [...] }` in code |
 | `OAUTH_STATE_ENCRYPTION_KEY` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key. Bound to OAuth functions in code |
-| `OAUTH_SESSION_ENCRYPTION_KEY` / `OAUTH_SESSION_ENCRYPTION_KEY_STAGE` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key that encrypts stored OAuth grants in Firestore `oauth_grants/{did}`. Created once per environment by `api/scripts/gcp_setup.sh`; NEVER rotated (rotation makes every stored grant unrevokable). Bound to `oauthCallback` / `oauthCallbackStage` in code |
+| `OAUTH_SESSION_ENCRYPTION_KEY` / `OAUTH_SESSION_ENCRYPTION_KEY_STAGE` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key that encrypts stored OAuth grants in Firestore `oauth_grants/{did}`. Created once per environment by `api/scripts/gcp_setup.sh`; NEVER rotated (rotation makes every stored grant unrevokable). Bound to `oauthCallback` / `oauthCallbackStage` and `oauthRevoke` / `oauthRevokeStage` in code |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | GitHub Variable | CI writes to `functions/.env` before deploy. Deployed with functions |
 | `APP_ORIGIN` | GitHub Variable | CI writes to `functions/.env` before deploy |
 | `BLUESKY_OAUTH_CLIENT_KID` | GitHub Variable | CI writes to `functions/.env` before deploy |
@@ -95,6 +95,30 @@ The callback stores the refresh token and DPoP key AES-GCM-encrypted in Firestor
 (`greenearth-prod` when the prod key is bound, otherwise `greenearth-stage`; `GE_FIRESTORE_DATABASE`
 overrides for emulators) so the grant can be revoked later. If the key is missing or the grant cannot be
 stored, login fails closed.
+
+`oauthRevoke` / `oauthRevokeStage` revoke a stored grant at the user's authorization server and replace
+`oauth_grants/{did}` with a token-free tombstone `{did, status: "revoked", revoked_at}`. They are private:
+not in any Hosting rewrite, and the only allowed invoker is the api's runtime service account, which calls
+them with a Google ID token whose audience is the function URL (`GE_OAUTH_REVOKE_URL` in the api).
+
+```typescript
+// oauth-revoke.ts
+export const oauthRevoke = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_SESSION_ENCRYPTION_KEY"],
+    invoker: ["api-runner-prod@greenearth-471522.iam.gserviceaccount.com"] },
+  oauthRevokeHandler,
+);
+export const oauthRevokeStage = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_SESSION_ENCRYPTION_KEY_STAGE"],
+    invoker: ["api-runner-stage@greenearth-471522.iam.gserviceaccount.com"] },
+  oauthRevokeHandler,
+);
+```
+
+`POST {"did": "<did>"}` returns `200 {"outcome": "revoked" | "already_revoked" | "no_session" | "failed"}`,
+`400` for a malformed DID and `405` for other methods. `failed` leaves the stored grant untouched and is safe
+to retry. Firebase deploy grants `roles/run.invoker` on the function's Cloud Run service to the listed
+service account only; unauthenticated callers get 403 from Google's front end.
 
 Everything else (`APP_ORIGIN`, `BLUESKY_OAUTH_CLIENT_KID`, `BLUESKY_OAUTH_PUBLIC_JWKS`) is non-sensitive and flows through GitHub Variables → `functions/.env` → deployed.
 

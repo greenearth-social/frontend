@@ -157,6 +157,6 @@ jobs:
             echo "BLUESKY_OAUTH_PUBLIC_JWKS=$BLUESKY_OAUTH_PUBLIC_JWKS_STAGE"
           } > functions/.env
           firebase --config firebase.stage.json deploy \
-            --only functions:authBlueskyStage,functions:oauthCallbackStage,functions:oauthClientMetadataStage,functions:oauthJwksStage \
+            --only functions:authBlueskyStage,functions:oauthCallbackStage,functions:oauthClientMetadataStage,functions:oauthJwksStage,functions:oauthRevokeStage \
             --project greenearth-471522 \
             --non-interactive
