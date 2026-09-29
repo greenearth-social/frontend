@@ -170,8 +170,9 @@ Cloud Functions live in `functions/src/auth/` and serve:
 
 The Vite dev server proxies these to the Firebase Functions emulator on port 5001.
 
-`oauthRevoke` (revoke a stored OAuth grant) has no Hosting route: it is private and invoked only by the
-api's service account. See `Documentation/CI_CD.md`.
+`oauthRevoke` (revoke a stored OAuth grant) has no Hosting route. It is private: its service-level
+invoker binding names only the api's service account, though project-level roles that grant
+`run.routes.invoke` still apply. See `Documentation/CI_CD.md`.
 
 ## Shadow DOM and Styling
 

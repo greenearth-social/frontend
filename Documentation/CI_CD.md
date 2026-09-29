@@ -98,8 +98,9 @@ stored, login fails closed.
 
 `oauthRevoke` / `oauthRevokeStage` revoke a stored grant at the user's authorization server and replace
 `oauth_grants/{did}` with a token-free tombstone `{did, status: "revoked", revoked_at}`. They are private:
-not in any Hosting rewrite, and the only allowed invoker is the api's runtime service account, which calls
-them with a Google ID token whose audience is the function URL (`GE_OAUTH_REVOKE_URL` in the api).
+not in any Hosting rewrite, and their service-level invoker binding names only the api's runtime service
+account, which calls them with a Google ID token whose audience is the function URL (`GE_OAUTH_REVOKE_URL`
+in the api). Project-level roles that grant `run.routes.invoke` still apply (see below).
 
 ```typescript
 // oauth-revoke.ts
