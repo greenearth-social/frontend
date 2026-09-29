@@ -66,14 +66,6 @@ const testState = vi.hoisted(() => ({
       valuesFor() {
         return this.values;
       },
-      socialRadiusWeights: [
-        { name: "followed_users", weight: 0.4 },
-        { name: "two_tower", weight: 0.3 },
-        { name: "popularity", weight: 0.3 },
-      ],
-      socialRadiusWeightsFor() {
-        return this.socialRadiusWeights;
-      },
       supportsControl(
         feedName: "your-feed" | "best-of-friends" | "random",
         control: "source_weights" | "freshness" | "politics" | "purpose",
