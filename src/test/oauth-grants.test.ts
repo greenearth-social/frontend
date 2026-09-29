@@ -64,6 +64,11 @@ function revokeCall(index: number): RevokeInput {
 }
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
+let logSpy: ReturnType<typeof vi.spyOn>;
+
+function loggedText(): string {
+  return JSON.stringify([logSpy.mock.calls, errorSpy.mock.calls]);
+}
 
 beforeEach(() => {
   mocks.store.clear();
@@ -75,6 +80,7 @@ beforeEach(() => {
   delete process.env.OAUTH_SESSION_ENCRYPTION_KEY_STAGE;
   delete process.env.GE_FIRESTORE_DATABASE;
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -111,8 +117,12 @@ describe("grant encryption", () => {
     process.env.OAUTH_SESSION_ENCRYPTION_KEY = "22".repeat(32);
     await expect(decryptGrantSecrets(blob, DID)).rejects.toThrow();
     process.env.OAUTH_SESSION_ENCRYPTION_KEY = KEY;
-    const tampered = blob.slice(0, -2) + (blob.endsWith("AA") ? "BB" : "AA");
-    await expect(decryptGrantSecrets(tampered, DID)).rejects.toThrow();
+    for (const index of [0, 12, -1]) {
+      const bytes = Buffer.from(blob, "base64url");
+      const at = index < 0 ? bytes.length + index : index;
+      bytes[at] = (bytes[at] ?? 0) ^ 0x01;
+      await expect(decryptGrantSecrets(bytes.toString("base64url"), DID)).rejects.toThrow();
+    }
   });
 
   it("reads the stage key when the prod key is not bound", async () => {
@@ -165,9 +175,11 @@ describe("grant documents", () => {
   it("writes a token-free tombstone", async () => {
     await persistLoginGrant(input);
     await saveTombstone(DID);
+    const written = mocks.store.get(DID);
+    expect(Object.keys(written ?? {}).sort()).toEqual(["did", "revoked_at", "status"]);
+    expect(written?.["revoked_at"]).toBeInstanceOf(Date);
     const doc = await loadGrant(DID);
     expect(doc).toMatchObject({ did: DID, status: "revoked" });
-    expect(doc?.revoked_at).toBeInstanceOf(Date);
     expect(doc?.ciphertext).toBeUndefined();
   });
 });
@@ -186,8 +198,9 @@ describe("persistLoginGrant", () => {
       issuer: "https://pds.example",
       scope: "atproto transition:generic",
     });
-    expect(doc?.created_at).toBeInstanceOf(Date);
-    expect(doc?.updated_at).toBeInstanceOf(Date);
+    const written = mocks.store.get(DID);
+    expect(written?.["created_at"]).toBeInstanceOf(Date);
+    expect(written?.["updated_at"]).toBeInstanceOf(Date);
     const serialized = JSON.stringify(doc);
     expect(serialized).not.toContain("r1-secret");
     expect(serialized).not.toContain("private-d");
@@ -209,6 +222,21 @@ describe("persistLoginGrant", () => {
     const stored = await decryptGrantSecrets(doc?.ciphertext ?? "", DID);
     expect(stored.refresh_token).toBe("r2-secret");
   });
+
+  it.each(["revoked", "already_revoked", "failed"] as const)(
+    "logs the previous grant's revocation outcome (%s) without secrets",
+    async (outcome) => {
+      await persistLoginGrant(input);
+      mocks.revoke.mockResolvedValue(outcome);
+      await persistLoginGrant({ ...input, refreshToken: "r2-secret" });
+
+      expect(logSpy).toHaveBeenCalledWith("Previous OAuth grant revocation", { outcome });
+      const logged = loggedText();
+      for (const secret of ["r1-secret", "r2-secret", "private-d", KEY]) {
+        expect(logged).not.toContain(secret);
+      }
+    },
+  );
 
   it("does not try to revoke a tombstoned grant", async () => {
     await saveTombstone(DID);
@@ -232,6 +260,13 @@ describe("persistLoginGrant", () => {
     expect(mocks.revoke).not.toHaveBeenCalled();
     const stored = await decryptGrantSecrets((await loadGrant(DID))?.ciphertext ?? "", DID);
     expect(stored.refresh_token).toBe("r2-secret");
+    expect(errorSpy.mock.calls.map((call) => call[0])).toContain(
+      "Previous OAuth grant could not be revoked",
+    );
+    const logged = loggedText();
+    for (const secret of ["r1-secret", "r2-secret", "private-d", KEY, "garbage"]) {
+      expect(logged).not.toContain(secret);
+    }
   });
 
   it("fails closed and revokes the just-issued grant when the save fails", async () => {

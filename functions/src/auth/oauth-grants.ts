@@ -1,4 +1,5 @@
 import { getFirestore } from "firebase-admin/firestore";
+import type { Timestamp } from "firebase-admin/firestore";
 import { revokeRefreshToken } from "./oauth-revocation.js";
 
 export const OAUTH_GRANTS_COLLECTION = "oauth_grants";
@@ -17,9 +18,10 @@ export interface GrantDoc {
   issuer?: string;
   scope?: string;
   ciphertext?: string;
-  created_at?: Date;
-  updated_at?: Date;
-  revoked_at?: Date;
+  // Written as Date; Firestore returns Timestamp on read.
+  created_at?: Timestamp | Date;
+  updated_at?: Timestamp | Date;
+  revoked_at?: Timestamp | Date;
 }
 
 function sessionKeyHex(): string {
@@ -126,11 +128,12 @@ export async function persistLoginGrant(input: {
     if (existing?.status === "active" && existing.ciphertext && existing.issuer) {
       try {
         const old = await decryptGrantSecrets(existing.ciphertext, input.did);
-        await revokeRefreshToken({
+        const outcome = await revokeRefreshToken({
           issuer: existing.issuer,
           refreshToken: old.refresh_token,
           dpopPrivateJwk: old.dpop_private_jwk,
         });
+        console.log("Previous OAuth grant revocation", { outcome });
       } catch (err: unknown) {
         console.error("Previous OAuth grant could not be revoked", {
           error: err instanceof Error ? err.name : "unknown",
