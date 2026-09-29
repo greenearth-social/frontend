@@ -117,7 +117,7 @@ jobs:
         run: |
           sed -i 's/__CLOUD_RUN_SERVICE__/greenearth-api-prod/' firebase.json
           firebase deploy \
-            --only hosting,functions:authBluesky,functions:oauthCallback,functions:oauthClientMetadata,functions:oauthJwks \
+            --only hosting,functions:authBluesky,functions:oauthCallback,functions:oauthClientMetadata,functions:oauthJwks,functions:oauthRevoke \
             --project greenearth-471522 \
             --non-interactive \
             --force

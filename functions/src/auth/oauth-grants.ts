@@ -82,8 +82,12 @@ export function grantDatabaseId(): string {
   );
 }
 
+export function isValidDid(value: unknown): value is string {
+  return typeof value === "string" && value.length <= MAX_DID_LENGTH && DID_RE.test(value);
+}
+
 function grantRef(did: string) {
-  if (did.length > MAX_DID_LENGTH || !DID_RE.test(did)) throw new Error("Malformed DID");
+  if (!isValidDid(did)) throw new Error("Malformed DID");
   return getFirestore(grantDatabaseId()).collection(OAUTH_GRANTS_COLLECTION).doc(did);
 }
 
@@ -112,8 +116,27 @@ export async function saveActiveGrant(input: {
   });
 }
 
-export async function saveTombstone(did: string): Promise<void> {
-  await grantRef(did).set({ did, status: "revoked", revoked_at: new Date() });
+export type TombstoneWrite = "tombstoned" | "gone" | "superseded";
+
+/**
+ * Tombstones `oauth_grants/{did}` only if it still holds the grant identified by
+ * `revokedCiphertext` (unique per saved grant: fresh IV every encryption).
+ * "gone": already a tombstone or deleted, nothing written.
+ * "superseded": a newer grant replaced it, nothing written.
+ */
+export async function tombstoneRevokedGrant(
+  did: string,
+  revokedCiphertext: string,
+): Promise<TombstoneWrite> {
+  const ref = grantRef(did);
+  return getFirestore(grantDatabaseId()).runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const current = snap.exists ? (snap.data() as GrantDoc) : null;
+    if (!current || current.status === "revoked") return "gone";
+    if (current.ciphertext !== revokedCiphertext) return "superseded";
+    tx.set(ref, { did, status: "revoked", revoked_at: new Date() });
+    return "tombstoned";
+  });
 }
 
 export async function persistLoginGrant(input: {

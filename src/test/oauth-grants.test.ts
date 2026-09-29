@@ -13,20 +13,41 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../functions/node_modules/firebase-admin/lib/esm/firestore/index.js", () => ({
   getFirestore: (databaseId: string) => {
     mocks.databases.push(databaseId);
+    const snapshot = (id: string) => ({
+      exists: mocks.store.has(id),
+      data: () => mocks.store.get(id),
+    });
+    const write = (id: string, value: Record<string, unknown>) => {
+      if (mocks.failSet) return Promise.reject(new Error("firestore down"));
+      mocks.store.set(id, value);
+      return Promise.resolve();
+    };
     return {
       collection: (name: string) => {
         mocks.collections.push(name);
         return {
           doc: (id: string) => ({
-            get: () =>
-              Promise.resolve({ exists: mocks.store.has(id), data: () => mocks.store.get(id) }),
-            set: (value: Record<string, unknown>) => {
-              if (mocks.failSet) return Promise.reject(new Error("firestore down"));
-              mocks.store.set(id, value);
-              return Promise.resolve();
-            },
+            id,
+            get: () => Promise.resolve(snapshot(id)),
+            set: (value: Record<string, unknown>) => write(id, value),
           }),
         };
+      },
+      runTransaction: async <T>(
+        fn: (tx: {
+          get: (ref: { id: string }) => Promise<ReturnType<typeof snapshot>>;
+          set: (ref: { id: string }, value: Record<string, unknown>) => void;
+        }) => Promise<T>,
+      ): Promise<T> => {
+        const writes: [string, Record<string, unknown>][] = [];
+        const result = await fn({
+          get: (ref) => Promise.resolve(snapshot(ref.id)),
+          set: (ref, value) => {
+            writes.push([ref.id, value]);
+          },
+        });
+        for (const [id, value] of writes) await write(id, value);
+        return result;
       },
     };
   },
@@ -43,7 +64,7 @@ import {
   grantDatabaseId,
   loadGrant,
   persistLoginGrant,
-  saveTombstone,
+  tombstoneRevokedGrant,
 } from "../../functions/src/auth/oauth-grants";
 
 const DID = "did:plc:abc";
@@ -172,15 +193,39 @@ describe("grant documents", () => {
     expect(mocks.databases).toEqual([]);
   });
 
-  it("writes a token-free tombstone", async () => {
+  it("writes a token-free tombstone over the grant it was given", async () => {
     await persistLoginGrant(input);
-    await saveTombstone(DID);
+    const ciphertext = (await loadGrant(DID))?.ciphertext ?? "";
+    expect(await tombstoneRevokedGrant(DID, ciphertext)).toBe("tombstoned");
     const written = mocks.store.get(DID);
     expect(Object.keys(written ?? {}).sort()).toEqual(["did", "revoked_at", "status"]);
     expect(written?.["revoked_at"]).toBeInstanceOf(Date);
     const doc = await loadGrant(DID);
     expect(doc).toMatchObject({ did: DID, status: "revoked" });
     expect(doc?.ciphertext).toBeUndefined();
+  });
+
+  it("does not tombstone a newer grant, an existing tombstone or a deleted doc", async () => {
+    await persistLoginGrant(input);
+    const stale = (await loadGrant(DID))?.ciphertext ?? "";
+    await persistLoginGrant({ ...input, refreshToken: "r2-secret" });
+    const newer = structuredClone(mocks.store.get(DID));
+    expect(await tombstoneRevokedGrant(DID, stale)).toBe("superseded");
+    expect(mocks.store.get(DID)).toEqual(newer);
+
+    const tombstone = { did: DID, status: "revoked", revoked_at: new Date(0) };
+    mocks.store.set(DID, tombstone);
+    expect(await tombstoneRevokedGrant(DID, stale)).toBe("gone");
+    expect(mocks.store.get(DID)).toBe(tombstone);
+
+    mocks.store.delete(DID);
+    expect(await tombstoneRevokedGrant(DID, stale)).toBe("gone");
+    expect(mocks.store.has(DID)).toBe(false);
+  });
+
+  it("rejects a malformed DID before touching Firestore", async () => {
+    await expect(tombstoneRevokedGrant("did:plc:a/b", "x")).rejects.toThrow(/Malformed DID/);
+    expect(mocks.databases).toEqual([]);
   });
 });
 
@@ -239,7 +284,7 @@ describe("persistLoginGrant", () => {
   );
 
   it("does not try to revoke a tombstoned grant", async () => {
-    await saveTombstone(DID);
+    mocks.store.set(DID, { did: DID, status: "revoked", revoked_at: new Date() });
     expect(await persistLoginGrant(input)).toBe(true);
     expect(mocks.revoke).not.toHaveBeenCalled();
     expect((await loadGrant(DID))?.status).toBe("active");

@@ -170,6 +170,10 @@ Cloud Functions live in `functions/src/auth/` and serve:
 
 The Vite dev server proxies these to the Firebase Functions emulator on port 5001.
 
+`oauthRevoke` (revoke a stored OAuth grant) has no Hosting route. It is private: its service-level
+invoker binding names only the api's service account, though project-level roles that grant
+`run.routes.invoke` still apply. See `Documentation/CI_CD.md`.
+
 ## Shadow DOM and Styling
 
 Lit components use Shadow DOM. **Tailwind class names do not penetrate shadow roots.** All component styling must use explicit CSS in the `static styles` block. CSS custom properties (`var(--bluesky-*)`) pass through Shadow DOM boundaries and are the primary mechanism for theme consistency.
