@@ -6,8 +6,8 @@ import { styleMap } from "lit/directives/style-map.js";
 import "./generator-badge";
 
 const RANKER_COLORS: Record<string, string> = {
-  Engaging: "#fb923c",
-  Constructive: "#a78bfa",
+  Engaging: "var(--term-9)",
+  Constructive: "var(--term-5)",
 };
 
 const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
@@ -241,7 +241,7 @@ export class RankScoresChart extends LitElement {
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
       border-radius: 0.4rem;
-      background: rgba(255, 255, 255, 0.03);
+      background: color-mix(in srgb, var(--term-fg) 3%, transparent);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.72rem;
       font-weight: 700;
@@ -308,7 +308,7 @@ export class RankScoresChart extends LitElement {
         min-width: 120px;
         height: auto;
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.02);
+        background: color-mix(in srgb, var(--term-fg) 2%, transparent);
         border-radius: 0.5rem;
       }
       .source-content {
@@ -580,7 +580,7 @@ export class RankScoresChart extends LitElement {
             </button>
             <div class="rankers-content">
               ${rankerRows.map((rr) => {
-                const color = RANKER_COLORS[rr.label] ?? "#71767b";
+                const color = RANKER_COLORS[rr.label] ?? "var(--bluesky-text-secondary)";
                 return html`
                   <button
                     class="ranker-item explanation-value-button ranker-value-button"

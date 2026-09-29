@@ -1,22 +1,76 @@
 @import "@awesome.me/webawesome/dist/styles/webawesome.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bluesky-bg: #15202b;
-  --bluesky-bg-card: #1e2732;
-  --bluesky-bg-hover: #1c2b3b;
-  --bluesky-border: #2f3336;
-  --bluesky-text: #e7e9ea;
-  --bluesky-text-secondary: #71767b;
-  --bluesky-brand: #1083fe;
-  --bluesky-brand-hover: #1a8dfe;
-  --bluesky-danger: #f4212e;
-  --bluesky-like: #f91880;
-  --bluesky-repost: #00ba7c;
-  --bluesky-nav-bg: #0f1923;
+  /* Terminal palette, copied from dotfiles .config/ghostty/themes/from-image
+     (img2palette over the terminal's background painting). Everything below
+     names a slot, so swapping the look means replacing these lines only. */
+  --term-0: #3d434e;
+  --term-1: #ee9675;
+  --term-2: #b2e0a0;
+  --term-3: #d6ce70;
+  --term-4: #79b9f6;
+  --term-5: #b2d9ff;
+  --term-6: #8cc89a;
+  --term-7: #b1b89c;
+  --term-8: #848d9c;
+  --term-9: #ffae31;
+  --term-10: #a8d532;
+  --term-11: #e0da74;
+  --term-12: #c2e2ff;
+  --term-13: #cce4ff;
+  --term-14: #87c9ff;
+  --term-15: #cad2b5;
+  --term-bg: #152032;
+  --term-fg: #cad2b5;
+  --term-cursor: #afd2f4;
+  --term-font: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* The frosted painting behind the terminal, redrawn as gradients from a
+     5x4 colour sample of it, then dimmed the way Ghostty does
+     (background-image-opacity 0.35 over the background colour). */
+  --term-wallpaper:
+    linear-gradient(
+      color-mix(in srgb, var(--term-bg) 65%, transparent),
+      color-mix(in srgb, var(--term-bg) 65%, transparent)
+    ),
+    radial-gradient(ellipse 45% 40% at 58% 68%, #3f536e 0%, transparent 70%),
+    radial-gradient(ellipse 50% 45% at 22% 72%, #a0a798 0%, transparent 75%),
+    radial-gradient(ellipse 45% 45% at 88% 62%, #98a482 0%, transparent 75%),
+    radial-gradient(ellipse 60% 35% at 30% 100%, #8c916f 0%, transparent 80%),
+    radial-gradient(ellipse 60% 35% at 85% 100%, #7b8867 0%, transparent 80%),
+    linear-gradient(to bottom, #307baa 0%, #2e7ba5 35%, #4b7189 60%, #73887a 100%);
+
+  /* Panes of glass over the wallpaper: cards, and the darker nav. */
+  --term-glass: color-mix(in srgb, var(--term-bg) 55%, transparent);
+  --term-glass-nav: color-mix(in srgb, var(--term-bg) 78%, transparent);
+
+  /* settings-feed-preview reads these three (it has its own fallbacks). */
+  --surface: var(--term-glass);
+  --text-primary: var(--term-fg);
+  --text-secondary: var(--term-8);
+
+  --bluesky-bg: var(--term-bg);
+  --bluesky-bg-card: #1d2839;
+  --bluesky-bg-hover: #29313f;
+  --bluesky-border: var(--term-0);
+  --bluesky-text: var(--term-fg);
+  --bluesky-text-secondary: var(--term-8);
+  --bluesky-brand: var(--term-4);
+  --bluesky-brand-hover: var(--term-12);
+  --bluesky-on-brand: var(--term-bg);
+  --bluesky-danger: var(--term-1);
+  --bluesky-like: var(--term-9);
+  --bluesky-repost: var(--term-2);
+  --bluesky-nav-bg: #101928;
+
+  --wa-font-family-body: var(--term-font);
+  --wa-font-family-heading: var(--term-font);
+  --wa-font-family-code: var(--term-font);
 
   --wa-color-surface-default: var(--bluesky-bg);
   --wa-color-surface-raised: var(--bluesky-bg-hover);
@@ -27,11 +81,11 @@
   --wa-color-brand-fill-normal: var(--bluesky-brand);
   --wa-color-brand-fill-hover: var(--bluesky-brand-hover);
   --wa-color-danger-fill-normal: var(--bluesky-danger);
-  --wa-color-neutral-fill-normal: #3e4144;
-  --wa-color-neutral-fill-hover: #4e5054;
+  --wa-color-neutral-fill-normal: var(--term-0);
+  --wa-color-neutral-fill-hover: #4d5461;
   --wa-color-neutral-text-normal: var(--bluesky-text);
-  --wa-color-green-fill-normal: #22c55e;
-  --wa-color-purple-fill-normal: #8b5cf6;
+  --wa-color-green-fill-normal: var(--term-2);
+  --wa-color-purple-fill-normal: var(--term-5);
 
   color-scheme: dark;
 }
@@ -46,12 +100,19 @@
   body {
     overscroll-behavior-y: none;
     background-color: var(--bluesky-bg);
+    background-image: var(--term-wallpaper);
+    background-attachment: fixed;
     color: var(--bluesky-text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--term-font);
   }
 
   a {
     color: var(--bluesky-brand);
+  }
+
+  ::selection {
+    background: var(--term-8);
+    color: var(--term-fg);
   }
 
   a:hover {

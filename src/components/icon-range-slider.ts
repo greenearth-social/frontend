@@ -39,9 +39,9 @@ export class IconRangeSlider extends LitElement {
       --icon-thumb-overhang: 16px;
       --icon-control-height: 34px;
       --icon-endpoint-inset: 3px;
-      --icon-track-color: rgba(148, 163, 184, 0.3);
+      --icon-track-color: color-mix(in srgb, var(--term-8) 30%, transparent);
       --icon-fill-color: var(--bluesky-brand);
-      --icon-tick-color: rgba(255, 255, 255, 0.35);
+      --icon-tick-color: color-mix(in srgb, var(--term-fg) 35%, transparent);
       display: block;
       min-width: 0;
     }
@@ -128,7 +128,7 @@ export class IconRangeSlider extends LitElement {
     }
 
     input[type="range"]:focus-visible + .icon-thumb {
-      outline: 3px solid rgba(145, 189, 63, 0.65);
+      outline: 3px solid color-mix(in srgb, var(--term-10) 65%, transparent);
       outline-offset: 3px;
     }
 
@@ -141,12 +141,12 @@ export class IconRangeSlider extends LitElement {
       width: var(--icon-thumb-size);
       height: var(--icon-thumb-size);
       box-sizing: border-box;
-      border: 2px solid rgba(255, 255, 255, 0.75);
+      border: 2px solid color-mix(in srgb, var(--term-fg) 75%, transparent);
       border-radius: 9999px;
       background: var(--bluesky-bg-card);
       box-shadow:
         0 3px 10px rgba(0, 0, 0, 0.35),
-        0 0 0 2px rgba(16, 131, 254, 0.25);
+        0 0 0 2px color-mix(in srgb, var(--bluesky-brand) 25%, transparent);
       transform: translate(-50%, -50%);
       pointer-events: none;
     }

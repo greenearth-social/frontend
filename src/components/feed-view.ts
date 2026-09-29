@@ -86,7 +86,7 @@ export class FeedView extends MobxLitElement {
       transition: background 0.15s;
     }
     .open-in-bluesky:hover {
-      background: rgba(32, 139, 254, 0.1);
+      background: color-mix(in srgb, var(--bluesky-brand) 10%, transparent);
     }
   `;
 

@@ -52,7 +52,7 @@ export class PaginationControl extends LitElement {
     .page-btn.active {
       background: var(--bluesky-brand);
       border-color: var(--bluesky-brand);
-      color: white;
+      color: var(--bluesky-on-brand);
       font-weight: 600;
     }
     .page-btn.nav-btn {

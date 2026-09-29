@@ -16,7 +16,7 @@ export class RightSidebar extends LitElement {
   static styles = css`
     :host { display: block; }
     .card {
-      background: var(--bluesky-bg-card);
+      background: var(--term-glass);
       border: 1px solid var(--bluesky-border);
       border-radius: 1rem;
       overflow: hidden;
@@ -81,7 +81,7 @@ export class RightSidebar extends LitElement {
       align-self: flex-start;
     }
     .open-in-bluesky:hover {
-      background: rgba(32, 139, 254, 0.1);
+      background: color-mix(in srgb, var(--bluesky-brand) 10%, transparent);
     }
   `;
 

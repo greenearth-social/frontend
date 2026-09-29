@@ -117,7 +117,7 @@ test.describe("feed-scoped navigation", () => {
       "background-color",
       "rgba(0, 0, 0, 0)",
     );
-    await expect(logout).toHaveCSS("color", "rgb(244, 33, 46)");
+    await expect(logout).toHaveCSS("color", "rgb(238, 150, 117)");
     await expect
       .poll(() =>
         logout.locator('wa-icon[name="lock"]').evaluate((icon) => {
@@ -579,7 +579,7 @@ test.describe("feed-scoped navigation", () => {
       page.getByRole("button", {
         name: "Unlock Liked by Following weight",
       }),
-    ).toHaveCSS("background-color", "rgb(145, 189, 63)");
+    ).toHaveCSS("background-color", "rgb(168, 213, 50)");
     await expect(following).toHaveAttribute("aria-valuemax", "0.8");
     await following.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");

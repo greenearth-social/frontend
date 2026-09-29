@@ -50,16 +50,16 @@ describe("GeneratorBadge", () => {
 
   it("uses a unique color for every generator source", () => {
     expect(generatorPresentation("followed_users")).toMatchObject({
-      color: "#f472b6",
-      border: "rgba(244, 114, 182, 0.8)",
+      color: "var(--term-1)",
+      border: "color-mix(in srgb, var(--term-1) 80%, transparent)",
     });
     expect(generatorPresentation("network_likes")).toMatchObject({
-      color: "#fbbf24",
-      border: "rgba(251, 191, 36, 0.8)",
+      color: "var(--term-3)",
+      border: "color-mix(in srgb, var(--term-3) 80%, transparent)",
     });
     expect(generatorPresentation("popularity")).toMatchObject({
-      color: "#34d399",
-      border: "rgba(52, 211, 153, 0.8)",
+      color: "var(--term-6)",
+      border: "color-mix(in srgb, var(--term-6) 80%, transparent)",
     });
 
     const colors = GENERATOR_LEGEND.map(({ color }) => color);

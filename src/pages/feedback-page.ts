@@ -19,7 +19,7 @@ export class FeedbackPage extends LitElement {
       top: 0;
       z-index: 30;
       border-bottom: 1px solid var(--bluesky-border);
-      background: rgba(21, 32, 43, 0.85);
+      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }

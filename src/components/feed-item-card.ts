@@ -21,7 +21,7 @@ export class FeedItemCard extends MobxLitElement {
       margin: 0.5rem 0.75rem 0.5rem 1.5rem;
     }
     .card {
-      background: var(--bluesky-bg-card);
+      background: var(--term-glass);
       border: 1px solid var(--bluesky-border);
       border-radius: 0.75rem;
       padding: 0.75rem 1rem;
@@ -74,7 +74,7 @@ export class FeedItemCard extends MobxLitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: var(--bluesky-on-brand);
       font-weight: 700;
       font-size: 1rem;
       flex-shrink: 0;
@@ -90,9 +90,9 @@ export class FeedItemCard extends MobxLitElement {
       font-size: 0.75rem;
       padding: 0.25rem 0.625rem;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.1);
+      background: color-mix(in srgb, var(--term-fg) 10%, transparent);
       color: var(--bluesky-text);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid color-mix(in srgb, var(--term-fg) 15%, transparent);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -115,7 +115,7 @@ export class FeedItemCard extends MobxLitElement {
       flex-shrink: 0;
     }
     .bluesky-btn:hover {
-      background: rgba(16, 131, 254, 0.12);
+      background: color-mix(in srgb, var(--bluesky-brand) 12%, transparent);
       color: var(--bluesky-brand-hover);
     }
     .bluesky-btn wa-icon {

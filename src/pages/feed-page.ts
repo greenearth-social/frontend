@@ -86,7 +86,7 @@ export class FeedPage extends MobxLitElement {
       position: sticky;
       top: 0;
       z-index: 30;
-      background: rgba(21, 32, 43, 0.85);
+      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
@@ -109,7 +109,7 @@ export class FeedPage extends MobxLitElement {
       border: 1px solid var(--bluesky-border);
       border-radius: 9999px;
       color: var(--bluesky-text);
-      background: rgba(255, 255, 255, 0.04);
+      background: color-mix(in srgb, var(--term-fg) 4%, transparent);
       font: inherit;
       font-size: 0.8125rem;
       font-weight: 700;
@@ -124,7 +124,7 @@ export class FeedPage extends MobxLitElement {
     .source-breakdown-button:hover,
     .source-breakdown-button:focus-visible {
       border-color: var(--bluesky-brand);
-      background: rgba(16, 131, 254, 0.12);
+      background: color-mix(in srgb, var(--bluesky-brand) 12%, transparent);
       outline: none;
     }
     .source-breakdown-button:disabled {
@@ -290,7 +290,7 @@ export class FeedPage extends MobxLitElement {
             max-width: 320px;
             padding: 0.875rem 1.5rem;
             background: var(--bluesky-brand);
-            color: white;
+            color: var(--bluesky-on-brand);
             border: none;
             border-radius: 9999px;
             font-size: 1rem;
@@ -327,7 +327,7 @@ export class FeedPage extends MobxLitElement {
             border: 1px solid var(--bluesky-border);
             border-radius: 0.75rem;
             padding: 0.75rem 0.875rem;
-            background: rgba(255, 255, 255, 0.06);
+            background: color-mix(in srgb, var(--term-fg) 6%, transparent);
             color: var(--bluesky-text);
             font: inherit;
             margin-bottom: 0.875rem;
@@ -345,7 +345,7 @@ export class FeedPage extends MobxLitElement {
             width: 100%;
             max-width: 320px;
             box-sizing: border-box;
-            color: #ffb4ab;
+            color: var(--bluesky-danger);
             text-align: left;
           }
           @media (max-height: 560px), (max-width: 360px) {

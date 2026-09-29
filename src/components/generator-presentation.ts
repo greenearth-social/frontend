@@ -5,49 +5,30 @@ export interface GeneratorPresentation {
   label: string;
 }
 
-const NEUTRAL: GeneratorPresentation = {
-  background: "rgba(113, 118, 123, 0.15)",
-  color: "#71767b",
-  border: "rgba(113, 118, 123, 0.7)",
-  label: "Other",
-};
+// Badge colours from one terminal palette slot (--term-N in styles/index.css).
+function slot(n: number, label: string): GeneratorPresentation {
+  const color = `var(--term-${String(n)})`;
+  return {
+    background: `color-mix(in srgb, ${color} 12%, transparent)`,
+    color,
+    border: `color-mix(in srgb, ${color} 80%, transparent)`,
+    label,
+  };
+}
 
-const AUTHOR_TOPIC: GeneratorPresentation = {
-  background: "rgba(56, 189, 248, 0.12)",
-  color: "#38bdf8",
-  border: "rgba(56, 189, 248, 0.8)",
-  label: "Author/Topic",
-};
+const NEUTRAL: GeneratorPresentation = slot(8, "Other");
+
+const AUTHOR_TOPIC: GeneratorPresentation = slot(14, "Author/Topic");
 
 const RANDOM: GeneratorPresentation = { ...NEUTRAL, label: "random" };
 
 export const GENERATOR_PRESENTATIONS = {
   two_tower: AUTHOR_TOPIC,
   two_tower_empty_history: AUTHOR_TOPIC,
-  followed_users: {
-    background: "rgba(244, 114, 182, 0.12)",
-    color: "#f472b6",
-    border: "rgba(244, 114, 182, 0.8)",
-    label: "Following",
-  },
-  popularity: {
-    background: "rgba(52, 211, 153, 0.12)",
-    color: "#34d399",
-    border: "rgba(52, 211, 153, 0.8)",
-    label: "Popular",
-  },
-  post_similarity: {
-    background: "rgba(192, 132, 252, 0.12)",
-    color: "#c084fc",
-    border: "rgba(192, 132, 252, 0.8)",
-    label: "Similar",
-  },
-  network_likes: {
-    background: "rgba(251, 191, 36, 0.12)",
-    color: "#fbbf24",
-    border: "rgba(251, 191, 36, 0.8)",
-    label: "Followed Likes",
-  },
+  followed_users: slot(1, "Following"),
+  popularity: slot(6, "Popular"),
+  post_similarity: slot(10, "Similar"),
+  network_likes: slot(3, "Followed Likes"),
   random_posts: RANDOM,
 } satisfies Record<string, GeneratorPresentation>;
 

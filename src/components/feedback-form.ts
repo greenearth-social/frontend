@@ -27,7 +27,7 @@ export class FeedbackForm extends LitElement {
       padding: 1rem;
       border: 1px solid var(--bluesky-border);
       border-radius: 1rem;
-      background: var(--bluesky-bg-card);
+      background: var(--term-glass);
     }
     label {
       display: block;
@@ -60,7 +60,7 @@ export class FeedbackForm extends LitElement {
     }
     textarea:focus {
       border-color: var(--bluesky-brand);
-      box-shadow: 0 0 0 2px rgba(16, 131, 254, 0.2);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--bluesky-brand) 20%, transparent);
     }
     .form-footer {
       display: flex;
@@ -79,7 +79,7 @@ export class FeedbackForm extends LitElement {
       border: 0;
       border-radius: 9999px;
       background: var(--bluesky-brand);
-      color: white;
+      color: var(--bluesky-on-brand);
       cursor: pointer;
       font: inherit;
       font-size: 0.875rem;
@@ -105,7 +105,7 @@ export class FeedbackForm extends LitElement {
       color: var(--bluesky-repost);
     }
     .status.test {
-      color: #f2c94c;
+      color: var(--term-3);
     }
     .status.error {
       color: var(--bluesky-danger);

@@ -56,7 +56,7 @@ export class AppShell extends MobxLitElement {
       display: flex;
       justify-content: center;
       height: 100dvh;
-      background: var(--bluesky-bg);
+      background: transparent;
       color: var(--bluesky-text);
     }
 
@@ -73,7 +73,7 @@ export class AppShell extends MobxLitElement {
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      background: var(--bluesky-nav-bg);
+      background: var(--term-glass-nav);
     }
     .left-sidebar-desktop {
       position: relative;
@@ -145,8 +145,8 @@ export class AppShell extends MobxLitElement {
         background-color 0.15s;
     }
     .feed-group.active-feed {
-      border-color: color-mix(in srgb, var(--bluesky-brand) 38%, #a8d3ff);
-      background: color-mix(in srgb, var(--bluesky-brand) 5%, var(--bluesky-nav-bg));
+      border-color: var(--bluesky-brand);
+      background: color-mix(in srgb, var(--bluesky-brand) 8%, transparent);
     }
     .algo-row {
       display: flex;
@@ -163,8 +163,8 @@ export class AppShell extends MobxLitElement {
       background: var(--bluesky-bg-hover);
     }
     .algo-row.active {
-      background: color-mix(in srgb, var(--bluesky-brand) 62%, #a8d3ff);
-      color: #fff;
+      background: var(--bluesky-brand);
+      color: var(--bluesky-on-brand);
     }
     .algo-row.active .algo-label {
       font-weight: 800;
@@ -180,7 +180,8 @@ export class AppShell extends MobxLitElement {
       background: transparent;
       color: inherit;
       text-decoration: none;
-      font-size: 1.0625rem;
+      font-family: inherit;
+      font-size: 0.875rem;
       cursor: pointer;
       text-align: left;
     }
@@ -214,7 +215,7 @@ export class AppShell extends MobxLitElement {
       cursor: pointer;
     }
     .algo-toggle:hover {
-      background: rgba(255, 255, 255, 0.12);
+      background: color-mix(in srgb, var(--term-fg) 12%, transparent);
     }
     .algo-toggle wa-icon {
       font-size: 1rem;
@@ -309,20 +310,20 @@ export class AppShell extends MobxLitElement {
       border-radius: 0.75rem;
       color: var(--bluesky-text);
       text-decoration: none;
-      font-size: 0.9375rem;
+      font-size: 0.8125rem;
       transition: background-color 0.15s;
     }
     .nav-link:hover {
       background: var(--bluesky-bg-hover);
     }
     .nav-link.active {
-      background: #166534;
-      color: #f0fdf4;
+      background: var(--term-0);
+      color: var(--term-2);
       font-weight: 700;
     }
     .nav-link.active:hover {
-      background: #15803d;
-      color: #fff;
+      background: var(--term-0);
+      color: var(--term-10);
     }
     .nav-link wa-icon {
       font-size: 1.125rem;
@@ -351,7 +352,7 @@ export class AppShell extends MobxLitElement {
     .algo-btn:focus-visible,
     .algo-toggle:focus-visible,
     .nav-link:focus-visible {
-      outline: 2px solid #fff;
+      outline: 2px solid var(--term-cursor);
       outline-offset: 2px;
     }
 
@@ -479,7 +480,7 @@ export class AppShell extends MobxLitElement {
       transition: background 0.15s;
     }
     .logout-btn:hover {
-      background: rgba(244, 33, 46, 0.1);
+      background: color-mix(in srgb, var(--bluesky-danger) 10%, transparent);
     }
     .logout-btn wa-icon {
       font-size: 1rem;

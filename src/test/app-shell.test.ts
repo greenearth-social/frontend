@@ -724,7 +724,7 @@ describe("AppShell algorithm selector", () => {
     expect(active?.[0]?.getAttribute("aria-label")).toBe("Best of Friends");
     expect(window.location.hash).toBe("#/feed/best-of-friends");
     expect(AppShell.styles.toString()).toMatch(
-      /\.algo-row\.active\s*\{[^}]*color-mix\(in srgb, var\(--bluesky-brand\) 62%, #a8d3ff\)/s,
+      /\.algo-row\.active\s*\{[^}]*background:\s*var\(--bluesky-brand\)/s,
     );
     expect(AppShell.styles.toString()).toMatch(
       /\.algo-row\.active \.algo-label\s*\{[^}]*font-weight:\s*800/s,

@@ -27,7 +27,7 @@ export class FeedTabs extends LitElement {
       display: flex;
       align-items: stretch;
       min-height: 2.75rem;
-      background: rgba(21, 32, 43, 0.85);
+      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
@@ -52,8 +52,8 @@ export class FeedTabs extends LitElement {
       width: 1.5rem;
       background: linear-gradient(
         to right,
-        rgba(21, 32, 43, 0.95) 0%,
-        rgba(21, 32, 43, 0.7) 50%,
+        color-mix(in srgb, var(--bluesky-bg) 95%, transparent) 0%,
+        color-mix(in srgb, var(--bluesky-bg) 70%, transparent) 50%,
         transparent 100%
       );
     }
@@ -61,8 +61,8 @@ export class FeedTabs extends LitElement {
       right: 0;
       background: linear-gradient(
         to left,
-        rgba(21, 32, 43, 0.95) 0%,
-        rgba(21, 32, 43, 0.7) 50%,
+        color-mix(in srgb, var(--bluesky-bg) 95%, transparent) 0%,
+        color-mix(in srgb, var(--bluesky-bg) 70%, transparent) 50%,
         transparent 100%
       );
     }
@@ -129,7 +129,7 @@ export class FeedTabs extends LitElement {
       padding: 0.9rem;
       border: 1px solid var(--bluesky-border);
       border-radius: 0.75rem;
-      background: rgb(21, 32, 43);
+      background: var(--bluesky-bg);
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
       margin: 0;
@@ -239,14 +239,14 @@ export class FeedTabs extends LitElement {
       left: 0;
       z-index: 1;
       text-align: left;
-      background: rgb(21, 32, 43);
-      box-shadow: 0.55rem 0 0.75rem -0.75rem rgba(255, 255, 255, 0.55);
+      background: var(--bluesky-bg);
+      box-shadow: 0.55rem 0 0.75rem -0.75rem color-mix(in srgb, var(--term-fg) 55%, transparent);
     }
     thead th:first-child {
       z-index: 2;
     }
     .status-problem {
-      color: #fbbf24;
+      color: var(--term-3);
     }
     .reason {
       display: block;

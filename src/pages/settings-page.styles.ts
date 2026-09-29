@@ -16,7 +16,7 @@ export const settingsPageStyles = css`
   .feed-column {
     display: none;
     min-width: 0;
-    background: var(--bluesky-bg, #0f1720);
+    background: var(--term-glass-nav);
   }
 
   .preview-header {
@@ -29,7 +29,7 @@ export const settingsPageStyles = css`
     padding: 0.65rem 1rem;
     border-bottom: 1px solid var(--bluesky-border);
     box-sizing: border-box;
-    background: rgba(21, 32, 43, 0.94);
+    background: color-mix(in srgb, var(--bluesky-bg) 94%, transparent);
   }
 
   .update-preview-btn,
@@ -53,7 +53,7 @@ export const settingsPageStyles = css`
     padding: 0.6rem 1.25rem;
     border-color: var(--bluesky-brand);
     background: var(--bluesky-brand);
-    color: #fff;
+    color: var(--bluesky-on-brand);
     font-size: 0.875rem;
     white-space: nowrap;
     box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
@@ -97,7 +97,7 @@ export const settingsPageStyles = css`
     padding-inline: 1rem;
     border-color: var(--bluesky-brand);
     background: var(--bluesky-brand);
-    color: #fff;
+    color: var(--bluesky-on-brand);
     font-size: 0.8125rem;
     box-shadow: 0 3px 12px color-mix(in srgb, var(--bluesky-brand) 28%, transparent);
   }
@@ -186,7 +186,7 @@ export const settingsPageStyles = css`
     padding-left: 1rem;
     border-color: color-mix(in srgb, var(--bluesky-brand) 82%, white);
     background: color-mix(in srgb, var(--bluesky-brand) 88%, black);
-    color: #fff;
+    color: var(--bluesky-on-brand);
     box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
     cursor: progress;
     opacity: 1;
@@ -279,7 +279,7 @@ export const settingsPageStyles = css`
     z-index: 2;
     inset: 0;
     display: grid;
-    background: color-mix(in srgb, var(--bluesky-bg, #0f1720) 24%, transparent);
+    background: color-mix(in srgb, var(--bluesky-bg) 24%, transparent);
     pointer-events: auto;
     place-items: center;
     touch-action: none;
@@ -331,7 +331,7 @@ export const settingsPageStyles = css`
     top: 0;
     z-index: 30;
     border-bottom: 1px solid var(--bluesky-border);
-    background: rgba(21, 32, 43, 0.85);
+    background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
@@ -456,26 +456,23 @@ export const settingsPageStyles = css`
   }
 
   .section-candidate {
-    border: 1px solid rgba(99, 102, 241, 0.25);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.08));
-    box-shadow: 0 4px 24px rgba(99, 102, 241, 0.1);
+    border: 1px solid color-mix(in srgb, var(--term-4) 25%, transparent);
+    background: color-mix(in srgb, var(--term-4) 8%, transparent);
   }
 
   .section-ranking {
-    border: 1px solid rgba(168, 85, 247, 0.25);
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(139, 92, 246, 0.08));
-    box-shadow: 0 4px 24px rgba(168, 85, 247, 0.1);
+    border: 1px solid color-mix(in srgb, var(--term-6) 25%, transparent);
+    background: color-mix(in srgb, var(--term-6) 8%, transparent);
   }
 
   .section-diversification {
-    border: 1px solid rgba(34, 197, 94, 0.25);
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 185, 129, 0.08));
-    box-shadow: 0 4px 24px rgba(34, 197, 94, 0.1);
+    border: 1px solid color-mix(in srgb, var(--term-3) 25%, transparent);
+    background: color-mix(in srgb, var(--term-3) 8%, transparent);
   }
 
   .section-title {
     margin: 0 0 0.5rem;
-    color: #93b4f5;
+    color: var(--term-4);
     font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -503,7 +500,8 @@ export const settingsPageStyles = css`
     padding: 0;
     border: 0;
     background: transparent;
-    color: #93b4f5;
+    color: var(--term-4);
+    font-family: inherit;
     cursor: pointer;
   }
 
@@ -525,11 +523,11 @@ export const settingsPageStyles = css`
   }
 
   .section-ranking .section-title {
-    color: #c4a0f7;
+    color: var(--term-6);
   }
 
   .section-diversification .section-title {
-    color: #6ee7a0;
+    color: var(--term-3);
   }
 
   .control-card {
@@ -537,7 +535,7 @@ export const settingsPageStyles = css`
     padding: 0.5rem;
     border-radius: 12px;
     box-sizing: border-box;
-    color: #fff;
+    color: var(--term-fg);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
     transition:
       transform 150ms ease,
@@ -573,16 +571,18 @@ export const settingsPageStyles = css`
 
   .config-card {
     margin-bottom: 0.5rem;
-    border: 1px solid rgba(253, 186, 116, 0.28);
-    background: linear-gradient(145deg, #a94f45, #a86f32);
+    border: 1px solid color-mix(in srgb, var(--term-9) 45%, transparent);
+    background: color-mix(in srgb, var(--term-9) 16%, transparent);
   }
 
   .source-card {
-    background: linear-gradient(145deg, #3b82f6, #2563eb);
+    border: 1px solid color-mix(in srgb, var(--term-4) 45%, transparent);
+    background: color-mix(in srgb, var(--term-4) 16%, transparent);
   }
 
   .signal-card {
-    background: linear-gradient(145deg, #a855f7, #7c3aed);
+    border: 1px solid color-mix(in srgb, var(--term-6) 45%, transparent);
+    background: color-mix(in srgb, var(--term-6) 16%, transparent);
   }
 
   .component-title {
@@ -641,9 +641,9 @@ export const settingsPageStyles = css`
   }
 
   .source-slider-card icon-range-slider {
-    --icon-track-color: rgba(239, 246, 255, 0.56);
-    --icon-fill-color: #163b70;
-    --icon-tick-color: rgba(255, 255, 255, 0.82);
+    --icon-track-color: color-mix(in srgb, var(--term-fg) 28%, transparent);
+    --icon-fill-color: var(--term-4);
+    --icon-tick-color: color-mix(in srgb, var(--term-fg) 82%, transparent);
   }
 
   .source-list {
@@ -683,10 +683,10 @@ export const settingsPageStyles = css`
     height: 38px;
     transform: translateX(-7px);
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.58);
+    border: 1px solid color-mix(in srgb, var(--term-fg) 58%, transparent);
     border-radius: 9px;
-    background: rgba(37, 99, 235, 0.42);
-    color: rgba(255, 255, 255, 0.9);
+    background: color-mix(in srgb, var(--term-4) 25%, transparent);
+    color: color-mix(in srgb, var(--term-fg) 90%, transparent);
     cursor: pointer;
     transition:
       opacity 150ms ease,
@@ -695,22 +695,22 @@ export const settingsPageStyles = css`
   }
 
   .source-lock-btn[aria-pressed="true"] {
-    border-color: #d9f99d;
-    background: #91bd3f;
-    color: #132a0e;
-    box-shadow: 0 0 0 2px rgba(180, 220, 84, 0.3);
+    border-color: var(--term-11);
+    background: var(--term-10);
+    color: var(--term-bg);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--term-10) 30%, transparent);
   }
 
   .source-lock-btn:focus-visible {
-    outline: 3px solid rgba(255, 255, 255, 0.75);
+    outline: 3px solid color-mix(in srgb, var(--term-fg) 75%, transparent);
     outline-offset: 2px;
   }
 
   .source-lock-btn:disabled {
     cursor: not-allowed;
-    border-color: rgba(148, 163, 184, 0.32);
-    background: rgba(71, 85, 105, 0.48);
-    color: rgba(226, 232, 240, 0.72);
+    border-color: color-mix(in srgb, var(--term-8) 32%, transparent);
+    background: color-mix(in srgb, var(--term-0) 48%, transparent);
+    color: color-mix(in srgb, var(--term-fg) 72%, transparent);
     opacity: 0.58;
   }
 
@@ -751,13 +751,14 @@ export const settingsPageStyles = css`
     padding: 0.5rem 0.875rem;
     border: 0;
     border-radius: 9999px;
-    background: linear-gradient(145deg, #f59e0b, #d97706);
-    color: #fff;
+    background: var(--term-9);
+    color: var(--term-bg);
+    font-family: inherit;
     font-size: 0.75rem;
     font-style: italic;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--term-9) 30%, transparent);
     transition:
       transform 150ms ease,
       filter 150ms ease,
@@ -767,10 +768,10 @@ export const settingsPageStyles = css`
   .penalty-pill:hover,
   .penalty-pill:focus-visible {
     filter: brightness(1.08);
-    outline: 2px solid rgba(255, 255, 255, 0.65);
+    outline: 2px solid color-mix(in srgb, var(--term-fg) 65%, transparent);
     outline-offset: 2px;
     transform: translateY(-2px);
-    box-shadow: 0 7px 18px rgba(245, 158, 11, 0.4);
+    box-shadow: 0 7px 18px color-mix(in srgb, var(--term-9) 40%, transparent);
   }
 
   .arrow-connector {
@@ -785,12 +786,12 @@ export const settingsPageStyles = css`
   }
 
   .arrow-line {
-    stroke: rgba(148, 163, 184, 0.5);
+    stroke: color-mix(in srgb, var(--term-8) 50%, transparent);
     stroke-width: 2;
   }
 
   .arrow-head {
-    fill: rgba(148, 163, 184, 0.6);
+    fill: color-mix(in srgb, var(--term-8) 60%, transparent);
   }
 
   .politics-card {
@@ -800,7 +801,7 @@ export const settingsPageStyles = css`
     padding: 1rem;
     border: 1px solid var(--bluesky-border);
     border-radius: 14px;
-    background: var(--bluesky-bg-card);
+    background: var(--term-glass);
   }
 
   .politics-heading {
@@ -847,7 +848,7 @@ export const settingsPageStyles = css`
     border-radius: 16px;
     box-sizing: border-box;
     overflow-y: auto;
-    background: linear-gradient(135deg, rgba(30, 39, 50, 0.98), rgba(21, 32, 43, 0.99));
+    background: var(--bluesky-bg-card);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 
@@ -872,7 +873,7 @@ export const settingsPageStyles = css`
     flex-shrink: 0;
     border: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--term-fg) 10%, transparent);
     color: var(--bluesky-text);
     cursor: pointer;
   }
