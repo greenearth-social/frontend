@@ -7,7 +7,6 @@ export interface FeedSummary {
   generatedAt: string;
   feedName: string;
   apiReleaseSha: string | null;
-  appliedSocialRadius: number | null;
   generatorDiagnostics: GeneratorDiagnostic[];
 }
 
