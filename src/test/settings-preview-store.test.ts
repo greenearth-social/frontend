@@ -69,7 +69,9 @@ function harness(generatedAt = new Date().toISOString()) {
     ],
   });
   const getFeedDetail = vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"]));
+  const preferencesStore = { llmPrompt: null as { promptKey: string } | null };
   const root = {
+    preferencesStore,
     services: {
       feedApiService: {
         listFeeds,
@@ -82,6 +84,7 @@ function harness(generatedAt = new Date().toISOString()) {
   } as unknown as RootStore;
   return {
     root,
+    preferencesStore,
     acceptFeedPreview,
     createFeedPreview,
     getFeedDetail,
@@ -195,18 +198,56 @@ describe("SettingsPreviewStore", () => {
     ]);
   });
 
-  it("generates again for the same settings once the cache is cleared", async () => {
-    const { root, createFeedPreview } = harness();
+  it("generates again for the same settings once the prompt changes", async () => {
+    const { root, preferencesStore, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
     const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    preferencesStore.llmPrompt = { promptKey: "prompt-a" };
 
     await store.preview(patch);
     await store.preview(patch);
     expect(createFeedPreview).toHaveBeenCalledTimes(1);
 
-    store.clearPreviewCache();
+    preferencesStore.llmPrompt = { promptKey: "prompt-b" };
     await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reuse a preview that was still running when the prompt changed", async () => {
+    const { root, preferencesStore, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    preferencesStore.llmPrompt = { promptKey: "prompt-a" };
+    const slowDetail = deferred<FeedDetailResponse>();
+    getFeedPreview.mockReturnValueOnce(slowDetail.promise);
+
+    const running = store.preview(patch);
+    preferencesStore.llmPrompt = { promptKey: "prompt-b" };
+    slowDetail.resolve(detail("preview-1", ["old-prompt"]));
+    await running;
+    await store.preview(patch);
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reuse a preview that was still running when the account changed", async () => {
+    const { root, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    store.activateAccount("account-a");
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    const slowDetail = deferred<FeedDetailResponse>();
+    getFeedPreview.mockReturnValueOnce(slowDetail.promise);
+
+    const running = store.preview(patch);
+    store.activateAccount("account-b");
+    await store.activateFeed("your-feed");
+    slowDetail.resolve(detail("preview-1", ["other-account"]));
+    await running;
+    await store.preview(patch);
+
     expect(createFeedPreview).toHaveBeenCalledTimes(2);
   });
 

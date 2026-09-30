@@ -66,6 +66,7 @@ describe("feedback event payload", () => {
         source_network_likes_weight: 0.2,
         source_authors_topics_weight: 0.25,
         source_popular_weight: 0.25,
+        source_llm_weight: 0,
         freshness: 5,
         politics: 1,
         purpose: 0.5,

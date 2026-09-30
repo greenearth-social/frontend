@@ -8,7 +8,7 @@ import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
 import { FeedApiError } from "../services/types";
 import type { FeedControlName } from "../services/analytics/types";
-import { DEFAULT_PREFERENCES } from "../stores/preferences-store";
+import { DEFAULT_PREFERENCES, LLM_PROMPT_FEED } from "../stores/preferences-store";
 import type { SourceWeightChangeOrigin } from "../stores/preferences-store";
 import type {
   BaselineRefreshOutcome,
@@ -64,7 +64,8 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
     a.following === b.following &&
     a.networkLikes === b.networkLikes &&
     a.authorsTopics === b.authorsTopics &&
-    a.popular === b.popular
+    a.popular === b.popular &&
+    a.llm === b.llm
   );
 }
 
@@ -106,7 +107,6 @@ export class SettingsPage extends MobxLitElement {
   @state() private settingsError = "";
   // null shows the fitted prompt; a string is what the user is typing.
   @state() private promptDraft: string | null = null;
-  @state() private isFittingPrompt = false;
   @state() private promptError = "";
   @state() private lockedSources: SourceWeightKey[] = [];
   private sourceStartWeights: SourceWeights | null = null;
@@ -202,6 +202,7 @@ export class SettingsPage extends MobxLitElement {
       this.settingsRevision++;
       void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
+    this.#applyFreshPrompt();
   }
 
   render() {
@@ -523,12 +524,11 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  // The lock list the sum-to-1 math sees: the user's locks, plus llm while no
-  // prompt is fitted so the llm weight can never rise above 0 on its own.
   #renderPromptEditor(): TemplateResult {
     const fitted = getRootStore()?.preferencesStore.llmPrompt?.prompt ?? "";
     const draft = this.promptDraft ?? fitted;
-    const canSend = !this.isLoading && !this.isFittingPrompt && draft.trim().length > 0;
+    const isFitting = getRootStore()?.preferencesStore.isFittingLlmPrompt ?? false;
+    const canSend = !this.isLoading && !isFitting && draft.trim().length > 0;
     return html`
       <div class="prompt-editor">
         <textarea
@@ -538,9 +538,10 @@ export class SettingsPage extends MobxLitElement {
           aria-label="Prompt"
           maxlength=${MAX_PROMPT_CHARS}
           .value=${draft}
-          ?disabled=${this.isFittingPrompt}
+          ?disabled=${isFitting}
           @input=${(event: Event) => {
             this.promptDraft = (event.target as HTMLTextAreaElement).value;
+            this.promptError = "";
           }}
         ></textarea>
         <button
@@ -551,7 +552,7 @@ export class SettingsPage extends MobxLitElement {
             void this.#sendPrompt(draft);
           }}
         >
-          ${this.isFittingPrompt ? "Fitting…" : "Send"}
+          ${isFitting ? "Fitting…" : "Send"}
         </button>
         <span class="prompt-count">${draft.length} / ${MAX_PROMPT_CHARS}</span>
         ${this.promptError ? html`<p class="prompt-error" role="alert">${this.promptError}</p>` : ""}
@@ -559,39 +560,46 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  // Fit the prompt on the server, then give it a starting share of the feed
-  // if it has none yet. A failed fit leaves the weights untouched.
+  // Fit the prompt on the server. What the page does with a fitted prompt is
+  // in #applyFreshPrompt, because the fit can outlive this page.
   async #sendPrompt(draft: string): Promise<void> {
     const root = getRootStore();
     const prompt = draft.trim();
-    if (!root || !prompt || this.isFittingPrompt) return;
-    this.isFittingPrompt = true;
+    if (!root || !prompt || root.preferencesStore.isFittingLlmPrompt) return;
     this.promptError = "";
     try {
-      const fitted = await root.preferencesStore.fitLlmPrompt(prompt);
+      await root.preferencesStore.fitLlmPrompt(prompt);
       this.promptDraft = null;
-      if (!fitted) return;
-      // The same settings now give different posts, so the old preview is stale.
-      getSettingsPreviewStore()?.clearPreviewCache();
-      this.previewNeeded = true;
-      this.settingsRevision++;
-      root.services.analyticsService.capture("promptFitted", {
-        ...feedAnalyticsProperties(this.selectedAlgorithm),
-      });
-      const weights = root.preferencesStore.valuesFor(this.selectedAlgorithm).sourceWeights;
-      if (weights.llm === 0) {
-        this.#commitSourceWeights(
-          redistributeSourceWeights(weights, "llm", 0.2, this.#mathLocks()),
-          "llm",
-        );
-      }
     } catch (error) {
       this.promptError =
         error instanceof FeedApiError && error.status === 422
           ? "Not enough recent posts match that prompt. Try something broader."
           : "The prompt could not be fitted. Please try again.";
-    } finally {
-      this.isFittingPrompt = false;
+    }
+  }
+
+  // A newly fitted prompt makes the shown preview stale and gets a starting
+  // share of the feed if it has none. This runs once Your Feed is on screen,
+  // so a fit that finished while the user was elsewhere is still picked up.
+  #applyFreshPrompt(): void {
+    const store = getRootStore()?.preferencesStore;
+    if (
+      !store?.llmPromptFresh ||
+      !store.hasLoaded ||
+      !this.isConnected ||
+      this.selectedAlgorithm !== LLM_PROMPT_FEED
+    ) {
+      return;
+    }
+    store.markLlmPromptApplied();
+    this.previewNeeded = true;
+    this.settingsRevision++;
+    const weights = store.valuesFor(this.selectedAlgorithm).sourceWeights;
+    if (weights.llm === 0) {
+      this.#commitSourceWeights(
+        redistributeSourceWeights(weights, "llm", 0.2, this.#mathLocks()),
+        "llm",
+      );
     }
   }
 
@@ -604,6 +612,8 @@ export class SettingsPage extends MobxLitElement {
     return this.#promptFitted() ? 4 : 3;
   }
 
+  // The lock list the sum-to-1 math sees: the user's locks, plus llm while no
+  // prompt is fitted so the llm weight can never rise above 0 on its own.
   #mathLocks(): SourceWeightKey[] {
     return this.#promptFitted() ? this.lockedSources : [...this.lockedSources, "llm"];
   }
@@ -842,7 +852,8 @@ export class SettingsPage extends MobxLitElement {
       preferences.sourceWeights.following === DEFAULT_PREFERENCES.sourceWeights.following &&
       preferences.sourceWeights.networkLikes === DEFAULT_PREFERENCES.sourceWeights.networkLikes &&
       preferences.sourceWeights.authorsTopics === DEFAULT_PREFERENCES.sourceWeights.authorsTopics &&
-      preferences.sourceWeights.popular === DEFAULT_PREFERENCES.sourceWeights.popular
+      preferences.sourceWeights.popular === DEFAULT_PREFERENCES.sourceWeights.popular &&
+      preferences.sourceWeights.llm === DEFAULT_PREFERENCES.sourceWeights.llm
     );
   }
 

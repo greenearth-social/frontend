@@ -23,7 +23,10 @@ const testState = vi.hoisted(() => {
         llmCgEnabled: true,
         llmPromptFitted: false,
         llmPrompt: null as { promptKey: string; prompt: string; createdAt: string } | null,
+        isFittingLlmPrompt: false,
+        llmPromptFresh: false,
         fitLlmPrompt: vi.fn(),
+        markLlmPromptApplied: vi.fn(),
         valuesFor: vi.fn((_feedName: string) => values),
         supportsControl: vi.fn((_feedName: string, _control: string) => false),
         load: vi.fn().mockResolvedValue(undefined),
@@ -48,7 +51,6 @@ const testState = vi.hoisted(() => {
         acceptGeneratedPreview: vi.fn().mockResolvedValue(null),
         markPreviewSyncFailure: vi.fn(),
         acceptPreview: vi.fn(),
-        clearPreviewCache: vi.fn(),
         baselineItems: [],
         displayedItems: [],
         displayedFilteringCounts: null,
@@ -73,6 +75,7 @@ import "../pages/settings-page";
 import type { IconRangeSlider } from "../components/icon-range-slider";
 import { MOBILE_PREVIEW_SETTLE_DELAY_MS } from "../pages/settings-page";
 import { settingsPageStyles } from "../pages/settings-page.styles";
+import { FeedApiError } from "../services/types";
 
 const POLITICS_FEEDS = ["your-feed", "best-of-friends"] as const;
 
@@ -104,7 +107,13 @@ describe("SettingsPage", () => {
     testState.rootStore.preferencesStore.llmCgEnabled = true;
     testState.rootStore.preferencesStore.llmPromptFitted = false;
     testState.rootStore.preferencesStore.llmPrompt = null;
+    testState.rootStore.preferencesStore.isFittingLlmPrompt = false;
+    testState.rootStore.preferencesStore.llmPromptFresh = false;
     testState.rootStore.preferencesStore.fitLlmPrompt.mockReset();
+    testState.rootStore.preferencesStore.markLlmPromptApplied.mockReset();
+    testState.rootStore.preferencesStore.markLlmPromptApplied.mockImplementation(() => {
+      testState.rootStore.preferencesStore.llmPromptFresh = false;
+    });
     testState.rootStore.preferencesStore.valuesFor.mockReset();
     testState.rootStore.preferencesStore.valuesFor.mockReturnValue(testState.values);
     testState.rootStore.preferencesStore.supportsControl.mockReset();
@@ -562,6 +571,7 @@ describe("SettingsPage", () => {
     const store = testState.rootStore.preferencesStore;
     store.fitLlmPrompt.mockImplementation((prompt: string) => {
       store.llmPromptFitted = true;
+      store.llmPromptFresh = true;
       store.llmPrompt = { promptKey: "v1", prompt, createdAt: "2026-09-17T10:00:00Z" };
       return Promise.resolve(store.llmPrompt);
     });
@@ -624,6 +634,32 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).not.toBeNull();
   });
 
+  it("says the prompt is too narrow on a 422 and drops the error on the next edit", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.fitLlmPrompt.mockRejectedValue(new FeedApiError(422, "too few posts"));
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "anything";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".prompt-error")?.textContent).toContain(
+      "Try something broader",
+    );
+
+    input.value = "anything else";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".prompt-error")).toBeNull();
+  });
+
   it("drops a fit that finished for another account", async () => {
     const store = testState.rootStore.preferencesStore;
     store.fitLlmPrompt.mockResolvedValue(null);
@@ -646,6 +682,194 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".prompt-error")).toBeNull();
   });
 
+  it("gives the prompt its share once the user is back on Your Feed after a mid-fit switch", async () => {
+    const store = testState.rootStore.preferencesStore;
+    let finishFit!: () => void;
+    store.fitLlmPrompt.mockImplementation(
+      (prompt: string) =>
+        new Promise((resolve) => {
+          finishFit = () => {
+            store.llmPromptFitted = true;
+            store.llmPromptFresh = true;
+            store.llmPrompt = { promptKey: "v1", prompt, createdAt: "2026-09-30T10:00:00Z" };
+            resolve(store.llmPrompt);
+          };
+        }),
+    );
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "hopeful science";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+
+    element.selectedAlgorithm = "best-of-friends";
+    await element.updateComplete;
+    await element.updateComplete;
+    finishFit();
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.savePatch).not.toHaveBeenCalled();
+    expect(element.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview")?.disabled).toBe(
+      true,
+    );
+
+    element.selectedAlgorithm = "your-feed";
+    await element.updateComplete;
+    await element.updateComplete;
+
+    expect(store.savePatch).toHaveBeenCalledTimes(1);
+    expect(store.savePatch).toHaveBeenCalledWith(
+      "your-feed",
+      expect.objectContaining({
+        sourceWeights: expect.objectContaining({ llm: 0.2 }) as unknown,
+      }),
+      { source_weights: "llm" },
+    );
+    expect(element.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview")?.disabled).toBe(
+      false,
+    );
+  });
+
+  it("carries a running fit over to a reopened settings page", async () => {
+    const store = testState.rootStore.preferencesStore;
+    let finishFit!: () => void;
+    store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.isFittingLlmPrompt = true;
+      return new Promise((resolve) => {
+        finishFit = () => {
+          store.isFittingLlmPrompt = false;
+          store.llmPromptFitted = true;
+          store.llmPromptFresh = true;
+          store.llmPrompt = { promptKey: "v1", prompt, createdAt: "2026-09-30T10:00:00Z" };
+          resolve(store.llmPrompt);
+        };
+      });
+    });
+    const closed = document.createElement("settings-page");
+    document.body.appendChild(closed);
+    await closed.updateComplete;
+    const input = closed.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "hopeful science";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await closed.updateComplete;
+    closed.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await closed.updateComplete;
+    closed.remove();
+
+    const reopened = document.createElement("settings-page");
+    document.body.appendChild(reopened);
+    await reopened.updateComplete;
+    const send = reopened.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn");
+    expect(send?.textContent).toContain("Fitting…");
+    expect(send?.disabled).toBe(true);
+    reopened.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[aria-label="Lock Following weight"]')
+      ?.click();
+    await reopened.updateComplete;
+
+    finishFit();
+    await Promise.resolve();
+    await closed.updateComplete;
+    expect(store.savePatch).not.toHaveBeenCalled();
+    // The real store is observable and re-renders the page; this mock is not.
+    reopened.requestUpdate();
+    await reopened.updateComplete;
+    await reopened.updateComplete;
+
+    expect(store.savePatch).toHaveBeenCalledTimes(1);
+    expect(store.savePatch).toHaveBeenCalledWith(
+      "your-feed",
+      expect.objectContaining({
+        sourceWeights: expect.objectContaining({ following: 0.3, llm: 0.2 }) as unknown,
+      }),
+      { source_weights: "llm" },
+    );
+    expect(reopened.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview")?.disabled).toBe(
+      false,
+    );
+    expect(reopened.shadowRoot?.querySelector(".prompt-send-btn")?.textContent).toContain("Send");
+  });
+
+  it("waits for the saved settings before giving a new prompt its share", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.hasLoaded = false;
+    store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.llmPromptFitted = true;
+      store.llmPromptFresh = true;
+      store.llmPrompt = { promptKey: "v1", prompt, createdAt: "2026-09-30T10:00:00Z" };
+      return Promise.resolve(store.llmPrompt);
+    });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "hopeful science";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.fitLlmPrompt).toHaveBeenCalledWith("hopeful science");
+    expect(store.savePatch).not.toHaveBeenCalled();
+    expect(store.llmPromptFresh).toBe(true);
+  });
+
+  it("wakes a Prompt slider locked at zero when the prompt is replaced", async () => {
+    const store = testState.rootStore.preferencesStore;
+    store.llmPromptFitted = true;
+    store.llmPrompt = { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" };
+    store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.llmPromptFresh = true;
+      store.llmPrompt = { promptKey: "v2", prompt, createdAt: "2026-09-30T10:00:00Z" };
+      return Promise.resolve(store.llmPrompt);
+    });
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[aria-label="Lock Prompt weight"]')
+      ?.click();
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected prompt input");
+    input.value = "new";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await element.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
+    await element.updateComplete;
+    await Promise.resolve();
+    await element.updateComplete;
+
+    expect(store.savePatch).toHaveBeenCalledWith(
+      "your-feed",
+      {
+        sourceWeights: {
+          following: 0.24,
+          networkLikes: 0.16,
+          authorsTopics: 0.2,
+          popular: 0.2,
+          llm: 0.2,
+        },
+      },
+      { source_weights: "llm" },
+    );
+  });
+
   it("stops the prompt at the api's length limit and shows the count", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
@@ -663,8 +887,6 @@ describe("SettingsPage", () => {
 
   it("asks for a new preview when a fitted prompt is replaced", async () => {
     const store = testState.rootStore.preferencesStore;
-    const previewStore = testState.rootStore.settingsPreviewStore;
-    previewStore.clearPreviewCache.mockReset();
     testState.values.sourceWeights = {
       following: 0.24,
       networkLikes: 0.16,
@@ -675,6 +897,7 @@ describe("SettingsPage", () => {
     store.llmPromptFitted = true;
     store.llmPrompt = { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" };
     store.fitLlmPrompt.mockImplementation((prompt: string) => {
+      store.llmPromptFresh = true;
       store.llmPrompt = { promptKey: "v2", prompt, createdAt: "2026-09-29T10:00:00Z" };
       return Promise.resolve(store.llmPrompt);
     });
@@ -695,7 +918,6 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     expect(store.savePatch).not.toHaveBeenCalled();
-    expect(previewStore.clearPreviewCache).toHaveBeenCalledTimes(1);
     expect(preview?.disabled).toBe(false);
   });
 

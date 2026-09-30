@@ -97,8 +97,72 @@ describe("PreferencesStore.load", () => {
     expect(store.llmCgEnabled).toBe(false);
   });
 
-  it("drops a fit that finishes after the account changed", async () => {
+  it("finishes loading settings without waiting for the prompt status", async () => {
     const { store } = makeStore(vi.fn());
+    let finishStatus: ((value: { enabled: true; prompt: null }) => void) | undefined;
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+
+    await store.load();
+
+    expect(store.hasLoaded).toBe(true);
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(store.llmCgEnabled).toBe(false);
+
+    finishStatus?.({ enabled: true, prompt: null });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(store.llmCgEnabled).toBe(true);
+  });
+
+  it("tracks a running fit and flags the new prompt until the page applies it", async () => {
+    const { store, capture } = makeStore(vi.fn());
+    let finishFit: ((value: LlmPrompt) => void) | undefined;
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockReturnValue(
+      new Promise<LlmPrompt>((resolve) => {
+        finishFit = resolve;
+      }),
+    );
+    const prompt = {
+      promptKey: "v1",
+      prompt: "hopeful science",
+      createdAt: "2026-09-30T10:00:00Z",
+    };
+
+    const fit = store.fitLlmPrompt("hopeful science");
+    expect(store.isFittingLlmPrompt).toBe(true);
+    expect(store.llmPromptFresh).toBe(false);
+
+    finishFit?.(prompt);
+    expect(await fit).toEqual(prompt);
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPrompt).toEqual(prompt);
+    expect(store.llmPromptFitted).toBe(true);
+    expect(store.llmPromptFresh).toBe(true);
+    expect(capture).toHaveBeenCalledWith(
+      "promptFitted",
+      expect.objectContaining({ feed_name: "your-feed" }),
+    );
+
+    store.markLlmPromptApplied();
+    expect(store.llmPromptFresh).toBe(false);
+  });
+
+  it("stops showing a fit as running when it fails", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(store.fitLlmPrompt("anything")).rejects.toThrow("boom");
+
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPromptFresh).toBe(false);
+  });
+
+  it("drops a fit that finishes after the account changed", async () => {
+    const { store, capture } = makeStore(vi.fn());
     let finishFit: ((value: LlmPrompt) => void) | undefined;
     store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockReturnValue(
       new Promise<LlmPrompt>((resolve) => {
@@ -113,6 +177,32 @@ describe("PreferencesStore.load", () => {
 
     expect(await fit).toBeNull();
     expect(store.llmPrompt).toBeNull();
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPromptFresh).toBe(false);
+    expect(capture).not.toHaveBeenCalledWith("promptFitted", expect.anything());
+  });
+
+  it("keeps a fresh fit when an older prompt status arrives after it", async () => {
+    const { store } = makeStore(vi.fn());
+    let finishStatus: ((value: { enabled: true; prompt: LlmPrompt }) => void) | undefined;
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+    const fitted = { promptKey: "v2", prompt: "new", createdAt: "2026-09-30T10:00:00Z" };
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockResolvedValue(fitted);
+    await store.load();
+
+    await store.fitLlmPrompt("new");
+    finishStatus?.({
+      enabled: true,
+      prompt: { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(store.llmPrompt).toEqual(fitted);
   });
 
   it("preserves a zero politics preference and leaves omitted controls unavailable", async () => {
