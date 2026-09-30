@@ -39,7 +39,6 @@ describe("FeedApiService", () => {
               generated_at: "2026-07-15T12:00:00Z",
               feed_name: "your-feed",
               api_release_sha: "api-sha-summary",
-              applied_social_radius: 0,
               generator_diagnostics: [
                 {
                   name: "followed_users",
@@ -66,7 +65,6 @@ describe("FeedApiService", () => {
           generatedAt: "2026-07-15T12:00:00Z",
           feedName: "your-feed",
           apiReleaseSha: "api-sha-summary",
-          appliedSocialRadius: 0,
           generatorDiagnostics: [
             {
               name: "followed_users",

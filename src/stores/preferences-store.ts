@@ -665,20 +665,6 @@ export class PreferencesStore {
     return this.valuesFor("your-feed");
   }
 
-  socialRadiusWeightsFor(feedName: AlgorithmId) {
-    const weights = this.valuesFor(feedName).sourceWeights;
-    return [
-      { name: "followed_users", weight: weights.following },
-      { name: "network_likes", weight: weights.networkLikes },
-      { name: "two_tower", weight: weights.authorsTopics },
-      { name: "popularity", weight: weights.popular },
-    ];
-  }
-
-  get socialRadiusWeights() {
-    return this.socialRadiusWeightsFor("your-feed");
-  }
-
   freshnessLabelFor(feedName: AlgorithmId) {
     return FRESHNESS_PRESETS[this.valuesFor(feedName).freshness]?.label ?? "7d";
   }

@@ -55,7 +55,6 @@ async function publishNewServedSlate(page: Page, requestId: string): Promise<voi
             generatedAt,
             feedName: "your-feed",
             apiReleaseSha: "served-api-sha",
-            appliedSocialRadius: 2,
             generatorDiagnostics: [],
           },
         ],

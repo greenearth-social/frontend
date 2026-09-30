@@ -243,7 +243,6 @@ export class MockFeedApiService implements IFeedApiService {
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
           apiReleaseSha: "preview-api-sha",
-          appliedSocialRadius: 2,
           generatorDiagnostics: [],
         },
       ],

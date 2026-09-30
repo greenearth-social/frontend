@@ -207,11 +207,11 @@ export class FeedPage extends MobxLitElement {
         <div class="logged-out-page">
           <div class="logged-out-content">
             <img
-              src="/assets/mysky-logo.png"
+              src="/assets/mysky-large.png"
               alt="MySky"
               class="logged-out-logo"
-              width="640"
-              height="476"
+              width="764"
+              height="764"
             />
             <h1 class="logged-out-title">MySky</h1>
             <p class="logged-out-subtitle">Sign in to view Settings and Feed Transparency</p>

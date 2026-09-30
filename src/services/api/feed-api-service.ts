@@ -43,7 +43,6 @@ interface ApiFeedSummary {
   generated_at: string;
   feed_name: string;
   api_release_sha?: string | null;
-  applied_social_radius?: number | null;
   generator_diagnostics?: Array<{
     name: string;
     weight: number;
@@ -262,7 +261,6 @@ export class FeedApiService implements IFeedApiService {
             generatedAt: feed.generated_at,
             feedName,
             apiReleaseSha: feed.api_release_sha ?? null,
-            appliedSocialRadius: feed.applied_social_radius ?? null,
             generatorDiagnostics: (feed.generator_diagnostics ?? []).map((diagnostic) => ({
               name: diagnostic.name,
               weight: diagnostic.weight,
