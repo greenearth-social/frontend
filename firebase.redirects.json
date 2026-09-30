@@ -1,0 +1,28 @@
+{
+  "hosting": {
+    "site": "greenearth-redirect",
+    "public": "redirect-public",
+    "ignore": ["**/.*"],
+    "redirects": [
+      {
+        "source": "/",
+        "destination": "https://www.mysky.social/",
+        "type": 301
+      },
+      {
+        "regex": "^/(?P<rest>[^r].*|r[^/].*)$",
+        "destination": "https://www.mysky.social/:rest",
+        "type": 301
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/r{,/**}",
+        "run": {
+          "serviceId": "greenearth-api-prod",
+          "region": "us-east1"
+        }
+      }
+    ]
+  }
+}
