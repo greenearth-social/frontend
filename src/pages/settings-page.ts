@@ -209,7 +209,7 @@ export class SettingsPage extends MobxLitElement {
       },
       freshness: 5,
       purpose: 0.5,
-      politics: 1,
+      politics: 0.5,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;

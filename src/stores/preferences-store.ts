@@ -25,7 +25,7 @@ export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
 export const DEFAULT_PREFERENCES: Preferences = {
   sourceWeights: DEFAULT_SOURCE_WEIGHTS,
   freshness: 5,
-  politics: 1.0,
+  politics: 0.5,
   purpose: 0.5,
 };
 
