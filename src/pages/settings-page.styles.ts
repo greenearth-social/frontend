@@ -28,6 +28,8 @@ export const settingsPageStyles = css`
     padding: 0.65rem 1rem;
     border-bottom: 1px solid var(--bluesky-border);
     box-sizing: border-box;
+    backdrop-filter: var(--theme-header-blur);
+    -webkit-backdrop-filter: var(--theme-header-blur);
   }
 
   .update-preview-btn,
@@ -329,8 +331,8 @@ export const settingsPageStyles = css`
     top: 0;
     z-index: 30;
     border-bottom: 1px solid var(--bluesky-border);
-    backdrop-filter: var(--theme-glass-blur);
-    -webkit-backdrop-filter: var(--theme-glass-blur);
+    backdrop-filter: var(--theme-header-blur);
+    -webkit-backdrop-filter: var(--theme-header-blur);
   }
 
   .header-row {
@@ -1132,6 +1134,20 @@ export const settingsPageStyles = css`
       display: flex;
       min-height: 0;
       flex-direction: column;
+    }
+
+    /* The preview cards scroll under the Preview header, the way the
+       settings scroll under theirs, so the header's blur has something to
+       frost. */
+    .feed-column .preview-header {
+      z-index: 2;
+    }
+    .feed-column .preview-viewport {
+      margin-top: calc(-1 * var(--theme-header-height));
+    }
+    .feed-column .feed-scroll {
+      padding-top: var(--theme-header-height);
+      box-sizing: border-box;
     }
 
     .preview-close {

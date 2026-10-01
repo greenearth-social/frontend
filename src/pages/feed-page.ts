@@ -86,8 +86,8 @@ export class FeedPage extends MobxLitElement {
       position: sticky;
       top: 0;
       z-index: 30;
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
+      backdrop-filter: var(--theme-header-blur);
+      -webkit-backdrop-filter: var(--theme-header-blur);
     }
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);

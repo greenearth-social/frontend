@@ -252,7 +252,7 @@ describe("FeedTabs source breakdown", () => {
     element.remove();
   });
 
-  it("keeps the snapshot strip and its edge fades without a redundant feed selector", async () => {
+  it("keeps the snapshot strip without a redundant feed selector", async () => {
     const element = makeTabs();
     await element.updateComplete;
 
@@ -262,8 +262,7 @@ describe("FeedTabs source breakdown", () => {
     expect(root?.querySelector(".tabs-wrapper")).not.toBeNull();
     expect(root?.querySelectorAll(".tab")).toHaveLength(2);
     expect(root?.querySelector(".tab")?.textContent).toContain("Latest");
-    expect(FeedTabs.styles.cssText).toContain(".tabs-scroll-area::before");
-    expect(FeedTabs.styles.cssText).toContain(".tabs-scroll-area::after");
+    expect(FeedTabs.styles.cssText).not.toContain(".tabs-scroll-area::before");
     expect(FeedTabs.styles.cssText).toContain("overflow-x: auto");
 
     element.remove();

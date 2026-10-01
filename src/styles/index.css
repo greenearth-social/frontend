@@ -74,6 +74,9 @@
      denser pane so the content underneath does not read through them. */
   --theme-pane: color-mix(in srgb, var(--theme-bg) 82%, transparent);
   --theme-glass-blur: blur(14px) saturate(1.2);
+  /* Column headers have no tint of their own, only a heavy blur, so what
+     scrolls under them turns into a soft haze and the title stays legible. */
+  --theme-header-blur: blur(40px) saturate(1.1);
 
   /* settings-feed-preview reads these three (it has its own fallbacks). */
   --surface: var(--theme-glass);

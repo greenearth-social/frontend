@@ -34,33 +34,6 @@ export class FeedTabs extends LitElement {
       min-width: 0;
       position: relative;
     }
-    .tabs-scroll-area::before,
-    .tabs-scroll-area::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 3rem;
-      z-index: 2;
-      pointer-events: none;
-    }
-    .tabs-scroll-area::before {
-      left: 0;
-      width: 1.5rem;
-      background: linear-gradient(
-        to right,
-        color-mix(in srgb, var(--theme-bg) 30%, transparent) 0%,
-        transparent 100%
-      );
-    }
-    .tabs-scroll-area::after {
-      right: 0;
-      background: linear-gradient(
-        to left,
-        color-mix(in srgb, var(--theme-bg) 30%, transparent) 0%,
-        transparent 100%
-      );
-    }
     .tabs-wrapper {
       overflow-x: auto;
       scrollbar-width: none;

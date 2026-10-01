@@ -19,8 +19,8 @@ export class FeedbackPage extends LitElement {
       top: 0;
       z-index: 30;
       border-bottom: 1px solid var(--bluesky-border);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
+      backdrop-filter: var(--theme-header-blur);
+      -webkit-backdrop-filter: var(--theme-header-blur);
     }
     .header-row {
       display: flex;
