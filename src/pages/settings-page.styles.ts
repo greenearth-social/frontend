@@ -455,9 +455,7 @@ export const settingsPageStyles = css`
     padding: 0.75rem 0.625rem;
     border-radius: 16px;
     box-sizing: border-box;
-    /* a section holds other boxes, so it gets a soft shadow; a glow around
-       a box full of lighter boxes just looks smeared */
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--theme-box-glow);
   }
 
   .section-candidate {
@@ -557,17 +555,17 @@ export const settingsPageStyles = css`
   .config-card {
     margin-bottom: 0.5rem;
     border: 1px solid var(--theme-box-border);
-    background: color-mix(in srgb, var(--theme-blue) 16%, transparent);
+    background: color-mix(in srgb, var(--theme-blue) 10%, var(--theme-glass));
   }
 
   .source-card {
     border: 1px solid var(--theme-box-border);
-    background: color-mix(in srgb, var(--theme-blue) 16%, transparent);
+    background: color-mix(in srgb, var(--theme-blue) 10%, var(--theme-glass));
   }
 
   .signal-card {
     border: 1px solid var(--theme-box-border);
-    background: color-mix(in srgb, var(--theme-cyan) 16%, transparent);
+    background: color-mix(in srgb, var(--theme-cyan) 10%, var(--theme-glass));
   }
 
   .component-title {
