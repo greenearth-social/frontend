@@ -257,8 +257,14 @@ export class SettingsPage extends MobxLitElement {
                 </svg>
               </button>
               <h1 aria-label=${settingsTitle}>
-                <span class="page-title-full">${settingsTitle}</span>
-                <span class="page-title-short" aria-hidden="true">Settings</span>
+                <span class="page-title-full">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">${settingsTitle}</span>
+                </span>
+                <span class="page-title-short" aria-hidden="true">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">Settings</span>
+                </span>
               </h1>
               <div class="mobile-preview-row">
                 <button
@@ -325,7 +331,8 @@ export class SettingsPage extends MobxLitElement {
                         this.selectedAlgorithm === "random"
                           ? ""
                           : html`
-                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose, politics)}
+                              ${this.#renderArrow()}
+                              ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                             `
                       }
@@ -356,9 +363,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              ${
-                previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel
-              }
+              ${previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel}
             </button>
             <div class="preview-mobile-primary-actions">
               <button
@@ -377,8 +382,7 @@ export class SettingsPage extends MobxLitElement {
             </div>
           </div>
           ${
-            this.previewPhase === "complete" ||
-            (hasGeneratedPreview && previewBusy)
+            this.previewPhase === "complete" || (hasGeneratedPreview && previewBusy)
               ? html`<p class="preview-movement-help">Here’s how far up or down each post moved</p>`
               : ""
           }
@@ -918,12 +922,7 @@ export class SettingsPage extends MobxLitElement {
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
-    if (
-      !store ||
-      !root ||
-      !this.previewNeeded ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (!store || !root || !this.previewNeeded || this.#isPreviewBusy(store)) {
       return;
     }
     const previousPhase: PreviewPhase = this.previewPhase === "complete" ? "complete" : "idle";
@@ -1001,8 +1000,7 @@ export class SettingsPage extends MobxLitElement {
           animationOperation === this.previewAnimationOperation
         ) {
           accepted = await store.acceptGeneratedPreview(regenerated, patch).catch(() => {
-            this.settingsError =
-              "Preview could not be synchronized with MySky. Please try again.";
+            this.settingsError = "Preview could not be synchronized with MySky. Please try again.";
             return null;
           });
           if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
@@ -1117,10 +1115,7 @@ export class SettingsPage extends MobxLitElement {
     if (!this.isConnected || document.visibilityState === "hidden") return;
     const store = getSettingsPreviewStore();
     if (!store) return;
-    if (
-      store.isLoadingBaseline ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (store.isLoadingBaseline || this.#isPreviewBusy(store)) {
       this.baselineSyncPending = true;
       return;
     }

@@ -29,7 +29,7 @@ export class GeneratorBadge extends LitElement {
           font-size: 0.6875rem;
           font-weight: 600;
           padding: 0.1875rem 0.5rem;
-          border-radius: 9999px;
+          border-radius: var(--theme-radius-pill);
           white-space: nowrap;
           box-sizing: border-box;
           width: var(--theme-badge-width);

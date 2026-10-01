@@ -372,9 +372,9 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector("h1")?.getAttribute("aria-label")).toBe(
       "Random Settings",
     );
-    expect(element.shadowRoot?.querySelector(".page-title-full")?.textContent).toBe(
-      "Random Settings",
-    );
+    expect(
+      element.shadowRoot?.querySelector(".page-title-full .title-text")?.textContent,
+    ).toBe("Random Settings");
   });
 
   it("omits a weight from fixed Following details", async () => {
@@ -939,7 +939,7 @@ describe("SettingsPage", () => {
       /\.update-preview-btn\s*\{[^}]*background:\s*var\(--bluesky-brand\)/s,
     );
     expect(settingsPageStyles.cssText).toMatch(
-      /@media \(min-width: 1024px\)[\s\S]*\.update-preview-btn\s*\{[^}]*left:\s*50%/s,
+      /@media \(min-width: 1024px\)[\s\S]*\.update-preview-btn\s*\{[^}]*right:\s*1rem/s,
     );
     expect(
       Array.from(element.shadowRoot?.querySelector(".header-row")?.children ?? [])

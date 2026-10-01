@@ -199,7 +199,7 @@ export class SettingsFeedPreview extends LitElement {
       max-height: 8rem;
       padding: 0.75rem;
       border: 2px solid var(--theme-box-border);
-      border-radius: 0.875rem;
+      border-radius: var(--theme-radius-box);
       box-shadow: var(--theme-box-glow);
       background: color-mix(in srgb, var(--source-color) 14%, var(--surface, #16181c));
       backdrop-filter: var(--theme-glass-blur);
@@ -271,7 +271,7 @@ export class SettingsFeedPreview extends LitElement {
       width: var(--theme-badge-width);
       padding: 0.125rem 0.45rem;
       border: 1px solid var(--source-border);
-      border-radius: 999px;
+      border-radius: var(--theme-radius-pill);
       background: var(--source-color);
       color: var(--theme-on-cat);
       text-align: center;

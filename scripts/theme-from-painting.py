@@ -11,7 +11,7 @@ nothing else.
   --crop GEOMETRY   ImageMagick geometry taken from the top-left before
                     anything else, e.g. 86%x31%+14%+0 for a sky strip
   --blur SIGMA      Gaussian sigma in pixels of the 1600px-wide wallpaper
-                    (default 50: colour fields with cloud shapes)
+                    (default 30: soft colour fields)
 
 How the colours are picked: the pixels are k-means clustered in CIELAB,
 each cluster goes to OKLCH (lightness L, chroma C, hue h), and every
@@ -165,7 +165,7 @@ def main():
     ap = argparse.ArgumentParser(description="theme-from-painting: wallpaper + palette from a picture")
     ap.add_argument("painting")
     ap.add_argument("--crop", metavar="GEOMETRY")
-    ap.add_argument("--blur", type=float, default=50, metavar="SIGMA")
+    ap.add_argument("--blur", type=float, default=30, metavar="SIGMA")
     a = ap.parse_args()
 
     crop = ["-crop", a.crop, "+repage"] if a.crop else []
@@ -176,25 +176,10 @@ def main():
     # with the sky around it into grey; this lifts pixels that are both
     # bright and low in saturation (clouds, not sky or field) back towards
     # white. Global lifting or desaturating would turn the sky grey instead.
-    blurred = WALLPAPER.with_name("theme-blurred.png")
-    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%", str(blurred))
-    # The cloud mask comes from a much lighter blur (a fifth of the main
-    # one) so clouds keep their ragged shape instead of the perfect oval the
-    # heavy blur leaves; it fades out below mid-height so the field is never
-    # touched.
-    mask = WALLPAPER.with_name("theme-cloud-mask.png")
-    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 100:.2f}", "-resize", "2000%",
-           "-colorspace", "HSB",
-           "(", "-clone", "0", "-channel", "G", "-separate", "+channel", "-negate", ")",
-           "(", "-clone", "0", "-channel", "B", "-separate", "+channel", ")",
-           "-delete", "0", "-compose", "multiply", "-composite", "-level", "50%,100%",
-           "(", "-clone", "0", "-fill", "white", "-colorize", "100",
-           "-sparse-color", "barycentric", "0,0 white 0,%h black", "-level", "25%,65%", ")",
-           "-compose", "multiply", "-composite", "-evaluate", "multiply", "0.6", str(mask))
-    magick(str(blurred), "(", "+clone", "-fill", "white", "-colorize", "100", ")", str(mask),
-           "-compose", "over", "-composite", "-quality", "85", str(WALLPAPER))
-    blurred.unlink()
-    mask.unlink()
+    # No colour tuning: lifting, desaturating or masking a blurred painting
+    # looks synthetic. If the mood is wrong, pick another painting.
+    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%",
+           "-quality", "85", str(WALLPAPER))
     tmp = WALLPAPER.with_name("theme-source.png")
     magick(*base, str(tmp))
     cl = clusters(str(tmp))

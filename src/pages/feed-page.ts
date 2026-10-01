@@ -136,11 +136,33 @@ export class FeedPage extends MobxLitElement {
     .header-title {
       font-size: clamp(0.9375rem, 3.5vw, 1.25rem);
       font-weight: 700;
-      color: var(--bluesky-text);
+      color: var(--theme-title-color);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      max-width: 100%;
+      box-sizing: border-box;
+      vertical-align: middle;
       margin: 0;
+      padding: var(--theme-title-bubble-padding);
+      border-radius: var(--theme-radius-pill);
+      background: var(--theme-title-bubble-bg);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .title-logo {
+      width: 1.25em;
+      height: 1.25em;
+      flex: none;
+    }
+    .title-text {
+      background: var(--theme-title-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     @media (max-width: 480px) {
       .header-row {
@@ -277,15 +299,15 @@ export class FeedPage extends MobxLitElement {
           .logged-out-title {
             font-size: clamp(2rem, 10vw, 2.5rem);
             font-weight: 700;
-            color: var(--bluesky-text);
+            color: var(--theme-title-color);
             margin: 0 0 0.1rem 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-subtitle {
             font-size: 1rem;
             color: var(--bluesky-text-secondary);
             margin: 0 0 0.875rem 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-btn {
             width: 100%;
@@ -294,12 +316,12 @@ export class FeedPage extends MobxLitElement {
             background: var(--bluesky-brand);
             color: var(--bluesky-on-brand);
             border: none;
-            border-radius: 9999px;
+            border-radius: var(--theme-radius-pill);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.15s;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-btn:hover {
             background: var(--bluesky-brand-hover);
@@ -327,7 +349,7 @@ export class FeedPage extends MobxLitElement {
             box-sizing: border-box;
             width: 100%;
             border: 1px solid var(--bluesky-border);
-            border-radius: 0.75rem;
+            border-radius: var(--theme-radius-pill);
             padding: 0.75rem 0.875rem;
             background: color-mix(in srgb, var(--theme-fg) 6%, transparent);
             color: var(--bluesky-text);
@@ -428,7 +450,10 @@ export class FeedPage extends MobxLitElement {
                 </svg>
               </button>
               <div style="flex: 1; min-width: 0;">
-                <h1 class="header-title">Why Am I Seeing This?</h1>
+                <h1 class="header-title">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">Why Am I Seeing This?</span>
+                </h1>
               </div>
               ${
                 uiStore.selectedAlgorithm !== "random"

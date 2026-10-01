@@ -38,7 +38,7 @@ export const settingsPageStyles = css`
     min-height: 36px;
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--bluesky-border);
-    border-radius: 999px;
+    border-radius: var(--theme-radius-pill);
     background: var(--bluesky-bg-card);
     color: var(--bluesky-text);
     font: inherit;
@@ -211,7 +211,7 @@ export const settingsPageStyles = css`
     min-height: 36px;
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--bluesky-border);
-    border-radius: 999px;
+    border-radius: var(--theme-radius-pill);
     background: var(--bluesky-bg-card);
     color: var(--bluesky-text);
     font: inherit;
@@ -306,7 +306,7 @@ export const settingsPageStyles = css`
     margin: 0.75rem 1rem 0;
     padding: 0.7rem 0.8rem;
     border: 1px solid var(--bluesky-border);
-    border-radius: 0.75rem;
+    border-radius: var(--theme-radius-box);
     background: var(--bluesky-bg-card);
     color: var(--bluesky-text-secondary);
     font-size: 0.75rem;
@@ -348,9 +348,31 @@ export const settingsPageStyles = css`
   h1 {
     flex: 1;
     margin: 0;
-    color: var(--bluesky-text);
+    color: var(--theme-title-color);
     font-size: 1.25rem;
     font-weight: 700;
+  }
+  h1 > span,
+  .title-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--theme-title-bubble-padding);
+    border-radius: var(--theme-radius-pill);
+    background: var(--theme-title-bubble-bg);
+    backdrop-filter: var(--theme-glass-blur);
+    -webkit-backdrop-filter: var(--theme-glass-blur);
+    }
+  .title-logo {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+  }
+  .title-text {
+    background: var(--theme-title-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .page-title-short {
@@ -377,7 +399,7 @@ export const settingsPageStyles = css`
     flex-shrink: 0;
     padding: 0.45rem 0.75rem;
     border: 1px solid var(--bluesky-border);
-    border-radius: 9999px;
+    border-radius: var(--theme-radius-pill);
     background: var(--bluesky-bg-card);
     color: var(--bluesky-text);
     font: inherit;
@@ -453,7 +475,7 @@ export const settingsPageStyles = css`
     width: calc(100% - 0.5rem);
     margin-inline: 0.25rem;
     padding: 0.75rem 0.625rem;
-    border-radius: 16px;
+    border-radius: var(--theme-radius-box);
     box-sizing: border-box;
     /* a section holds other boxes; with a glow it melts into the page */
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
@@ -530,7 +552,7 @@ export const settingsPageStyles = css`
   .control-card {
     min-width: 0;
     padding: 0.5rem;
-    border-radius: 12px;
+    border-radius: var(--theme-radius-box);
     box-sizing: border-box;
     color: var(--theme-fg);
   }
@@ -578,7 +600,7 @@ export const settingsPageStyles = css`
     margin: -0.2rem 0 0;
     padding: 0.1rem 0.375rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--theme-radius-pill);
     background: transparent;
     color: inherit;
     font: inherit;
@@ -668,7 +690,7 @@ export const settingsPageStyles = css`
     transform: translateX(-7px);
     padding: 0;
     border: 1px solid color-mix(in srgb, var(--theme-fg) 58%, transparent);
-    border-radius: 9px;
+    border-radius: var(--theme-radius-pill);
     background: color-mix(in srgb, var(--theme-blue) 25%, transparent);
     color: color-mix(in srgb, var(--theme-fg) 90%, transparent);
     cursor: pointer;
@@ -734,7 +756,7 @@ export const settingsPageStyles = css`
     min-height: 44px;
     padding: 0.5rem 0.875rem;
     border: 0;
-    border-radius: 9999px;
+    border-radius: var(--theme-radius-pill);
     background: var(--bluesky-bg-card);
     color: var(--theme-fg);
     font-family: inherit;
@@ -805,7 +827,7 @@ export const settingsPageStyles = css`
     max-height: calc(100dvh - 2rem);
     padding: 1.25rem 1.5rem;
     border: 1px solid var(--theme-box-border);
-    border-radius: 16px;
+    border-radius: var(--theme-radius-box);
     box-sizing: border-box;
     overflow-y: auto;
     background: var(--theme-pane);
@@ -1016,7 +1038,13 @@ export const settingsPageStyles = css`
     }
 
     .page-title-short {
-      display: inline;
+      display: inline-flex;
+      padding-inline: 0.45rem;
+    }
+
+    /* no room for the logo once the title is the short "Settings" */
+    .title-logo {
+      display: none;
     }
 
     .mobile-preview-row {
@@ -1176,22 +1204,34 @@ export const settingsPageStyles = css`
       display: none;
     }
 
+    /* Undo and Defaults share one size whatever their labels */
+    .header-row > .history-btn,
+    .header-row > .reset-defaults-btn {
+      box-sizing: border-box;
+      width: 7rem;
+      max-width: none;
+      height: 40px;
+      min-height: 40px;
+      flex: 0 0 auto;
+    }
+
     .update-preview-btn {
       position: absolute;
-      left: 50%;
+      right: 1rem;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transform: translateX(-50%);
     }
 
     .update-preview-btn.is-status:disabled {
       min-height: 0;
-      padding: 0;
+      padding: var(--theme-title-bubble-padding);
       border: 0;
-      border-radius: 0;
-      background: transparent;
-      color: var(--bluesky-text);
+      border-radius: var(--theme-radius-pill);
+      background: var(--theme-title-bubble-bg);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+      color: var(--theme-title-color);
       font-size: 1.125rem;
       font-weight: 800;
       line-height: 1.1;

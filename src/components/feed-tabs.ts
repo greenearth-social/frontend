@@ -96,7 +96,7 @@ export class FeedTabs extends LitElement {
       overscroll-behavior: contain;
       padding: 0.9rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-box);
       background: var(--theme-pane);
       backdrop-filter: var(--theme-glass-blur);
       -webkit-backdrop-filter: var(--theme-glass-blur);
@@ -153,7 +153,7 @@ export class FeedTabs extends LitElement {
       margin: 0.75rem 0;
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       color: var(--bluesky-text-secondary);
       font-size: 0.72rem;
       line-height: 1.45;
@@ -168,7 +168,7 @@ export class FeedTabs extends LitElement {
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       scrollbar-width: thin;
       scrollbar-color: var(--bluesky-text-secondary) transparent;
     }

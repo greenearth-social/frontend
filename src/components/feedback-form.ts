@@ -26,7 +26,7 @@ export class FeedbackForm extends LitElement {
     .feedback-card {
       padding: 1rem;
       border: 1px solid var(--theme-box-border);
-      border-radius: 1rem;
+      border-radius: var(--theme-radius-box);
       box-shadow: var(--theme-box-glow);
       background: var(--theme-glass);
       backdrop-filter: var(--theme-glass-blur);
@@ -48,7 +48,7 @@ export class FeedbackForm extends LitElement {
       resize: vertical;
       padding: 0.75rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-pill);
       outline: none;
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
@@ -80,7 +80,7 @@ export class FeedbackForm extends LitElement {
       min-width: 6rem;
       padding: 0.625rem 1rem;
       border: 0;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       background: var(--bluesky-brand);
       color: var(--bluesky-on-brand);
       cursor: pointer;
@@ -129,10 +129,10 @@ export class FeedbackForm extends LitElement {
       overflow: auto;
       margin: 0.75rem 0 0;
       padding: 0.75rem;
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-family: var(--theme-font);
       font-size: 0.6875rem;
       line-height: 1.45;
       white-space: pre-wrap;

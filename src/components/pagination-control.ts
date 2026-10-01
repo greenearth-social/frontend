@@ -33,7 +33,7 @@ export class PaginationControl extends LitElement {
       height: 36px;
       padding: 0 0.5rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       font-size: 0.875rem;
@@ -90,7 +90,7 @@ export class PaginationControl extends LitElement {
     .per-page-select select {
       padding: 0.5rem 2rem 0.5rem 0.75rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       font-size: 0.9375rem;

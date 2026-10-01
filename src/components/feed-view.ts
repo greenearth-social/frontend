@@ -68,7 +68,7 @@ export class FeedView extends MobxLitElement {
       max-width: 100%;
       padding: 0.2rem 0.4rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.375rem;
+      border-radius: var(--theme-radius-pill);
       color: var(--bluesky-text);
       overflow-wrap: anywhere;
     }
@@ -77,7 +77,7 @@ export class FeedView extends MobxLitElement {
       align-items: center;
       gap: 0.375rem;
       padding: 0.5rem 1.25rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       border: 1px solid var(--bluesky-brand);
       color: var(--bluesky-brand);
       font-size: 0.875rem;

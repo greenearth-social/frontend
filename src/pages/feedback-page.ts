@@ -34,9 +34,28 @@ export class FeedbackPage extends LitElement {
     h1 {
       flex: 1;
       margin: 0;
-      color: var(--bluesky-text);
+      color: var(--theme-title-color);
       font-size: 1.25rem;
       font-weight: 700;
+    }
+    h1 > span {
+      display: inline-block;
+      padding: var(--theme-title-bubble-padding);
+      border-radius: var(--theme-radius-pill);
+      background: var(--theme-title-bubble-bg);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+    }
+    .title-logo {
+      width: 1.25em;
+      height: 1.25em;
+      flex: none;
+    }
+    .title-text {
+      background: var(--theme-title-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .hamburger-btn {
       display: none;
@@ -95,7 +114,12 @@ export class FeedbackPage extends LitElement {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <h1>Feedback</h1>
+          <h1>
+            <span>
+              <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+              <span class="title-text">Feedback</span>
+            </span>
+          </h1>
         </div>
       </div>
       <div class="content">

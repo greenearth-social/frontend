@@ -135,7 +135,7 @@ export class AppShell extends MobxLitElement {
       width: 100%;
       padding: 0.25rem;
       border: 1px solid var(--theme-box-border);
-      border-radius: 0.875rem;
+      border-radius: var(--theme-radius-box);
       box-shadow: var(--theme-box-glow);
       background: var(--theme-glass);
       backdrop-filter: var(--theme-glass-blur);
@@ -149,7 +149,7 @@ export class AppShell extends MobxLitElement {
       display: flex;
       align-items: center;
       min-height: 44px;
-      border-radius: 0.6875rem;
+      border-radius: var(--theme-radius-pill);
       background: transparent;
       color: var(--bluesky-text);
       transition: background-color 0.15s;
@@ -241,7 +241,7 @@ export class AppShell extends MobxLitElement {
       height: 52px;
       padding: 0;
       border: 1px solid var(--bluesky-text-secondary);
-      border-radius: 6px;
+      border-radius: 6px; /* a tab on the divider, not a pill */
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       place-items: center;
@@ -280,7 +280,7 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       box-sizing: border-box;
       padding: 0.625rem;
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-pill);
       color: var(--bluesky-text);
       text-decoration: none;
       font-size: 0.8125rem;
@@ -345,7 +345,7 @@ export class AppShell extends MobxLitElement {
       align-items: center;
       gap: 0.75rem;
       padding: 0.5rem 0.75rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       border: none;
       background: transparent;
       cursor: default;
@@ -402,10 +402,10 @@ export class AppShell extends MobxLitElement {
       height: 36px;
       border-radius: 9999px;
       border: none;
-      background: transparent;
+      background: var(--bluesky-bg-card);
       cursor: pointer;
       transition: background 0.15s;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
       flex-shrink: 0;
       position: relative;
       z-index: 10;
@@ -424,7 +424,7 @@ export class AppShell extends MobxLitElement {
       right: 0;
       background: var(--bluesky-bg-card);
       border: 1px solid var(--theme-box-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-box);
       padding: 0.25rem;
       min-width: 120px;
       z-index: 100;
@@ -441,7 +441,7 @@ export class AppShell extends MobxLitElement {
       gap: 0.5rem;
       width: 100%;
       padding: 0.5rem 0.75rem;
-      border-radius: 0.375rem;
+      border-radius: var(--theme-radius-pill);
       border: none;
       background: transparent;
       cursor: pointer;

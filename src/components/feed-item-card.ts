@@ -25,7 +25,7 @@ export class FeedItemCard extends MobxLitElement {
       backdrop-filter: var(--theme-glass-blur);
       -webkit-backdrop-filter: var(--theme-glass-blur);
       border: 1px solid var(--theme-box-border);
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-box);
       box-shadow: var(--theme-box-glow);
       padding: 0.75rem 1rem;
       max-width: 100%;
@@ -88,7 +88,7 @@ export class FeedItemCard extends MobxLitElement {
     .content-badge {
       font-size: 0.75rem;
       padding: 0.25rem 0.625rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       background: color-mix(in srgb, var(--theme-fg) 10%, transparent);
       color: var(--bluesky-text);
       border: 1px solid color-mix(in srgb, var(--theme-fg) 15%, transparent);
@@ -101,7 +101,7 @@ export class FeedItemCard extends MobxLitElement {
       justify-content: center;
       width: 2rem;
       height: 2rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       font-size: 1rem;
       color: var(--bluesky-brand);
       background: transparent;

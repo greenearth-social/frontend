@@ -20,7 +20,7 @@ export class RightSidebar extends LitElement {
       backdrop-filter: var(--theme-glass-blur);
       -webkit-backdrop-filter: var(--theme-glass-blur);
       border: 1px solid var(--theme-box-border);
-      border-radius: 1rem;
+      border-radius: var(--theme-radius-box);
       box-shadow: var(--theme-box-glow);
       overflow: hidden;
       margin-bottom: 1rem;
@@ -74,7 +74,7 @@ export class RightSidebar extends LitElement {
       align-items: center;
       gap: 0.375rem;
       padding: 0.5rem 1rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       border: 1px solid var(--bluesky-brand);
       color: var(--bluesky-brand);
       font-size: 0.875rem;

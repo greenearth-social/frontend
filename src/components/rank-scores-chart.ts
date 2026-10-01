@@ -108,7 +108,7 @@ export class RankScoresChart extends LitElement {
     }
     .source-pill-button {
       width: fit-content;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       -webkit-tap-highlight-color: transparent;
     }
     .explanation-value-button:hover {
@@ -188,7 +188,7 @@ export class RankScoresChart extends LitElement {
       backdrop-filter: var(--theme-glass-blur);
       -webkit-backdrop-filter: var(--theme-glass-blur);
       border: 1px solid var(--theme-box-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-box);
       padding: 0.75rem;
       font-size: 0.75rem;
       line-height: 1.5;
@@ -242,9 +242,9 @@ export class RankScoresChart extends LitElement {
       margin: 0.75rem 0;
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.4rem;
+      border-radius: var(--theme-radius-pill);
       background: color-mix(in srgb, var(--theme-fg) 3%, transparent);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-family: var(--theme-font);
       font-size: 0.72rem;
       font-weight: 700;
       text-align: center;
@@ -311,7 +311,7 @@ export class RankScoresChart extends LitElement {
         height: auto;
         padding: 0.75rem;
         background: color-mix(in srgb, var(--theme-fg) 2%, transparent);
-        border-radius: 0.5rem;
+        border-radius: var(--theme-radius-box);
       }
       .source-content {
         flex-direction: row;

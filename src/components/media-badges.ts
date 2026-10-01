@@ -21,7 +21,7 @@ export class MediaBadges extends LitElement {
             <span style="
               font-size: 0.75rem;
               padding: 0.1875rem 0.5rem;
-              border-radius: 9999px;
+              border-radius: var(--theme-radius-pill);
               background: color-mix(in srgb, var(--theme-orange) 10%, transparent);
               color: var(--theme-orange);
               border: 1px solid color-mix(in srgb, var(--theme-orange) 30%, transparent);
