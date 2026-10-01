@@ -25,9 +25,12 @@ export class FeedbackForm extends LitElement {
     }
     .feedback-card {
       padding: 1rem;
-      border: 1px solid var(--bluesky-border);
+      border: 1px solid var(--theme-box-border);
       border-radius: 1rem;
-      background: var(--term-glass);
+      box-shadow: var(--theme-box-glow);
+      background: var(--theme-glass);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
     }
     label {
       display: block;
@@ -47,7 +50,7 @@ export class FeedbackForm extends LitElement {
       border: 1px solid var(--bluesky-border);
       border-radius: 0.75rem;
       outline: none;
-      background: var(--bluesky-bg);
+      background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       font: inherit;
       line-height: 1.5;
@@ -105,7 +108,7 @@ export class FeedbackForm extends LitElement {
       color: var(--bluesky-repost);
     }
     .status.test {
-      color: var(--term-3);
+      color: var(--theme-yellow);
     }
     .status.error {
       color: var(--bluesky-danger);
@@ -127,7 +130,7 @@ export class FeedbackForm extends LitElement {
       margin: 0.75rem 0 0;
       padding: 0.75rem;
       border-radius: 0.5rem;
-      background: var(--bluesky-bg);
+      background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.6875rem;

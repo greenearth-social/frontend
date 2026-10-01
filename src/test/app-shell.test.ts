@@ -853,7 +853,7 @@ describe("AppShell algorithm selector", () => {
     expect(element.shadowRoot?.querySelector("feedback-page")?.selectedAlgorithm).toBe("your-feed");
   });
 
-  it("keeps feed groups independently expandable with unique control ids", async () => {
+  it("shows the pages of the selected feed only, and selecting a feed opens its pages", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -864,119 +864,23 @@ describe("AppShell algorithm selector", () => {
     expect(greenPages?.hidden).toBe(false);
     expect(friendsPages?.hidden).toBe(true);
     expect(greenPages?.closest(".feed-group")?.classList.contains("active-feed")).toBe(true);
-    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
+    expect(root?.querySelector(".algo-toggle")).toBeNull();
 
     root
       ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Expand Best of Friends pages"]',
+        '.left-sidebar-desktop .algo-btn[aria-label="Best of Friends"]',
       )
       ?.click();
     await element.updateComplete;
-    expect(greenPages?.hidden).toBe(false);
-    expect(friendsPages?.hidden).toBe(false);
-    expect(friendsPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(true);
-
-    root
-      ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky pages"]',
-      )
-      ?.click();
-    await element.updateComplete;
+    expect(window.location.hash).toBe("#/feed/best-of-friends");
     expect(greenPages?.hidden).toBe(true);
     expect(friendsPages?.hidden).toBe(false);
-    expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(false);
+    expect(friendsPages?.closest(".feed-group")?.classList.contains("active-feed")).toBe(true);
 
     const ids = Array.from(root?.querySelectorAll<HTMLElement>("[id$='-pages']") ?? []).map(
       (node) => node.id,
     );
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("collapses the selected feed from its title on desktop and mobile", async () => {
-    const element = document.createElement("app-shell");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const desktopPages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
-    const drawerPages = element.shadowRoot?.querySelector<HTMLElement>("#drawer-your-feed-pages");
-    const desktopFeed = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '.left-sidebar-desktop .algo-btn[aria-label="MySky"]',
-    );
-
-    expect(desktopPages?.hidden).toBe(false);
-    expect(drawerPages?.hidden).toBe(false);
-    desktopFeed?.click();
-    await element.updateComplete;
-
-    expect(desktopPages?.hidden).toBe(true);
-    expect(drawerPages?.hidden).toBe(true);
-    expect(window.location.hash).toBe("#/feed/your-feed");
-    expect(testState.rootStore.uiStore.setSelectedAlgorithm).not.toHaveBeenCalled();
-
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>('.drawer .algo-toggle[aria-label="Expand MySky pages"]')
-      ?.click();
-    await element.updateComplete;
-    expect(drawerPages?.hidden).toBe(false);
-
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>('.drawer .algo-btn[aria-label="MySky"]')
-      ?.click();
-    await element.updateComplete;
-    expect(desktopPages?.hidden).toBe(true);
-    expect(drawerPages?.hidden).toBe(true);
-  });
-
-  it("toggles the active feed pages from its icon in collapsed desktop navigation", async () => {
-    const feedLabel = ALGORITHMS["your-feed"].label;
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${window.location.search}#/feed/your-feed`,
-    );
-    const element = document.createElement("app-shell");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const pages = element.shadowRoot?.querySelector<HTMLElement>("#desktop-your-feed-pages");
-    const feedGroup = pages?.closest<HTMLElement>(".feed-group");
-    expect(feedGroup?.classList.contains("active-feed")).toBe(true);
-    expect(pages?.hidden).toBe(false);
-
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .desktop-sidebar-toggle[aria-label="Collapse navigation"]',
-      )
-      ?.click();
-    await vi.waitFor(() => {
-      expect(
-        element.shadowRoot
-          ?.querySelector(".shell-container")
-          ?.classList.contains("sidebar-collapsed"),
-      ).toBe(true);
-      const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
-      expect(collapseFeed).not.toBeNull();
-      expect(collapseFeed?.getAttribute("aria-label")).toBe(`Collapse ${feedLabel} pages`);
-      expect(collapseFeed?.getAttribute("aria-expanded")).toBe("true");
-      expect(collapseFeed?.getAttribute("aria-controls")).toBe("desktop-your-feed-pages");
-    });
-
-    const collapseFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
-
-    collapseFeed?.click();
-    await vi.waitFor(() => {
-      expect(pages?.hidden).toBe(true);
-      const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
-      expect(expandFeed).not.toBeNull();
-      expect(expandFeed?.getAttribute("aria-label")).toBe(`Expand ${feedLabel} pages`);
-      expect(expandFeed?.getAttribute("aria-expanded")).toBe("false");
-    });
-
-    const expandFeed = feedGroup?.querySelector<HTMLButtonElement>(".algo-btn");
-    expandFeed?.click();
-    await vi.waitFor(() => {
-      expect(pages?.hidden).toBe(false);
-    });
   });
 
   it("selects the most recent feed when multiple feeds have the same feedName", async () => {

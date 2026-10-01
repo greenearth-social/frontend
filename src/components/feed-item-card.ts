@@ -21,15 +21,14 @@ export class FeedItemCard extends MobxLitElement {
       margin: 0.5rem 0.75rem 0.5rem 1.5rem;
     }
     .card {
-      background: var(--term-glass);
-      border: 1px solid var(--bluesky-border);
+      background: var(--theme-glass);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+      border: 1px solid var(--theme-box-border);
       border-radius: 0.75rem;
+      box-shadow: var(--theme-box-glow);
       padding: 0.75rem 1rem;
-      transition: background 0.15s;
       max-width: 100%;
-    }
-    .card:hover {
-      background: var(--bluesky-bg-hover);
     }
     .author-row {
       display: flex;
@@ -90,9 +89,9 @@ export class FeedItemCard extends MobxLitElement {
       font-size: 0.75rem;
       padding: 0.25rem 0.625rem;
       border-radius: 9999px;
-      background: color-mix(in srgb, var(--term-fg) 10%, transparent);
+      background: color-mix(in srgb, var(--theme-fg) 10%, transparent);
       color: var(--bluesky-text);
-      border: 1px solid color-mix(in srgb, var(--term-fg) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--theme-fg) 15%, transparent);
       font-weight: 500;
       white-space: nowrap;
     }

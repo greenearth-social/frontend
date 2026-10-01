@@ -661,10 +661,8 @@ export class SettingsPage extends MobxLitElement {
 
   #renderPolitics(politics: number): TemplateResult {
     return html`
-      <div class="politics-card">
-        <div class="politics-heading">
-          ${this.#titleButton("politics", "Politics")}
-        </div>
+      <div class="control-card signal-card politics-card">
+        ${this.#titleButton("politics", "Politics")}
         <div class="politics-control">
           <icon-range-slider
             min="0"

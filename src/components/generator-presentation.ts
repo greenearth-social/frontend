@@ -5,30 +5,33 @@ export interface GeneratorPresentation {
   label: string;
 }
 
-// Badge colours from one terminal palette slot (--term-N in styles/index.css).
-function slot(n: number, label: string): GeneratorPresentation {
-  const color = `var(--term-${String(n)})`;
+// Badge colours from one theme colour (--theme-NAME in styles/index.css).
+// `color` is the category's own colour, used for borders and tints; the
+// badge itself is filled with it and lettered in the page background colour,
+// so every badge reads the same way whatever hue it got.
+function slot(name: string, label: string): GeneratorPresentation {
+  const color = `var(--theme-${name})`;
   return {
-    background: `color-mix(in srgb, ${color} 12%, transparent)`,
+    background: color,
     color,
-    border: `color-mix(in srgb, ${color} 80%, transparent)`,
+    border: color,
     label,
   };
 }
 
-const NEUTRAL: GeneratorPresentation = slot(8, "Other");
+const NEUTRAL: GeneratorPresentation = slot("mute", "Other");
 
-const AUTHOR_TOPIC: GeneratorPresentation = slot(14, "Author/Topic");
+const AUTHOR_TOPIC: GeneratorPresentation = slot("cat-1", "Author/Topic");
 
 const RANDOM: GeneratorPresentation = { ...NEUTRAL, label: "random" };
 
 export const GENERATOR_PRESENTATIONS = {
   two_tower: AUTHOR_TOPIC,
   two_tower_empty_history: AUTHOR_TOPIC,
-  followed_users: slot(1, "Following"),
-  popularity: slot(6, "Popular"),
-  post_similarity: slot(10, "Similar"),
-  network_likes: slot(3, "Followed Likes"),
+  followed_users: slot("cat-2", "Following"),
+  popularity: slot("cat-4", "Popular"),
+  post_similarity: slot("cat-5", "Similar"),
+  network_likes: slot("cat-3", "Followed Likes"),
   random_posts: RANDOM,
 } satisfies Record<string, GeneratorPresentation>;
 

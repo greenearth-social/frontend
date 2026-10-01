@@ -27,9 +27,6 @@ export class FeedTabs extends LitElement {
       display: flex;
       align-items: stretch;
       min-height: 2.75rem;
-      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
     }
     .tabs-scroll-area {
@@ -52,8 +49,7 @@ export class FeedTabs extends LitElement {
       width: 1.5rem;
       background: linear-gradient(
         to right,
-        color-mix(in srgb, var(--bluesky-bg) 95%, transparent) 0%,
-        color-mix(in srgb, var(--bluesky-bg) 70%, transparent) 50%,
+        color-mix(in srgb, var(--theme-bg) 30%, transparent) 0%,
         transparent 100%
       );
     }
@@ -61,8 +57,7 @@ export class FeedTabs extends LitElement {
       right: 0;
       background: linear-gradient(
         to left,
-        color-mix(in srgb, var(--bluesky-bg) 95%, transparent) 0%,
-        color-mix(in srgb, var(--bluesky-bg) 70%, transparent) 50%,
+        color-mix(in srgb, var(--theme-bg) 30%, transparent) 0%,
         transparent 100%
       );
     }
@@ -129,7 +124,9 @@ export class FeedTabs extends LitElement {
       padding: 0.9rem;
       border: 1px solid var(--bluesky-border);
       border-radius: 0.75rem;
-      background: var(--bluesky-bg);
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
       margin: 0;
@@ -239,14 +236,14 @@ export class FeedTabs extends LitElement {
       left: 0;
       z-index: 1;
       text-align: left;
-      background: var(--bluesky-bg);
-      box-shadow: 0.55rem 0 0.75rem -0.75rem color-mix(in srgb, var(--term-fg) 55%, transparent);
+      background: var(--theme-pane);
+      box-shadow: 0.55rem 0 0.75rem -0.75rem color-mix(in srgb, var(--theme-fg) 55%, transparent);
     }
     thead th:first-child {
       z-index: 2;
     }
     .status-problem {
-      color: var(--term-3);
+      color: var(--theme-yellow);
     }
     .reason {
       display: block;

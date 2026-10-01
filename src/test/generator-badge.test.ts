@@ -50,16 +50,16 @@ describe("GeneratorBadge", () => {
 
   it("uses a unique color for every generator source", () => {
     expect(generatorPresentation("followed_users")).toMatchObject({
-      color: "var(--term-1)",
-      border: "color-mix(in srgb, var(--term-1) 80%, transparent)",
+      color: "var(--theme-cat-2)",
+      border: "var(--theme-cat-2)",
     });
     expect(generatorPresentation("network_likes")).toMatchObject({
-      color: "var(--term-3)",
-      border: "color-mix(in srgb, var(--term-3) 80%, transparent)",
+      color: "var(--theme-cat-3)",
+      border: "var(--theme-cat-3)",
     });
     expect(generatorPresentation("popularity")).toMatchObject({
-      color: "var(--term-6)",
-      border: "color-mix(in srgb, var(--term-6) 80%, transparent)",
+      color: "var(--theme-cat-4)",
+      border: "var(--theme-cat-4)",
     });
 
     const colors = GENERATOR_LEGEND.map(({ color }) => color);

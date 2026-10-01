@@ -16,9 +16,12 @@ export class RightSidebar extends LitElement {
   static styles = css`
     :host { display: block; }
     .card {
-      background: var(--term-glass);
-      border: 1px solid var(--bluesky-border);
+      background: var(--theme-glass);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+      border: 1px solid var(--theme-box-border);
       border-radius: 1rem;
+      box-shadow: var(--theme-box-glow);
       overflow: hidden;
       margin-bottom: 1rem;
     }

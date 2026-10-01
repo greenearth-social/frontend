@@ -16,9 +16,9 @@ describe("DiscreteSlider icon states", () => {
     expect(styles).toMatch(/\.step-icon-image\s*\{[^}]*grayscale\(100%\)/s);
     expect(styles).toMatch(/\.step-btn\.active \.step-icon-image\s*\{[^}]*grayscale\(0%\)/s);
     expect(styles).toMatch(/\.thumb\s*\{[^}]*height: 3px/s);
-    expect(styles).toMatch(/\.thumb\s*\{[^}]*background: var\(--bluesky-brand\)/s);
+    expect(styles).toMatch(/\.thumb\s*\{[^}]*background: var\(--bluesky-fill\)/s);
     expect(styles).toMatch(
-      /\.thumb\s*\{[^}]*color-mix\(in srgb, var\(--bluesky-brand\) 55%, transparent\)/s,
+      /\.thumb\s*\{[^}]*color-mix\(in srgb, var\(--bluesky-fill\) 55%, transparent\)/s,
     );
     expect(styles).toMatch(/@media \(max-width: 600px\)[\s\S]*width: 20px/);
     expect(styles).toMatch(/\.slider-wrapper\s*\{[^}]*overflow: hidden/s);

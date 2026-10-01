@@ -6,8 +6,8 @@ import { styleMap } from "lit/directives/style-map.js";
 import "./generator-badge";
 
 const RANKER_COLORS: Record<string, string> = {
-  Engaging: "var(--term-9)",
-  Constructive: "var(--term-5)",
+  Engaging: "var(--theme-orange)",
+  Constructive: "var(--theme-pink)",
 };
 
 const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
@@ -184,8 +184,10 @@ export class RankScoresChart extends LitElement {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+      border: 1px solid var(--theme-box-border);
       border-radius: 0.5rem;
       padding: 0.75rem;
       font-size: 0.75rem;
@@ -241,7 +243,7 @@ export class RankScoresChart extends LitElement {
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
       border-radius: 0.4rem;
-      background: color-mix(in srgb, var(--term-fg) 3%, transparent);
+      background: color-mix(in srgb, var(--theme-fg) 3%, transparent);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.72rem;
       font-weight: 700;
@@ -308,7 +310,7 @@ export class RankScoresChart extends LitElement {
         min-width: 120px;
         height: auto;
         padding: 0.75rem;
-        background: color-mix(in srgb, var(--term-fg) 2%, transparent);
+        background: color-mix(in srgb, var(--theme-fg) 2%, transparent);
         border-radius: 0.5rem;
       }
       .source-content {
@@ -597,7 +599,7 @@ export class RankScoresChart extends LitElement {
                           class="ranker-bar-fill"
                           style=${styleMap({
                             width: `${String(rr.pct)}%`,
-                            backgroundColor: color,
+                            backgroundColor: "var(--bluesky-fill)",
                           })}
                         ></span>
                       </span>

@@ -16,20 +16,18 @@ export const settingsPageStyles = css`
   .feed-column {
     display: none;
     min-width: 0;
-    background: var(--term-glass-nav);
   }
 
   .preview-header {
     position: relative;
     display: flex;
-    min-height: 60px;
+    min-height: var(--theme-header-height);
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     padding: 0.65rem 1rem;
     border-bottom: 1px solid var(--bluesky-border);
     box-sizing: border-box;
-    background: color-mix(in srgb, var(--bluesky-bg) 94%, transparent);
   }
 
   .update-preview-btn,
@@ -331,16 +329,18 @@ export const settingsPageStyles = css`
     top: 0;
     z-index: 30;
     border-bottom: 1px solid var(--bluesky-border);
-    background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: var(--theme-glass-blur);
+    -webkit-backdrop-filter: var(--theme-glass-blur);
   }
 
   .header-row {
     display: flex;
+    /* the 1px is the sticky header's own bottom line */
+    min-height: calc(var(--theme-header-height) - 1px);
+    box-sizing: border-box;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.75rem 1.5rem;
+    padding: 0.5rem 1.5rem;
   }
 
   h1 {
@@ -453,26 +453,28 @@ export const settingsPageStyles = css`
     padding: 0.75rem 0.625rem;
     border-radius: 16px;
     box-sizing: border-box;
+    /* the glow sits on the section, not on the tinted cards nested inside it */
+    box-shadow: var(--theme-box-glow);
   }
 
   .section-candidate {
-    border: 1px solid color-mix(in srgb, var(--term-4) 25%, transparent);
-    background: color-mix(in srgb, var(--term-4) 8%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-blue) 8%, transparent);
   }
 
   .section-ranking {
-    border: 1px solid color-mix(in srgb, var(--term-6) 25%, transparent);
-    background: color-mix(in srgb, var(--term-6) 8%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-cyan) 8%, transparent);
   }
 
   .section-diversification {
-    border: 1px solid color-mix(in srgb, var(--term-3) 25%, transparent);
-    background: color-mix(in srgb, var(--term-3) 8%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-yellow) 8%, transparent);
   }
 
   .section-title {
     margin: 0 0 0.5rem;
-    color: var(--term-4);
+    color: var(--theme-fg);
     font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -500,7 +502,7 @@ export const settingsPageStyles = css`
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--term-4);
+    color: var(--theme-blue);
     font-family: inherit;
     cursor: pointer;
   }
@@ -522,39 +524,19 @@ export const settingsPageStyles = css`
     outline-offset: 1px;
   }
 
-  .section-ranking .section-title {
-    color: var(--term-6);
-  }
-
-  .section-diversification .section-title {
-    color: var(--term-3);
-  }
 
   .control-card {
     min-width: 0;
     padding: 0.5rem;
     border-radius: 12px;
     box-sizing: border-box;
-    color: var(--term-fg);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
-    transition:
-      transform 150ms ease,
-      box-shadow 150ms ease,
-      filter 150ms ease;
+    color: var(--theme-fg);
   }
 
   .control-card:focus-within {
     z-index: 1;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .control-card:hover {
-      z-index: 1;
-      filter: brightness(1.06);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
-    }
   }
 
   .saved-settings-loading {
@@ -571,18 +553,18 @@ export const settingsPageStyles = css`
 
   .config-card {
     margin-bottom: 0.5rem;
-    border: 1px solid color-mix(in srgb, var(--term-9) 45%, transparent);
-    background: color-mix(in srgb, var(--term-9) 16%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-blue) 16%, transparent);
   }
 
   .source-card {
-    border: 1px solid color-mix(in srgb, var(--term-4) 45%, transparent);
-    background: color-mix(in srgb, var(--term-4) 16%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-blue) 16%, transparent);
   }
 
   .signal-card {
-    border: 1px solid color-mix(in srgb, var(--term-6) 45%, transparent);
-    background: color-mix(in srgb, var(--term-6) 16%, transparent);
+    border: 1px solid var(--theme-box-border);
+    background: color-mix(in srgb, var(--theme-cyan) 16%, transparent);
   }
 
   .component-title {
@@ -641,9 +623,9 @@ export const settingsPageStyles = css`
   }
 
   .source-slider-card icon-range-slider {
-    --icon-track-color: color-mix(in srgb, var(--term-fg) 28%, transparent);
-    --icon-fill-color: var(--term-4);
-    --icon-tick-color: color-mix(in srgb, var(--term-fg) 82%, transparent);
+    --icon-track-color: color-mix(in srgb, var(--theme-fg) 28%, transparent);
+    --icon-fill-color: var(--bluesky-fill);
+    --icon-tick-color: color-mix(in srgb, var(--theme-fg) 82%, transparent);
   }
 
   .source-list {
@@ -683,10 +665,10 @@ export const settingsPageStyles = css`
     height: 38px;
     transform: translateX(-7px);
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--term-fg) 58%, transparent);
+    border: 1px solid color-mix(in srgb, var(--theme-fg) 58%, transparent);
     border-radius: 9px;
-    background: color-mix(in srgb, var(--term-4) 25%, transparent);
-    color: color-mix(in srgb, var(--term-fg) 90%, transparent);
+    background: color-mix(in srgb, var(--theme-blue) 25%, transparent);
+    color: color-mix(in srgb, var(--theme-fg) 90%, transparent);
     cursor: pointer;
     transition:
       opacity 150ms ease,
@@ -695,22 +677,22 @@ export const settingsPageStyles = css`
   }
 
   .source-lock-btn[aria-pressed="true"] {
-    border-color: var(--term-11);
-    background: var(--term-10);
-    color: var(--term-bg);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--term-10) 30%, transparent);
+    border-color: var(--theme-yellow-bright);
+    background: var(--theme-green-bright);
+    color: var(--theme-bg);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-green-bright) 30%, transparent);
   }
 
   .source-lock-btn:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--term-fg) 75%, transparent);
+    outline: 3px solid color-mix(in srgb, var(--theme-fg) 75%, transparent);
     outline-offset: 2px;
   }
 
   .source-lock-btn:disabled {
     cursor: not-allowed;
-    border-color: color-mix(in srgb, var(--term-8) 32%, transparent);
-    background: color-mix(in srgb, var(--term-0) 48%, transparent);
-    color: color-mix(in srgb, var(--term-fg) 72%, transparent);
+    border-color: color-mix(in srgb, var(--theme-mute) 32%, transparent);
+    background: color-mix(in srgb, var(--theme-dim) 48%, transparent);
+    color: color-mix(in srgb, var(--theme-fg) 72%, transparent);
     opacity: 0.58;
   }
 
@@ -751,27 +733,23 @@ export const settingsPageStyles = css`
     padding: 0.5rem 0.875rem;
     border: 0;
     border-radius: 9999px;
-    background: var(--term-9);
-    color: var(--term-bg);
+    background: var(--bluesky-bg-card);
+    color: var(--theme-fg);
     font-family: inherit;
     font-size: 0.75rem;
-    font-style: italic;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 3px 12px color-mix(in srgb, var(--term-9) 30%, transparent);
-    transition:
-      transform 150ms ease,
-      filter 150ms ease,
-      box-shadow 150ms ease;
+    transition: background 150ms ease;
   }
 
   .penalty-pill:hover,
   .penalty-pill:focus-visible {
-    filter: brightness(1.08);
-    outline: 2px solid color-mix(in srgb, var(--term-fg) 65%, transparent);
+    background: var(--bluesky-bg-hover);
+  }
+
+  .penalty-pill:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--theme-fg) 65%, transparent);
     outline-offset: 2px;
-    transform: translateY(-2px);
-    box-shadow: 0 7px 18px color-mix(in srgb, var(--term-9) 40%, transparent);
   }
 
   .arrow-connector {
@@ -786,36 +764,16 @@ export const settingsPageStyles = css`
   }
 
   .arrow-line {
-    stroke: color-mix(in srgb, var(--term-8) 50%, transparent);
+    stroke: color-mix(in srgb, var(--theme-mute) 50%, transparent);
     stroke-width: 2;
   }
 
   .arrow-head {
-    fill: color-mix(in srgb, var(--term-8) 60%, transparent);
+    fill: color-mix(in srgb, var(--theme-mute) 60%, transparent);
   }
 
   .politics-card {
     grid-column: 1 / -1;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 1rem;
-    border: 1px solid var(--bluesky-border);
-    border-radius: 14px;
-    background: var(--term-glass);
-  }
-
-  .politics-heading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .politics-heading .component-title {
-    width: auto;
-    margin: 0;
-    color: var(--bluesky-text);
   }
 
   feedback-form {
@@ -844,11 +802,13 @@ export const settingsPageStyles = css`
     width: min(420px, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: 1.25rem 1.5rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--theme-box-border);
     border-radius: 16px;
     box-sizing: border-box;
     overflow-y: auto;
-    background: var(--bluesky-bg-card);
+    background: var(--theme-pane);
+    backdrop-filter: var(--theme-glass-blur);
+    -webkit-backdrop-filter: var(--theme-glass-blur);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 
@@ -873,7 +833,7 @@ export const settingsPageStyles = css`
     flex-shrink: 0;
     border: 0;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--term-fg) 10%, transparent);
+    background: color-mix(in srgb, var(--theme-fg) 10%, transparent);
     color: var(--bluesky-text);
     cursor: pointer;
   }

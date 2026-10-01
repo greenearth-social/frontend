@@ -19,15 +19,17 @@ export class FeedbackPage extends LitElement {
       top: 0;
       z-index: 30;
       border-bottom: 1px solid var(--bluesky-border);
-      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
     }
     .header-row {
       display: flex;
+      /* the 1px is the header's own bottom line */
+      min-height: calc(var(--theme-header-height) - 1px);
+      box-sizing: border-box;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1.5rem;
+      padding: 0.5rem 1.5rem;
     }
     h1 {
       flex: 1;

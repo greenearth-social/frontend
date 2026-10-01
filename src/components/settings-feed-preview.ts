@@ -198,9 +198,12 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 4.375rem;
       max-height: 8rem;
       padding: 0.75rem;
-      border: 2px solid var(--source-border);
+      border: 2px solid var(--theme-box-border);
       border-radius: 0.875rem;
-      background: var(--surface, #16181c);
+      box-shadow: var(--theme-box-glow);
+      background: color-mix(in srgb, var(--source-color) 14%, var(--surface, #16181c));
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
       color: inherit;
       opacity: 1;
       text-decoration: none;
@@ -230,7 +233,7 @@ export class SettingsFeedPreview extends LitElement {
     .author {
       overflow: hidden;
       flex: 1;
-      color: var(--source-color);
+      color: inherit;
       font-size: 0.875rem;
       font-weight: 700;
       text-overflow: ellipsis;
@@ -264,12 +267,14 @@ export class SettingsFeedPreview extends LitElement {
     .source-pill,
     .content-pill {
       overflow: hidden;
-      min-width: 0;
+      box-sizing: border-box;
+      width: var(--theme-badge-width);
       padding: 0.125rem 0.45rem;
       border: 1px solid var(--source-border);
       border-radius: 999px;
-      background: color-mix(in srgb, var(--source-color) 12%, transparent);
-      color: var(--source-color);
+      background: var(--source-color);
+      color: var(--theme-on-cat);
+      text-align: center;
       font-size: 0.625rem;
       font-weight: 650;
       text-overflow: ellipsis;

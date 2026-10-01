@@ -10,7 +10,6 @@ test.describe("feed-scoped navigation", () => {
 
   test("navigates within feed groups and remembers the last feed", async ({ page }) => {
     const desktop = page.locator(".left-sidebar-desktop");
-    await desktop.getByRole("button", { name: "Expand Best of Friends pages" }).click();
     await desktop.locator('.algo-btn[aria-label="Best of Friends"]').click();
     await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
     await desktop.locator('a[href="#/settings/best-of-friends"]').click();
@@ -63,13 +62,13 @@ test.describe("feed-scoped navigation", () => {
     await blueskyFeed.close();
   });
 
-  test("selected feed titles collapse their pages on desktop and mobile", async ({ page }) => {
+  test("the selected feed keeps its pages open on desktop and mobile", async ({ page }) => {
     const desktop = page.locator(".left-sidebar-desktop");
     const desktopPages = desktop.locator("#desktop-your-feed-pages");
     await expect(desktopPages).toBeVisible();
 
     await desktop.locator('.algo-btn[aria-label="MySky"]').click();
-    await expect(desktopPages).toBeHidden();
+    await expect(desktopPages).toBeVisible();
     await expect(page).toHaveURL(/#\/feed\/your-feed$/);
 
     await page.setViewportSize({ width: 375, height: 667 });
@@ -77,17 +76,14 @@ test.describe("feed-scoped navigation", () => {
     const drawer = page.locator(".drawer.open");
     await expect(drawer).toBeVisible();
 
-    await drawer.getByRole("button", { name: "Expand MySky pages" }).click();
     const drawerPages = drawer.locator("#drawer-your-feed-pages");
     await expect(drawerPages).toBeVisible();
-    await drawer.locator('.algo-btn[aria-label="MySky"]').click();
-    await expect(drawerPages).toBeHidden();
-    await expect(drawer).toBeVisible();
-    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
+    await expect(drawer.locator("#drawer-best-of-friends-pages")).toBeHidden();
 
     await drawer.locator('.algo-btn[aria-label="Best of Friends"]').click();
     await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
     await expect(drawer.locator("#drawer-best-of-friends-pages")).toBeVisible();
+    await expect(drawerPages).toBeHidden();
   });
 
   test("anchors the collapsible desktop navigation across every page", async ({ page }) => {
@@ -117,7 +113,15 @@ test.describe("feed-scoped navigation", () => {
       "background-color",
       "rgba(0, 0, 0, 0)",
     );
-    await expect(logout).toHaveCSS("color", "rgb(238, 150, 117)");
+    const dangerColor = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--bluesky-danger)";
+      document.body.appendChild(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await expect(logout).toHaveCSS("color", dangerColor);
     await expect
       .poll(() =>
         logout.locator('wa-icon[name="lock"]').evaluate((icon) => {
@@ -129,29 +133,6 @@ test.describe("feed-scoped navigation", () => {
     const logoutBox = await logout.boundingBox();
     expect(logoutBox).not.toBeNull();
     expect((logoutBox?.y ?? -1) + (logoutBox?.height ?? 0)).toBeLessThanOrEqual(520);
-  });
-
-  test("active feed icon toggles its pages in the collapsed desktop rail", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 720 });
-    const feedLabel = ALGORITHMS["your-feed"].label;
-    const desktop = page.locator(".left-sidebar-desktop");
-    await desktop.getByRole("button", { name: "Collapse navigation" }).click();
-
-    const pages = desktop.locator("#desktop-your-feed-pages");
-    const collapseFeed = desktop.getByRole("button", {
-      name: `Collapse ${feedLabel} pages`,
-    });
-    await expect(collapseFeed).toHaveAttribute("aria-expanded", "true");
-    await collapseFeed.click();
-    await expect(pages).toBeHidden();
-    await expect(page).toHaveURL(/#\/feed\/your-feed$/);
-
-    const expandFeed = desktop.getByRole("button", { name: `Expand ${feedLabel} pages` });
-    await expandFeed.click();
-    await expect(pages).toBeVisible();
-    await expect(
-      desktop.getByRole("button", { name: `Collapse ${feedLabel} pages` }),
-    ).toHaveAttribute("aria-expanded", "true");
   });
 
   test("opens the same drawer from a nested Settings page", async ({ page }) => {
@@ -185,13 +166,9 @@ test.describe("feed-scoped navigation", () => {
     await page.setViewportSize({ width: 1024, height: 720 });
     const desktop = page.locator(".left-sidebar-desktop");
 
-    for (const feed of ["Best of Friends", "Random"]) {
-      await desktop.getByRole("button", { name: `Expand ${feed} pages` }).click();
-    }
-
     const groups = desktop.locator(".feed-group");
     await expect(groups).toHaveCount(3);
-    await expect(desktop.locator(".feed-subnav:not([hidden])")).toHaveCount(3);
+    await expect(desktop.locator(".feed-subnav:not([hidden])")).toHaveCount(1);
 
     const groupStyles = await groups.evaluateAll((elements) =>
       elements.map((element) => ({
@@ -575,11 +552,19 @@ test.describe("feed-scoped navigation", () => {
         name: "Unlock Liked by Following weight",
       }),
     ).toHaveAttribute("aria-pressed", "true");
+    const lockedColor = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.backgroundColor = "var(--theme-green-bright)";
+      document.body.appendChild(probe);
+      const color = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return color;
+    });
     await expect(
       page.getByRole("button", {
         name: "Unlock Liked by Following weight",
       }),
-    ).toHaveCSS("background-color", "rgb(168, 213, 50)");
+    ).toHaveCSS("background-color", lockedColor);
     await expect(following).toHaveAttribute("aria-valuemax", "0.8");
     await following.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
@@ -759,8 +744,6 @@ for (const width of [240, 320, 375]) {
     }));
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-    await drawer.getByRole("button", { name: "Expand Best of Friends pages" }).click();
-    await drawer.getByRole("button", { name: "Expand Random pages" }).click();
     const vertical = await drawer.evaluate((element) => ({
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
@@ -787,8 +770,8 @@ for (const width of [240, 320, 375]) {
     await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
     await expect(drawer).toBeVisible();
 
-    await drawer.getByRole("link", { name: "Settings" }).first().click();
-    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
+    await drawer.locator('a[href="#/settings/best-of-friends"]').click();
+    await expect(page).toHaveURL(/#\/settings\/best-of-friends$/);
     await expect(drawer).not.toBeVisible();
   });
 }

@@ -62,8 +62,8 @@ export class DiscreteSlider extends LitElement {
       width: 24px;
       height: 3px;
       border-radius: 9999px;
-      background: var(--bluesky-brand);
-      box-shadow: 0 0 6px color-mix(in srgb, var(--bluesky-brand) 55%, transparent);
+      background: var(--bluesky-fill);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--bluesky-fill) 55%, transparent);
       pointer-events: none;
       z-index: 1;
     }
@@ -99,11 +99,11 @@ export class DiscreteSlider extends LitElement {
       fill: var(--bluesky-text-secondary);
     }
     .step-btn:hover .step-icon-svg {
-      fill: var(--term-10);
+      fill: var(--theme-green-bright);
       opacity: 0.85;
     }
     .step-btn:hover .step-icon-image {
-      filter: grayscale(50%) drop-shadow(0 0 0.55px var(--term-10));
+      filter: grayscale(50%) drop-shadow(0 0 0.55px var(--theme-green-bright));
       opacity: 0.85;
     }
     .step-btn.active .step-icon {
@@ -112,13 +112,13 @@ export class DiscreteSlider extends LitElement {
       opacity: 1;
     }
     .step-btn.active .step-icon-svg {
-      fill: var(--term-10);
+      fill: var(--theme-green-bright);
     }
     .step-btn.active .step-icon-image {
-      filter: grayscale(0%) drop-shadow(0 0 0.65px var(--term-10));
+      filter: grayscale(0%) drop-shadow(0 0 0.65px var(--theme-green-bright));
     }
     .step-btn.active:hover .step-icon-image {
-      filter: grayscale(0%) drop-shadow(0 0 0.65px var(--term-10));
+      filter: grayscale(0%) drop-shadow(0 0 0.65px var(--theme-green-bright));
     }
     .step-btn:disabled {
       cursor: default;

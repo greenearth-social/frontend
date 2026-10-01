@@ -86,18 +86,20 @@ export class FeedPage extends MobxLitElement {
       position: sticky;
       top: 0;
       z-index: 30;
-      background: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
     }
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);
     }
     .header-row {
       display: flex;
+      /* the 1px is the header's own bottom line */
+      min-height: calc(var(--theme-header-height) - 1px);
+      box-sizing: border-box;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1rem 0.5rem;
+      padding: 0.5rem 1rem;
     }
     .source-breakdown-button {
       display: inline-grid;
@@ -109,7 +111,7 @@ export class FeedPage extends MobxLitElement {
       border: 1px solid var(--bluesky-border);
       border-radius: 9999px;
       color: var(--bluesky-text);
-      background: color-mix(in srgb, var(--term-fg) 4%, transparent);
+      background: color-mix(in srgb, var(--theme-fg) 4%, transparent);
       font: inherit;
       font-size: 0.8125rem;
       font-weight: 700;
@@ -327,7 +329,7 @@ export class FeedPage extends MobxLitElement {
             border: 1px solid var(--bluesky-border);
             border-radius: 0.75rem;
             padding: 0.75rem 0.875rem;
-            background: color-mix(in srgb, var(--term-fg) 6%, transparent);
+            background: color-mix(in srgb, var(--theme-fg) 6%, transparent);
             color: var(--bluesky-text);
             font: inherit;
             margin-bottom: 0.875rem;

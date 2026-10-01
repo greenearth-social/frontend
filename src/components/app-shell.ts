@@ -2,7 +2,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
-import { html, css, nothing } from "lit";
+import { html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import {
@@ -42,9 +42,7 @@ export class AppShell extends MobxLitElement {
   private _drawerOpen = false;
   @state() private _desktopSidebarCollapsed = false;
   @state() private _showLogoutMenu = false;
-  @state() private _expandedAlgorithms = new Set<AlgorithmId>();
   @state() private _authFailureMessage = "";
-  private _lastRouteFeed: AlgorithmId | null = null;
   private _lastSettingsViewedFeed: AlgorithmId | null = null;
   private _settingsVisitReportedForUser: string | null = null;
   private _settingsVisitInFlightForUser: string | null = null;
@@ -73,7 +71,6 @@ export class AppShell extends MobxLitElement {
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      background: var(--term-glass-nav);
     }
     .left-sidebar-desktop {
       position: relative;
@@ -137,23 +134,23 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       width: 100%;
       padding: 0.25rem;
-      border: 1px solid var(--bluesky-border);
+      border: 1px solid var(--theme-box-border);
       border-radius: 0.875rem;
-      background: color-mix(in srgb, var(--bluesky-bg-hover) 30%, transparent);
-      transition:
-        border-color 0.15s,
-        background-color 0.15s;
+      box-shadow: var(--theme-box-glow);
+      background: var(--theme-glass);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
+      transition: background-color 0.15s;
     }
     .feed-group.active-feed {
-      border-color: var(--bluesky-brand);
-      background: color-mix(in srgb, var(--bluesky-brand) 8%, transparent);
+      background: color-mix(in srgb, var(--bluesky-brand) 16%, var(--theme-glass));
     }
     .algo-row {
       display: flex;
       align-items: center;
       min-height: 44px;
       border-radius: 0.6875rem;
-      background: var(--bluesky-bg-hover);
+      background: transparent;
       color: var(--bluesky-text);
       transition: background-color 0.15s;
       min-width: 0;
@@ -199,30 +196,6 @@ export class AppShell extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .algo-toggle {
-      width: 44px;
-      height: 44px;
-      flex: 0 0 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      border-radius: 9999px;
-      background: transparent;
-      color: inherit;
-      cursor: pointer;
-    }
-    .algo-toggle:hover {
-      background: color-mix(in srgb, var(--term-fg) 12%, transparent);
-    }
-    .algo-toggle wa-icon {
-      font-size: 1rem;
-      transition: transform 0.15s ease;
-    }
-    .algo-toggle[aria-expanded="true"] wa-icon {
-      transform: rotate(180deg);
     }
 
     .feed-subnav {
@@ -317,13 +290,13 @@ export class AppShell extends MobxLitElement {
       background: var(--bluesky-bg-hover);
     }
     .nav-link.active {
-      background: var(--term-0);
-      color: var(--term-2);
+      background: var(--bluesky-bg-hover);
+      color: var(--theme-green);
       font-weight: 700;
     }
     .nav-link.active:hover {
-      background: var(--term-0);
-      color: var(--term-10);
+      background: var(--theme-dim);
+      color: var(--theme-green-bright);
     }
     .nav-link wa-icon {
       font-size: 1.125rem;
@@ -350,9 +323,8 @@ export class AppShell extends MobxLitElement {
     }
 
     .algo-btn:focus-visible,
-    .algo-toggle:focus-visible,
     .nav-link:focus-visible {
-      outline: 2px solid var(--term-cursor);
+      outline: 2px solid var(--theme-blue-bright);
       outline-offset: 2px;
     }
 
@@ -367,7 +339,6 @@ export class AppShell extends MobxLitElement {
       padding: 0.5rem 0.75rem;
       border-top: 1px solid var(--bluesky-border);
       box-sizing: border-box;
-      background: var(--bluesky-nav-bg);
     }
     .user-btn {
       display: flex;
@@ -409,7 +380,7 @@ export class AppShell extends MobxLitElement {
       text-overflow: ellipsis;
       display: block;
       width: 100%;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
     }
 
     .user-details-handle--primary {
@@ -420,7 +391,7 @@ export class AppShell extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
     }
 
     .more-btn {
@@ -452,7 +423,7 @@ export class AppShell extends MobxLitElement {
       bottom: calc(100% + 0.5rem);
       right: 0;
       background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
+      border: 1px solid var(--theme-box-border);
       border-radius: 0.5rem;
       padding: 0.25rem;
       min-width: 120px;
@@ -528,7 +499,6 @@ export class AppShell extends MobxLitElement {
       }
 
       .shell-container.sidebar-collapsed .algo-label,
-      .shell-container.sidebar-collapsed .algo-toggle,
       .shell-container.sidebar-collapsed .nav-label,
       .shell-container.sidebar-collapsed .external-link-icon,
       .shell-container.sidebar-collapsed .user-details {
@@ -614,7 +584,9 @@ export class AppShell extends MobxLitElement {
       width: 280px;
       max-width: calc(100vw - 32px);
       box-sizing: border-box;
-      background: var(--bluesky-nav-bg);
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
+      -webkit-backdrop-filter: var(--theme-glass-blur);
       transform: translateX(-100%);
       transition: transform 0.25s ease;
       display: flex;
@@ -649,7 +621,7 @@ export class AppShell extends MobxLitElement {
       width: 40px;
       height: 40px;
       border-radius: 9999px;
-      border: 1px solid var(--bluesky-border);
+      border: 1px solid var(--theme-box-border);
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
       cursor: pointer;
@@ -922,56 +894,27 @@ export class AppShell extends MobxLitElement {
             ${ALGORITHM_IDS.map((id) => {
               const algo = ALGORITHMS[id];
               const isActiveFeed = this._currentFeed === id;
-              const isExpanded = this._expandedAlgorithms.has(id);
               const subnavId = `${surface}-${id}-pages`;
-              const togglesCollapsedActiveFeed =
-                surface === "desktop" && this._desktopSidebarCollapsed && isActiveFeed;
+              // Choosing a feed is the one action: its pages show while it
+              // is the selected feed, the other feeds stay folded.
               return html`
-                <div
-                  class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
-                >
+                <div class="feed-group ${isActiveFeed ? "active-feed" : ""}">
                   <div class="algo-row ${isActiveFeed ? "active" : ""}">
                     <button
                       class="algo-btn"
                       @click=${() => {
-                        if (isActiveFeed) {
-                          this.#toggleAlgorithmExpanded(id);
-                          return;
-                        }
                         void this.#navigateTo(this._currentPage, id);
                       }}
-                      aria-label=${
-                        togglesCollapsedActiveFeed
-                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                          : algo.label
-                      }
+                      aria-label=${algo.label}
                       aria-pressed=${isActiveFeed}
-                      aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
-                      aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
-                      title=${
-                        togglesCollapsedActiveFeed
-                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                          : nothing
-                      }
+                      aria-controls=${subnavId}
                       type="button"
                     >
                       <wa-icon name=${algo.icon} library="app"></wa-icon>
                       <span class="algo-label">${algo.label}</span>
                     </button>
-                    <button
-                      class="algo-toggle"
-                      type="button"
-                      aria-label="${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages"
-                      aria-expanded=${isExpanded}
-                      aria-controls=${subnavId}
-                      @click=${() => {
-                        this.#toggleAlgorithmExpanded(id);
-                      }}
-                    >
-                      <wa-icon name="chevron-down" library="app"></wa-icon>
-                    </button>
                   </div>
-                  <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
+                  <div id=${subnavId} class="feed-subnav" ?hidden=${!isActiveFeed}>
                     <a
                       href=${algo.blueskyUrl}
                       class="nav-link view-feed-link"
@@ -1164,10 +1107,6 @@ export class AppShell extends MobxLitElement {
     this._currentRoute = route.path;
     this._currentPage = route.page;
     this._currentFeed = route.feedName;
-    if (this._lastRouteFeed !== route.feedName) {
-      this._expandedAlgorithms = new Set([...this._expandedAlgorithms, route.feedName]);
-      this._lastRouteFeed = route.feedName;
-    }
     this.#syncSelectedAlgorithm(route.feedName);
     this.requestUpdate();
 
@@ -1213,18 +1152,7 @@ export class AppShell extends MobxLitElement {
     this._authFailureMessage = "";
   };
 
-  #toggleAlgorithmExpanded(id: AlgorithmId): void {
-    const expanded = new Set(this._expandedAlgorithms);
-    if (expanded.has(id)) {
-      expanded.delete(id);
-    } else {
-      expanded.add(id);
-    }
-    this._expandedAlgorithms = expanded;
-  }
-
   #navigateTo(page: AppPage, id: AlgorithmId): Promise<void> {
-    this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
     const path = feedScopedPath(page, id);
     this.#commitNavigation(path);
     return Promise.resolve();
@@ -1283,7 +1211,6 @@ export class AppShell extends MobxLitElement {
     this._currentRoute = "/feed";
     this._currentPage = "feed";
     this._currentFeed = "your-feed";
-    this._lastRouteFeed = null;
     this.requestUpdate();
   };
 

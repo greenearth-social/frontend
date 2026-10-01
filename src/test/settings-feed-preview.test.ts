@@ -104,7 +104,7 @@ describe("settings feed content badges", () => {
     const snippet = element.shadowRoot?.querySelector(".snippet");
     expect(snippet?.nextElementSibling?.classList.contains("content-row")).toBe(true);
     expect(SettingsFeedPreview.styles.cssText).toContain("border: 1px solid var(--source-border)");
-    expect(SettingsFeedPreview.styles.cssText).toContain("color: var(--source-color)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("background: var(--source-color)");
     expect(SettingsFeedPreview.styles.cssText).toContain("max-height: 8rem");
     element.remove();
   });
