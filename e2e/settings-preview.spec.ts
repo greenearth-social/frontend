@@ -166,7 +166,8 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
   expect(
     await settings.evaluate((element) => {
       const controls = element.shadowRoot?.querySelector(".controls-column");
-      const feed = element.shadowRoot?.querySelector(".feed-scroll");
+      // the preview column scrolls as a whole so its header can stay sticky
+      const feed = element.shadowRoot?.querySelector(".feed-column");
       return {
         controls: controls ? getComputedStyle(controls).overflowY : "",
         feed: feed ? getComputedStyle(feed).overflowY : "",

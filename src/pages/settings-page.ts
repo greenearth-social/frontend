@@ -1034,6 +1034,8 @@ export class SettingsPage extends MobxLitElement {
       await this.updateComplete;
       const feedScroll = this.renderRoot.querySelector<HTMLElement>(".feed-scroll");
       if (feedScroll) feedScroll.scrollTop = 0;
+      const feedColumn = this.renderRoot.querySelector<HTMLElement>(".feed-column");
+      if (feedColumn) feedColumn.scrollTop = 0;
       if (isMobilePreview) {
         // Let the overlay settle briefly before its contents begin moving so
         // the transition to the Preview screen remains easy to follow.

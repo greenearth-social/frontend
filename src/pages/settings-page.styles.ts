@@ -1129,25 +1129,42 @@ export const settingsPageStyles = css`
       border-right: 1px solid var(--bluesky-border);
     }
 
+    /* On desktop the column itself scrolls and the Preview header is sticky
+       inside it, like the settings header in its column. A header outside
+       the scroller cannot frost what scrolls past, so the cards must scroll
+       in the same box as the header. */
     .feed-column {
       position: relative;
       display: flex;
       min-height: 0;
       flex-direction: column;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
-
-    /* The preview cards scroll under the Preview header, the way the
-       settings scroll under theirs, so the header's blur has something to
-       frost. */
+    .feed-column:has(.preview-viewport.is-busy) {
+      overflow: hidden;
+    }
     .feed-column .preview-header {
+      position: sticky;
+      top: 0;
       z-index: 2;
     }
     .feed-column .preview-viewport {
-      margin-top: calc(-1 * var(--theme-header-height));
+      flex: none;
+      min-height: auto;
     }
     .feed-column .feed-scroll {
-      padding-top: var(--theme-header-height);
-      box-sizing: border-box;
+      height: auto;
+      overflow: visible;
+    }
+    .feed-column .preview-generation-overlay {
+      display: block;
+    }
+    .feed-column .preview-generation-overlay wa-spinner {
+      position: sticky;
+      top: calc(50vh - 1.25rem);
+      display: block;
+      margin: 0 auto;
     }
 
     .preview-close {
