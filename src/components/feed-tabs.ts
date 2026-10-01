@@ -99,7 +99,6 @@ export class FeedTabs extends LitElement {
       border-radius: var(--theme-radius-box);
       background: var(--theme-pane);
       backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
       margin: 0;
@@ -107,7 +106,6 @@ export class FeedTabs extends LitElement {
     .popover::backdrop {
       background: rgba(0, 0, 0, 0.58);
       backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
     }
     .popover-title {
       font-size: 0.875rem;
@@ -210,7 +208,8 @@ export class FeedTabs extends LitElement {
       z-index: 1;
       text-align: left;
       background: var(--theme-pane);
-      box-shadow: 0.55rem 0 0.75rem -0.75rem color-mix(in srgb, var(--theme-fg) 55%, transparent);
+      box-shadow: 0.55rem 0 0.75rem -0.75rem
+        color-mix(in srgb, var(--bluesky-text) 55%, transparent);
     }
     thead th:first-child {
       z-index: 2;

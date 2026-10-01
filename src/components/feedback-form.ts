@@ -1,4 +1,5 @@
 import { LitElement, css, html } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedbackSurface } from "../config/runtime-config";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -19,18 +20,13 @@ export class FeedbackForm extends LitElement {
   @state() private previewPayload: FeedbackEventPayload | null = null;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: block;
       width: 100%;
     }
     .feedback-card {
       padding: 1rem;
-      border: 1px solid var(--theme-box-border);
-      border-radius: var(--theme-radius-box);
-      box-shadow: var(--theme-box-glow);
-      background: var(--theme-glass);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
     }
     label {
       display: block;
@@ -147,7 +143,7 @@ export class FeedbackForm extends LitElement {
     const unavailable = unavailableReason !== null;
 
     return html`
-      <form class="feedback-card" @submit=${this.#handleSubmit}>
+      <form class="feedback-card glass-box" @submit=${this.#handleSubmit}>
         <label for="feedback-input">${this.prompt}</label>
         <textarea
           id="feedback-input"

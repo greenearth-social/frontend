@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import {
@@ -50,6 +51,7 @@ export class AppShell extends MobxLitElement {
   private _authFinishInFlight = false;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: flex;
       justify-content: center;
@@ -134,12 +136,6 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       width: 100%;
       padding: 0.25rem;
-      border: 1px solid var(--theme-box-border);
-      border-radius: var(--theme-radius-box);
-      box-shadow: var(--theme-box-glow);
-      background: var(--theme-glass);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
       transition: background-color 0.15s;
     }
     .feed-group.active-feed {
@@ -163,7 +159,7 @@ export class AppShell extends MobxLitElement {
        same green lettering */
     .algo-row.active {
       background: var(--theme-title-bubble-bg);
-      color: var(--theme-title-color);
+      color: var(--bluesky-text);
     }
     .algo-row.active .algo-label {
       font-weight: 800;
@@ -429,7 +425,6 @@ export class AppShell extends MobxLitElement {
       bottom: calc(100% + 0.5rem);
       right: 0;
       background: var(--bluesky-bg-card);
-      border: 1px solid var(--theme-box-border);
       border-radius: var(--theme-radius-box);
       padding: 0.25rem;
       min-width: 120px;
@@ -592,7 +587,6 @@ export class AppShell extends MobxLitElement {
       box-sizing: border-box;
       background: var(--theme-pane);
       backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
       transform: translateX(-100%);
       transition: transform 0.25s ease;
       display: flex;
@@ -627,7 +621,7 @@ export class AppShell extends MobxLitElement {
       width: 40px;
       height: 40px;
       border-radius: 9999px;
-      border: 1px solid var(--theme-box-border);
+      border: 0;
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
       cursor: pointer;
@@ -904,7 +898,7 @@ export class AppShell extends MobxLitElement {
               // Choosing a feed is the one action: its pages show while it
               // is the selected feed, the other feeds stay folded.
               return html`
-                <div class="feed-group ${isActiveFeed ? "active-feed" : ""}">
+                <div class="feed-group glass-box ${isActiveFeed ? "active-feed" : ""}">
                   <div class="algo-row ${isActiveFeed ? "active" : ""}">
                     <button
                       class="algo-btn"

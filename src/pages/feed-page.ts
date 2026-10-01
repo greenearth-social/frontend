@@ -4,6 +4,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
+import { titleBubble } from "../styles/theme";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { ALGORITHMS, ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
@@ -32,6 +33,7 @@ export class FeedPage extends MobxLitElement {
   private _lifecycleSyncKey: string | null = null;
 
   static styles = css`
+    ${titleBubble}
     :host {
       display: block;
       overscroll-behavior-y: contain;
@@ -87,7 +89,6 @@ export class FeedPage extends MobxLitElement {
       top: 0;
       z-index: 30;
       backdrop-filter: var(--theme-header-blur);
-      -webkit-backdrop-filter: var(--theme-header-blur);
     }
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);
@@ -111,7 +112,7 @@ export class FeedPage extends MobxLitElement {
       border: 1px solid var(--bluesky-border);
       border-radius: 9999px;
       color: var(--bluesky-text);
-      background: color-mix(in srgb, var(--theme-fg) 4%, transparent);
+      background: color-mix(in srgb, var(--bluesky-text) 4%, transparent);
       font: inherit;
       font-size: 0.8125rem;
       font-weight: 700;
@@ -134,36 +135,15 @@ export class FeedPage extends MobxLitElement {
       cursor: default;
     }
     .header-title {
-      font-size: clamp(0.9375rem, 3.5vw, 1.25rem);
+      font-size: clamp(1.0625rem, 3.5vw, 1.5rem);
       font-weight: 700;
-      color: var(--theme-title-color);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
       max-width: 100%;
       box-sizing: border-box;
       vertical-align: middle;
       margin: 0;
-      padding: var(--theme-title-bubble-padding);
-      border-radius: var(--theme-radius-pill);
-      background: var(--theme-title-bubble-bg);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .title-logo {
-      width: 1.8em;
-      height: 1.8em;
-      margin-block: -0.3em;
-      flex: none;
-    }
-    .title-text {
-      background: var(--theme-title-gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
     }
     @media (max-width: 480px) {
       .header-row {
@@ -300,7 +280,7 @@ export class FeedPage extends MobxLitElement {
           .logged-out-title {
             font-size: clamp(2rem, 10vw, 2.5rem);
             font-weight: 700;
-            color: var(--theme-title-color);
+            color: var(--bluesky-text);
             margin: 0 0 0.1rem 0;
             font-family: var(--theme-font);
           }
@@ -352,7 +332,7 @@ export class FeedPage extends MobxLitElement {
             border: 1px solid var(--bluesky-border);
             border-radius: var(--theme-radius-pill);
             padding: 0.75rem 0.875rem;
-            background: color-mix(in srgb, var(--theme-fg) 6%, transparent);
+            background: color-mix(in srgb, var(--bluesky-text) 6%, transparent);
             color: var(--bluesky-text);
             font: inherit;
             margin-bottom: 0.875rem;
@@ -451,7 +431,7 @@ export class FeedPage extends MobxLitElement {
                 </svg>
               </button>
               <div style="flex: 1; min-width: 0;">
-                <h1 class="header-title">
+                <h1 class="header-title title-bubble">
                   <img class="title-logo" src="/assets/mysky-small.png" alt="" />
                   <span class="title-text">Why Am I Seeing This?</span>
                 </h1>

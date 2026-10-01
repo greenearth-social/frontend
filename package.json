@@ -13,8 +13,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "theme": "python3 scripts/theme-from-painting.py"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@adobe/lit-mobx": "^2.2.2",

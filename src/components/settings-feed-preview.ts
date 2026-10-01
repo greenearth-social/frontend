@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing, type PropertyValues } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import type { FeedItemView, FilteringCounts } from "../models/feed-debug-snapshot";
@@ -128,10 +129,11 @@ export class SettingsFeedPreview extends LitElement {
   private currentSlate: FeedItemView[] = [];
 
   static styles = css`
+    ${glassBox}
     :host {
       display: block;
       min-height: 100%;
-      color: var(--text-primary, #e7e9ea);
+      color: var(--bluesky-text);
     }
 
     .status {
@@ -139,7 +141,7 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 15rem;
       place-items: center;
       padding: 2rem;
-      color: var(--text-secondary, #71767b);
+      color: var(--bluesky-text-secondary);
       text-align: center;
     }
 
@@ -155,7 +157,7 @@ export class SettingsFeedPreview extends LitElement {
       justify-content: center;
       gap: 0.75rem;
       padding: 0.25rem 0.75rem 1rem;
-      color: var(--text-secondary, #8b98a5);
+      color: var(--bluesky-text-secondary);
       font-size: 0.75rem;
       font-variant-numeric: tabular-nums;
     }
@@ -166,17 +168,17 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 2.75rem;
       place-items: center;
       padding: 0;
-      border: 1px solid var(--bluesky-border, #2f3336);
+      border: 1px solid var(--bluesky-border);
       border-radius: 999px;
-      background: color-mix(in srgb, var(--surface, #16181c) 88%, transparent);
-      color: var(--text-primary, #e7e9ea);
+      background: color-mix(in srgb, var(--theme-glass) 88%, transparent);
+      color: var(--bluesky-text);
       cursor: pointer;
     }
 
     .page-button:hover:not(:disabled),
     .page-button:focus-visible {
-      border-color: var(--bluesky-brand, #1083fe);
-      background: color-mix(in srgb, var(--bluesky-brand, #1083fe) 12%, transparent);
+      border-color: var(--bluesky-brand);
+      background: color-mix(in srgb, var(--bluesky-brand) 12%, transparent);
       outline: none;
     }
 
@@ -198,12 +200,7 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 4.375rem;
       max-height: 8rem;
       padding: 0.75rem;
-      border: 2px solid var(--theme-box-border);
-      border-radius: var(--theme-radius-box);
-      box-shadow: var(--theme-box-glow);
-      background: color-mix(in srgb, var(--source-color) 14%, var(--surface, #16181c));
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
+      background: color-mix(in srgb, var(--source-color) 14%, var(--theme-glass));
       color: inherit;
       opacity: 1;
       text-decoration: none;
@@ -217,8 +214,8 @@ export class SettingsFeedPreview extends LitElement {
 
     a.card:hover,
     a.card:focus-visible {
-      background: color-mix(in srgb, var(--surface, #16181c) 92%, white);
-      outline: 2px solid var(--bluesky-brand, #1083fe);
+      background: color-mix(in srgb, var(--theme-glass) 92%, white);
+      outline: 2px solid var(--bluesky-brand);
       outline-offset: 1px;
     }
 
@@ -245,7 +242,7 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .card.partial .author {
-      color: var(--text-secondary, #8b98a5);
+      color: var(--bluesky-text-secondary);
     }
 
     .content-row {
@@ -290,7 +287,7 @@ export class SettingsFeedPreview extends LitElement {
       flex: none;
       align-items: center;
       gap: 0.125rem;
-      color: var(--text-secondary, #8b98a5);
+      color: var(--bluesky-text-secondary);
       font-size: 0.6875rem;
       font-variant-numeric: tabular-nums;
       font-weight: 650;
@@ -303,19 +300,19 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .movement.up {
-      color: var(--bluesky-brand, #1083fe);
+      color: var(--bluesky-brand);
     }
 
     .movement.down {
-      color: var(--bluesky-danger, #f4212e);
+      color: var(--bluesky-danger);
     }
 
     .movement.new {
-      color: var(--bluesky-repost, #00ba7c);
+      color: var(--bluesky-repost);
     }
 
     .movement.unchanged {
-      color: var(--text-secondary, #8b98a5);
+      color: var(--bluesky-text-secondary);
     }
 
     .snippet {
@@ -323,7 +320,7 @@ export class SettingsFeedPreview extends LitElement {
       overflow: hidden;
       max-height: 2.5rem;
       margin-top: 0.45rem;
-      color: var(--text-primary, #e7e9ea);
+      color: var(--bluesky-text);
       font-size: 0.8125rem;
       line-height: 1.25rem;
       opacity: 1;
@@ -671,7 +668,7 @@ export class SettingsFeedPreview extends LitElement {
           : nothing
       }
     `;
-    const className = `card ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}`;
+    const className = `card glass-box ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}`;
     const style = `--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms`;
     return postUrl
       ? html`<a

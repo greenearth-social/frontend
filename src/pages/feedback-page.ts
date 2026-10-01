@@ -1,4 +1,5 @@
 import { LitElement, css, html } from "lit";
+import { titleBubble } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import { ALGORITHMS } from "../constants/algorithms";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -10,6 +11,7 @@ export class FeedbackPage extends LitElement {
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
 
   static styles = css`
+    ${titleBubble}
     :host {
       display: block;
       min-height: 100%;
@@ -20,7 +22,6 @@ export class FeedbackPage extends LitElement {
       z-index: 30;
       border-bottom: 1px solid var(--bluesky-border);
       backdrop-filter: var(--theme-header-blur);
-      -webkit-backdrop-filter: var(--theme-header-blur);
     }
     .header-row {
       display: flex;
@@ -33,30 +34,12 @@ export class FeedbackPage extends LitElement {
     }
     h1 {
       flex: 1;
+      display: flex;
+      align-items: center;
       margin: 0;
-      color: var(--theme-title-color);
-      font-size: 1.25rem;
+      color: var(--bluesky-text);
+      font-size: 1.5rem;
       font-weight: 700;
-    }
-    h1 > span {
-      display: inline-block;
-      padding: var(--theme-title-bubble-padding);
-      border-radius: var(--theme-radius-pill);
-      background: var(--theme-title-bubble-bg);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
-    }
-    .title-logo {
-      width: 1.8em;
-      height: 1.8em;
-      margin-block: -0.3em;
-      flex: none;
-    }
-    .title-text {
-      background: var(--theme-title-gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
     }
     .hamburger-btn {
       display: none;
@@ -116,7 +99,7 @@ export class FeedbackPage extends LitElement {
             </svg>
           </button>
           <h1>
-            <span>
+            <span class="title-bubble">
               <img class="title-logo" src="/assets/mysky-small.png" alt="" />
               <span class="title-text">Feedback</span>
             </span>

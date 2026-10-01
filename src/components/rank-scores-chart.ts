@@ -186,8 +186,6 @@ export class RankScoresChart extends LitElement {
       transform: translate(-50%, -50%);
       background: var(--theme-pane);
       backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
-      border: 1px solid var(--theme-box-border);
       border-radius: var(--theme-radius-box);
       padding: 0.75rem;
       font-size: 0.75rem;
@@ -243,7 +241,7 @@ export class RankScoresChart extends LitElement {
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
       border-radius: var(--theme-radius-pill);
-      background: color-mix(in srgb, var(--theme-fg) 3%, transparent);
+      background: color-mix(in srgb, var(--bluesky-text) 3%, transparent);
       font-family: var(--theme-font);
       font-size: 0.72rem;
       font-weight: 700;
@@ -310,7 +308,7 @@ export class RankScoresChart extends LitElement {
         min-width: 120px;
         height: auto;
         padding: 0.75rem;
-        background: color-mix(in srgb, var(--theme-fg) 2%, transparent);
+        background: color-mix(in srgb, var(--bluesky-text) 2%, transparent);
         border-radius: var(--theme-radius-box);
       }
       .source-content {

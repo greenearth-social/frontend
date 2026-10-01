@@ -1,6 +1,8 @@
 import { css } from "lit";
+import { titleBubble } from "../styles/theme";
 
 export const settingsPageStyles = css`
+  ${titleBubble}
   :host {
     display: block;
   }
@@ -29,7 +31,6 @@ export const settingsPageStyles = css`
     border-bottom: 1px solid var(--bluesky-border);
     box-sizing: border-box;
     backdrop-filter: var(--theme-header-blur);
-    -webkit-backdrop-filter: var(--theme-header-blur);
   }
 
   .update-preview-btn,
@@ -332,7 +333,6 @@ export const settingsPageStyles = css`
     z-index: 30;
     border-bottom: 1px solid var(--bluesky-border);
     backdrop-filter: var(--theme-header-blur);
-    -webkit-backdrop-filter: var(--theme-header-blur);
   }
 
   .header-row {
@@ -348,34 +348,15 @@ export const settingsPageStyles = css`
   h1 {
     flex: 1;
     margin: 0;
-    color: var(--theme-title-color);
-    font-size: 1.25rem;
+    color: var(--bluesky-text);
+    font-size: 1.5rem;
     font-weight: 700;
-  }
-  h1 > span,
-  .title-bubble {
-    display: inline-flex;
+    /* one line, bubble height only, so this header stays as tall as the
+       Preview header */
+    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: var(--theme-title-bubble-padding);
-    border-radius: var(--theme-radius-pill);
-    background: var(--theme-title-bubble-bg);
-    backdrop-filter: var(--theme-glass-blur);
-    -webkit-backdrop-filter: var(--theme-glass-blur);
-    }
-  .title-logo {
-    width: 1.8em;
-    height: 1.8em;
-    margin-block: -0.3em;
-    flex: none;
+    white-space: nowrap;
   }
-  .title-text {
-    background: var(--theme-title-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
   .page-title-short {
     display: none;
   }
@@ -483,23 +464,20 @@ export const settingsPageStyles = css`
   }
 
   .section-candidate {
-    border: 1px solid var(--theme-box-border);
     background: color-mix(in srgb, var(--theme-blue) 8%, transparent);
   }
 
   .section-ranking {
-    border: 1px solid var(--theme-box-border);
     background: color-mix(in srgb, var(--theme-cyan) 8%, transparent);
   }
 
   .section-diversification {
-    border: 1px solid var(--theme-box-border);
     background: color-mix(in srgb, var(--theme-yellow) 8%, transparent);
   }
 
   .section-title {
     margin: 0 0 0.5rem;
-    color: var(--theme-fg);
+    color: var(--bluesky-text);
     font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -549,19 +527,16 @@ export const settingsPageStyles = css`
     outline-offset: 1px;
   }
 
-
   .control-card {
     min-width: 0;
     padding: 0.5rem;
     border-radius: var(--theme-radius-box);
     box-sizing: border-box;
-    color: var(--theme-fg);
+    color: var(--bluesky-text);
   }
 
   .control-card:focus-within {
     z-index: 1;
-  }
-
   }
 
   .saved-settings-loading {
@@ -576,19 +551,16 @@ export const settingsPageStyles = css`
     text-align: center;
   }
 
-  .config-card {
-    margin-bottom: 0.5rem;
-    border: 1px solid var(--theme-box-border);
+  .config-card,
+  .source-card {
     background: color-mix(in srgb, var(--theme-blue) 10%, var(--theme-glass));
   }
 
-  .source-card {
-    border: 1px solid var(--theme-box-border);
-    background: color-mix(in srgb, var(--theme-blue) 10%, var(--theme-glass));
+  .config-card {
+    margin-bottom: 0.5rem;
   }
 
   .signal-card {
-    border: 1px solid var(--theme-box-border);
     background: color-mix(in srgb, var(--theme-cyan) 10%, var(--theme-glass));
   }
 
@@ -648,9 +620,9 @@ export const settingsPageStyles = css`
   }
 
   .source-slider-card icon-range-slider {
-    --icon-track-color: color-mix(in srgb, var(--theme-fg) 28%, transparent);
+    --icon-track-color: color-mix(in srgb, var(--bluesky-text) 28%, transparent);
     --icon-fill-color: var(--bluesky-fill);
-    --icon-tick-color: color-mix(in srgb, var(--theme-fg) 82%, transparent);
+    --icon-tick-color: color-mix(in srgb, var(--bluesky-text) 82%, transparent);
   }
 
   .source-list {
@@ -690,10 +662,10 @@ export const settingsPageStyles = css`
     height: 38px;
     transform: translateX(-7px);
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--theme-fg) 58%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bluesky-text) 58%, transparent);
     border-radius: var(--theme-radius-pill);
     background: color-mix(in srgb, var(--theme-blue) 25%, transparent);
-    color: color-mix(in srgb, var(--theme-fg) 90%, transparent);
+    color: color-mix(in srgb, var(--bluesky-text) 90%, transparent);
     cursor: pointer;
     transition:
       opacity 150ms ease,
@@ -704,20 +676,20 @@ export const settingsPageStyles = css`
   .source-lock-btn[aria-pressed="true"] {
     border-color: var(--theme-yellow-bright);
     background: var(--theme-green-bright);
-    color: var(--theme-bg);
+    color: var(--bluesky-bg);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-green-bright) 30%, transparent);
   }
 
   .source-lock-btn:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--theme-fg) 75%, transparent);
+    outline: 3px solid color-mix(in srgb, var(--bluesky-text) 75%, transparent);
     outline-offset: 2px;
   }
 
   .source-lock-btn:disabled {
     cursor: not-allowed;
-    border-color: color-mix(in srgb, var(--theme-mute) 32%, transparent);
+    border-color: color-mix(in srgb, var(--bluesky-text-secondary) 32%, transparent);
     background: color-mix(in srgb, var(--theme-dim) 48%, transparent);
-    color: color-mix(in srgb, var(--theme-fg) 72%, transparent);
+    color: color-mix(in srgb, var(--bluesky-text) 72%, transparent);
     opacity: 0.58;
   }
 
@@ -759,7 +731,7 @@ export const settingsPageStyles = css`
     border: 0;
     border-radius: var(--theme-radius-pill);
     background: var(--bluesky-bg-card);
-    color: var(--theme-fg);
+    color: var(--bluesky-text);
     font-family: inherit;
     font-size: 0.75rem;
     font-weight: 600;
@@ -773,7 +745,7 @@ export const settingsPageStyles = css`
   }
 
   .penalty-pill:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--theme-fg) 65%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--bluesky-text) 65%, transparent);
     outline-offset: 2px;
   }
 
@@ -789,12 +761,12 @@ export const settingsPageStyles = css`
   }
 
   .arrow-line {
-    stroke: color-mix(in srgb, var(--theme-mute) 50%, transparent);
+    stroke: color-mix(in srgb, var(--bluesky-text-secondary) 50%, transparent);
     stroke-width: 2;
   }
 
   .arrow-head {
-    fill: color-mix(in srgb, var(--theme-mute) 60%, transparent);
+    fill: color-mix(in srgb, var(--bluesky-text-secondary) 60%, transparent);
   }
 
   .politics-card {
@@ -827,13 +799,11 @@ export const settingsPageStyles = css`
     width: min(420px, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: 1.25rem 1.5rem;
-    border: 1px solid var(--theme-box-border);
     border-radius: var(--theme-radius-box);
     box-sizing: border-box;
     overflow-y: auto;
     background: var(--theme-pane);
     backdrop-filter: var(--theme-glass-blur);
-    -webkit-backdrop-filter: var(--theme-glass-blur);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 
@@ -858,7 +828,7 @@ export const settingsPageStyles = css`
     flex-shrink: 0;
     border: 0;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--theme-fg) 10%, transparent);
+    background: color-mix(in srgb, var(--bluesky-text) 10%, transparent);
     color: var(--bluesky-text);
     cursor: pointer;
   }
@@ -1212,9 +1182,26 @@ export const settingsPageStyles = css`
       box-sizing: border-box;
       width: 7rem;
       max-width: none;
-      height: 40px;
-      min-height: 40px;
+      height: var(--theme-control-height);
+      min-height: var(--theme-control-height);
       flex: 0 0 auto;
+    }
+
+    @media (min-width: 1280px) {
+      h1.title-compact {
+        font-size: 1.25rem;
+      }
+    }
+
+    /* Narrow desktops: Undo and Defaults leave the one-line title about
+       170px, so it drops the logo and shrinks until the columns widen. */
+    @media (max-width: 1279px) {
+      h1 {
+        font-size: 0.9375rem;
+      }
+      .title-logo {
+        display: none;
+      }
     }
 
     .update-preview-btn {
@@ -1226,18 +1213,18 @@ export const settingsPageStyles = css`
     }
 
     .update-preview-btn.is-status:disabled {
+      box-sizing: border-box;
+      height: var(--theme-control-height);
       min-height: 0;
-      padding: var(--theme-title-bubble-padding);
+      padding: 0 0.75rem;
       border: 0;
       border-radius: var(--theme-radius-pill);
       background: var(--theme-title-bubble-bg);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
-      color: var(--theme-title-color);
-      font-size: 1.125rem;
+      color: var(--bluesky-text);
+      font-size: 1.5rem;
       font-weight: 800;
       line-height: 1.1;
-      box-shadow: none;
+      box-shadow: var(--theme-title-bubble-shadow);
       cursor: default;
       opacity: 1;
     }

@@ -326,9 +326,9 @@ describe("settings feed movement presentation", () => {
     expect(
       element.shadowRoot?.querySelector(".movement.up, .movement.down, .movement.new"),
     ).toBeNull();
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-brand, #1083fe)");
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-danger, #f4212e)");
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-repost, #00ba7c)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-brand)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-danger)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--bluesky-repost)");
     element.remove();
   });
 

@@ -26,4 +26,4 @@ functions/keys/
 functions/serviceAccountKey.json
 
 .claude/
-__pycache__/
+theme-tools/

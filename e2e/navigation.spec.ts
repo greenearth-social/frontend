@@ -170,6 +170,7 @@ test.describe("feed-scoped navigation", () => {
     await expect(groups).toHaveCount(3);
     await expect(desktop.locator(".feed-subnav:not([hidden])")).toHaveCount(1);
 
+    // feed groups are glass boxes: rounded, no border
     const groupStyles = await groups.evaluateAll((elements) =>
       elements.map((element) => ({
         borderStyle: getComputedStyle(element).borderStyle,
@@ -178,7 +179,7 @@ test.describe("feed-scoped navigation", () => {
     );
     expect(groupStyles).toEqual(
       Array.from({ length: 3 }, () => ({
-        borderStyle: "solid",
+        borderStyle: "none",
         borderRadius: "14px",
       })),
     );
@@ -736,7 +737,6 @@ for (const width of [240, 320, 375]) {
     const closeBox = await close.boundingBox();
     expect(closeBox).not.toBeNull();
     expect((closeBox?.x ?? 0) - (box?.x ?? 0)).toBeGreaterThan((box?.width ?? 0) / 2);
-    await expect(close).toHaveCSS("border-top-style", "solid");
 
     const overflow = await drawer.evaluate((element) => ({
       clientWidth: element.clientWidth,

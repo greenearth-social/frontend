@@ -409,8 +409,16 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
   await expect(preview).toHaveClass(/is-status/);
-  // As a status it stops looking like a button: no border or shadow, and
-  // the same glass bubble every page title sits in.
+  // As a status it stops looking like a button: no border, no drop shadow,
+  // the same lifted bubble every page title sits in.
+  const bubbleShadow = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.boxShadow = "var(--theme-title-bubble-shadow)";
+    document.body.appendChild(probe);
+    const shadow = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return shadow;
+  });
   await expect
     .poll(() =>
       preview.evaluate((element) => {
@@ -426,7 +434,7 @@ test("changes persist immediately and each displayed Preview is accepted exactly
     .toEqual({
       borderTopWidth: "0px",
       borderTopLeftRadius: "8px",
-      boxShadow: "none",
+      boxShadow: bubbleShadow,
       cursor: "default",
     });
   await expect(settings.locator(".mobile-preview-status")).toHaveText("New Feed");

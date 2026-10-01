@@ -1,5 +1,6 @@
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -16,17 +17,12 @@ export class FeedItemCard extends MobxLitElement {
   @property({ type: Number }) constructiveInfluence = 0.5;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: block;
       margin: 0.5rem 0.75rem 0.5rem 1.5rem;
     }
     .card {
-      background: var(--theme-glass);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
-      border: 1px solid var(--theme-box-border);
-      border-radius: var(--theme-radius-box);
-      box-shadow: var(--theme-box-glow);
       padding: 0.75rem 1rem;
       max-width: 100%;
     }
@@ -89,9 +85,9 @@ export class FeedItemCard extends MobxLitElement {
       font-size: 0.75rem;
       padding: 0.25rem 0.625rem;
       border-radius: var(--theme-radius-pill);
-      background: color-mix(in srgb, var(--theme-fg) 10%, transparent);
+      background: color-mix(in srgb, var(--bluesky-text) 10%, transparent);
       color: var(--bluesky-text);
-      border: 1px solid color-mix(in srgb, var(--theme-fg) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--bluesky-text) 15%, transparent);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -146,7 +142,7 @@ export class FeedItemCard extends MobxLitElement {
     const mediaLabels = countedMediaLabels(i);
 
     return html`
-      <div class="card">
+      <div class="card glass-box">
         <div class="author-row">
           ${
             i.avatarUrl

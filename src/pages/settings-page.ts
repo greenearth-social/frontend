@@ -235,7 +235,13 @@ export class SettingsPage extends MobxLitElement {
             : "Preview";
     const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
     const historyLabel = `${historyAction} last settings change`;
-    const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
+    const feedLabel = ALGORITHMS[this.selectedAlgorithm].label;
+    const settingsTitle = `${feedLabel} Settings`;
+    // "Best of Friends Settings" does not fit the header on one line: its
+    // title is the feed name alone, a size smaller, and "... Settings" stays
+    // the accessible name.
+    const compactTitle = this.selectedAlgorithm === "best-of-friends";
+    const visibleTitle = compactTitle ? feedLabel : settingsTitle;
 
     return html`
       <div class="settings-layout ${this.mobilePreviewOpen ? "mobile-preview-open" : ""}">
@@ -256,12 +262,12 @@ export class SettingsPage extends MobxLitElement {
                   <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
               </button>
-              <h1 aria-label=${settingsTitle}>
-                <span class="page-title-full">
+              <h1 aria-label=${settingsTitle} class=${compactTitle ? "title-compact" : ""}>
+                <span class="page-title-full title-bubble">
                   <img class="title-logo" src="/assets/mysky-small.png" alt="" />
-                  <span class="title-text">${settingsTitle}</span>
+                  <span class="title-text">${visibleTitle}</span>
                 </span>
-                <span class="page-title-short" aria-hidden="true">
+                <span class="page-title-short title-bubble" aria-hidden="true">
                   <img class="title-logo" src="/assets/mysky-small.png" alt="" />
                   <span class="title-text">Settings</span>
                 </span>

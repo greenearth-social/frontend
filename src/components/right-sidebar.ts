@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedSummary } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -14,14 +15,9 @@ export class RightSidebar extends LitElement {
   @property({ type: String }) blueskyUrl: string = "";
 
   static styles = css`
+    ${glassBox}
     :host { display: block; }
     .card {
-      background: var(--theme-glass);
-      backdrop-filter: var(--theme-glass-blur);
-      -webkit-backdrop-filter: var(--theme-glass-blur);
-      border: 1px solid var(--theme-box-border);
-      border-radius: var(--theme-radius-box);
-      box-shadow: var(--theme-box-glow);
       overflow: hidden;
       margin-bottom: 1rem;
     }
@@ -103,7 +99,7 @@ export class RightSidebar extends LitElement {
     if (!hasRecent && this.blueskyUrl) {
       return html`
         <div style="padding: 0.5rem 0;">
-          <div class="card">
+          <div class="card glass-box">
             <div class="card-header">Feed Snapshots</div>
             <div class="stale-notice">
               <p class="stale-text">
@@ -126,7 +122,7 @@ export class RightSidebar extends LitElement {
     if (filtered.length === 0) {
       return html`
         <div style="padding: 0.5rem 0;">
-          <div class="card">
+          <div class="card glass-box">
             <div class="card-header">Feed Snapshots</div>
             <div class="feed-item" style="cursor: default; color: var(--bluesky-text-secondary);">
               No recent feeds
@@ -138,7 +134,7 @@ export class RightSidebar extends LitElement {
 
     return html`
       <div style="padding: 0.5rem 0;">
-        <div class="card">
+        <div class="card glass-box">
           <div class="card-header">Feed Snapshots</div>
           ${filtered.map(
             (f, index) => html`
