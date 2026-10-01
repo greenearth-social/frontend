@@ -286,7 +286,8 @@ export class FeedPage extends MobxLitElement {
           }
           .logged-out-subtitle {
             font-size: 1rem;
-            color: var(--bluesky-text-secondary);
+            /* sits straight on the painting, so full text colour, not the muted one */
+            color: var(--bluesky-text);
             margin: 0 0 0.875rem 0;
             font-family: var(--theme-font);
           }
@@ -336,6 +337,10 @@ export class FeedPage extends MobxLitElement {
             color: var(--bluesky-text);
             font: inherit;
             margin-bottom: 0.875rem;
+          }
+          .handle-input::placeholder {
+            color: var(--bluesky-text-secondary);
+            opacity: 1;
           }
           .handle-input:focus {
             border-color: var(--bluesky-brand);
