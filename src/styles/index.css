@@ -63,8 +63,8 @@
   /* The blurred painting under a light wash of the background colour. */
   --theme-wallpaper:
     linear-gradient(
-      color-mix(in srgb, var(--theme-bg) 18%, transparent),
-      color-mix(in srgb, var(--theme-bg) 18%, transparent)
+      color-mix(in srgb, var(--theme-bg) 25%, transparent),
+      color-mix(in srgb, var(--theme-bg) 25%, transparent)
     ),
     url("/assets/wallpaper.jpg");
 

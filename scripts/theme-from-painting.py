@@ -172,15 +172,9 @@ def main():
     base = [a.painting, "-auto-orient", "-strip", *crop, "-resize", "1600x1600>"]
     # Blur on a 5% thumbnail and scale back up: same result as a huge
     # Gaussian on the full image, in a fraction of the time.
-    # A blur averages a painting towards its mid-tones, which reads darker
-    # and duller than the original. Pull it back towards daylight: brighter,
-    # a touch less saturated, blacks lifted, and a soft white veil from the
-    # top edge that fades out by mid-height, the way a bright sky does.
+    # No colour tuning here: lifting or desaturating a blurred painting
+    # turns a sky grey. If the mood is wrong, pick another painting.
     magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%",
-           "-modulate", "112,90", "-level", "6%,100%",
-           "(", "+clone", "-fill", "white", "-colorize", "100",
-           "-sparse-color", "barycentric", "0,0 white 0,%h black", ")",
-           "-compose", "blend", "-define", "compose:args=40", "-composite",
            "-quality", "85", str(WALLPAPER))
     tmp = WALLPAPER.with_name("theme-source.png")
     magick(*base, str(tmp))
