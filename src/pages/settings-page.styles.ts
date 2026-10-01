@@ -453,8 +453,9 @@ export const settingsPageStyles = css`
     padding: 0.75rem 0.625rem;
     border-radius: 16px;
     box-sizing: border-box;
-    /* the glow sits on the section, not on the tinted cards nested inside it */
-    box-shadow: var(--theme-box-glow);
+    /* a section holds other boxes, so it gets a soft shadow; a glow around
+       a box full of lighter boxes just looks smeared */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
   }
 
   .section-candidate {
