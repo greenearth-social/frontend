@@ -172,10 +172,22 @@ def main():
     base = [a.painting, "-auto-orient", "-strip", *crop, "-resize", "1600x1600>"]
     # Blur on a 5% thumbnail and scale back up: same result as a huge
     # Gaussian on the full image, in a fraction of the time.
-    # No colour tuning here: lifting or desaturating a blurred painting
-    # turns a sky grey. If the mood is wrong, pick another painting.
-    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%",
-           "-quality", "85", str(WALLPAPER))
+    # The only colour tuning: clouds go white. Blurring averages a cloud
+    # with the sky around it into grey; this lifts pixels that are both
+    # bright and low in saturation (clouds, not sky or field) back towards
+    # white. Global lifting or desaturating would turn the sky grey instead.
+    blurred = WALLPAPER.with_name("theme-blurred.png")
+    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%", str(blurred))
+    mask = WALLPAPER.with_name("theme-cloud-mask.png")
+    magick(str(blurred), "-colorspace", "HSB",
+           "(", "-clone", "0", "-channel", "G", "-separate", "+channel", "-negate", ")",
+           "(", "-clone", "0", "-channel", "B", "-separate", "+channel", ")",
+           "-delete", "0", "-compose", "multiply", "-composite",
+           "-level", "55%,100%", "-gamma", "1.3", str(mask))
+    magick(str(blurred), "(", "+clone", "-fill", "white", "-colorize", "100", ")", str(mask),
+           "-compose", "over", "-composite", "-quality", "85", str(WALLPAPER))
+    blurred.unlink()
+    mask.unlink()
     tmp = WALLPAPER.with_name("theme-source.png")
     magick(*base, str(tmp))
     cl = clusters(str(tmp))

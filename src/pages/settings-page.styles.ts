@@ -455,7 +455,8 @@ export const settingsPageStyles = css`
     padding: 0.75rem 0.625rem;
     border-radius: 16px;
     box-sizing: border-box;
-    box-shadow: var(--theme-box-glow);
+    /* a section holds other boxes; with a glow it melts into the page */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
   }
 
   .section-candidate {
