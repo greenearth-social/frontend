@@ -178,12 +178,19 @@ def main():
     # white. Global lifting or desaturating would turn the sky grey instead.
     blurred = WALLPAPER.with_name("theme-blurred.png")
     magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%", str(blurred))
+    # The cloud mask comes from a much lighter blur (a fifth of the main
+    # one) so clouds keep their ragged shape instead of the perfect oval the
+    # heavy blur leaves; it fades out below mid-height so the field is never
+    # touched.
     mask = WALLPAPER.with_name("theme-cloud-mask.png")
-    magick(str(blurred), "-colorspace", "HSB",
+    magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 100:.2f}", "-resize", "2000%",
+           "-colorspace", "HSB",
            "(", "-clone", "0", "-channel", "G", "-separate", "+channel", "-negate", ")",
            "(", "-clone", "0", "-channel", "B", "-separate", "+channel", ")",
-           "-delete", "0", "-compose", "multiply", "-composite",
-           "-level", "55%,100%", "-gamma", "1.3", str(mask))
+           "-delete", "0", "-compose", "multiply", "-composite", "-level", "50%,100%",
+           "(", "-clone", "0", "-fill", "white", "-colorize", "100",
+           "-sparse-color", "barycentric", "0,0 white 0,%h black", "-level", "25%,65%", ")",
+           "-compose", "multiply", "-composite", "-evaluate", "multiply", "0.6", str(mask))
     magick(str(blurred), "(", "+clone", "-fill", "white", "-colorize", "100", ")", str(mask),
            "-compose", "over", "-composite", "-quality", "85", str(WALLPAPER))
     blurred.unlink()
