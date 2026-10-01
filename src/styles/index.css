@@ -166,13 +166,25 @@
 
   body {
     overscroll-behavior-y: none;
+    /* no background on body (nor inline in index.html): it would paint over
+       the wallpaper layer below; html carries the base colour */
+    color: var(--bluesky-text);
+    font-family: var(--theme-font);
+  }
+
+  /* The painting lives on a fixed layer behind everything rather than on
+     body with background-attachment: fixed, which iOS Safari ignores (the
+     image would scroll with the page and stretch to the document height). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
     background-color: var(--bluesky-bg);
     background-image: var(--theme-wallpaper);
     background-size: cover;
     background-position: center;
-    background-attachment: fixed;
-    color: var(--bluesky-text);
-    font-family: var(--theme-font);
+    pointer-events: none;
   }
 
   a {
