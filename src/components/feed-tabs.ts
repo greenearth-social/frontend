@@ -54,9 +54,12 @@ export class FeedTabs extends LitElement {
       padding: 0.75rem 1rem;
       font-size: 0.8125rem;
       font-weight: 500;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
+      opacity: 0.78;
       cursor: pointer;
-      transition: color 0.15s;
+      transition:
+        color 0.15s,
+        opacity 0.15s;
       white-space: nowrap;
       position: relative;
       display: flex;
@@ -65,10 +68,10 @@ export class FeedTabs extends LitElement {
     }
     .tab:hover {
       background: var(--bluesky-bg-hover);
-      color: var(--bluesky-text);
+      opacity: 1;
     }
     .tab.active {
-      color: var(--bluesky-text);
+      opacity: 1;
       font-weight: 700;
     }
     .tab.active::after {

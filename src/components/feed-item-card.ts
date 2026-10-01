@@ -23,6 +23,9 @@ export class FeedItemCard extends MobxLitElement {
       margin: 0.5rem 0.75rem 0.5rem 1.5rem;
     }
     .card {
+      /* as light as the slider cards on the settings page, which sit on a
+         blue-tinted section */
+      background: color-mix(in srgb, var(--theme-blue) 18%, var(--theme-glass));
       padding: 0.75rem 1rem;
       max-width: 100%;
     }
