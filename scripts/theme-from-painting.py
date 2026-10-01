@@ -175,8 +175,10 @@ def main():
     base = [a.painting, "-auto-orient", "-strip", *crop, "-resize", "1600x1600>"]
     # Blur on a 5% thumbnail and scale back up: same result as a huge
     # Gaussian on the full image, in a fraction of the time.
+    # Lifted a little (brightness 110%, saturation 105%): a blur averages a
+    # painting towards its mid-tones, which reads darker than the original.
     magick(*base, "-resize", "5%", "-blur", f"0x{a.blur / 20:.2f}", "-resize", "2000%",
-           "-quality", "85", str(WALLPAPER))
+           "-modulate", "110,105", "-quality", "85", str(WALLPAPER))
     tmp = WALLPAPER.with_name("theme-source.png")
     magick(*base, str(tmp))
     cl = clusters(str(tmp))
