@@ -154,8 +154,9 @@ export class FeedPage extends MobxLitElement {
       text-overflow: ellipsis;
     }
     .title-logo {
-      width: 1.25em;
-      height: 1.25em;
+      width: 1.8em;
+      height: 1.8em;
+      margin-block: -0.3em;
       flex: none;
     }
     .title-text {

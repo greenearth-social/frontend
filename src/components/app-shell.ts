@@ -159,12 +159,18 @@ export class AppShell extends MobxLitElement {
     .algo-row:hover {
       background: var(--bluesky-bg-hover);
     }
+    /* the selected feed row matches the page-title bubble: same blue,
+       same green lettering */
     .algo-row.active {
-      background: var(--bluesky-brand);
-      color: var(--bluesky-on-brand);
+      background: var(--theme-title-bubble-bg);
+      color: var(--theme-title-color);
     }
     .algo-row.active .algo-label {
       font-weight: 800;
+      background: var(--theme-title-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .algo-btn {
       display: flex;

@@ -169,9 +169,9 @@ export const settingsPageStyles = css`
   .update-preview-btn:disabled,
   .mobile-preview-btn:disabled,
   .history-btn:disabled {
-    color: var(--bluesky-text-secondary);
+    color: var(--bluesky-text);
     cursor: default;
-    opacity: 0.5;
+    opacity: 0.6;
   }
 
   .update-preview-btn:disabled,
@@ -364,8 +364,9 @@ export const settingsPageStyles = css`
     -webkit-backdrop-filter: var(--theme-glass-blur);
     }
   .title-logo {
-    width: 1.25em;
-    height: 1.25em;
+    width: 1.8em;
+    height: 1.8em;
+    margin-block: -0.3em;
     flex: none;
   }
   .title-text {
@@ -423,9 +424,9 @@ export const settingsPageStyles = css`
   }
 
   .reset-defaults-btn:disabled {
-    color: var(--bluesky-text-secondary);
+    color: var(--bluesky-text);
     cursor: default;
-    opacity: 0.58;
+    opacity: 0.62;
   }
 
   .reset-defaults-btn > svg {
@@ -1204,9 +1205,10 @@ export const settingsPageStyles = css`
       display: none;
     }
 
-    /* Undo and Defaults share one size whatever their labels */
+    /* Undo, Defaults and Preview share one size whatever their labels */
     .header-row > .history-btn,
-    .header-row > .reset-defaults-btn {
+    .header-row > .reset-defaults-btn,
+    .update-preview-btn:not(.is-status) {
       box-sizing: border-box;
       width: 7rem;
       max-width: none;

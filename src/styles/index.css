@@ -77,8 +77,8 @@
      so they read over bright sky without a wash or a shadow. */
   --theme-title-color: var(--theme-fg);
   --theme-title-bubble-bg: color-mix(in srgb, var(--bluesky-brand) 55%, transparent);
-  /* Title text: a gradient from the slider green to the logo green. */
-  --theme-title-gradient: linear-gradient(100deg, var(--theme-green-bright), #6cf285);
+  /* Title text: a gradient from the logo green to the field green. */
+  --theme-title-gradient: linear-gradient(100deg, #6cf285, var(--theme-green-bright));
   --theme-title-bubble-padding: 0.25rem 0.75rem;
   /* Two corner radii for the whole page: boxes (cards, sections, popups)
      and pills (buttons, badges, inputs, title bubbles). Fixed sizes, so a
