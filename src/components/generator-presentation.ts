@@ -32,6 +32,7 @@ export const GENERATOR_PRESENTATIONS = {
   popularity: slot("cat-4", "Popular"),
   post_similarity: slot("cat-5", "Similar"),
   network_likes: slot("cat-3", "Followed Likes"),
+  llm_query_vector: slot("cat-6", "Prompt"),
   random_posts: RANDOM,
 } satisfies Record<string, GeneratorPresentation>;
 
@@ -41,6 +42,7 @@ export const GENERATOR_LEGEND: readonly GeneratorPresentation[] = [
   GENERATOR_PRESENTATIONS.network_likes,
   GENERATOR_PRESENTATIONS.popularity,
   GENERATOR_PRESENTATIONS.post_similarity,
+  GENERATOR_PRESENTATIONS.llm_query_vector,
   { ...NEUTRAL, label: "Random" },
 ];
 

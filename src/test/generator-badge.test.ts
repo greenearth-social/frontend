@@ -41,6 +41,7 @@ describe("GeneratorBadge", () => {
       "Followed Likes",
       "Popular",
       "Similar",
+      "Prompt",
       "Random",
     ]);
     expect(generatorPresentation("two_tower_empty_history")).toBe(

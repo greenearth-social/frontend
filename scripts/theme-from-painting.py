@@ -40,7 +40,7 @@ CHROMA_MIN, CHROMA_MAX = 0.07, 0.16
 # The feed-source categories (Author/Topic, Following, ...) are the one
 # place colours must differ from each other: cat-1..cat-N are N clusters of
 # the painting's dominant hue family (the sky), spread evenly in lightness.
-CATEGORIES = 5
+CATEGORIES = 6
 FAMILY_DEG = 35
 # Lightness per role, dark (the default) and light mode. Same clusters,
 # same hues; this table is the whole difference between the two modes.
