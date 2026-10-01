@@ -11,7 +11,7 @@ nothing else.
   --crop GEOMETRY   ImageMagick geometry taken from the top-left before
                     anything else, e.g. 86%x31%+14%+0 for a sky strip
   --blur SIGMA      Gaussian sigma in pixels of the 1600px-wide wallpaper
-                    (default 80: colour fields, no shapes)
+                    (default 50: colour fields with cloud shapes)
 
 How the colours are picked: the pixels are k-means clustered in CIELAB,
 each cluster goes to OKLCH (lightness L, chroma C, hue h), and every
@@ -165,7 +165,7 @@ def main():
     ap = argparse.ArgumentParser(description="theme-from-painting: wallpaper + palette from a picture")
     ap.add_argument("painting")
     ap.add_argument("--crop", metavar="GEOMETRY")
-    ap.add_argument("--blur", type=float, default=80, metavar="SIGMA")
+    ap.add_argument("--blur", type=float, default=50, metavar="SIGMA")
     a = ap.parse_args()
 
     crop = ["-crop", a.crop, "+repage"] if a.crop else []
