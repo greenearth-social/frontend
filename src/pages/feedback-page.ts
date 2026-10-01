@@ -1,4 +1,5 @@
 import { LitElement, css, html } from "lit";
+import { titleBubble } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import { ALGORITHMS } from "../constants/algorithms";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -10,6 +11,7 @@ export class FeedbackPage extends LitElement {
   @property({ type: String }) selectedAlgorithm: AlgorithmId = "your-feed";
 
   static styles = css`
+    ${titleBubble}
     :host {
       display: block;
       min-height: 100%;
@@ -19,21 +21,24 @@ export class FeedbackPage extends LitElement {
       top: 0;
       z-index: 30;
       border-bottom: 1px solid var(--bluesky-border);
-      background: rgba(21, 32, 43, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: var(--theme-header-blur);
     }
     .header-row {
       display: flex;
+      /* the 1px is the header's own bottom line */
+      min-height: calc(var(--theme-header-height) - 1px);
+      box-sizing: border-box;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1.5rem;
+      padding: 0.5rem 1.5rem;
     }
     h1 {
       flex: 1;
+      display: flex;
+      align-items: center;
       margin: 0;
       color: var(--bluesky-text);
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 700;
     }
     .hamburger-btn {
@@ -93,7 +98,12 @@ export class FeedbackPage extends LitElement {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <h1>Feedback</h1>
+          <h1>
+            <span class="title-bubble">
+              <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+              <span class="title-text">Feedback</span>
+            </span>
+          </h1>
         </div>
       </div>
       <div class="content">

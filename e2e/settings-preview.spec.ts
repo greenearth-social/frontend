@@ -126,13 +126,12 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
     const columnBox = column.getBoundingClientRect();
     const buttonBox = column.querySelector("#update-preview")?.getBoundingClientRect();
     return {
-      columnCenter: columnBox.left + columnBox.width / 2,
-      buttonCenter: buttonBox ? buttonBox.left + buttonBox.width / 2 : Number.NaN,
+      // on desktop the Preview button sits at the right edge of its header
+      rightInset: buttonBox ? columnBox.right - buttonBox.right : Number.NaN,
     };
   });
-  expect(
-    Math.abs(previewHeaderGeometry.columnCenter - previewHeaderGeometry.buttonCenter),
-  ).toBeLessThanOrEqual(1);
+  expect(previewHeaderGeometry.rightInset).toBeGreaterThanOrEqual(8);
+  expect(previewHeaderGeometry.rightInset).toBeLessThanOrEqual(24);
   await expect(settings.locator("settings-feed-preview .card")).toHaveCount(6);
   const previewCard = settings.locator("settings-feed-preview .card").first();
   await expect(previewCard).toHaveAttribute("href", /^https:\/\/bsky\.app\/profile\//);
@@ -166,7 +165,8 @@ test("desktop keeps posts visible at 1280px with the divider chevron", async ({ 
   expect(
     await settings.evaluate((element) => {
       const controls = element.shadowRoot?.querySelector(".controls-column");
-      const feed = element.shadowRoot?.querySelector(".feed-scroll");
+      // the preview column scrolls as a whole so its header can stay sticky
+      const feed = element.shadowRoot?.querySelector(".feed-column");
       return {
         controls: controls ? getComputedStyle(controls).overflowY : "",
         feed: feed ? getComputedStyle(feed).overflowY : "",
@@ -409,23 +409,33 @@ test("changes persist immediately and each displayed Preview is accepted exactly
   await expect(preview).toHaveText("New Feed", { timeout: 12_000 });
   await expect(preview).toBeDisabled();
   await expect(preview).toHaveClass(/is-status/);
+  // As a status it stops looking like a button: no border, no drop shadow,
+  // the same lifted bubble every page title sits in.
+  const bubbleShadow = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.boxShadow = "var(--theme-title-bubble-shadow)";
+    document.body.appendChild(probe);
+    const shadow = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return shadow;
+  });
   await expect
     .poll(() =>
       preview.evaluate((element) => {
         const styles = getComputedStyle(element);
         return {
-          backgroundColor: styles.backgroundColor,
           borderTopWidth: styles.borderTopWidth,
           borderTopLeftRadius: styles.borderTopLeftRadius,
           boxShadow: styles.boxShadow,
+          cursor: styles.cursor,
         };
       }),
     )
     .toEqual({
-      backgroundColor: "rgba(0, 0, 0, 0)",
       borderTopWidth: "0px",
-      borderTopLeftRadius: "0px",
-      boxShadow: "none",
+      borderTopLeftRadius: "8px",
+      boxShadow: bubbleShadow,
+      cursor: "default",
     });
   await expect(settings.locator(".mobile-preview-status")).toHaveText("New Feed");
   await expect(settings.locator("settings-feed-preview .feed")).toHaveClass(/idle/, {

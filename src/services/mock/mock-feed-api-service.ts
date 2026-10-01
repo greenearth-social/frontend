@@ -237,6 +237,14 @@ export class MockFeedApiService implements IFeedApiService {
           apiReleaseSha: "preview-api-sha",
           generatorDiagnostics: [],
         },
+        // an older snapshot, so the tab strip shows more than "Latest"
+        {
+          requestId: "abc123-def456-older",
+          generatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          feedName: "your-feed",
+          apiReleaseSha: "preview-api-sha",
+          generatorDiagnostics: [],
+        },
       ],
     });
   }

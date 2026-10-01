@@ -6,8 +6,8 @@ import { styleMap } from "lit/directives/style-map.js";
 import "./generator-badge";
 
 const RANKER_COLORS: Record<string, string> = {
-  Engaging: "#fb923c",
-  Constructive: "#a78bfa",
+  Engaging: "var(--theme-orange)",
+  Constructive: "var(--theme-pink)",
 };
 
 const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
@@ -108,7 +108,7 @@ export class RankScoresChart extends LitElement {
     }
     .source-pill-button {
       width: fit-content;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       -webkit-tap-highlight-color: transparent;
     }
     .explanation-value-button:hover {
@@ -184,9 +184,9 @@ export class RankScoresChart extends LitElement {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
+      border-radius: var(--theme-radius-box);
       padding: 0.75rem;
       font-size: 0.75rem;
       line-height: 1.5;
@@ -240,9 +240,9 @@ export class RankScoresChart extends LitElement {
       margin: 0.75rem 0;
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.4rem;
-      background: rgba(255, 255, 255, 0.03);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border-radius: var(--theme-radius-pill);
+      background: color-mix(in srgb, var(--bluesky-text) 3%, transparent);
+      font-family: var(--theme-font);
       font-size: 0.72rem;
       font-weight: 700;
       text-align: center;
@@ -308,8 +308,8 @@ export class RankScoresChart extends LitElement {
         min-width: 120px;
         height: auto;
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 0.5rem;
+        background: color-mix(in srgb, var(--bluesky-text) 2%, transparent);
+        border-radius: var(--theme-radius-box);
       }
       .source-content {
         flex-direction: row;
@@ -580,7 +580,7 @@ export class RankScoresChart extends LitElement {
             </button>
             <div class="rankers-content">
               ${rankerRows.map((rr) => {
-                const color = RANKER_COLORS[rr.label] ?? "#71767b";
+                const color = RANKER_COLORS[rr.label] ?? "var(--bluesky-text-secondary)";
                 return html`
                   <button
                     class="ranker-item explanation-value-button ranker-value-button"
@@ -597,7 +597,7 @@ export class RankScoresChart extends LitElement {
                           class="ranker-bar-fill"
                           style=${styleMap({
                             width: `${String(rr.pct)}%`,
-                            backgroundColor: color,
+                            backgroundColor: "var(--bluesky-fill)",
                           })}
                         ></span>
                       </span>

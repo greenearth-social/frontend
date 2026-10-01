@@ -4,6 +4,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
+import { titleBubble } from "../styles/theme";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { ALGORITHMS, ALGORITHM_FEED_NAME_SET, type AlgorithmId } from "../constants/algorithms";
@@ -32,6 +33,7 @@ export class FeedPage extends MobxLitElement {
   private _lifecycleSyncKey: string | null = null;
 
   static styles = css`
+    ${titleBubble}
     :host {
       display: block;
       overscroll-behavior-y: contain;
@@ -86,18 +88,19 @@ export class FeedPage extends MobxLitElement {
       position: sticky;
       top: 0;
       z-index: 30;
-      background: rgba(21, 32, 43, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: var(--theme-header-blur);
     }
     .header-section {
       border-bottom: 1px solid var(--bluesky-border);
     }
     .header-row {
       display: flex;
+      /* the 1px is the header's own bottom line */
+      min-height: calc(var(--theme-header-height) - 1px);
+      box-sizing: border-box;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1rem 0.5rem;
+      padding: 0.5rem 1rem;
     }
     .source-breakdown-button {
       display: inline-grid;
@@ -109,7 +112,7 @@ export class FeedPage extends MobxLitElement {
       border: 1px solid var(--bluesky-border);
       border-radius: 9999px;
       color: var(--bluesky-text);
-      background: rgba(255, 255, 255, 0.04);
+      background: color-mix(in srgb, var(--bluesky-text) 4%, transparent);
       font: inherit;
       font-size: 0.8125rem;
       font-weight: 700;
@@ -124,7 +127,7 @@ export class FeedPage extends MobxLitElement {
     .source-breakdown-button:hover,
     .source-breakdown-button:focus-visible {
       border-color: var(--bluesky-brand);
-      background: rgba(16, 131, 254, 0.12);
+      background: color-mix(in srgb, var(--bluesky-brand) 12%, transparent);
       outline: none;
     }
     .source-breakdown-button:disabled {
@@ -132,9 +135,11 @@ export class FeedPage extends MobxLitElement {
       cursor: default;
     }
     .header-title {
-      font-size: clamp(0.9375rem, 3.5vw, 1.25rem);
+      font-size: clamp(1.0625rem, 3.5vw, 1.5rem);
       font-weight: 700;
-      color: var(--bluesky-text);
+      max-width: 100%;
+      box-sizing: border-box;
+      vertical-align: middle;
       margin: 0;
       white-space: nowrap;
       overflow: hidden;
@@ -277,27 +282,28 @@ export class FeedPage extends MobxLitElement {
             font-weight: 700;
             color: var(--bluesky-text);
             margin: 0 0 0.1rem 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-subtitle {
             font-size: 1rem;
-            color: var(--bluesky-text-secondary);
+            /* sits straight on the painting, so full text colour, not the muted one */
+            color: var(--bluesky-text);
             margin: 0 0 0.875rem 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-btn {
             width: 100%;
             max-width: 320px;
             padding: 0.875rem 1.5rem;
             background: var(--bluesky-brand);
-            color: white;
+            color: var(--bluesky-on-brand);
             border: none;
-            border-radius: 9999px;
+            border-radius: var(--theme-radius-pill);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.15s;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--theme-font);
           }
           .logged-out-btn:hover {
             background: var(--bluesky-brand-hover);
@@ -325,12 +331,16 @@ export class FeedPage extends MobxLitElement {
             box-sizing: border-box;
             width: 100%;
             border: 1px solid var(--bluesky-border);
-            border-radius: 0.75rem;
+            border-radius: var(--theme-radius-pill);
             padding: 0.75rem 0.875rem;
-            background: rgba(255, 255, 255, 0.06);
+            background: color-mix(in srgb, var(--bluesky-text) 6%, transparent);
             color: var(--bluesky-text);
             font: inherit;
             margin-bottom: 0.875rem;
+          }
+          .handle-input::placeholder {
+            color: var(--bluesky-text-secondary);
+            opacity: 1;
           }
           .handle-input:focus {
             border-color: var(--bluesky-brand);
@@ -345,7 +355,7 @@ export class FeedPage extends MobxLitElement {
             width: 100%;
             max-width: 320px;
             box-sizing: border-box;
-            color: #ffb4ab;
+            color: var(--bluesky-danger);
             text-align: left;
           }
           @media (max-height: 560px), (max-width: 360px) {
@@ -426,7 +436,10 @@ export class FeedPage extends MobxLitElement {
                 </svg>
               </button>
               <div style="flex: 1; min-width: 0;">
-                <h1 class="header-title">Why Am I Seeing This?</h1>
+                <h1 class="header-title title-bubble">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">Why Am I Seeing This?</span>
+                </h1>
               </div>
               ${
                 uiStore.selectedAlgorithm !== "random"

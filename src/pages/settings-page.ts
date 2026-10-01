@@ -235,7 +235,13 @@ export class SettingsPage extends MobxLitElement {
             : "Preview";
     const historyAction = this.historyEntry?.mode === "redo" ? "Redo" : "Undo";
     const historyLabel = `${historyAction} last settings change`;
-    const settingsTitle = `${ALGORITHMS[this.selectedAlgorithm].label} Settings`;
+    const feedLabel = ALGORITHMS[this.selectedAlgorithm].label;
+    const settingsTitle = `${feedLabel} Settings`;
+    // "Best of Friends Settings" does not fit the header on one line: its
+    // title is the feed name alone, a size smaller, and "... Settings" stays
+    // the accessible name.
+    const compactTitle = this.selectedAlgorithm === "best-of-friends";
+    const visibleTitle = compactTitle ? feedLabel : settingsTitle;
 
     return html`
       <div class="settings-layout ${this.mobilePreviewOpen ? "mobile-preview-open" : ""}">
@@ -256,9 +262,15 @@ export class SettingsPage extends MobxLitElement {
                   <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
               </button>
-              <h1 aria-label=${settingsTitle}>
-                <span class="page-title-full">${settingsTitle}</span>
-                <span class="page-title-short" aria-hidden="true">Settings</span>
+              <h1 aria-label=${settingsTitle} class=${compactTitle ? "title-compact" : ""}>
+                <span class="page-title-full title-bubble">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">${visibleTitle}</span>
+                </span>
+                <span class="page-title-short title-bubble" aria-hidden="true">
+                  <img class="title-logo" src="/assets/mysky-small.png" alt="" />
+                  <span class="title-text">Settings</span>
+                </span>
               </h1>
               <div class="mobile-preview-row">
                 <button
@@ -325,7 +337,8 @@ export class SettingsPage extends MobxLitElement {
                         this.selectedAlgorithm === "random"
                           ? ""
                           : html`
-                              ${this.#renderArrow()} ${this.#renderRankingSection(purpose, politics)}
+                              ${this.#renderArrow()}
+                              ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()} ${this.#renderDiversificationSection()}
                             `
                       }
@@ -356,9 +369,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              ${
-                previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel
-              }
+              ${previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel}
             </button>
             <div class="preview-mobile-primary-actions">
               <button
@@ -377,8 +388,7 @@ export class SettingsPage extends MobxLitElement {
             </div>
           </div>
           ${
-            this.previewPhase === "complete" ||
-            (hasGeneratedPreview && previewBusy)
+            this.previewPhase === "complete" || (hasGeneratedPreview && previewBusy)
               ? html`<p class="preview-movement-help">Here’s how far up or down each post moved</p>`
               : ""
           }
@@ -661,10 +671,8 @@ export class SettingsPage extends MobxLitElement {
 
   #renderPolitics(politics: number): TemplateResult {
     return html`
-      <div class="politics-card">
-        <div class="politics-heading">
-          ${this.#titleButton("politics", "Politics")}
-        </div>
+      <div class="control-card signal-card politics-card">
+        ${this.#titleButton("politics", "Politics")}
         <div class="politics-control">
           <icon-range-slider
             min="0"
@@ -920,12 +928,7 @@ export class SettingsPage extends MobxLitElement {
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
-    if (
-      !store ||
-      !root ||
-      !this.previewNeeded ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (!store || !root || !this.previewNeeded || this.#isPreviewBusy(store)) {
       return;
     }
     const previousPhase: PreviewPhase = this.previewPhase === "complete" ? "complete" : "idle";
@@ -1003,8 +1006,7 @@ export class SettingsPage extends MobxLitElement {
           animationOperation === this.previewAnimationOperation
         ) {
           accepted = await store.acceptGeneratedPreview(regenerated, patch).catch(() => {
-            this.settingsError =
-              "Preview could not be synchronized with MySky. Please try again.";
+            this.settingsError = "Preview could not be synchronized with MySky. Please try again.";
             return null;
           });
           if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
@@ -1036,6 +1038,8 @@ export class SettingsPage extends MobxLitElement {
       await this.updateComplete;
       const feedScroll = this.renderRoot.querySelector<HTMLElement>(".feed-scroll");
       if (feedScroll) feedScroll.scrollTop = 0;
+      const feedColumn = this.renderRoot.querySelector<HTMLElement>(".feed-column");
+      if (feedColumn) feedColumn.scrollTop = 0;
       if (isMobilePreview) {
         // Let the overlay settle briefly before its contents begin moving so
         // the transition to the Preview screen remains easy to follow.
@@ -1117,10 +1121,7 @@ export class SettingsPage extends MobxLitElement {
     if (!this.isConnected || document.visibilityState === "hidden") return;
     const store = getSettingsPreviewStore();
     if (!store) return;
-    if (
-      store.isLoadingBaseline ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (store.isLoadingBaseline || this.#isPreviewBusy(store)) {
       this.baselineSyncPending = true;
       return;
     }

@@ -27,44 +27,12 @@ export class FeedTabs extends LitElement {
       display: flex;
       align-items: stretch;
       min-height: 2.75rem;
-      background: rgba(21, 32, 43, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--bluesky-border);
     }
     .tabs-scroll-area {
       flex: 1;
       min-width: 0;
       position: relative;
-    }
-    .tabs-scroll-area::before,
-    .tabs-scroll-area::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 3rem;
-      z-index: 2;
-      pointer-events: none;
-    }
-    .tabs-scroll-area::before {
-      left: 0;
-      width: 1.5rem;
-      background: linear-gradient(
-        to right,
-        rgba(21, 32, 43, 0.95) 0%,
-        rgba(21, 32, 43, 0.7) 50%,
-        transparent 100%
-      );
-    }
-    .tabs-scroll-area::after {
-      right: 0;
-      background: linear-gradient(
-        to left,
-        rgba(21, 32, 43, 0.95) 0%,
-        rgba(21, 32, 43, 0.7) 50%,
-        transparent 100%
-      );
     }
     .tabs-wrapper {
       overflow-x: auto;
@@ -86,9 +54,12 @@ export class FeedTabs extends LitElement {
       padding: 0.75rem 1rem;
       font-size: 0.8125rem;
       font-weight: 500;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
+      opacity: 0.78;
       cursor: pointer;
-      transition: color 0.15s;
+      transition:
+        color 0.15s,
+        opacity 0.15s;
       white-space: nowrap;
       position: relative;
       display: flex;
@@ -97,10 +68,10 @@ export class FeedTabs extends LitElement {
     }
     .tab:hover {
       background: var(--bluesky-bg-hover);
-      color: var(--bluesky-text);
+      opacity: 1;
     }
     .tab.active {
-      color: var(--bluesky-text);
+      opacity: 1;
       font-weight: 700;
     }
     .tab.active::after {
@@ -128,8 +99,9 @@ export class FeedTabs extends LitElement {
       overscroll-behavior: contain;
       padding: 0.9rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
-      background: rgb(21, 32, 43);
+      border-radius: var(--theme-radius-box);
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
       color: var(--bluesky-text);
       margin: 0;
@@ -137,7 +109,6 @@ export class FeedTabs extends LitElement {
     .popover::backdrop {
       background: rgba(0, 0, 0, 0.58);
       backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
     }
     .popover-title {
       font-size: 0.875rem;
@@ -183,7 +154,7 @@ export class FeedTabs extends LitElement {
       margin: 0.75rem 0;
       padding: 0.65rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       color: var(--bluesky-text-secondary);
       font-size: 0.72rem;
       line-height: 1.45;
@@ -198,7 +169,7 @@ export class FeedTabs extends LitElement {
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      border-radius: var(--theme-radius-pill);
       scrollbar-width: thin;
       scrollbar-color: var(--bluesky-text-secondary) transparent;
     }
@@ -239,14 +210,15 @@ export class FeedTabs extends LitElement {
       left: 0;
       z-index: 1;
       text-align: left;
-      background: rgb(21, 32, 43);
-      box-shadow: 0.55rem 0 0.75rem -0.75rem rgba(255, 255, 255, 0.55);
+      background: var(--theme-pane);
+      box-shadow: 0.55rem 0 0.75rem -0.75rem
+        color-mix(in srgb, var(--bluesky-text) 55%, transparent);
     }
     thead th:first-child {
       z-index: 2;
     }
     .status-problem {
-      color: #fbbf24;
+      color: var(--theme-yellow);
     }
     .reason {
       display: block;

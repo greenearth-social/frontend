@@ -2,7 +2,8 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
 import { MobxLitElement } from "@adobe/lit-mobx";
-import { html, css, nothing } from "lit";
+import { html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import {
@@ -42,9 +43,7 @@ export class AppShell extends MobxLitElement {
   private _drawerOpen = false;
   @state() private _desktopSidebarCollapsed = false;
   @state() private _showLogoutMenu = false;
-  @state() private _expandedAlgorithms = new Set<AlgorithmId>();
   @state() private _authFailureMessage = "";
-  private _lastRouteFeed: AlgorithmId | null = null;
   private _lastSettingsViewedFeed: AlgorithmId | null = null;
   private _settingsVisitReportedForUser: string | null = null;
   private _settingsVisitInFlightForUser: string | null = null;
@@ -52,11 +51,12 @@ export class AppShell extends MobxLitElement {
   private _authFinishInFlight = false;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: flex;
       justify-content: center;
       height: 100dvh;
-      background: var(--bluesky-bg);
+      background: transparent;
       color: var(--bluesky-text);
     }
 
@@ -73,7 +73,6 @@ export class AppShell extends MobxLitElement {
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      background: var(--bluesky-nav-bg);
     }
     .left-sidebar-desktop {
       position: relative;
@@ -137,23 +136,17 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       width: 100%;
       padding: 0.25rem;
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.875rem;
-      background: color-mix(in srgb, var(--bluesky-bg-hover) 30%, transparent);
-      transition:
-        border-color 0.15s,
-        background-color 0.15s;
+      transition: background-color 0.15s;
     }
     .feed-group.active-feed {
-      border-color: color-mix(in srgb, var(--bluesky-brand) 38%, #a8d3ff);
-      background: color-mix(in srgb, var(--bluesky-brand) 5%, var(--bluesky-nav-bg));
+      background: color-mix(in srgb, var(--bluesky-brand) 16%, var(--theme-glass));
     }
     .algo-row {
       display: flex;
       align-items: center;
       min-height: 44px;
-      border-radius: 0.6875rem;
-      background: var(--bluesky-bg-hover);
+      border-radius: var(--theme-radius-pill);
+      background: transparent;
       color: var(--bluesky-text);
       transition: background-color 0.15s;
       min-width: 0;
@@ -162,12 +155,18 @@ export class AppShell extends MobxLitElement {
     .algo-row:hover {
       background: var(--bluesky-bg-hover);
     }
+    /* the selected feed row matches the page-title bubble: same blue,
+       same green lettering */
     .algo-row.active {
-      background: color-mix(in srgb, var(--bluesky-brand) 62%, #a8d3ff);
-      color: #fff;
+      background: var(--theme-title-bubble-bg);
+      color: var(--bluesky-text);
     }
     .algo-row.active .algo-label {
       font-weight: 800;
+      background: var(--theme-title-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .algo-btn {
       display: flex;
@@ -180,7 +179,8 @@ export class AppShell extends MobxLitElement {
       background: transparent;
       color: inherit;
       text-decoration: none;
-      font-size: 1.0625rem;
+      font-family: inherit;
+      font-size: 0.875rem;
       cursor: pointer;
       text-align: left;
     }
@@ -198,30 +198,6 @@ export class AppShell extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .algo-toggle {
-      width: 44px;
-      height: 44px;
-      flex: 0 0 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      border-radius: 9999px;
-      background: transparent;
-      color: inherit;
-      cursor: pointer;
-    }
-    .algo-toggle:hover {
-      background: rgba(255, 255, 255, 0.12);
-    }
-    .algo-toggle wa-icon {
-      font-size: 1rem;
-      transition: transform 0.15s ease;
-    }
-    .algo-toggle[aria-expanded="true"] wa-icon {
-      transform: rotate(180deg);
     }
 
     .feed-subnav {
@@ -267,7 +243,7 @@ export class AppShell extends MobxLitElement {
       height: 52px;
       padding: 0;
       border: 1px solid var(--bluesky-text-secondary);
-      border-radius: 6px;
+      border-radius: 6px; /* a tab on the divider, not a pill */
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       place-items: center;
@@ -306,23 +282,23 @@ export class AppShell extends MobxLitElement {
       min-width: 0;
       box-sizing: border-box;
       padding: 0.625rem;
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-pill);
       color: var(--bluesky-text);
       text-decoration: none;
-      font-size: 0.9375rem;
+      font-size: 0.8125rem;
       transition: background-color 0.15s;
     }
     .nav-link:hover {
       background: var(--bluesky-bg-hover);
     }
     .nav-link.active {
-      background: #166534;
-      color: #f0fdf4;
+      background: var(--bluesky-bg-hover);
+      color: var(--theme-green);
       font-weight: 700;
     }
     .nav-link.active:hover {
-      background: #15803d;
-      color: #fff;
+      background: var(--theme-dim);
+      color: var(--theme-green-bright);
     }
     .nav-link wa-icon {
       font-size: 1.125rem;
@@ -349,9 +325,8 @@ export class AppShell extends MobxLitElement {
     }
 
     .algo-btn:focus-visible,
-    .algo-toggle:focus-visible,
     .nav-link:focus-visible {
-      outline: 2px solid #fff;
+      outline: 2px solid var(--theme-blue-bright);
       outline-offset: 2px;
     }
 
@@ -366,14 +341,13 @@ export class AppShell extends MobxLitElement {
       padding: 0.5rem 0.75rem;
       border-top: 1px solid var(--bluesky-border);
       box-sizing: border-box;
-      background: var(--bluesky-nav-bg);
     }
     .user-btn {
       display: flex;
       align-items: center;
       gap: 0.75rem;
       padding: 0.5rem 0.75rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       border: none;
       background: transparent;
       cursor: default;
@@ -408,7 +382,7 @@ export class AppShell extends MobxLitElement {
       text-overflow: ellipsis;
       display: block;
       width: 100%;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
     }
 
     .user-details-handle--primary {
@@ -419,7 +393,7 @@ export class AppShell extends MobxLitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
     }
 
     .more-btn {
@@ -430,10 +404,10 @@ export class AppShell extends MobxLitElement {
       height: 36px;
       border-radius: 9999px;
       border: none;
-      background: transparent;
+      background: var(--bluesky-bg-card);
       cursor: pointer;
       transition: background 0.15s;
-      color: var(--bluesky-text-secondary);
+      color: var(--bluesky-text);
       flex-shrink: 0;
       position: relative;
       z-index: 10;
@@ -450,9 +424,10 @@ export class AppShell extends MobxLitElement {
       position: absolute;
       bottom: calc(100% + 0.5rem);
       right: 0;
-      background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.5rem;
+      /* floats over the page like the popups: dense pane, not a see-through card */
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
+      border-radius: var(--theme-radius-box);
       padding: 0.25rem;
       min-width: 120px;
       z-index: 100;
@@ -469,7 +444,7 @@ export class AppShell extends MobxLitElement {
       gap: 0.5rem;
       width: 100%;
       padding: 0.5rem 0.75rem;
-      border-radius: 0.375rem;
+      border-radius: var(--theme-radius-pill);
       border: none;
       background: transparent;
       cursor: pointer;
@@ -479,7 +454,7 @@ export class AppShell extends MobxLitElement {
       transition: background 0.15s;
     }
     .logout-btn:hover {
-      background: rgba(244, 33, 46, 0.1);
+      background: color-mix(in srgb, var(--bluesky-danger) 10%, transparent);
     }
     .logout-btn wa-icon {
       font-size: 1rem;
@@ -527,7 +502,6 @@ export class AppShell extends MobxLitElement {
       }
 
       .shell-container.sidebar-collapsed .algo-label,
-      .shell-container.sidebar-collapsed .algo-toggle,
       .shell-container.sidebar-collapsed .nav-label,
       .shell-container.sidebar-collapsed .external-link-icon,
       .shell-container.sidebar-collapsed .user-details {
@@ -613,7 +587,8 @@ export class AppShell extends MobxLitElement {
       width: 280px;
       max-width: calc(100vw - 32px);
       box-sizing: border-box;
-      background: var(--bluesky-nav-bg);
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
       transform: translateX(-100%);
       transition: transform 0.25s ease;
       display: flex;
@@ -648,7 +623,7 @@ export class AppShell extends MobxLitElement {
       width: 40px;
       height: 40px;
       border-radius: 9999px;
-      border: 1px solid var(--bluesky-border);
+      border: 0;
       background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
       cursor: pointer;
@@ -921,56 +896,27 @@ export class AppShell extends MobxLitElement {
             ${ALGORITHM_IDS.map((id) => {
               const algo = ALGORITHMS[id];
               const isActiveFeed = this._currentFeed === id;
-              const isExpanded = this._expandedAlgorithms.has(id);
               const subnavId = `${surface}-${id}-pages`;
-              const togglesCollapsedActiveFeed =
-                surface === "desktop" && this._desktopSidebarCollapsed && isActiveFeed;
+              // Choosing a feed is the one action: its pages show while it
+              // is the selected feed, the other feeds stay folded.
               return html`
-                <div
-                  class="feed-group ${isActiveFeed ? "active-feed" : ""} ${isExpanded ? "expanded" : ""}"
-                >
+                <div class="feed-group glass-box ${isActiveFeed ? "active-feed" : ""}">
                   <div class="algo-row ${isActiveFeed ? "active" : ""}">
                     <button
                       class="algo-btn"
                       @click=${() => {
-                        if (isActiveFeed) {
-                          this.#toggleAlgorithmExpanded(id);
-                          return;
-                        }
                         void this.#navigateTo(this._currentPage, id);
                       }}
-                      aria-label=${
-                        togglesCollapsedActiveFeed
-                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                          : algo.label
-                      }
+                      aria-label=${algo.label}
                       aria-pressed=${isActiveFeed}
-                      aria-expanded=${togglesCollapsedActiveFeed ? isExpanded : nothing}
-                      aria-controls=${togglesCollapsedActiveFeed ? subnavId : nothing}
-                      title=${
-                        togglesCollapsedActiveFeed
-                          ? `${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages`
-                          : nothing
-                      }
+                      aria-controls=${subnavId}
                       type="button"
                     >
                       <wa-icon name=${algo.icon} library="app"></wa-icon>
                       <span class="algo-label">${algo.label}</span>
                     </button>
-                    <button
-                      class="algo-toggle"
-                      type="button"
-                      aria-label="${isExpanded ? "Collapse" : "Expand"} ${algo.label} pages"
-                      aria-expanded=${isExpanded}
-                      aria-controls=${subnavId}
-                      @click=${() => {
-                        this.#toggleAlgorithmExpanded(id);
-                      }}
-                    >
-                      <wa-icon name="chevron-down" library="app"></wa-icon>
-                    </button>
                   </div>
-                  <div id=${subnavId} class="feed-subnav" ?hidden=${!isExpanded}>
+                  <div id=${subnavId} class="feed-subnav" ?hidden=${!isActiveFeed}>
                     <a
                       href=${algo.blueskyUrl}
                       class="nav-link view-feed-link"
@@ -1163,10 +1109,6 @@ export class AppShell extends MobxLitElement {
     this._currentRoute = route.path;
     this._currentPage = route.page;
     this._currentFeed = route.feedName;
-    if (this._lastRouteFeed !== route.feedName) {
-      this._expandedAlgorithms = new Set([...this._expandedAlgorithms, route.feedName]);
-      this._lastRouteFeed = route.feedName;
-    }
     this.#syncSelectedAlgorithm(route.feedName);
     this.requestUpdate();
 
@@ -1212,18 +1154,7 @@ export class AppShell extends MobxLitElement {
     this._authFailureMessage = "";
   };
 
-  #toggleAlgorithmExpanded(id: AlgorithmId): void {
-    const expanded = new Set(this._expandedAlgorithms);
-    if (expanded.has(id)) {
-      expanded.delete(id);
-    } else {
-      expanded.add(id);
-    }
-    this._expandedAlgorithms = expanded;
-  }
-
   #navigateTo(page: AppPage, id: AlgorithmId): Promise<void> {
-    this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
     const path = feedScopedPath(page, id);
     this.#commitNavigation(path);
     return Promise.resolve();
@@ -1282,7 +1213,6 @@ export class AppShell extends MobxLitElement {
     this._currentRoute = "/feed";
     this._currentPage = "feed";
     this._currentFeed = "your-feed";
-    this._lastRouteFeed = null;
     this.requestUpdate();
   };
 

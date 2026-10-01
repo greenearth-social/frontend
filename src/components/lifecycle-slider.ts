@@ -83,7 +83,7 @@ export class LifecycleSlider extends LitElement {
       height: 40px;
       border-radius: 9999px;
       background: var(--bluesky-brand);
-      box-shadow: 0 2px 8px rgba(16, 131, 254, 0.4);
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--bluesky-brand) 40%, transparent);
       pointer-events: none;
       z-index: 1;
     }

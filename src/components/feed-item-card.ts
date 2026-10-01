@@ -1,5 +1,6 @@
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -16,20 +17,17 @@ export class FeedItemCard extends MobxLitElement {
   @property({ type: Number }) constructiveInfluence = 0.5;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: block;
       margin: 0.5rem 0.75rem 0.5rem 1.5rem;
     }
     .card {
-      background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
+      /* a touch lighter than plain glass, a touch darker than the settings
+         slider cards */
+      background: color-mix(in srgb, var(--theme-blue) 9%, var(--theme-glass));
       padding: 0.75rem 1rem;
-      transition: background 0.15s;
       max-width: 100%;
-    }
-    .card:hover {
-      background: var(--bluesky-bg-hover);
     }
     .author-row {
       display: flex;
@@ -74,7 +72,7 @@ export class FeedItemCard extends MobxLitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: var(--bluesky-on-brand);
       font-weight: 700;
       font-size: 1rem;
       flex-shrink: 0;
@@ -89,10 +87,10 @@ export class FeedItemCard extends MobxLitElement {
     .content-badge {
       font-size: 0.75rem;
       padding: 0.25rem 0.625rem;
-      border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--theme-radius-pill);
+      background: color-mix(in srgb, var(--bluesky-text) 10%, transparent);
       color: var(--bluesky-text);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid color-mix(in srgb, var(--bluesky-text) 15%, transparent);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -102,7 +100,7 @@ export class FeedItemCard extends MobxLitElement {
       justify-content: center;
       width: 2rem;
       height: 2rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       font-size: 1rem;
       color: var(--bluesky-brand);
       background: transparent;
@@ -115,7 +113,7 @@ export class FeedItemCard extends MobxLitElement {
       flex-shrink: 0;
     }
     .bluesky-btn:hover {
-      background: rgba(16, 131, 254, 0.12);
+      background: color-mix(in srgb, var(--bluesky-brand) 12%, transparent);
       color: var(--bluesky-brand-hover);
     }
     .bluesky-btn wa-icon {
@@ -147,7 +145,7 @@ export class FeedItemCard extends MobxLitElement {
     const mediaLabels = countedMediaLabels(i);
 
     return html`
-      <div class="card">
+      <div class="card glass-box">
         <div class="author-row">
           ${
             i.avatarUrl

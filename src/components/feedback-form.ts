@@ -1,4 +1,5 @@
 import { LitElement, css, html } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property, state } from "lit/decorators.js";
 import type { FeedbackSurface } from "../config/runtime-config";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -19,15 +20,13 @@ export class FeedbackForm extends LitElement {
   @state() private previewPayload: FeedbackEventPayload | null = null;
 
   static styles = css`
+    ${glassBox}
     :host {
       display: block;
       width: 100%;
     }
     .feedback-card {
       padding: 1rem;
-      border: 1px solid var(--bluesky-border);
-      border-radius: 1rem;
-      background: var(--bluesky-bg-card);
     }
     label {
       display: block;
@@ -45,9 +44,9 @@ export class FeedbackForm extends LitElement {
       resize: vertical;
       padding: 0.75rem;
       border: 1px solid var(--bluesky-border);
-      border-radius: 0.75rem;
+      border-radius: var(--theme-radius-pill);
       outline: none;
-      background: var(--bluesky-bg);
+      background: var(--bluesky-bg-card);
       color: var(--bluesky-text);
       font: inherit;
       line-height: 1.5;
@@ -60,7 +59,7 @@ export class FeedbackForm extends LitElement {
     }
     textarea:focus {
       border-color: var(--bluesky-brand);
-      box-shadow: 0 0 0 2px rgba(16, 131, 254, 0.2);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--bluesky-brand) 20%, transparent);
     }
     .form-footer {
       display: flex;
@@ -77,9 +76,9 @@ export class FeedbackForm extends LitElement {
       min-width: 6rem;
       padding: 0.625rem 1rem;
       border: 0;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       background: var(--bluesky-brand);
-      color: white;
+      color: var(--bluesky-on-brand);
       cursor: pointer;
       font: inherit;
       font-size: 0.875rem;
@@ -105,7 +104,7 @@ export class FeedbackForm extends LitElement {
       color: var(--bluesky-repost);
     }
     .status.test {
-      color: #f2c94c;
+      color: var(--theme-yellow);
     }
     .status.error {
       color: var(--bluesky-danger);
@@ -126,10 +125,10 @@ export class FeedbackForm extends LitElement {
       overflow: auto;
       margin: 0.75rem 0 0;
       padding: 0.75rem;
-      border-radius: 0.5rem;
-      background: var(--bluesky-bg);
+      border-radius: var(--theme-radius-pill);
+      background: var(--bluesky-bg-card);
       color: var(--bluesky-text-secondary);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-family: var(--theme-font);
       font-size: 0.6875rem;
       line-height: 1.45;
       white-space: pre-wrap;
@@ -144,7 +143,7 @@ export class FeedbackForm extends LitElement {
     const unavailable = unavailableReason !== null;
 
     return html`
-      <form class="feedback-card" @submit=${this.#handleSubmit}>
+      <form class="feedback-card glass-box" @submit=${this.#handleSubmit}>
         <label for="feedback-input">${this.prompt}</label>
         <textarea
           id="feedback-input"

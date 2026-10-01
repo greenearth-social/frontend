@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { glassBox } from "../styles/theme";
 import { customElement, property } from "lit/decorators.js";
 import type { FeedSummary } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -14,11 +15,9 @@ export class RightSidebar extends LitElement {
   @property({ type: String }) blueskyUrl: string = "";
 
   static styles = css`
+    ${glassBox}
     :host { display: block; }
     .card {
-      background: var(--bluesky-bg-card);
-      border: 1px solid var(--bluesky-border);
-      border-radius: 1rem;
       overflow: hidden;
       margin-bottom: 1rem;
     }
@@ -71,7 +70,7 @@ export class RightSidebar extends LitElement {
       align-items: center;
       gap: 0.375rem;
       padding: 0.5rem 1rem;
-      border-radius: 9999px;
+      border-radius: var(--theme-radius-pill);
       border: 1px solid var(--bluesky-brand);
       color: var(--bluesky-brand);
       font-size: 0.875rem;
@@ -81,7 +80,7 @@ export class RightSidebar extends LitElement {
       align-self: flex-start;
     }
     .open-in-bluesky:hover {
-      background: rgba(32, 139, 254, 0.1);
+      background: color-mix(in srgb, var(--bluesky-brand) 10%, transparent);
     }
   `;
 
@@ -100,7 +99,7 @@ export class RightSidebar extends LitElement {
     if (!hasRecent && this.blueskyUrl) {
       return html`
         <div style="padding: 0.5rem 0;">
-          <div class="card">
+          <div class="card glass-box">
             <div class="card-header">Feed Snapshots</div>
             <div class="stale-notice">
               <p class="stale-text">
@@ -123,7 +122,7 @@ export class RightSidebar extends LitElement {
     if (filtered.length === 0) {
       return html`
         <div style="padding: 0.5rem 0;">
-          <div class="card">
+          <div class="card glass-box">
             <div class="card-header">Feed Snapshots</div>
             <div class="feed-item" style="cursor: default; color: var(--bluesky-text-secondary);">
               No recent feeds
@@ -135,7 +134,7 @@ export class RightSidebar extends LitElement {
 
     return html`
       <div style="padding: 0.5rem 0;">
-        <div class="card">
+        <div class="card glass-box">
           <div class="card-header">Feed Snapshots</div>
           ${filtered.map(
             (f, index) => html`

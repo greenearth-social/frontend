@@ -1,23 +1,83 @@
 @import "@awesome.me/webawesome/dist/styles/webawesome.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* The look comes from one painting. theme-tools/theme-from-painting.py
+   (gitignored; needs ImageMagick) blurs it into public/assets/wallpaper.jpg
+   and writes the --theme-* colours between the markers below: every role is
+   the painting's nearest hue (no fallbacks, roles may share a hue) and the
+   cat-N shades are the dominant hue spaced by lightness, for the feed-source
+   badges. Hand-edit nothing between the markers; rerun the script. */
 :root {
-  --bluesky-bg: #15202b;
-  --bluesky-bg-card: #1e2732;
-  --bluesky-bg-hover: #1c2b3b;
-  --bluesky-border: #2f3336;
-  --bluesky-text: #e7e9ea;
-  --bluesky-text-secondary: #71767b;
-  --bluesky-brand: #1083fe;
-  --bluesky-brand-hover: #1a8dfe;
-  --bluesky-danger: #f4212e;
-  --bluesky-like: #f91880;
-  --bluesky-repost: #00ba7c;
-  --bluesky-nav-bg: #0f1923;
+  /* theme:begin */
+  --theme-red: #c4bd27;
+  --theme-red-bright: #e1db4f;
+  --theme-orange: #c4bd27;
+  --theme-orange-bright: #e1db4f;
+  --theme-yellow: #c4bd27;
+  --theme-yellow-bright: #e1db4f;
+  --theme-green: #9cc58f;
+  --theme-green-bright: #b8e3ab;
+  --theme-cyan: #97c5a1;
+  --theme-cyan-bright: #b3e2bd;
+  --theme-blue: #83bbff;
+  --theme-blue-bright: #9fd8ff;
+  --theme-pink: #9cb8e8;
+  --theme-pink-bright: #b9d5ff;
+  --theme-cat-1: #6c87b4;
+  --theme-cat-2: #7297c9;
+  --theme-cat-3: #7fa7d5;
+  --theme-cat-4: #79b8f6;
+  --theme-cat-5: #98c7f3;
+  --theme-cat-6: #acd6fd;
+  --theme-bg: #14202d;
+  --theme-dim: #323e4d;
+  --theme-mute: #97a6b7;
+  --theme-fg: #e5f0fc;
+  --theme-on-cat: var(--theme-bg);
+  /* theme:end */
+  color-scheme: dark;
 
+  /* The look, hand-tuned. Surfaces are translucent so the painting shows
+     through every box; nothing is a solid colour. */
+  --theme-font: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --theme-radius-box: 14px; /* cards, sections, popups */
+  --theme-radius-pill: 8px; /* buttons, badges, inputs, title bubbles */
+  --theme-glass: color-mix(in srgb, var(--theme-bg) 30%, transparent); /* panes: cards, nav */
+  --theme-pane: color-mix(in srgb, var(--theme-bg) 82%, transparent); /* floating: popups, drawer */
+  --theme-glass-blur: blur(14px) saturate(1.2);
+  --theme-header-blur: blur(16px) saturate(1.1); /* column headers: no tint, only blur */
+  --theme-header-height: 60px; /* Settings and Preview headers meet as one line */
+  --theme-control-height: 40px; /* header buttons and title bubbles, one height */
+  --theme-box-glow: 0 0 22px color-mix(in srgb, var(--theme-fg) 12%, transparent); /* boxes: glow, no border */
+  --theme-badge-width: 7rem; /* every feed-source badge, whatever its label */
+  /* The one opaque surface: the title bubble (and the selected feed row,
+     which matches it) must read the same over any part of the painting. */
+  --theme-title-bubble-bg: color-mix(in srgb, var(--theme-blue-bright) 70%, white);
+  --theme-title-bubble-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); /* a slight lift off the painting */
+  --theme-title-gradient: linear-gradient(100deg, #19b068, #7aa96d); /* logo green to a dark field green */
+
+  /* The names the components use. */
+  --bluesky-bg: var(--theme-bg);
+  --bluesky-bg-card: color-mix(in srgb, var(--theme-fg) 8%, transparent); /* raised bits: buttons, rows, inputs */
+  --bluesky-bg-hover: color-mix(in srgb, var(--theme-fg) 16%, transparent);
+  --bluesky-border: color-mix(in srgb, var(--theme-fg) 28%, transparent); /* column dividers, header lines */
+  --bluesky-text: var(--theme-fg);
+  --bluesky-text-secondary: var(--theme-mute);
+  --bluesky-brand: var(--theme-blue);
+  --bluesky-brand-hover: var(--theme-blue-bright);
+  --bluesky-on-brand: var(--theme-bg);
+  --bluesky-fill: var(--theme-green); /* sliders and bars: the painting's hue nearest the logo green */
+  --bluesky-danger: var(--theme-red);
+  --bluesky-like: var(--theme-orange);
+  --bluesky-repost: var(--theme-green);
+
+  --wa-font-family-body: var(--theme-font);
+  --wa-font-family-heading: var(--theme-font);
+  --wa-font-family-code: var(--theme-font);
   --wa-color-surface-default: var(--bluesky-bg);
   --wa-color-surface-raised: var(--bluesky-bg-hover);
   --wa-color-surface-border: var(--bluesky-border);
@@ -27,13 +87,11 @@
   --wa-color-brand-fill-normal: var(--bluesky-brand);
   --wa-color-brand-fill-hover: var(--bluesky-brand-hover);
   --wa-color-danger-fill-normal: var(--bluesky-danger);
-  --wa-color-neutral-fill-normal: #3e4144;
-  --wa-color-neutral-fill-hover: #4e5054;
+  --wa-color-neutral-fill-normal: var(--bluesky-bg-card);
+  --wa-color-neutral-fill-hover: var(--bluesky-bg-hover);
   --wa-color-neutral-text-normal: var(--bluesky-text);
-  --wa-color-green-fill-normal: #22c55e;
-  --wa-color-purple-fill-normal: #8b5cf6;
-
-  color-scheme: dark;
+  --wa-color-green-fill-normal: var(--theme-green);
+  --wa-color-purple-fill-normal: var(--theme-pink);
 }
 
 @layer base {
@@ -45,9 +103,19 @@
 
   body {
     overscroll-behavior-y: none;
-    background-color: var(--bluesky-bg);
     color: var(--bluesky-text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--theme-font);
+  }
+
+  /* The wallpaper sits on its own fixed layer: iOS Safari ignores
+     background-attachment: fixed, and body must stay unpainted on top of it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: url("/assets/wallpaper.jpg") center / cover;
+    pointer-events: none;
   }
 
   a {
@@ -56,5 +124,10 @@
 
   a:hover {
     color: var(--bluesky-brand-hover);
+  }
+
+  ::selection {
+    background: var(--theme-mute);
+    color: var(--theme-fg);
   }
 }

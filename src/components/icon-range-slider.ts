@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 
 export type IconRangeOrientation = "horizontal" | "vertical";
 
@@ -32,6 +32,19 @@ export class IconRangeSlider extends LitElement {
   private previewValue: number | null = null;
   private activeTouchPointerId: number | null = null;
   private touchStartValue: number | null = null;
+  // The thumb sits wherever the pointer left it; only the value it reports
+  // snaps to `step`, so each step owns a range of thumb positions. Null
+  // until a drag happens, and again whenever the value is set from outside
+  // (Undo, Defaults, keyboard), which moves the thumb onto the exact value.
+  @state() private dragPosition: number | null = null;
+  @state() private pointerFocus = false;
+  private selfSetValue: number | null = null;
+
+  protected willUpdate(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("value") && this.value !== this.selfSetValue) {
+      this.dragPosition = null;
+    }
+  }
 
   static styles = css`
     :host {
@@ -39,9 +52,9 @@ export class IconRangeSlider extends LitElement {
       --icon-thumb-overhang: 16px;
       --icon-control-height: 34px;
       --icon-endpoint-inset: 3px;
-      --icon-track-color: rgba(148, 163, 184, 0.3);
-      --icon-fill-color: var(--bluesky-brand);
-      --icon-tick-color: rgba(255, 255, 255, 0.35);
+      --icon-track-color: color-mix(in srgb, var(--bluesky-text-secondary) 30%, transparent);
+      --icon-fill-color: var(--bluesky-fill);
+      --icon-tick-color: color-mix(in srgb, var(--bluesky-text) 35%, transparent);
       display: block;
       min-width: 0;
     }
@@ -127,8 +140,10 @@ export class IconRangeSlider extends LitElement {
       -webkit-tap-highlight-color: transparent;
     }
 
-    input[type="range"]:focus-visible + .icon-thumb {
-      outline: 3px solid rgba(145, 189, 63, 0.65);
+    /* Focus ring for keyboard users only: a pointer grab focuses the input
+       too, and the ring around a thumb you are already holding is noise. */
+    .slider:not(.pointer-focus) input[type="range"]:focus-visible + .icon-thumb {
+      outline: 3px solid color-mix(in srgb, var(--theme-green-bright) 65%, transparent);
       outline-offset: 3px;
     }
 
@@ -141,12 +156,13 @@ export class IconRangeSlider extends LitElement {
       width: var(--icon-thumb-size);
       height: var(--icon-thumb-size);
       box-sizing: border-box;
-      border: 2px solid rgba(255, 255, 255, 0.75);
+      border: 2px solid color-mix(in srgb, var(--bluesky-text) 75%, transparent);
       border-radius: 9999px;
-      background: var(--bluesky-bg-card);
+      background: color-mix(in srgb, var(--bluesky-bg) 18%, transparent);
+      backdrop-filter: blur(26px) saturate(1.3);
       box-shadow:
         0 3px 10px rgba(0, 0, 0, 0.35),
-        0 0 0 2px rgba(16, 131, 254, 0.25);
+        0 0 0 2px color-mix(in srgb, var(--bluesky-brand) 25%, transparent);
       transform: translate(-50%, -50%);
       pointer-events: none;
     }
@@ -267,7 +283,11 @@ export class IconRangeSlider extends LitElement {
     const displayValue = this.valueText || this.value.toFixed(2);
 
     return html`
-      <div class="slider ${vertical ? "vertical" : ""} ${this.disabled ? "disabled" : ""}">
+      <div
+        class="slider ${vertical ? "vertical" : ""} ${this.disabled ? "disabled" : ""} ${
+          this.pointerFocus ? "pointer-focus" : ""
+        }"
+      >
         <div class="range-shell" style=${shellStyle}>
           <div class="track"></div>
           <div class="fill" style=${fillStyle}></div>
@@ -289,6 +309,12 @@ export class IconRangeSlider extends LitElement {
             aria-orientation=${this.orientation}
             @pointerdown=${this.#handlePointerStart}
             @pointermove=${this.#handlePointerMove}
+            @keydown=${() => {
+              this.pointerFocus = false;
+            }}
+            @blur=${() => {
+              this.pointerFocus = false;
+            }}
             @input=${this.#handleInput}
             @change=${this.#handleChange}
             @pointerup=${this.#handlePointerEnd}
@@ -317,7 +343,8 @@ export class IconRangeSlider extends LitElement {
     const scaleMin = this.scaleMin ?? this.min;
     const scaleMax = this.scaleMax ?? this.max;
     if (scaleMax <= scaleMin) return 0;
-    return Math.max(0, Math.min(100, ((this.value - scaleMin) / (scaleMax - scaleMin)) * 100));
+    const shown = this.dragPosition ?? this.value;
+    return Math.max(0, Math.min(100, ((shown - scaleMin) / (scaleMax - scaleMin)) * 100));
   }
 
   #interactivePercent(): number {
@@ -330,15 +357,17 @@ export class IconRangeSlider extends LitElement {
   #handleInput = (event: Event): void => {
     if (this.activeTouchPointerId !== null) return;
     const input = event.currentTarget as HTMLInputElement;
+    this.dragPosition = null;
     this.#preview(Number(input.value));
   };
 
   #handlePointerStart = (event: PointerEvent): void => {
-    if (this.disabled || event.pointerType === "mouse") return;
+    if (this.disabled) return;
 
     const input = event.currentTarget as HTMLInputElement;
     this.activeTouchPointerId = event.pointerId;
     this.touchStartValue = this.value;
+    this.pointerFocus = true;
     event.preventDefault();
     input.focus({ preventScroll: true });
     try {
@@ -370,6 +399,7 @@ export class IconRangeSlider extends LitElement {
     const scaleMax = this.scaleMax ?? this.max;
     const rawValue = scaleMin + ratio * (scaleMax - scaleMin);
     const clampedValue = Math.max(this.min, Math.min(this.max, rawValue));
+    this.dragPosition = clampedValue;
     const step = this.step > 0 ? this.step : 1;
     const steppedValue = this.min + Math.round((clampedValue - this.min) / step) * step;
     this.#preview(Number(Math.max(this.min, Math.min(this.max, steppedValue)).toFixed(12)));
@@ -377,6 +407,7 @@ export class IconRangeSlider extends LitElement {
 
   #preview(value: number): void {
     this.previewValue = value;
+    this.selfSetValue = value;
     this.value = value;
     this.dispatchEvent(
       new CustomEvent("slider-preview", {
@@ -398,6 +429,7 @@ export class IconRangeSlider extends LitElement {
       event.preventDefault();
 
       if (event.type === "pointercancel") {
+        this.dragPosition = null;
         if (this.touchStartValue !== null) this.#preview(this.touchStartValue);
         this.previewValue = null;
       } else {
@@ -424,6 +456,7 @@ export class IconRangeSlider extends LitElement {
   };
 
   #commitValue(value: number): void {
+    this.selfSetValue = value;
     this.value = value;
     this.previewValue = null;
     this.dispatchEvent(
