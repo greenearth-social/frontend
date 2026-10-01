@@ -424,7 +424,9 @@ export class AppShell extends MobxLitElement {
       position: absolute;
       bottom: calc(100% + 0.5rem);
       right: 0;
-      background: var(--bluesky-bg-card);
+      /* floats over the page like the popups: dense pane, not a see-through card */
+      background: var(--theme-pane);
+      backdrop-filter: var(--theme-glass-blur);
       border-radius: var(--theme-radius-box);
       padding: 0.25rem;
       min-width: 120px;
