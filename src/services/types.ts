@@ -15,16 +15,27 @@ export interface SourceWeights {
   networkLikes: number;
   authorsTopics: number;
   popular: number;
+  llm: number;
 }
 
 export interface Preferences {
   sourceWeights: SourceWeights;
   freshness: number; // 0-5; default 5 (7 days)
-  politics: number; // 0-2; default 1 (neutral)
+  politics: number; // 0-2; default 0.5, neutral 1
   purpose: number; // 0-1
 }
 
 export type FeedPreferences = Partial<Preferences>;
+
+export interface LlmPrompt {
+  promptKey: string;
+  prompt: string;
+  createdAt: string;
+}
+
+// What the api says about the prompt feature for this account: off (the llm-cg
+// feature flag is not on for them), or on with the fitted prompt if any.
+export type LlmPromptStatus = { enabled: false } | { enabled: true; prompt: LlmPrompt | null };
 
 export interface FeedPreviewSession {
   requestId: string;
@@ -77,4 +88,6 @@ export interface IFeedApiService {
     feedName: import("../constants/algorithms").AlgorithmId,
     prefs: FeedPreferences,
   ): Promise<FeedPreferences>;
+  getLlmPrompt(): Promise<LlmPromptStatus>;
+  fitLlmPrompt(prompt: string): Promise<LlmPrompt>;
 }

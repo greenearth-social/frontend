@@ -58,7 +58,7 @@ const ICONS: Record<string, string> = {
 };
 
 const ALGO_PNG_ICONS: Record<string, string> = {
-  "algo-greenearth": "/assets/mysky-logo.png",
+  "algo-greenearth": "/assets/mysky-small.png",
   "algo-best-of-friends": "/assets/algo-best-of-friends.png",
   "algo-random": "/assets/algo-random.png",
 };

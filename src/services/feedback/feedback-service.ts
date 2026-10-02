@@ -56,6 +56,7 @@ export function buildFeedbackEvent(
     source_network_likes_weight: submission.preferences.sourceWeights.networkLikes,
     source_authors_topics_weight: submission.preferences.sourceWeights.authorsTopics,
     source_popular_weight: submission.preferences.sourceWeights.popular,
+    source_llm_weight: submission.preferences.sourceWeights.llm,
     freshness: submission.preferences.freshness,
     politics: submission.preferences.politics,
     purpose: submission.preferences.purpose,

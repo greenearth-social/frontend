@@ -135,8 +135,8 @@ source of enabled controls:
 - `random`: Time Window
 
 Politics uses a 0–2 multiplier with five slider positions (0, 0.5, 1, 1.5, 2)
-and neutral/default 1. Render it and include it in settings patches only when
-`supportsControl(feedName, "politics")` is true. Older API deployments that omit
+and default 0.5; 1 remains neutral. Render it and include it in settings patches
+only when `supportsControl(feedName, "politics")` is true. Older API deployments that omit
 politics keep it hidden. Political posts may still appear at 0; this control
 adjusts ranking scores rather than applying a categorical content filter.
 
@@ -168,7 +168,7 @@ The preference wire contract is:
       },
       "freshness": 5,
       "purpose": 0.5,
-      "politics": 1.0
+      "politics": 0.5
     }
   }
 }

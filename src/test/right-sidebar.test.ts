@@ -9,7 +9,6 @@ function makeFeed(feedName: string, hoursAgo: number): FeedSummary {
     generatedAt: d.toISOString(),
     feedName,
     apiReleaseSha: null,
-    appliedSocialRadius: null,
     generatorDiagnostics: [],
   };
 }

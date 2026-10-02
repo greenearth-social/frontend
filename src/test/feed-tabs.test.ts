@@ -10,7 +10,6 @@ function makeTabs() {
       generatedAt: "2026-07-16T12:00:00Z",
       feedName: "your-feed",
       apiReleaseSha: "api-sha-1",
-      appliedSocialRadius: 0,
       generatorDiagnostics: [
         {
           name: "followed_users",
@@ -29,7 +28,6 @@ function makeTabs() {
       generatedAt: "2026-07-16T11:00:00Z",
       feedName: "your-feed",
       apiReleaseSha: "api-sha-2",
-      appliedSocialRadius: 3,
       generatorDiagnostics: [],
     },
   ];
@@ -69,6 +67,66 @@ describe("FeedTabs source breakdown", () => {
 
     expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Following");
     externalButton.remove();
+    element.remove();
+  });
+
+  it.each([
+    {
+      description: "a Followed Likes-only snapshot",
+      sources: [{ name: "network_likes", weight: 1 }],
+      summary: "Followed Likes 100%",
+    },
+    {
+      description: "a mixed snapshot with Followed Likes",
+      sources: [
+        { name: "followed_users", weight: 0.4 },
+        { name: "network_likes", weight: 0.2 },
+        { name: "two_tower", weight: 0.1 },
+        { name: "popularity", weight: 0.3 },
+      ],
+      summary: "Following 40% · Followed Likes 20% · Author/Topic 10% · Popular 30%",
+    },
+  ])("summarizes $description with canonical source labels", async ({ sources, summary }) => {
+    const element = makeTabs();
+    const feed = element.feeds[0];
+    const diagnostic = feed?.generatorDiagnostics[0];
+    if (!feed || !diagnostic) throw new Error("Expected feed diagnostic fixture");
+    element.feeds = [
+      {
+        ...feed,
+        generatorDiagnostics: sources.map((source) => ({ ...diagnostic, ...source })),
+      },
+    ];
+    await element.updateComplete;
+
+    element.showActiveBreakdown();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".popover-subtitle")?.textContent.trim()).toBe(
+      `Applied source mix: ${summary}`,
+    );
+    expect(element.shadowRoot?.querySelector("tbody")?.textContent).toContain("Followed Likes");
+    element.remove();
+  });
+
+  it("shows one neutral message when source diagnostics are missing", async () => {
+    const element = makeTabs();
+    element.activeRequestId = "req-2";
+    await element.updateComplete;
+
+    element.showActiveBreakdown();
+    await element.updateComplete;
+
+    const subtitles = element.shadowRoot?.querySelectorAll(".popover-subtitle");
+    expect(subtitles).toHaveLength(1);
+    expect(subtitles?.[0]?.textContent.trim()).toBe(
+      "Source diagnostics are unavailable for this snapshot.",
+    );
+    const dialogText = element.shadowRoot?.querySelector("dialog")?.textContent;
+    expect(dialogText).not.toContain("Applied source mix");
+    expect(dialogText).not.toContain("Legacy social radius");
+    expect(dialogText).not.toContain("Balanced");
+    expect(element.shadowRoot?.querySelector("table")).toBeNull();
     element.remove();
   });
 
@@ -138,7 +196,9 @@ describe("FeedTabs source breakdown", () => {
     element.showActiveBreakdown();
     await element.updateComplete;
     expect(element.shadowRoot?.querySelectorAll("dialog")).toHaveLength(1);
-    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain("Balanced");
+    expect(element.shadowRoot?.querySelector("dialog")?.textContent).toContain(
+      "Source diagnostics are unavailable for this snapshot.",
+    );
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await element.updateComplete;

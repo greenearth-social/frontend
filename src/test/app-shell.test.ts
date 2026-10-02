@@ -21,14 +21,12 @@ const testState = vi.hoisted(() => ({
           requestId: "r1",
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
         {
           requestId: "r2",
           generatedAt: new Date().toISOString(),
           feedName: "best-of-friends",
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
       ],
@@ -60,6 +58,7 @@ const testState = vi.hoisted(() => ({
           networkLikes: 0.2,
           authorsTopics: 0.25,
           popular: 0.25,
+          llm: 0,
         },
         freshness: 5,
         politics: 1,
@@ -67,14 +66,6 @@ const testState = vi.hoisted(() => ({
       },
       valuesFor() {
         return this.values;
-      },
-      socialRadiusWeights: [
-        { name: "followed_users", weight: 0.4 },
-        { name: "two_tower", weight: 0.3 },
-        { name: "popularity", weight: 0.3 },
-      ],
-      socialRadiusWeightsFor() {
-        return this.socialRadiusWeights;
       },
       supportsControl(
         feedName: "your-feed" | "best-of-friends" | "random",
@@ -478,9 +469,9 @@ describe("AppShell authentication UI", () => {
       await feedPage?.updateComplete;
       expect(feedPage?.shadowRoot?.querySelector(".logged-out-page")).not.toBeNull();
       const logo = feedPage?.shadowRoot?.querySelector<HTMLImageElement>(".logged-out-logo");
-      expect(logo?.getAttribute("src")).toBe("/assets/mysky-logo.png");
-      expect(logo?.getAttribute("width")).toBe("640");
-      expect(logo?.getAttribute("height")).toBe("476");
+      expect(logo?.getAttribute("src")).toBe("/assets/mysky-large.png");
+      expect(logo?.getAttribute("width")).toBe("764");
+      expect(logo?.getAttribute("height")).toBe("764");
       expect(feedPage?.shadowRoot?.querySelector("style")?.textContent).toContain(
         "width: min(52vw, 190px)",
       );
@@ -1018,14 +1009,12 @@ describe("AppShell algorithm selector", () => {
         requestId: "r1-recent",
         generatedAt: new Date().toISOString(),
         feedName: "your-feed",
-        appliedSocialRadius: null,
         generatorDiagnostics: [],
       },
       {
         requestId: "r1-old",
         generatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
         feedName: "your-feed",
-        appliedSocialRadius: null,
         generatorDiagnostics: [],
       },
     ];

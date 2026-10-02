@@ -63,13 +63,14 @@ function harness(generatedAt = new Date().toISOString()) {
         generatedAt,
         feedName: "your-feed",
         apiReleaseSha: null,
-        appliedSocialRadius: null,
         generatorDiagnostics: [],
       },
     ],
   });
   const getFeedDetail = vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"]));
+  const preferencesStore = { llmPrompt: null as { promptKey: string } | null };
   const root = {
+    preferencesStore,
     services: {
       feedApiService: {
         listFeeds,
@@ -82,6 +83,7 @@ function harness(generatedAt = new Date().toISOString()) {
   } as unknown as RootStore;
   return {
     root,
+    preferencesStore,
     acceptFeedPreview,
     createFeedPreview,
     getFeedDetail,
@@ -124,6 +126,7 @@ describe("SettingsPreviewStore", () => {
         networkLikes: 0.2,
         authorsTopics: 0.2,
         popular: 0.2,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
@@ -192,6 +195,71 @@ describe("SettingsPreviewStore", () => {
       "b-1",
       "b-2",
     ]);
+  });
+
+  it("generates again for the same settings once the prompt changes", async () => {
+    const { root, preferencesStore, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    preferencesStore.llmPrompt = { promptKey: "prompt-a" };
+
+    await store.preview(patch);
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+
+    preferencesStore.llmPrompt = { promptKey: "prompt-b" };
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reuse a preview that was still running when the prompt changed", async () => {
+    const { root, preferencesStore, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    preferencesStore.llmPrompt = { promptKey: "prompt-a" };
+    const slowDetail = deferred<FeedDetailResponse>();
+    getFeedPreview.mockReturnValueOnce(slowDetail.promise);
+
+    const running = store.preview(patch);
+    preferencesStore.llmPrompt = { promptKey: "prompt-b" };
+    slowDetail.resolve(detail("preview-1", ["old-prompt"]));
+    await running;
+    await store.preview(patch);
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reuse a preview that was still running when the account changed", async () => {
+    const { root, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    store.activateAccount("account-a");
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0 };
+    const slowDetail = deferred<FeedDetailResponse>();
+    getFeedPreview.mockReturnValueOnce(slowDetail.promise);
+
+    const running = store.preview(patch);
+    store.activateAccount("account-b");
+    await store.activateFeed("your-feed");
+    slowDetail.resolve(detail("preview-1", ["other-account"]));
+    await running;
+    await store.preview(patch);
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps settings that differ only in the prompt weight distinct", async () => {
+    const { root, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const weights = { following: 0.4, networkLikes: 0.2, authorsTopics: 0.2, popular: 0.2 };
+
+    await store.preview({ sourceWeights: { ...weights, llm: 0 } });
+    await store.preview({ sourceWeights: { ...weights, llm: 0.2 } });
+
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
   });
 
   it("regenerates and accepts once when the Preview cache expires", async () => {
@@ -478,7 +546,6 @@ describe("SettingsPreviewStore", () => {
           generatedAt: newerGeneratedAt,
           feedName: "your-feed",
           apiReleaseSha: null,
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
       ],
@@ -520,7 +587,6 @@ describe("SettingsPreviewStore", () => {
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
           apiReleaseSha: null,
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
       ],
@@ -612,7 +678,6 @@ describe("SettingsPreviewStore", () => {
           generatedAt: new Date().toISOString(),
           feedName: "your-feed",
           apiReleaseSha: null,
-          appliedSocialRadius: null,
           generatorDiagnostics: [],
         },
       ],

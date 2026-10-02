@@ -10,6 +10,8 @@ function generatorLabel(name: string): string {
       return "Authors & Topics";
     case "popularity":
       return "Popular";
+    case "llm_query_vector":
+      return "Prompt";
     default:
       return name.split("_").join(" ");
   }
