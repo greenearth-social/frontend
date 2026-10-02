@@ -28,20 +28,32 @@ function generatorLabel(name: string): string {
       return "Authors & Topics";
     case "popularity":
       return "Popular";
+    case "llm_query_vector":
+      return "Prompt";
     default:
       return name.split("_").join(" ");
   }
 }
 
-function signature(feedName: AlgorithmId, patch: FeedPreferences): string {
+// Names everything that decides which posts a preview shows, so a saved
+// preview can only be reused for the same account, feed, prompt and settings.
+function signature(
+  accountId: string | null,
+  feedName: AlgorithmId,
+  promptKey: string | null,
+  patch: FeedPreferences,
+): string {
   return JSON.stringify({
+    accountId,
     feedName,
+    promptKey,
     sourceWeights: patch.sourceWeights
       ? {
           following: patch.sourceWeights.following,
           networkLikes: patch.sourceWeights.networkLikes,
           authorsTopics: patch.sourceWeights.authorsTopics,
           popular: patch.sourceWeights.popular,
+          llm: patch.sourceWeights.llm,
         }
       : undefined,
     freshness: patch.freshness,
@@ -370,7 +382,12 @@ export class SettingsPreviewStore {
   async preview(patch: FeedPreferences): Promise<GeneratedSettingsPreview | null> {
     if (!this.activeFeed || this.isGenerating) return null;
     const feedName = this.activeFeed;
-    const previewSignature = signature(feedName, patch);
+    const previewSignature = signature(
+      this.accountId,
+      feedName,
+      this.root.preferencesStore.llmPrompt?.promptKey ?? null,
+      patch,
+    );
     const generation = this.feedGeneration;
     const previewOperation = ++this.previewOperation;
     this.refreshOperation++;

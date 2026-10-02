@@ -10,6 +10,7 @@ export const SOURCE_WEIGHT_BOUNDS: Record<SourceWeightKey, { min: number; max: n
   networkLikes: { min: 0, max: 1 },
   authorsTopics: { min: 0, max: 1 },
   popular: { min: 0, max: 1 },
+  llm: { min: 0, max: 1 },
 };
 
 const FRIENDS_PRESET: SourceWeights = {
@@ -17,19 +18,21 @@ const FRIENDS_PRESET: SourceWeights = {
   networkLikes: 0,
   authorsTopics: 0,
   popular: 0,
+  llm: 0,
 };
 const EVERYONE_PRESET: SourceWeights = {
   following: 0,
   networkLikes: 0.1,
   authorsTopics: 0.45,
   popular: 0.45,
+  llm: 0,
 };
 
 export const SOURCE_RANK_PRESETS: readonly SourceWeights[] = [
   FRIENDS_PRESET,
-  { following: 0.7, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1 },
-  { following: 0.5, networkLikes: 0.2, authorsTopics: 0.15, popular: 0.15 },
-  { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25 },
+  { following: 0.7, networkLikes: 0.1, authorsTopics: 0.1, popular: 0.1, llm: 0 },
+  { following: 0.5, networkLikes: 0.2, authorsTopics: 0.15, popular: 0.15, llm: 0 },
+  { following: 0.3, networkLikes: 0.2, authorsTopics: 0.25, popular: 0.25, llm: 0 },
   EVERYONE_PRESET,
 ];
 

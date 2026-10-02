@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FeedPreferences, FeedPreferencesByFeed } from "../services/types";
+import type { FeedPreferences, FeedPreferencesByFeed, LlmPrompt } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { PreferencesStore } from "../stores/preferences-store";
 import type { AlgorithmId } from "../constants/algorithms";
@@ -11,6 +11,7 @@ const loaded: FeedPreferencesByFeed = {
       networkLikes: 0.2,
       authorsTopics: 0.25,
       popular: 0.25,
+      llm: 0,
     },
     freshness: 5,
     politics: 1,
@@ -30,6 +31,7 @@ function makeStore(
       feedApiService: {
         patchPreferences,
         getPreferences: vi.fn().mockResolvedValue(preferences),
+        getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
       },
       analyticsService: { capture },
     },
@@ -51,6 +53,156 @@ describe("PreferencesStore.load", () => {
     expect(store.supportsControl("your-feed", "politics")).toBe(true);
     expect(store.supportsControl("best-of-friends", "politics")).toBe(true);
     expect(store.supportsControl("random", "politics")).toBe(false);
+  });
+
+  it("keeps the prompt source off when the api says the llm-cg flag is off", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockResolvedValue({ enabled: false });
+
+    await store.load();
+
+    expect(store.llmCgEnabled).toBe(false);
+    expect(store.llmPrompt).toBeNull();
+  });
+
+  it("still loads preferences when the prompt call fails", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockRejectedValue(new Error("404"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await store.load();
+
+    expect(store.hasLoaded).toBe(true);
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(store.llmCgEnabled).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("remembers the fitted prompt when the flag is on", async () => {
+    const { store } = makeStore(vi.fn());
+    const prompt = {
+      promptKey: "v1",
+      prompt: "hopeful science",
+      createdAt: "2026-09-17T10:00:00Z",
+    };
+    store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: true, prompt });
+
+    await store.load();
+
+    expect(store.llmCgEnabled).toBe(true);
+    expect(store.llmPrompt).toEqual(prompt);
+    store.reset();
+    expect(store.llmCgEnabled).toBe(false);
+  });
+
+  it("finishes loading settings without waiting for the prompt status", async () => {
+    const { store } = makeStore(vi.fn());
+    let finishStatus: ((value: { enabled: true; prompt: null }) => void) | undefined;
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+
+    await store.load();
+
+    expect(store.hasLoaded).toBe(true);
+    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
+    expect(store.llmCgEnabled).toBe(false);
+
+    finishStatus?.({ enabled: true, prompt: null });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(store.llmCgEnabled).toBe(true);
+  });
+
+  it("tracks a running fit and flags the new prompt until the page applies it", async () => {
+    const { store, capture } = makeStore(vi.fn());
+    let finishFit: ((value: LlmPrompt) => void) | undefined;
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockReturnValue(
+      new Promise<LlmPrompt>((resolve) => {
+        finishFit = resolve;
+      }),
+    );
+    const prompt = {
+      promptKey: "v1",
+      prompt: "hopeful science",
+      createdAt: "2026-09-30T10:00:00Z",
+    };
+
+    const fit = store.fitLlmPrompt("hopeful science");
+    expect(store.isFittingLlmPrompt).toBe(true);
+    expect(store.llmPromptFresh).toBe(false);
+
+    finishFit?.(prompt);
+    expect(await fit).toEqual(prompt);
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPrompt).toEqual(prompt);
+    expect(store.llmPromptFitted).toBe(true);
+    expect(store.llmPromptFresh).toBe(true);
+    expect(capture).toHaveBeenCalledWith(
+      "promptFitted",
+      expect.objectContaining({ feed_name: "your-feed" }),
+    );
+
+    store.markLlmPromptApplied();
+    expect(store.llmPromptFresh).toBe(false);
+  });
+
+  it("stops showing a fit as running when it fails", async () => {
+    const { store } = makeStore(vi.fn());
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(store.fitLlmPrompt("anything")).rejects.toThrow("boom");
+
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPromptFresh).toBe(false);
+  });
+
+  it("drops a fit that finishes after the account changed", async () => {
+    const { store, capture } = makeStore(vi.fn());
+    let finishFit: ((value: LlmPrompt) => void) | undefined;
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockReturnValue(
+      new Promise<LlmPrompt>((resolve) => {
+        finishFit = resolve;
+      }),
+    );
+    store.activateAccount("account-a");
+    const fit = store.fitLlmPrompt("hopeful science");
+
+    store.activateAccount("account-b");
+    finishFit?.({ promptKey: "v1", prompt: "hopeful science", createdAt: "2026-09-29T10:00:00Z" });
+
+    expect(await fit).toBeNull();
+    expect(store.llmPrompt).toBeNull();
+    expect(store.isFittingLlmPrompt).toBe(false);
+    expect(store.llmPromptFresh).toBe(false);
+    expect(capture).not.toHaveBeenCalledWith("promptFitted", expect.anything());
+  });
+
+  it("keeps a fresh fit when an older prompt status arrives after it", async () => {
+    const { store } = makeStore(vi.fn());
+    let finishStatus: ((value: { enabled: true; prompt: LlmPrompt }) => void) | undefined;
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+    const fitted = { promptKey: "v2", prompt: "new", createdAt: "2026-09-30T10:00:00Z" };
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockResolvedValue(fitted);
+    await store.load();
+
+    await store.fitLlmPrompt("new");
+    finishStatus?.({
+      enabled: true,
+      prompt: { promptKey: "v1", prompt: "old", createdAt: "2026-09-17T10:00:00Z" },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(store.llmPrompt).toEqual(fitted);
   });
 
   it("preserves a zero politics preference and leaves omitted controls unavailable", async () => {
@@ -76,7 +228,13 @@ describe("PreferencesStore.load", () => {
       }),
     );
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -99,7 +257,13 @@ describe("PreferencesStore.load", () => {
       .mockReturnValueOnce(firstRequest)
       .mockResolvedValueOnce({ ...loaded, random: { freshness: 4 } });
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -120,7 +284,13 @@ describe("PreferencesStore.load", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce(loaded);
     const root = {
-      services: { feedApiService: { getPreferences, patchPreferences: vi.fn() } },
+      services: {
+        feedApiService: {
+          getPreferences,
+          patchPreferences: vi.fn(),
+          getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
+        },
+      },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -264,6 +434,7 @@ describe("PreferencesStore.save", () => {
       networkLikes: 0.2,
       authorsTopics: 0.15,
       popular: 0.15,
+      llm: 0,
     };
 
     const sourceSave = store.save("your-feed", "source_weights", requestedWeights);
@@ -363,6 +534,7 @@ describe("PreferencesStore.save", () => {
       networkLikes: 0.2,
       authorsTopics: 0.15,
       popular: 0.15,
+      llm: 0,
     };
     const { store, capture } = makeStore(vi.fn().mockResolvedValue({ sourceWeights: next }));
     await store.load();
@@ -518,6 +690,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -533,6 +706,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
@@ -565,6 +739,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
     });
     const { store } = makeStore(patch);
@@ -577,6 +752,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
     };
 
@@ -588,6 +764,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
     });
   });
@@ -614,6 +791,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,
@@ -633,6 +811,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -678,6 +857,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 3,
       purpose: 0.65,
@@ -697,6 +877,7 @@ describe("PreferencesStore.restoreDefaults", () => {
         networkLikes: 0.1,
         authorsTopics: 0.2,
         popular: 0.1,
+        llm: 0,
       },
       freshness: 2,
       purpose: 0.65,

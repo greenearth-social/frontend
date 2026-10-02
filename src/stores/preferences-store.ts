@@ -1,6 +1,6 @@
 import { makeAutoObservable } from "mobx";
 import type { RootStore } from "./root-store";
-import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
+import type { FeedPreferences, LlmPrompt, Preferences, SourceWeights } from "../services/types";
 import { ALGORITHM_IDS, feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
 import type { FeedControlEventProperties, FeedControlName } from "../services/analytics/types";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
@@ -10,6 +10,7 @@ export type SourceWeightChangeOrigin =
   | "network_likes"
   | "authors_topics"
   | "popular"
+  | "llm"
   | "source_mix_master"
   | "reset_defaults"
   | "undo"
@@ -20,6 +21,7 @@ export const DEFAULT_SOURCE_WEIGHTS: SourceWeights = {
   networkLikes: 0.2,
   authorsTopics: 0.25,
   popular: 0.25,
+  llm: 0,
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -28,6 +30,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   politics: 0.5,
   purpose: 0.5,
 };
+
+// The prompt source only exists on Your Feed.
+export const LLM_PROMPT_FEED: AlgorithmId = "your-feed";
 
 const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   source_weights: "sourceWeights",
@@ -91,7 +96,8 @@ function sourceWeightsEqual(a: SourceWeights, b: SourceWeights): boolean {
     a.following === b.following &&
     a.networkLikes === b.networkLikes &&
     a.authorsTopics === b.authorsTopics &&
-    a.popular === b.popular
+    a.popular === b.popular &&
+    a.llm === b.llm
   );
 }
 
@@ -167,6 +173,8 @@ function controlEventProperties(
     new_authors_topics_weight: newValues.sourceWeights.authorsTopics,
     previous_popular_weight: previousValues.sourceWeights.popular,
     new_popular_weight: newValues.sourceWeights.popular,
+    previous_llm_weight: previousValues.sourceWeights.llm,
+    new_llm_weight: newValues.sourceWeights.llm,
   };
 }
 
@@ -176,10 +184,19 @@ export class PreferencesStore {
   controlsByFeed = emptyControlsByFeed();
   isLoading = false;
   hasLoaded = false;
+  // Whether the api lets this account use the prompt source (llm-cg flag).
+  llmCgEnabled = false;
+  llmPrompt: LlmPrompt | null = null;
+  // Kept here, not on the settings page, so they survive the page being
+  // closed or the feed being switched while a fit runs.
+  isFittingLlmPrompt = false;
+  // A prompt was fitted and the settings page has not reacted to it yet.
+  llmPromptFresh = false;
   private saveSequence = 0;
   private saveVersions: Record<string, number> = {};
   private loadPromise: Promise<void> | null = null;
   private accountGeneration = 0;
+  private llmStatusRequest = 0;
   private accountId: string | null = null;
   private pendingSavePromisesByFeed = emptyPendingSavesByFeed();
   private saveQueueByFeed = emptySaveQueuesByFeed();
@@ -201,6 +218,37 @@ export class PreferencesStore {
     void this.load();
   }
 
+  // The llm source weight may only rise above 0 once a prompt is fitted and
+  // stored; the server is the source of truth for that.
+  get llmPromptFitted(): boolean {
+    return this.llmPrompt !== null;
+  }
+
+  // Gives null when the account changed while the fit was running, so one
+  // account's prompt never lands in another's settings.
+  async fitLlmPrompt(prompt: string): Promise<LlmPrompt | null> {
+    const generation = this.accountGeneration;
+    this.isFittingLlmPrompt = true;
+    try {
+      const fitted = await this.root.services.feedApiService.fitLlmPrompt(prompt);
+      if (generation !== this.accountGeneration) return null;
+      // A prompt status still on its way is older than this fit.
+      this.llmStatusRequest++;
+      this.llmPrompt = fitted;
+      this.llmPromptFresh = true;
+      this.root.services.analyticsService.capture("promptFitted", {
+        ...feedAnalyticsProperties(LLM_PROMPT_FEED),
+      });
+      return fitted;
+    } finally {
+      if (generation === this.accountGeneration) this.isFittingLlmPrompt = false;
+    }
+  }
+
+  markLlmPromptApplied(): void {
+    this.llmPromptFresh = false;
+  }
+
   async load(): Promise<void> {
     if (this.hasLoaded) return;
     if (this.loadPromise) return this.loadPromise;
@@ -208,6 +256,9 @@ export class PreferencesStore {
     this.isLoading = true;
     const promise = (async () => {
       let loadedSuccessfully = false;
+      // Settings do not wait for the prompt status; the Prompt card shows up
+      // when it arrives.
+      void this.loadLlmStatus(generation);
       try {
         const loadedValues = await this.root.services.feedApiService.getPreferences();
         if (generation === this.accountGeneration) {
@@ -243,6 +294,20 @@ export class PreferencesStore {
     return promise;
   }
 
+  private async loadLlmStatus(generation: number): Promise<void> {
+    const request = ++this.llmStatusRequest;
+    const llmStatus = await this.root.services.feedApiService
+      .getLlmPrompt()
+      .catch((error: unknown) => {
+        // The prompt feature must never take the settings page down with it.
+        console.warn("Prompt status unavailable; hiding the prompt source", error);
+        return { enabled: false } as const;
+      });
+    if (generation !== this.accountGeneration || request !== this.llmStatusRequest) return;
+    this.llmCgEnabled = llmStatus.enabled;
+    this.llmPrompt = llmStatus.enabled ? llmStatus.prompt : null;
+  }
+
   reset(): void {
     this.accountGeneration++;
     this.saveSequence++;
@@ -252,6 +317,10 @@ export class PreferencesStore {
     this.controlsByFeed = emptyControlsByFeed();
     this.isLoading = false;
     this.hasLoaded = false;
+    this.llmCgEnabled = false;
+    this.llmPrompt = null;
+    this.isFittingLlmPrompt = false;
+    this.llmPromptFresh = false;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
     this.saveQueueByFeed = emptySaveQueuesByFeed();

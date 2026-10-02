@@ -1,4 +1,10 @@
-import type { FeedPreferences, FeedPreferencesByFeed, IFeedApiService } from "../types";
+import type {
+  FeedPreferences,
+  FeedPreferencesByFeed,
+  IFeedApiService,
+  LlmPrompt,
+  LlmPromptStatus,
+} from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
@@ -211,6 +217,7 @@ const MOCK_FEED_DETAIL: FeedDetailResponse = {
 export class MockFeedApiService implements IFeedApiService {
   private previewPreferences = new Map<string, FeedPreferences>();
   private previewSequence = 0;
+  private llmPrompt: LlmPrompt | null = null;
   private preferencesByFeed: FeedPreferencesByFeed = {
     "your-feed": {
       sourceWeights: {
@@ -218,6 +225,7 @@ export class MockFeedApiService implements IFeedApiService {
         networkLikes: 0.2,
         authorsTopics: 0.25,
         popular: 0.25,
+        llm: 0,
       },
       freshness: 5,
       purpose: 0.5,
@@ -354,5 +362,18 @@ export class MockFeedApiService implements IFeedApiService {
       ...structuredClone(prefs),
     };
     return Promise.resolve(structuredClone(prefs));
+  }
+
+  getLlmPrompt(): Promise<LlmPromptStatus> {
+    return Promise.resolve({ enabled: true, prompt: this.llmPrompt });
+  }
+
+  fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
+    this.llmPrompt = {
+      promptKey: `mock-${String(Date.now())}`,
+      prompt,
+      createdAt: new Date().toISOString(),
+    };
+    return Promise.resolve(this.llmPrompt);
   }
 }

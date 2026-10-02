@@ -39,6 +39,7 @@ describe("GeneratorBadge", () => {
       "Author/Topic",
       "Following",
       "Followed Likes",
+      "Prompt",
       "Popular",
       "Similar",
       "Random",
