@@ -854,7 +854,7 @@ describe("AppShell algorithm selector", () => {
     expect(element.shadowRoot?.querySelector("feedback-page")?.selectedAlgorithm).toBe("your-feed");
   });
 
-  it("keeps feed groups independently expandable with unique control ids", async () => {
+  it("collapses other menus on feed selection but allows manual expansion", async () => {
     const element = document.createElement("app-shell");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -879,12 +879,33 @@ describe("AppShell algorithm selector", () => {
 
     root
       ?.querySelector<HTMLButtonElement>(
-        '.left-sidebar-desktop .algo-toggle[aria-label="Collapse MySky pages"]',
+        '.left-sidebar-desktop .algo-btn[aria-label="Best of Friends"]',
+      )
+      ?.click();
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feed/best-of-friends");
+      expect(greenPages?.hidden).toBe(true);
+      expect(friendsPages?.hidden).toBe(false);
+    });
+
+    root
+      ?.querySelector<HTMLButtonElement>(
+        '.left-sidebar-desktop .algo-toggle[aria-label="Expand MySky pages"]',
       )
       ?.click();
     await element.updateComplete;
-    expect(greenPages?.hidden).toBe(true);
+    expect(greenPages?.hidden).toBe(false);
     expect(friendsPages?.hidden).toBe(false);
+
+    root
+      ?.querySelector<HTMLButtonElement>('.left-sidebar-desktop .algo-btn[aria-label="Random"]')
+      ?.click();
+    await vi.waitFor(() => {
+      expect(window.location.hash).toBe("#/feed/random");
+    });
+    expect(greenPages?.hidden).toBe(true);
+    expect(friendsPages?.hidden).toBe(true);
+    expect(root?.querySelector<HTMLElement>("#desktop-random-pages")?.hidden).toBe(false);
     expect(greenPages?.closest(".feed-group")?.classList.contains("expanded")).toBe(false);
 
     const ids = Array.from(root?.querySelectorAll<HTMLElement>("[id$='-pages']") ?? []).map(

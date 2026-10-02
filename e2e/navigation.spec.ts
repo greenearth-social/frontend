@@ -13,6 +13,8 @@ test.describe("feed-scoped navigation", () => {
     await desktop.getByRole("button", { name: "Expand Best of Friends pages" }).click();
     await desktop.locator('.algo-btn[aria-label="Best of Friends"]').click();
     await expect(page).toHaveURL(/#\/feed\/best-of-friends$/);
+    await expect(desktop.locator("#desktop-your-feed-pages")).toBeHidden();
+    await expect(desktop.locator("#desktop-best-of-friends-pages")).toBeVisible();
     await desktop.locator('a[href="#/settings/best-of-friends"]').click();
 
     await expect(page).toHaveURL(/#\/settings\/best-of-friends$/);
@@ -470,9 +472,12 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
     const constructive = page.getByRole("slider", { name: "Constructive weight" });
+    await expect(constructive).toHaveAttribute("min", "0");
+    await expect(constructive).toHaveAttribute("max", "1");
+    await expect(constructive).toHaveAttribute("step", "0.25");
     await constructive.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
-      input.value = "0.65";
+      input.value = "0.75";
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
@@ -791,7 +796,7 @@ for (const width of [240, 320, 375]) {
     await expect(drawer).toBeVisible();
 
     await drawer.getByRole("link", { name: "Settings" }).first().click();
-    await expect(page).toHaveURL(/#\/settings\/your-feed$/);
+    await expect(page).toHaveURL(/#\/settings\/best-of-friends$/);
     await expect(drawer).not.toBeVisible();
   });
 }

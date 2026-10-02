@@ -1164,7 +1164,7 @@ export class AppShell extends MobxLitElement {
     this._currentPage = route.page;
     this._currentFeed = route.feedName;
     if (this._lastRouteFeed !== route.feedName) {
-      this._expandedAlgorithms = new Set([...this._expandedAlgorithms, route.feedName]);
+      this._expandedAlgorithms = new Set([route.feedName]);
       this._lastRouteFeed = route.feedName;
     }
     this.#syncSelectedAlgorithm(route.feedName);
@@ -1223,7 +1223,8 @@ export class AppShell extends MobxLitElement {
   }
 
   #navigateTo(page: AppPage, id: AlgorithmId): Promise<void> {
-    this._expandedAlgorithms = new Set([...this._expandedAlgorithms, id]);
+    this._expandedAlgorithms =
+      id === this._currentFeed ? new Set([...this._expandedAlgorithms, id]) : new Set([id]);
     const path = feedScopedPath(page, id);
     this.#commitNavigation(path);
     return Promise.resolve();

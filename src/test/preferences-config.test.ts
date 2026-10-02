@@ -45,8 +45,8 @@ describe("preference presets", () => {
     expect(POLITICS_PRESETS[2]?.displayLines).toEqual(["1.00"]);
   });
 
-  it("defines five purpose pairs that sum to one", () => {
-    expect(PURPOSE_PRESETS).toHaveLength(5);
+  it("defines five purpose pairs from fully engaging to fully constructive", () => {
+    expect(PURPOSE_PRESETS.map((preset) => preset.value)).toEqual([0, 0.25, 0.5, 0.75, 1]);
     for (const preset of PURPOSE_PRESETS) {
       const engaging = 1 - preset.value;
       expect(engaging + preset.value).toBeCloseTo(1);
