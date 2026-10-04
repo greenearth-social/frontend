@@ -98,6 +98,8 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewPurpose: number | null = null;
   @state() private previewPolitics: number | null = null;
   @state() private previewFreshness: number | null = null;
+  @state() private previewAuthorPenalty: number | null = null;
+  @state() private previewTopicPenalty: number | null = null;
   @state() private mobilePreviewOpen = false;
   @state() private previewPhase: PreviewPhase = "idle";
   @state() private isResetting = false;
@@ -189,6 +191,8 @@ export class SettingsPage extends MobxLitElement {
       this.previewPurpose = null;
       this.previewPolitics = null;
       this.previewFreshness = null;
+      this.previewAuthorPenalty = null;
+      this.previewTopicPenalty = null;
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
@@ -218,11 +222,15 @@ export class SettingsPage extends MobxLitElement {
       freshness: 5,
       purpose: 0.5,
       politics: 0.5,
+      authorPenalty: 0.7,
+      topicPenalty: 0.7,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
     const politics = this.previewPolitics ?? preferences.politics;
     const freshness = this.previewFreshness ?? preferences.freshness;
+    const authorPenalty = this.previewAuthorPenalty ?? preferences.authorPenalty;
+    const topicPenalty = this.previewTopicPenalty ?? preferences.topicPenalty;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
     const previewGenerating =
@@ -335,7 +343,8 @@ export class SettingsPage extends MobxLitElement {
                           : html`
                               ${this.#renderArrow()}
                               ${this.#renderRankingSection(purpose, politics)}
-                              ${this.#renderArrow()} ${this.#renderDiversificationSection()}
+                              ${this.#renderArrow()}
+                              ${this.#renderDiversificationSection(authorPenalty, topicPenalty)}
                             `
                       }
                     </div>
@@ -365,9 +374,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#previewChanges();
               }}
             >
-              ${
-                previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel
-              }
+              ${previewGenerating ? renderPreviewProgress(previewLabel) : previewLabel}
             </button>
             <div class="preview-mobile-primary-actions">
               <button
@@ -386,8 +393,7 @@ export class SettingsPage extends MobxLitElement {
             </div>
           </div>
           ${
-            this.previewPhase === "complete" ||
-            (hasGeneratedPreview && previewBusy)
+            this.previewPhase === "complete" || (hasGeneratedPreview && previewBusy)
               ? html`<p class="preview-movement-help">Here’s how far up or down each post moved</p>`
               : ""
           }
@@ -735,34 +741,78 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  #renderDiversificationSection(): TemplateResult {
+  #renderDiversificationSection(authorPenalty: number, topicPenalty: number): TemplateResult {
     return html`
       <section class="section section-diversification">
         <h2 class="section-title">Diversification</h2>
         <div class="penalties">
-          <button
-            class="penalty-pill"
-            type="button"
-            @click=${() => {
-              this.#openNode("repeated_author");
-            }}
-          >
-            <span>Repeated author penalty</span
-            ><span class="question-icon" aria-hidden="true">?</span>
-          </button>
-          <button
-            class="penalty-pill"
-            type="button"
-            @click=${() => {
-              this.#openNode("repeated_topic");
-            }}
-          >
-            <span>Repeated topic penalty</span
-            ><span class="question-icon" aria-hidden="true">?</span>
-          </button>
+          ${
+            this.#supportsControl("author_penalty")
+              ? html`<div class="control-card penalty-card">
+                  ${this.#titleButton("repeated_author", "Repeated author penalty")}
+                  <icon-range-slider
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    .value=${authorPenalty}
+                    .icons=${LIFECYCLE_ICONS}
+                    .valueText=${authorPenalty.toFixed(1)}
+                    ariaLabel="Repeated author penalty"
+                    ?disabled=${this.isLoading}
+                    @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+                      this.previewAuthorPenalty = event.detail.value;
+                    }}
+                    @slider-change=${(event: CustomEvent<{ value: number }>) => {
+                      this.#commitAuthorPenalty(event.detail.value);
+                    }}
+                  ></icon-range-slider>
+                </div>`
+              : this.#renderStaticPenalty("repeated_author", "Repeated author penalty")
+          }
+          ${
+            this.#supportsControl("topic_penalty")
+              ? html`<div class="control-card penalty-card">
+                  ${this.#titleButton("repeated_topic", "Repeated topic penalty")}
+                  <icon-range-slider
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    .value=${topicPenalty}
+                    .icons=${LIFECYCLE_ICONS}
+                    .valueText=${topicPenalty.toFixed(1)}
+                    ariaLabel="Repeated topic penalty"
+                    ?disabled=${this.isLoading}
+                    @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+                      this.previewTopicPenalty = event.detail.value;
+                    }}
+                    @slider-change=${(event: CustomEvent<{ value: number }>) => {
+                      this.#commitTopicPenalty(event.detail.value);
+                    }}
+                  ></icon-range-slider>
+                </div>`
+              : this.#renderStaticPenalty("repeated_topic", "Repeated topic penalty")
+          }
         </div>
       </section>
     `;
+  }
+
+  #renderStaticPenalty(nodeId: string, label: string): TemplateResult {
+    return html`<button
+      class="penalty-pill"
+      type="button"
+      @click=${() => {
+        this.#openNode(nodeId);
+      }}
+    >
+      <span>${label}</span><span class="question-icon" aria-hidden="true">?</span>
+    </button>`;
+  }
+
+  #supportsControl(control: FeedControlName): boolean {
+    return (
+      getRootStore()?.preferencesStore.supportsControl(this.selectedAlgorithm, control) ?? false
+    );
   }
 
   #supportsPolitics(): boolean {
@@ -842,6 +892,18 @@ export class SettingsPage extends MobxLitElement {
     }
     if (preferences.freshness !== DEFAULT_PREFERENCES.freshness) return false;
     if (
+      this.#supportsControl("author_penalty") &&
+      preferences.authorPenalty !== DEFAULT_PREFERENCES.authorPenalty
+    ) {
+      return false;
+    }
+    if (
+      this.#supportsControl("topic_penalty") &&
+      preferences.topicPenalty !== DEFAULT_PREFERENCES.topicPenalty
+    ) {
+      return false;
+    }
+    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -869,6 +931,8 @@ export class SettingsPage extends MobxLitElement {
     this.previewPurpose = null;
     this.previewPolitics = null;
     this.previewFreshness = null;
+    this.previewAuthorPenalty = null;
+    this.previewTopicPenalty = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
     this.isResetting = true;
@@ -950,8 +1014,28 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ politics: current }, { politics: value });
   }
 
+  #commitAuthorPenalty(value: number): void {
+    this.previewAuthorPenalty = null;
+    if (!this.#supportsControl("author_penalty")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).authorPenalty;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ authorPenalty: current }, { authorPenalty: value });
+  }
+
+  #commitTopicPenalty(value: number): void {
+    this.previewTopicPenalty = null;
+    if (!this.#supportsControl("topic_penalty")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).topicPenalty;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ topicPenalty: current }, { topicPenalty: value });
+  }
+
   #settingsPatch(values: Preferences): FeedPreferences {
     const patch: FeedPreferences = { freshness: values.freshness };
+    if (this.#supportsControl("author_penalty")) patch.authorPenalty = values.authorPenalty;
+    if (this.#supportsControl("topic_penalty")) patch.topicPenalty = values.topicPenalty;
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {
@@ -1031,12 +1115,7 @@ export class SettingsPage extends MobxLitElement {
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
-    if (
-      !store ||
-      !root ||
-      !this.previewNeeded ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (!store || !root || !this.previewNeeded || this.#isPreviewBusy(store)) {
       return;
     }
     const previousPhase: PreviewPhase = this.previewPhase === "complete" ? "complete" : "idle";
@@ -1114,8 +1193,7 @@ export class SettingsPage extends MobxLitElement {
           animationOperation === this.previewAnimationOperation
         ) {
           accepted = await store.acceptGeneratedPreview(regenerated, patch).catch(() => {
-            this.settingsError =
-              "Preview could not be synchronized with MySky. Please try again.";
+            this.settingsError = "Preview could not be synchronized with MySky. Please try again.";
             return null;
           });
           if (!accepted && store.acceptanceConflict) store.markPreviewSyncFailure();
@@ -1228,10 +1306,7 @@ export class SettingsPage extends MobxLitElement {
     if (!this.isConnected || document.visibilityState === "hidden") return;
     const store = getSettingsPreviewStore();
     if (!store) return;
-    if (
-      store.isLoadingBaseline ||
-      this.#isPreviewBusy(store)
-    ) {
+    if (store.isLoadingBaseline || this.#isPreviewBusy(store)) {
       this.baselineSyncPending = true;
       return;
     }

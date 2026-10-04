@@ -142,6 +142,11 @@ describe("FeedApiService", () => {
                 score: 0.8,
                 author_penalty: 0.1,
                 content_penalty: 0.2,
+                author_penalty_setting: 0.2,
+                topic_penalty_setting: 0.8,
+                relevance_weight: 0.5,
+                author_penalty_weight: 0.1,
+                topic_penalty_weight: 0.4,
               },
               media: {
                 image_urls: ["https://example.com/image.jpg"],
@@ -184,7 +189,15 @@ describe("FeedApiService", () => {
         scoreBefore: 0.6,
         scoreAfter: 0.9,
       },
-      diversification: { authorPenalty: 0.1, contentPenalty: 0.2 },
+      diversification: {
+        authorPenalty: 0.1,
+        contentPenalty: 0.2,
+        authorPenaltySetting: 0.2,
+        topicPenaltySetting: 0.8,
+        relevanceWeight: 0.5,
+        authorPenaltyWeight: 0.1,
+        topicPenaltyWeight: 0.4,
+      },
       media: { imageUrls: ["https://example.com/image.jpg"] },
       engagement: { replyCount: 1, repostCount: 2, likeCount: 3 },
       postUrl: "https://bsky.app/post/1",
@@ -270,8 +283,16 @@ describe("FeedApiService", () => {
               freshness: 4,
               purpose: 0.65,
               politics: 0,
+              author_penalty: 0.2,
+              topic_penalty: 0.8,
             },
-            "best-of-friends": { freshness: 2, purpose: 0.35, politics: 2 },
+            "best-of-friends": {
+              freshness: 2,
+              purpose: 0.35,
+              politics: 2,
+              author_penalty: 0.9,
+              topic_penalty: 0.1,
+            },
             random: { freshness: 1 },
           },
         }),
@@ -291,8 +312,16 @@ describe("FeedApiService", () => {
         freshness: 4,
         purpose: 0.65,
         politics: 0,
+        authorPenalty: 0.2,
+        topicPenalty: 0.8,
       },
-      "best-of-friends": { freshness: 2, purpose: 0.35, politics: 2 },
+      "best-of-friends": {
+        freshness: 2,
+        purpose: 0.35,
+        politics: 2,
+        authorPenalty: 0.9,
+        topicPenalty: 0.1,
+      },
       random: { freshness: 1 },
     });
   });
@@ -331,30 +360,38 @@ describe("FeedApiService", () => {
   });
 
   it("serializes preference updates as snake_case", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ freshness: 2 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ freshness: 2, author_penalty: 0.2, topic_penalty: 0.8 }));
     vi.stubGlobal("fetch", fetchMock);
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
-    await service.patchPreferences("best-of-friends", { freshness: 2 });
+    await service.patchPreferences("best-of-friends", {
+      freshness: 2,
+      authorPenalty: 0.2,
+      topicPenalty: 0.8,
+    });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/preferences/best-of-friends");
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(init.body as string)).toEqual({ freshness: 2 });
+    expect(JSON.parse(init.body as string)).toEqual({
+      freshness: 2,
+      author_penalty: 0.2,
+      topic_penalty: 0.8,
+    });
   });
 
   it("maps the current llm prompt from snake_case", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          jsonResponse({
-            prompt_key: "v2",
-            prompt: "hopeful science",
-            created_at: "2026-09-17T10:00:00Z",
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          prompt_key: "v2",
+          prompt: "hopeful science",
+          created_at: "2026-09-17T10:00:00Z",
+        }),
+      ),
     );
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
@@ -376,10 +413,7 @@ describe("FeedApiService", () => {
   });
 
   it("reads a 403 as the llm-cg flag being off for this account", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("forbidden", { status: 403 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("forbidden", { status: 403 })));
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
     await expect(service.getLlmPrompt()).resolves.toEqual({ enabled: false });

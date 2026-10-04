@@ -26,6 +26,8 @@ interface ApiPreferences {
   freshness?: number;
   politics?: number;
   purpose?: number;
+  author_penalty?: number;
+  topic_penalty?: number;
 }
 
 interface ApiLlmPrompt {
@@ -85,6 +87,11 @@ interface ApiFeedItemResponse {
     score: number;
     author_penalty: number;
     content_penalty: number;
+    author_penalty_setting?: number;
+    topic_penalty_setting?: number;
+    relevance_weight?: number;
+    author_penalty_weight?: number;
+    topic_penalty_weight?: number;
   } | null;
   media: {
     image_urls: string[];
@@ -143,6 +150,8 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
   if (prefs.freshness !== undefined) mapped.freshness = prefs.freshness;
   if (prefs.politics !== undefined) mapped.politics = prefs.politics;
   if (prefs.purpose !== undefined) mapped.purpose = prefs.purpose;
+  if (prefs.author_penalty !== undefined) mapped.authorPenalty = prefs.author_penalty;
+  if (prefs.topic_penalty !== undefined) mapped.topicPenalty = prefs.topic_penalty;
   return mapped;
 }
 
@@ -160,6 +169,8 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
   if (prefs.freshness !== undefined) serialized.freshness = prefs.freshness;
   if (prefs.politics !== undefined) serialized.politics = prefs.politics;
   if (prefs.purpose !== undefined) serialized.purpose = prefs.purpose;
+  if (prefs.authorPenalty !== undefined) serialized.author_penalty = prefs.authorPenalty;
+  if (prefs.topicPenalty !== undefined) serialized.topic_penalty = prefs.topicPenalty;
   return serialized;
 }
 
@@ -193,6 +204,11 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
           score: item.diversification.score,
           authorPenalty: item.diversification.author_penalty,
           contentPenalty: item.diversification.content_penalty,
+          authorPenaltySetting: item.diversification.author_penalty_setting ?? 0.7,
+          topicPenaltySetting: item.diversification.topic_penalty_setting ?? 0.7,
+          relevanceWeight: item.diversification.relevance_weight ?? 0.3,
+          authorPenaltyWeight: item.diversification.author_penalty_weight ?? 0.35,
+          topicPenaltyWeight: item.diversification.topic_penalty_weight ?? 0.35,
         }
       : null,
     media: item.media

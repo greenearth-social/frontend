@@ -12,6 +12,8 @@ const testState = vi.hoisted(() => {
     freshness: 5,
     politics: 0.5,
     purpose: 0.5,
+    authorPenalty: 0.7,
+    topicPenalty: 0.7,
   };
   return {
     values,
@@ -87,6 +89,14 @@ function politicsSlider(element: HTMLElement): IconRangeSlider {
   return slider;
 }
 
+function penaltySlider(element: HTMLElement, ariaLabel: string): IconRangeSlider {
+  const slider = Array.from(
+    element.shadowRoot?.querySelectorAll<IconRangeSlider>(".penalty-card icon-range-slider") ?? [],
+  ).find((candidate) => candidate.ariaLabel === ariaLabel);
+  if (!slider) throw new Error(`${ariaLabel} slider was not rendered`);
+  return slider;
+}
+
 function changeSlider(slider: IconRangeSlider, value: number, type = "slider-change"): void {
   slider.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail: { value } }));
 }
@@ -104,6 +114,8 @@ describe("SettingsPage", () => {
     testState.values.freshness = 5;
     testState.values.politics = 0.5;
     testState.values.purpose = 0.5;
+    testState.values.authorPenalty = 0.7;
+    testState.values.topicPenalty = 0.7;
     testState.rootStore.preferencesStore.llmCgEnabled = true;
     testState.rootStore.preferencesStore.llmPromptFitted = false;
     testState.rootStore.preferencesStore.llmPrompt = null;
@@ -120,6 +132,9 @@ describe("SettingsPage", () => {
     testState.rootStore.preferencesStore.supportsControl.mockImplementation((feedName, control) => {
       if (control === "source_weights") return feedName === "your-feed";
       if (control === "purpose" || control === "politics") return feedName !== "random";
+      if (control === "author_penalty" || control === "topic_penalty") {
+        return feedName !== "random";
+      }
       return control === "freshness";
     });
     testState.rootStore.preferencesStore.save.mockReset();
@@ -207,7 +222,9 @@ describe("SettingsPage", () => {
     expect(politics?.valueText).toBe("0.5 · Less Politics");
     expect(politics?.showValue).toBe(true);
     await politics?.updateComplete;
-    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain("0.5 · Less Politics");
+    expect(politics?.shadowRoot?.querySelector(".value")?.textContent).toContain(
+      "0.5 · Less Politics",
+    );
 
     const sliders = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
@@ -329,6 +346,8 @@ describe("SettingsPage", () => {
         freshness: 5,
         purpose: 0.5,
         politics: 0.5,
+        authorPenalty: 0.7,
+        topicPenalty: 0.7,
       },
       { source_weights: "reset_defaults" },
     );
@@ -1064,6 +1083,40 @@ describe("SettingsPage", () => {
     },
   );
 
+  it.each(["your-feed", "best-of-friends"] as const)(
+    "renders and independently saves diversification sliders for %s",
+    async (feedName) => {
+      testState.values.authorPenalty = 0.2;
+      testState.values.topicPenalty = 0.8;
+      const element = document.createElement("settings-page");
+      element.selectedAlgorithm = feedName;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      const author = penaltySlider(element, "Repeated author penalty");
+      const topic = penaltySlider(element, "Repeated topic penalty");
+      expect(author.value).toBe(0.2);
+      expect(author.min).toBe(0);
+      expect(author.max).toBe(1);
+      expect(author.step).toBe(0.1);
+      expect(topic.value).toBe(0.8);
+
+      changeSlider(author, 0.4, "slider-preview");
+      await element.updateComplete;
+      expect(author.value).toBe(0.4);
+      expect(topic.value).toBe(0.8);
+      expect(testState.rootStore.preferencesStore.savePatch).not.toHaveBeenCalled();
+
+      changeSlider(author, 0.4);
+      await Promise.resolve();
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
+        feedName,
+        { authorPenalty: 0.4 },
+        {},
+      );
+    },
+  );
+
   it.each(POLITICS_FEEDS)(
     "previews Politics input locally and commits %s on release",
     async (feedName) => {
@@ -1266,6 +1319,8 @@ describe("SettingsPage", () => {
         freshness: testState.values.freshness,
         purpose: testState.values.purpose,
         politics: 0,
+        authorPenalty: 0.7,
+        topicPenalty: 0.7,
         ...(feedName === "your-feed" ? { sourceWeights: testState.values.sourceWeights } : {}),
       };
       expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledExactlyOnceWith(
@@ -1509,13 +1564,11 @@ describe("SettingsPage", () => {
     expect(settingsPageStyles.cssText).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.preview-butterfly\s*\{[^}]*animation:\s*none/s,
     );
-    expect(element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".preview-viewport")?.classList).toContain(
-      "is-busy",
-    );
-    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
-      true,
-    );
+    expect(
+      element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner"),
+    ).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-viewport")?.classList).toContain("is-busy");
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(true);
   });
 
   it("restores preview interaction after an unexpected generation failure", async () => {
@@ -1611,10 +1664,10 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".mobile-preview-status")?.textContent.trim()).toBe(
       "Generating preview",
     );
-    expect(element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
-      true,
-    );
+    expect(
+      element.shadowRoot?.querySelector(".preview-generation-overlay wa-spinner"),
+    ).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(true);
     expect(feed.shadowRoot?.textContent).toContain("Loading your current feed");
     expect(feed.shadowRoot?.textContent).not.toContain("No posts are available");
 
@@ -1631,9 +1684,7 @@ describe("SettingsPage", () => {
       "Reordering feed",
     );
     expect(element.shadowRoot?.querySelector(".preview-generation-overlay")).toBeNull();
-    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(
-      true,
-    );
+    expect(element.shadowRoot?.querySelector(".preview-surface")?.hasAttribute("inert")).toBe(true);
 
     finishAnimation?.();
     await vi.waitFor(() => {
@@ -2007,7 +2058,7 @@ describe("SettingsPage", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(9);
+    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(11);
     expect(element.shadowRoot?.textContent).not.toContain("Engaging vs. Constructive");
     expect(element.shadowRoot?.querySelector(".master-label")).toBeNull();
   });

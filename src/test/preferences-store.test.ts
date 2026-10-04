@@ -16,8 +16,16 @@ const loaded: FeedPreferencesByFeed = {
     freshness: 5,
     politics: 1,
     purpose: 0.5,
+    authorPenalty: 0.2,
+    topicPenalty: 0.8,
   },
-  "best-of-friends": { freshness: 3, purpose: 0.65, politics: 1 },
+  "best-of-friends": {
+    freshness: 3,
+    purpose: 0.65,
+    politics: 1,
+    authorPenalty: 0.9,
+    topicPenalty: 0.1,
+  },
   random: { freshness: 1 },
 };
 
@@ -45,10 +53,26 @@ describe("PreferencesStore.load", () => {
 
     await store.load();
 
-    expect(store.valuesFor("your-feed")).toMatchObject({ freshness: 5, purpose: 0.5 });
-    expect(store.valuesFor("best-of-friends")).toMatchObject({ freshness: 3, purpose: 0.65 });
+    expect(store.valuesFor("your-feed")).toMatchObject({
+      freshness: 5,
+      purpose: 0.5,
+      authorPenalty: 0.2,
+      topicPenalty: 0.8,
+    });
+    expect(store.valuesFor("best-of-friends")).toMatchObject({
+      freshness: 3,
+      purpose: 0.65,
+      authorPenalty: 0.9,
+      topicPenalty: 0.1,
+    });
     expect(store.valuesFor("random").freshness).toBe(1);
-    expect(store.controlsByFeed["best-of-friends"]).toEqual(["freshness", "purpose", "politics"]);
+    expect(store.controlsByFeed["best-of-friends"]).toEqual([
+      "freshness",
+      "purpose",
+      "politics",
+      "author_penalty",
+      "topic_penalty",
+    ]);
     expect(store.supportsControl("random", "purpose")).toBe(false);
     expect(store.supportsControl("your-feed", "politics")).toBe(true);
     expect(store.supportsControl("best-of-friends", "politics")).toBe(true);
@@ -695,6 +719,8 @@ describe("PreferencesStore.restoreDefaults", () => {
       freshness: 5,
       purpose: 0.5,
       politics: 0.5,
+      authorPenalty: 0.7,
+      topicPenalty: 0.7,
     };
     const patch = vi.fn().mockResolvedValue(defaults);
     const { store, capture } = makeStore(patch);
@@ -831,11 +857,15 @@ describe("PreferencesStore.restoreDefaults", () => {
       freshness: 5,
       purpose: 0.5,
       politics: 0.5,
+      authorPenalty: 0.7,
+      topicPenalty: 0.7,
     });
     expect(store.valuesFor("best-of-friends")).toMatchObject({
       freshness: 5,
       purpose: 0.5,
       politics: 0.5,
+      authorPenalty: 0.7,
+      topicPenalty: 0.7,
     });
     expect(store.valuesFor("your-feed").politics).toBe(2);
     expect(store.valuesFor("random").freshness).toBe(1);

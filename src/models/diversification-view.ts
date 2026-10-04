@@ -3,4 +3,9 @@ export interface DiversificationView {
   score: number;
   authorPenalty: number;
   contentPenalty: number;
+  authorPenaltySetting?: number;
+  topicPenaltySetting?: number;
+  relevanceWeight?: number;
+  authorPenaltyWeight?: number;
+  topicPenaltyWeight?: number;
 }

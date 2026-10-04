@@ -22,7 +22,13 @@ describe("MockFeedApiService preferences", () => {
     await service.patchPreferences("best-of-friends", { purpose: 0.65 });
     expect(await service.getPreferences()).toEqual({
       ...saved,
-      "best-of-friends": { freshness: 5, purpose: 0.65, politics: 2 },
+      "best-of-friends": {
+        freshness: 5,
+        purpose: 0.65,
+        politics: 2,
+        authorPenalty: 0.7,
+        topicPenalty: 0.7,
+      },
     });
     expect(await new MockFeedApiService().getPreferences()).toEqual(defaults);
   });

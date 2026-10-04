@@ -13,7 +13,7 @@ const INACTIVE_RANKER_COLOR = "#71767b";
 
 const ENGAGING_RANKER_NAMES = new Set(["heavy_ranker", "heavy_ranker_empty_history"]);
 
-const MMR_RELEVANCE_WEIGHT = 0.3;
+const LEGACY_MMR_RELEVANCE_WEIGHT = 0.3;
 
 @customElement("rank-scores-chart")
 export class RankScoresChart extends LitElement {
@@ -399,10 +399,7 @@ export class RankScoresChart extends LitElement {
 
   private _hasOpenPopup(): boolean {
     return (
-      this._showSourcePopup ||
-      this._showRankersPopup ||
-      this._showDivPopup ||
-      this._showScorePopup
+      this._showSourcePopup || this._showRankersPopup || this._showDivPopup || this._showScorePopup
     );
   }
 
@@ -455,7 +452,8 @@ export class RankScoresChart extends LitElement {
     const constructiveScore = constructive?.score ?? 0;
     const relevanceScore = this.#recordedRankScore(i);
     const selectionScore = i.diversification
-      ? MMR_RELEVANCE_WEIGHT * i.diversification.relevance -
+      ? (i.diversification.relevanceWeight ?? LEGACY_MMR_RELEVANCE_WEIGHT) *
+          i.diversification.relevance -
         i.diversification.authorPenalty -
         i.diversification.contentPenalty
       : relevanceScore;
@@ -726,6 +724,14 @@ export class RankScoresChart extends LitElement {
                         </div>
                         <div class="formula-values">
                           ${this.#formulaRow(
+                            "Author penalty setting",
+                            i.diversification.authorPenaltySetting ?? 0.7,
+                          )}
+                          ${this.#formulaRow(
+                            "Topic penalty setting",
+                            i.diversification.topicPenaltySetting ?? 0.7,
+                          )}
+                          ${this.#formulaRow(
                             "Repeated-author penalty",
                             i.diversification.authorPenalty,
                           )}
@@ -755,6 +761,11 @@ export class RankScoresChart extends LitElement {
 
     if (i.diversification) {
       const relevance = i.diversification.relevance;
+      const authorSetting = i.diversification.authorPenaltySetting ?? 0.7;
+      const topicSetting = i.diversification.topicPenaltySetting ?? 0.7;
+      const authorWeight = i.diversification.authorPenaltyWeight ?? 0.35;
+      const topicWeight = i.diversification.topicPenaltyWeight ?? 0.35;
+      const relevanceWeight = i.diversification.relevanceWeight ?? LEGACY_MMR_RELEVANCE_WEIGHT;
       const diversificationReduction =
         i.diversification.authorPenalty + i.diversification.contentPenalty;
       const rankScore = this.#recordedRankScore(i);
@@ -796,7 +807,13 @@ export class RankScoresChart extends LitElement {
             similar-content penalties in effect at this position.
           </p>
           <div class="score-formula">
-            (${MMR_RELEVANCE_WEIGHT.toFixed(2)} × ${relevance.toFixed(3)}) −
+            Author: ${authorSetting.toFixed(1)} × 0.50 = ${authorWeight.toFixed(2)}<br />
+            Topic: ${topicSetting.toFixed(1)} × 0.50 = ${topicWeight.toFixed(2)}<br />
+            λ = 1 − ${authorWeight.toFixed(2)} − ${topicWeight.toFixed(2)} =
+            ${relevanceWeight.toFixed(2)}
+          </div>
+          <div class="score-formula">
+            (${relevanceWeight.toFixed(2)} × ${relevance.toFixed(3)}) −
             ${diversificationReduction.toFixed(3)} = ${selectionScore?.toFixed(3) ?? "—"}
           </div>
           <p>
