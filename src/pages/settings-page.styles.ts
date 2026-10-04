@@ -818,10 +818,20 @@ export const settingsPageStyles = css`
   }
 
   .penalties {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 0.4rem;
+  }
+
+  .penalty-card {
+    min-width: 0;
+    background: linear-gradient(145deg, #d97706, #b45309);
+  }
+
+  .penalty-card icon-range-slider {
+    --icon-track-color: rgba(255, 255, 255, 0.3);
+    --icon-fill-color: #fbbf24;
+    --icon-tick-color: rgba(255, 255, 255, 0.65);
   }
 
   .penalty-pill {

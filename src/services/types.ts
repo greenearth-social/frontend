@@ -23,6 +23,8 @@ export interface Preferences {
   freshness: number; // 0-5; default 5 (7 days)
   politics: number; // 0-2; default 0.5, neutral 1
   purpose: number; // 0-1
+  authorPenalty: number; // 0-1; default 0.7
+  topicPenalty: number; // 0-1; default 0.7
 }
 
 export type FeedPreferences = Partial<Preferences>;
