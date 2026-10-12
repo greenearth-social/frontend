@@ -85,13 +85,13 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     label: "Repeated author penalty",
     type: "penalty",
     description:
-      "Reduces ranking of posts from authors who already appear multiple times in your feed, promoting diversity.",
+      "Controls how strongly posts from recently repeated authors are moved down. 0 turns this penalty off; 1 applies its maximum strength.",
   },
   repeated_topic: {
     label: "Repeated topic penalty",
     type: "penalty",
     description:
-      "Reduces ranking of posts on topics you've already seen recently, ensuring topic variety.",
+      "Controls how strongly posts similar to topics already selected are moved down. 0 turns this penalty off; 1 applies its maximum strength.",
   },
   politics: {
     label: "Politics",

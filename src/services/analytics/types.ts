@@ -1,6 +1,7 @@
 import type { AlgorithmId } from "../../constants/algorithms";
 
-export type FeedControlName = "source_weights" | "freshness" | "politics" | "purpose";
+export type FeedControlName =
+  "source_weights" | "freshness" | "politics" | "purpose" | "author_penalty" | "topic_penalty";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 

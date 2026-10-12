@@ -29,6 +29,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   freshness: 5,
   politics: 0.5,
   purpose: 0.5,
+  authorPenalty: 0.7,
+  topicPenalty: 0.7,
 };
 
 // The prompt source only exists on Your Feed.
@@ -39,6 +41,8 @@ const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   freshness: "freshness",
   politics: "politics",
   purpose: "purpose",
+  author_penalty: "authorPenalty",
+  topic_penalty: "topicPenalty",
 };
 
 const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
@@ -46,6 +50,8 @@ const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
   freshness: "freshness",
   politics: "politics",
   purpose: "purpose",
+  authorPenalty: "author_penalty",
+  topicPenalty: "topic_penalty",
 };
 
 const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
@@ -117,7 +123,8 @@ function numericEventProperties(
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
-  const property = CONTROL_PROPERTIES[control] as "freshness" | "politics" | "purpose";
+  const property = CONTROL_PROPERTIES[control] as
+    "freshness" | "politics" | "purpose" | "authorPenalty" | "topicPenalty";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   const base: FeedControlEventProperties = {
@@ -554,6 +561,8 @@ export class PreferencesStore {
     const controls = [...RESETTABLE_CONTROLS_BY_FEED[feedName]];
     // Older API versions reject politics until they explicitly expose it.
     if (this.supportsControl(feedName, "politics")) controls.push("politics");
+    if (this.supportsControl(feedName, "author_penalty")) controls.push("author_penalty");
+    if (this.supportsControl(feedName, "topic_penalty")) controls.push("topic_penalty");
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const changedControls = controls.filter((control) =>
       controlChanged(control, previousValues, DEFAULT_PREFERENCES),

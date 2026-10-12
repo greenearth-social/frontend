@@ -47,6 +47,8 @@ const preferences: Preferences = {
   freshness: 5,
   politics: 1,
   purpose: 0.5,
+  authorPenalty: 0.7,
+  topicPenalty: 0.7,
 };
 
 describe("AuthStore account changes", () => {

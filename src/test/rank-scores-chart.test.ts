@@ -201,6 +201,37 @@ describe("RankScoresChart", () => {
     element.remove();
   });
 
+  it("explains and applies the recorded independent penalty settings", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      diversification: {
+        relevance: 0.8,
+        score: 0.16,
+        authorPenalty: 0.04,
+        contentPenalty: 0.12,
+        authorPenaltySetting: 0.2,
+        topicPenaltySetting: 0.8,
+        relevanceWeight: 0.5,
+        authorPenaltyWeight: 0.1,
+        topicPenaltyWeight: 0.4,
+      },
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.24");
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+    await element.updateComplete;
+
+    const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+    expect(text).toContain("Author: 0.2 × 0.50 = 0.10");
+    expect(text).toContain("Topic: 0.8 × 0.50 = 0.40");
+    expect(text).toContain("λ = 1 − 0.10 − 0.40 = 0.50");
+    expect(text).toContain("(0.50 × 0.800) − 0.160 = 0.240");
+    element.remove();
+  });
+
   it("falls back to the weighted model score without diversification or rankScore", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = { ...item(), rankScore: null, diversification: null };

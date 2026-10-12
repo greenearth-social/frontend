@@ -130,8 +130,8 @@ Preference state is keyed by `AlgorithmId`; never reuse a global preference valu
 when the selected feed changes. The API feed-preference response is the canonical
 source of enabled controls:
 
-- `your-feed`: Source Weights, Time Window, Purpose, Politics
-- `best-of-friends`: Time Window, Purpose, Politics
+- `your-feed`: Source Weights, Time Window, Purpose, Politics, Author Penalty, Topic Penalty
+- `best-of-friends`: Time Window, Purpose, Politics, Author Penalty, Topic Penalty
 - `random`: Time Window
 
 Politics uses a 0–2 multiplier with five slider positions (0, 0.5, 1, 1.5, 2)
@@ -139,6 +139,10 @@ and default 0.5; 1 remains neutral. Render it and include it in settings patches
 only when `supportsControl(feedName, "politics")` is true. Older API deployments that omit
 politics keep it hidden. Political posts may still appear at 0; this control
 adjusts ranking scores rather than applying a categorical content filter.
+
+Author and topic penalties are independent 0–1 controls with default 0.7. The
+backend maps each setting to a maximum MMR coefficient of 0.5; the API and
+frontend persist the user-facing values, not the internal coefficients.
 
 `PreferencesStore.valuesByFeed` holds resolved UI values and
 `controlsByFeed` records the sparse controls returned for each feed. Components
@@ -168,7 +172,9 @@ The preference wire contract is:
       },
       "freshness": 5,
       "purpose": 0.5,
-      "politics": 0.5
+      "politics": 0.5,
+      "author_penalty": 0.7,
+      "topic_penalty": 0.7
     }
   }
 }

@@ -585,6 +585,54 @@ export const settingsPageStyles = css`
     background: linear-gradient(145deg, #a855f7, #7c3aed);
   }
 
+  .purpose-balance-card {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.75rem 1rem 0.65rem;
+  }
+
+  .purpose-balance-value {
+    min-height: 1.2rem;
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .purpose-balance-endpoints {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .purpose-endpoint {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .purpose-endpoint-constructive {
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  .purpose-endpoint .component-title {
+    width: auto;
+    max-width: 100%;
+    min-height: 26px;
+    margin: 0;
+    padding: 0.05rem 0.25rem;
+  }
+
+  .purpose-balance-card icon-range-slider {
+    width: 100%;
+  }
+
   .component-title {
     display: flex;
     align-items: center;
@@ -625,6 +673,11 @@ export const settingsPageStyles = css`
     font-weight: 800;
     line-height: 1;
     opacity: 0.82;
+  }
+
+  .component-title.question-first .question-icon {
+    margin-right: 0.25rem;
+    margin-left: 0;
   }
 
   .component-title:focus-visible {
@@ -818,10 +871,20 @@ export const settingsPageStyles = css`
   }
 
   .penalties {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 0.4rem;
+  }
+
+  .penalty-card {
+    min-width: 0;
+    background: linear-gradient(145deg, #16a34a, #15803d);
+  }
+
+  .penalty-card icon-range-slider {
+    --icon-track-color: rgba(255, 255, 255, 0.3);
+    --icon-fill-color: #4ade80;
+    --icon-tick-color: rgba(255, 255, 255, 0.65);
   }
 
   .penalty-pill {
@@ -832,13 +895,13 @@ export const settingsPageStyles = css`
     padding: 0.5rem 0.875rem;
     border: 0;
     border-radius: 9999px;
-    background: linear-gradient(145deg, #f59e0b, #d97706);
+    background: linear-gradient(145deg, #22c55e, #16a34a);
     color: #fff;
     font-size: 0.75rem;
     font-style: italic;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3);
     transition:
       transform 150ms ease,
       filter 150ms ease,
@@ -851,7 +914,7 @@ export const settingsPageStyles = css`
     outline: 2px solid rgba(255, 255, 255, 0.65);
     outline-offset: 2px;
     transform: translateY(-2px);
-    box-shadow: 0 7px 18px rgba(245, 158, 11, 0.4);
+    box-shadow: 0 7px 18px rgba(34, 197, 94, 0.4);
   }
 
   .arrow-connector {
@@ -1336,6 +1399,29 @@ export const settingsPageStyles = css`
       --icon-thumb-size: 28px;
       --icon-thumb-overhang: 14px;
       --icon-control-height: 32px;
+    }
+
+    .purpose-balance-card {
+      padding-inline: 0.5rem;
+    }
+  }
+
+  @media (max-width: 375px) {
+    .purpose-balance-card {
+      gap: 0.25rem;
+      padding: 0.625rem 0.375rem 0.5rem;
+    }
+
+    .purpose-balance-endpoints {
+      gap: 0.25rem;
+    }
+
+    .purpose-endpoint .component-title {
+      font-size: 0.75rem;
+    }
+
+    .purpose-balance-value {
+      font-size: 0.8125rem;
     }
   }
 
