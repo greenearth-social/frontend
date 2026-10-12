@@ -645,25 +645,45 @@ test.describe("feed-scoped navigation", () => {
       "50% engaging, 50% constructive",
     );
     const balanceCard = settings.locator(".purpose-balance-card");
-    await expect(balanceCard.getByText("50%", { exact: true })).toHaveCount(2);
+    await expect(balanceCard.locator(".purpose-balance-value")).toHaveText("50% vs 50%");
     const balanceGeometry = await balanceCard.evaluate((card) => {
       const box = card.getBoundingClientRect();
+      const value = card
+        .querySelector<HTMLElement>(".purpose-balance-value")
+        ?.getBoundingClientRect();
+      const slider = card.querySelector<HTMLElement>("icon-range-slider")?.getBoundingClientRect();
       const endpoints = Array.from(card.querySelectorAll<HTMLElement>(".purpose-endpoint")).map(
         (endpoint) => endpoint.getBoundingClientRect(),
       );
+      const constructive = card
+        .querySelector<HTMLElement>(".purpose-endpoint-constructive .component-title")
+        ?.getBoundingClientRect();
       return {
         cardLeft: box.left,
         cardRight: box.right,
+        valueBottom: value?.bottom ?? 0,
+        sliderTop: slider?.top ?? 0,
+        sliderBottom: slider?.bottom ?? 0,
+        endpointTops: endpoints.map((endpoint) => endpoint.top),
         endpointLefts: endpoints.map((endpoint) => endpoint.left),
         endpointRights: endpoints.map((endpoint) => endpoint.right),
+        constructiveRight: constructive?.right ?? 0,
+        rightEndpointRight: endpoints[1]?.right ?? 0,
       };
     });
+    expect(balanceGeometry.valueBottom).toBeLessThanOrEqual(balanceGeometry.sliderTop);
+    expect(balanceGeometry.endpointTops.every((top) => top >= balanceGeometry.sliderBottom)).toBe(
+      true,
+    );
     expect(balanceGeometry.endpointLefts.every((left) => left >= balanceGeometry.cardLeft)).toBe(
       true,
     );
     expect(
       balanceGeometry.endpointRights.every((right) => right <= balanceGeometry.cardRight),
     ).toBe(true);
+    expect(
+      Math.abs(balanceGeometry.constructiveRight - balanceGeometry.rightEndpointRight),
+    ).toBeLessThan(1);
 
     const overflow = await settings.evaluate((element) => ({
       clientWidth: element.clientWidth,

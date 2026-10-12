@@ -700,15 +700,8 @@ export class SettingsPage extends MobxLitElement {
         <h2 class="section-title">Ranking</h2>
         <div class="ranking-grid">
           <div class="control-card signal-card purpose-balance-card">
-            <div class="purpose-balance-endpoints">
-              <div class="purpose-endpoint purpose-endpoint-engaging">
-                ${this.#titleButton("predict_like", "Engaging")}
-                <span class="purpose-percentage" aria-hidden="true">${engagingPercent}%</span>
-              </div>
-              <div class="purpose-endpoint purpose-endpoint-constructive">
-                ${this.#titleButton("constructiveness", "Constructive")}
-                <span class="purpose-percentage" aria-hidden="true">${constructivePercent}%</span>
-              </div>
+            <div class="purpose-balance-value" aria-hidden="true">
+              ${engagingPercent}% vs ${constructivePercent}%
             </div>
             <icon-range-slider
               min="0"
@@ -727,6 +720,14 @@ export class SettingsPage extends MobxLitElement {
                 this.#commitPurpose(event.detail.value);
               }}
             ></icon-range-slider>
+            <div class="purpose-balance-endpoints">
+              <div class="purpose-endpoint purpose-endpoint-engaging">
+                ${this.#titleButton("predict_like", "Engaging")}
+              </div>
+              <div class="purpose-endpoint purpose-endpoint-constructive">
+                ${this.#titleButton("constructiveness", "Constructive", true)}
+              </div>
+            </div>
           </div>
           ${this.#supportsPolitics() ? this.#renderPolitics(politics) : ""}
         </div>
@@ -840,18 +841,23 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  #titleButton(nodeId: string, label: string): TemplateResult {
+  #titleButton(nodeId: string, label: string, questionFirst = false): TemplateResult {
     return html`
       <button
-        class="component-title"
+        class=${`component-title${questionFirst ? " question-first" : ""}`}
         type="button"
         aria-label=${`Learn more about ${label}`}
         @click=${() => {
           this.#openNode(nodeId);
         }}
       >
-        <span class="component-title-text">${label}</span>
-        <span class="question-icon" aria-hidden="true">?</span>
+        ${
+          questionFirst
+            ? html`<span class="question-icon" aria-hidden="true">?</span>
+                <span class="component-title-text">${label}</span>`
+            : html`<span class="component-title-text">${label}</span>
+                <span class="question-icon" aria-hidden="true">?</span>`
+        }
       </button>
     `;
   }

@@ -588,9 +588,19 @@ export const settingsPageStyles = css`
   .purpose-balance-card {
     grid-column: 1 / -1;
     display: grid;
-    gap: 0.35rem;
+    gap: 0.2rem;
     min-width: 0;
     padding: 0.75rem 1rem 0.65rem;
+  }
+
+  .purpose-balance-value {
+    min-height: 1.2rem;
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    text-align: center;
   }
 
   .purpose-balance-endpoints {
@@ -603,12 +613,11 @@ export const settingsPageStyles = css`
   .purpose-endpoint {
     display: flex;
     min-width: 0;
-    flex-direction: column;
     align-items: flex-start;
   }
 
   .purpose-endpoint-constructive {
-    align-items: flex-end;
+    justify-content: flex-end;
     text-align: right;
   }
 
@@ -618,14 +627,6 @@ export const settingsPageStyles = css`
     min-height: 26px;
     margin: 0;
     padding: 0.05rem 0.25rem;
-  }
-
-  .purpose-percentage {
-    padding-inline: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
   }
 
   .purpose-balance-card icon-range-slider {
@@ -672,6 +673,11 @@ export const settingsPageStyles = css`
     font-weight: 800;
     line-height: 1;
     opacity: 0.82;
+  }
+
+  .component-title.question-first .question-icon {
+    margin-right: 0.25rem;
+    margin-left: 0;
   }
 
   .component-title:focus-visible {
@@ -1414,7 +1420,7 @@ export const settingsPageStyles = css`
       font-size: 0.75rem;
     }
 
-    .purpose-percentage {
+    .purpose-balance-value {
       font-size: 0.8125rem;
     }
   }

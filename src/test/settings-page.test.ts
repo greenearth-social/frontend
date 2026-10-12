@@ -317,12 +317,9 @@ describe("SettingsPage", () => {
     expect(sliders.find((slider) => slider.ariaLabel === "Following amount")?.value).toBe(0.55);
     expect(sliders.find((slider) => slider.ariaLabel === "Time Window")?.value).toBe(2);
     expect(purposeSlider(element).value).toBe(0.65);
-    expect(element.shadowRoot?.querySelector(".purpose-endpoint-engaging")?.textContent).toContain(
-      "35%",
+    expect(element.shadowRoot?.querySelector(".purpose-balance-value")?.textContent).toContain(
+      "35% vs 65%",
     );
-    expect(
-      element.shadowRoot?.querySelector(".purpose-endpoint-constructive")?.textContent,
-    ).toContain("65%");
   });
 
   it("resets the selected feed immediately and records one undoable change", async () => {
@@ -1420,12 +1417,20 @@ describe("SettingsPage", () => {
 
     changeSlider(balance, 0.63, "slider-preview");
     await element.updateComplete;
-    expect(element.shadowRoot?.querySelector(".purpose-endpoint-engaging")?.textContent).toContain(
-      "37%",
+    expect(element.shadowRoot?.querySelector(".purpose-balance-value")?.textContent).toContain(
+      "37% vs 63%",
     );
     expect(
+      element.shadowRoot?.querySelector(".purpose-endpoint-engaging")?.textContent,
+    ).not.toContain("%");
+    expect(
       element.shadowRoot?.querySelector(".purpose-endpoint-constructive")?.textContent,
-    ).toContain("63%");
+    ).not.toContain("%");
+    expect(
+      element.shadowRoot?.querySelector(
+        ".purpose-endpoint-constructive .question-icon + .component-title-text",
+      )?.textContent,
+    ).toBe("Constructive");
     expect(purposeSlider(element).valueText).toBe("37% engaging, 63% constructive");
 
     changeSlider(purposeSlider(element), 0.63);
