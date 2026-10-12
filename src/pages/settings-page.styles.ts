@@ -585,6 +585,53 @@ export const settingsPageStyles = css`
     background: linear-gradient(145deg, #a855f7, #7c3aed);
   }
 
+  .purpose-balance-card {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.75rem 1rem 0.65rem;
+  }
+
+  .purpose-balance-endpoints {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .purpose-endpoint {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .purpose-endpoint-constructive {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .purpose-endpoint .component-title {
+    width: auto;
+    max-width: 100%;
+    min-height: 26px;
+    margin: 0;
+    padding: 0.05rem 0.25rem;
+  }
+
+  .purpose-percentage {
+    padding-inline: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .purpose-balance-card icon-range-slider {
+    width: 100%;
+  }
+
   .component-title {
     display: flex;
     align-items: center;
@@ -1346,6 +1393,29 @@ export const settingsPageStyles = css`
       --icon-thumb-size: 28px;
       --icon-thumb-overhang: 14px;
       --icon-control-height: 32px;
+    }
+
+    .purpose-balance-card {
+      padding-inline: 0.5rem;
+    }
+  }
+
+  @media (max-width: 375px) {
+    .purpose-balance-card {
+      gap: 0.25rem;
+      padding: 0.625rem 0.375rem 0.5rem;
+    }
+
+    .purpose-balance-endpoints {
+      gap: 0.25rem;
+    }
+
+    .purpose-endpoint .component-title {
+      font-size: 0.75rem;
+    }
+
+    .purpose-percentage {
+      font-size: 0.8125rem;
     }
   }
 

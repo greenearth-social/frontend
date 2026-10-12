@@ -89,6 +89,14 @@ function politicsSlider(element: HTMLElement): IconRangeSlider {
   return slider;
 }
 
+function purposeSlider(element: HTMLElement): IconRangeSlider {
+  const slider = element.shadowRoot?.querySelector<IconRangeSlider>(
+    ".purpose-balance-card icon-range-slider",
+  );
+  if (!slider) throw new Error("Engaging to constructive slider was not rendered");
+  return slider;
+}
+
 function penaltySlider(element: HTMLElement, ariaLabel: string): IconRangeSlider {
   const slider = Array.from(
     element.shadowRoot?.querySelectorAll<IconRangeSlider>(".penalty-card icon-range-slider") ?? [],
@@ -308,7 +316,13 @@ describe("SettingsPage", () => {
     );
     expect(sliders.find((slider) => slider.ariaLabel === "Following amount")?.value).toBe(0.55);
     expect(sliders.find((slider) => slider.ariaLabel === "Time Window")?.value).toBe(2);
-    expect(sliders.find((slider) => slider.ariaLabel === "Constructive weight")?.value).toBe(0.65);
+    expect(purposeSlider(element).value).toBe(0.65);
+    expect(element.shadowRoot?.querySelector(".purpose-endpoint-engaging")?.textContent).toContain(
+      "35%",
+    );
+    expect(
+      element.shadowRoot?.querySelector(".purpose-endpoint-constructive")?.textContent,
+    ).toContain("65%");
   });
 
   it("resets the selected feed immediately and records one undoable change", async () => {
@@ -460,7 +474,7 @@ describe("SettingsPage", () => {
     expect(link?.href).toBe("https://www.greenearth.social/p/what-does-constructive-mean");
     expect(link?.target).toBe("_blank");
     const row = element.shadowRoot?.querySelector(".popup-detail-row");
-    expect(row?.querySelector(".popup-metric-value")?.textContent).toBe("0.50");
+    expect(row?.querySelector(".popup-metric-value")?.textContent).toBe("50%");
     expect(row?.lastElementChild).toBe(link);
   });
 
@@ -1385,48 +1399,42 @@ describe("SettingsPage", () => {
     },
   );
 
-  it("persists Ranking controls immediately and enables Preview", async () => {
+  it("uses one continuous percentage balance for Ranking and enables Preview", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
-    const sliders = Array.from(
-      element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
-    );
 
-    const engaging = sliders.find((slider) => slider.ariaLabel === "Engaging weight");
-    const constructive = sliders.find((slider) => slider.ariaLabel === "Constructive weight");
-    expect(engaging).toMatchObject({ min: 0, max: 1, step: 0.25 });
-    expect(constructive).toMatchObject({ min: 0, max: 1, step: 0.25 });
+    const balance = purposeSlider(element);
+    expect(balance).toMatchObject({
+      min: 0,
+      max: 1,
+      step: 0.01,
+      value: 0.5,
+      valueText: "50% engaging, 50% constructive",
+      showValue: false,
+    });
+    expect(balance.ariaLabel).toBe("Engaging to constructive balance");
+    expect(
+      element.shadowRoot?.querySelectorAll(".purpose-balance-card icon-range-slider"),
+    ).toHaveLength(1);
 
-    engaging?.dispatchEvent(
-      new CustomEvent("slider-change", {
-        bubbles: true,
-        composed: true,
-        detail: { value: 1 },
-      }),
+    changeSlider(balance, 0.63, "slider-preview");
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".purpose-endpoint-engaging")?.textContent).toContain(
+      "37%",
     );
+    expect(
+      element.shadowRoot?.querySelector(".purpose-endpoint-constructive")?.textContent,
+    ).toContain("63%");
+    expect(purposeSlider(element).valueText).toBe("37% engaging, 63% constructive");
+
+    changeSlider(purposeSlider(element), 0.63);
     await Promise.resolve();
     await element.updateComplete;
 
     expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
       "your-feed",
-      { purpose: 0 },
-      {},
-    );
-
-    constructive?.dispatchEvent(
-      new CustomEvent("slider-change", {
-        bubbles: true,
-        composed: true,
-        detail: { value: 1 },
-      }),
-    );
-    await Promise.resolve();
-    await element.updateComplete;
-
-    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenLastCalledWith(
-      "your-feed",
-      { purpose: 1 },
+      { purpose: 0.63 },
       {},
     );
     expect(
@@ -2027,15 +2035,7 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     testState.rootStore.preferencesStore.savePatch.mockResolvedValueOnce(false);
-    sliders
-      .find((slider) => slider.ariaLabel === "Constructive weight")
-      ?.dispatchEvent(
-        new CustomEvent("slider-change", {
-          bubbles: true,
-          composed: true,
-          detail: { value: 0.65 },
-        }),
-      );
+    changeSlider(purposeSlider(element), 0.65);
     await Promise.resolve();
     await element.updateComplete;
 

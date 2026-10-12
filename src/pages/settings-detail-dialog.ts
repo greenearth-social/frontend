@@ -47,8 +47,12 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
     return metrics([["Weight", formatWeight(weights.authorsTopics)]]);
   }
   if (nodeId === "popular") return metrics([["Weight", formatWeight(weights.popular)]]);
-  if (nodeId === "predict_like") return metrics([["Weight", (1 - purpose).toFixed(2)]]);
-  if (nodeId === "constructiveness") return metrics([["Weight", purpose.toFixed(2)]]);
+  if (nodeId === "predict_like") {
+    return metrics([["Weight", `${String(Math.round((1 - purpose) * 100))}%`]]);
+  }
+  if (nodeId === "constructiveness") {
+    return metrics([["Weight", `${String(Math.round(purpose * 100))}%`]]);
+  }
   if (nodeId === "politics") return metrics([["Current", formatPolitics(politics)]]);
   return html``;
 }

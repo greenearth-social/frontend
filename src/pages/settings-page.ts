@@ -692,40 +692,33 @@ export class SettingsPage extends MobxLitElement {
   }
 
   #renderRankingSection(purpose: number, politics: number): TemplateResult {
-    const engaging = 1 - purpose;
+    const constructivePercent = Math.round(purpose * 100);
+    const engagingPercent = 100 - constructivePercent;
+    const balanceValueText = `${String(engagingPercent)}% engaging, ${String(constructivePercent)}% constructive`;
     return html`
       <section class="section section-ranking">
         <h2 class="section-title">Ranking</h2>
         <div class="ranking-grid">
-          <div class="control-card signal-card">
-            ${this.#titleButton("predict_like", "Engaging")}
+          <div class="control-card signal-card purpose-balance-card">
+            <div class="purpose-balance-endpoints">
+              <div class="purpose-endpoint purpose-endpoint-engaging">
+                ${this.#titleButton("predict_like", "Engaging")}
+                <span class="purpose-percentage" aria-hidden="true">${engagingPercent}%</span>
+              </div>
+              <div class="purpose-endpoint purpose-endpoint-constructive">
+                ${this.#titleButton("constructiveness", "Constructive")}
+                <span class="purpose-percentage" aria-hidden="true">${constructivePercent}%</span>
+              </div>
+            </div>
             <icon-range-slider
               min="0"
               max="1"
-              step="0.25"
-              .value=${engaging}
-              .icons=${LIFECYCLE_ICONS}
-              .valueText=${engaging.toFixed(2)}
-              ariaLabel="Engaging weight"
-              ?disabled=${this.isLoading}
-              @slider-preview=${(event: CustomEvent<{ value: number }>) => {
-                this.previewPurpose = Number((1 - event.detail.value).toFixed(2));
-              }}
-              @slider-change=${(event: CustomEvent<{ value: number }>) => {
-                this.#commitPurpose(Number((1 - event.detail.value).toFixed(2)));
-              }}
-            ></icon-range-slider>
-          </div>
-          <div class="control-card signal-card">
-            ${this.#titleButton("constructiveness", "Constructive")}
-            <icon-range-slider
-              min="0"
-              max="1"
-              step="0.25"
+              step="0.01"
               .value=${purpose}
               .icons=${LIFECYCLE_ICONS}
-              .valueText=${purpose.toFixed(2)}
-              ariaLabel="Constructive weight"
+              .valueText=${balanceValueText}
+              .showValue=${false}
+              ariaLabel="Engaging to constructive balance"
               ?disabled=${this.isLoading}
               @slider-preview=${(event: CustomEvent<{ value: number }>) => {
                 this.previewPurpose = event.detail.value;

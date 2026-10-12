@@ -471,11 +471,13 @@ test.describe("feed-scoped navigation", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const constructive = page.getByRole("slider", { name: "Constructive weight" });
-    await expect(constructive).toHaveAttribute("min", "0");
-    await expect(constructive).toHaveAttribute("max", "1");
-    await expect(constructive).toHaveAttribute("step", "0.25");
-    await constructive.evaluate((input) => {
+    const purposeBalance = page.getByRole("slider", {
+      name: "Engaging to constructive balance",
+    });
+    await expect(purposeBalance).toHaveAttribute("min", "0");
+    await expect(purposeBalance).toHaveAttribute("max", "1");
+    await expect(purposeBalance).toHaveAttribute("step", "0.01");
+    await purposeBalance.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error("Expected a range input");
       input.value = "0.75";
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -485,7 +487,11 @@ test.describe("feed-scoped navigation", () => {
     await expect(reset).toBeEnabled();
     await reset.click();
 
-    await expect(constructive).toHaveValue("0.5");
+    await expect(purposeBalance).toHaveValue("0.5");
+    await expect(purposeBalance).toHaveAttribute(
+      "aria-valuetext",
+      "50% engaging, 50% constructive",
+    );
     await expect(following).toHaveValue("0.3");
     await expect(
       page.getByRole("slider", {
@@ -628,6 +634,36 @@ test.describe("feed-scoped navigation", () => {
       };
     });
     expect(sliderGeometry).toEqual({ shellHeight: 32, thumbWidth: 28, inputHeight: 44 });
+
+    const purposeBalance = settings.getByRole("slider", {
+      name: "Engaging to constructive balance",
+    });
+    await expect(purposeBalance).toBeVisible();
+    await expect(purposeBalance).toHaveAttribute("step", "0.01");
+    await expect(purposeBalance).toHaveAttribute(
+      "aria-valuetext",
+      "50% engaging, 50% constructive",
+    );
+    const balanceCard = settings.locator(".purpose-balance-card");
+    await expect(balanceCard.getByText("50%", { exact: true })).toHaveCount(2);
+    const balanceGeometry = await balanceCard.evaluate((card) => {
+      const box = card.getBoundingClientRect();
+      const endpoints = Array.from(card.querySelectorAll<HTMLElement>(".purpose-endpoint")).map(
+        (endpoint) => endpoint.getBoundingClientRect(),
+      );
+      return {
+        cardLeft: box.left,
+        cardRight: box.right,
+        endpointLefts: endpoints.map((endpoint) => endpoint.left),
+        endpointRights: endpoints.map((endpoint) => endpoint.right),
+      };
+    });
+    expect(balanceGeometry.endpointLefts.every((left) => left >= balanceGeometry.cardLeft)).toBe(
+      true,
+    );
+    expect(
+      balanceGeometry.endpointRights.every((right) => right <= balanceGeometry.cardRight),
+    ).toBe(true);
 
     const overflow = await settings.evaluate((element) => ({
       clientWidth: element.clientWidth,
