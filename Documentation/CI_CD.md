@@ -51,6 +51,7 @@ Git push to main
 |-------|----------|---------------------------|
 | `BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` | Google Cloud Secret Manager | Set ONCE via CLI. Bound to functions via `{ secrets: [...] }` in code |
 | `OAUTH_STATE_ENCRYPTION_KEY` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key. Bound to OAuth functions in code |
+| `OAUTH_SESSION_ENCRYPTION_KEY` / `OAUTH_SESSION_ENCRYPTION_KEY_STAGE` | Google Cloud Secret Manager | 64-character hexadecimal AES-256 key that encrypts stored OAuth grants in Firestore `oauth_grants/{did}`. Created once per environment by `api/scripts/gcp_setup.sh`; NEVER rotated (rotation makes every stored grant unrevokable). Bound to `oauthCallback` / `oauthCallbackStage` in code |
 | `BLUESKY_OAUTH_PUBLIC_JWKS` | GitHub Variable | CI writes to `functions/.env` before deploy. Deployed with functions |
 | `APP_ORIGIN` | GitHub Variable | CI writes to `functions/.env` before deploy |
 | `BLUESKY_OAUTH_CLIENT_KID` | GitHub Variable | CI writes to `functions/.env` before deploy |
@@ -75,6 +76,25 @@ export const authBluesky = onRequest(
   async (req, res) => { /* ... */ }
 );
 ```
+
+The OAuth callback additionally binds the grant encryption key, per environment:
+
+```typescript
+// oauth-callback.ts
+export const oauthCallback = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY", "OAUTH_STATE_ENCRYPTION_KEY", "OAUTH_SESSION_ENCRYPTION_KEY"] },
+  oauthCallbackHandler,
+);
+export const oauthCallbackStage = onRequest(
+  { secrets: ["BLUESKY_OAUTH_CLIENT_PRIVATE_KEY_STAGE", "OAUTH_STATE_ENCRYPTION_KEY", "OAUTH_SESSION_ENCRYPTION_KEY_STAGE"] },
+  oauthCallbackHandler,
+);
+```
+
+The callback stores the refresh token and DPoP key AES-GCM-encrypted in Firestore `oauth_grants/{did}`
+(`greenearth-prod` when the prod key is bound, otherwise `greenearth-stage`; `GE_FIRESTORE_DATABASE`
+overrides for emulators) so the grant can be revoked later. If the key is missing or the grant cannot be
+stored, login fails closed.
 
 Everything else (`APP_ORIGIN`, `BLUESKY_OAUTH_CLIENT_KID`, `BLUESKY_OAUTH_PUBLIC_JWKS`) is non-sensitive and flows through GitHub Variables → `functions/.env` → deployed.
 
@@ -110,6 +130,18 @@ firebase functions:secrets:set OAUTH_STATE_ENCRYPTION_KEY
 ```
 
 If both secrets already exist and the deployed public JWKS matches the configured private key, do not regenerate them for a routine deployment. Treat changing the private key and public JWKS as one coordinated rotation.
+
+The OAuth grant encryption keys (`OAUTH_SESSION_ENCRYPTION_KEY` for prod,
+`OAUTH_SESSION_ENCRYPTION_KEY_STAGE` for stage) are created by the api repo's `scripts/gcp_setup.sh`,
+which generates each value once and never overwrites it. Run it for the target environment before the
+first deploy of functions that bind these secrets. Do not create them with
+`firebase functions:secrets:set`, and never rotate them: rotation makes every stored grant undecryptable.
+Check they exist with:
+
+```sh
+firebase functions:secrets:get OAUTH_SESSION_ENCRYPTION_KEY
+firebase functions:secrets:get OAUTH_SESSION_ENCRYPTION_KEY_STAGE
+```
 
 ### 3. Add GitHub Secrets and Variables
 
@@ -322,6 +354,7 @@ printf '{"firestoreDatabase":"greenearth-stage"}\n' > dist/config.json
 export APP_ORIGIN=https://greenearth-471522.web.app
 export BLUESKY_OAUTH_CLIENT_KID=key-1
 # BLUESKY_OAUTH_CLIENT_PRIVATE_KEY must exist in Secret Manager (already set)
+# OAUTH_SESSION_ENCRYPTION_KEY[_STAGE] must exist in Secret Manager (api scripts/gcp_setup.sh)
 # If BLUESKY_OAUTH_PUBLIC_JWKS was set via firebase functions:secrets:set, it's persisted
 
 # Deploy stage Firestore configuration and a Hosting preview separately
@@ -341,5 +374,7 @@ firebase hosting:channel:deploy stage
 | Functions return "JWKS not configured" | `BLUESKY_OAUTH_PUBLIC_JWKS` variable missing or malformed | Check that the full `{"keys":[...]}` JSON is set |
 | OAuth fails: "client_id could not be fetched" | `APP_ORIGIN` doesn't match deployed URL | Verify the variable matches `https://<project>.web.app` |
 | OAuth fails: "Invalid client assertion" | Private key out of sync | Re-run `firebase functions:secrets:set BLUESKY_OAUTH_CLIENT_PRIVATE_KEY` |
+| Login fails with `callback_failed`; function logs "OAuth grant persistence failed" | `OAUTH_SESSION_ENCRYPTION_KEY[_STAGE]` not bound, or Firestore write failed | Run the api `scripts/gcp_setup.sh` for the environment and redeploy; check the function's Firestore access |
+| Functions deploy fails on `OAUTH_SESSION_ENCRYPTION_KEY[_STAGE]` | Secret missing or the functions runtime service account cannot access it | Run the api `scripts/gcp_setup.sh`; grant `roles/secretmanager.secretAccessor` on the secret to the functions runtime service account |
 | Stage deploys but prod doesn't | `production` environment not approved | Go to Actions → pending deploy → Review deployments → Approve |
 | Deploy cannot download `dist` or `functions-build` | The approval-gated deployment outlived artifact retention | Artifacts are retained for 7 days; rerun the full CI workflow to recreate artifacts for an already-expired run |
