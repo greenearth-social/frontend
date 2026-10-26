@@ -619,7 +619,7 @@ export class SettingsPage extends MobxLitElement {
                 void this.#sendPrompt(draft);
               }}
             >
-              ${isFitting ? "Thinking…" : "Send"}
+              <span class="prompt-send-label">${isFitting ? "Thinking…" : "Send"}</span>
             </button>
           </div>
         </div>

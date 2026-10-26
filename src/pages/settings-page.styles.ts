@@ -803,6 +803,11 @@ export const settingsPageStyles = css`
     -webkit-line-clamp: unset;
   }
 
+  .active-prompt-text::before,
+  .active-prompt-text::after {
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
   .active-prompt-text::before {
     content: "“";
   }
@@ -936,18 +941,50 @@ export const settingsPageStyles = css`
   }
 
   .prompt-send-btn {
+    display: inline-flex;
     box-sizing: border-box;
-    width: 7.5rem;
+    align-items: center;
+    justify-content: center;
+    width: 5.5rem;
     height: 44px;
     flex: none;
-    padding: 0.35rem 0.8rem;
-    border: 1px solid var(--bluesky-brand);
-    border-radius: 999px;
-    background: var(--bluesky-brand);
+    padding: 6px 0;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
     color: #fff;
     font: inherit;
+    font-size: 0.8125rem;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
+  }
+
+  .prompt-send-label {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 32px;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.12);
+    line-height: 1.25;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .prompt-send-btn:hover:not(:disabled) .prompt-send-label {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .prompt-send-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
   }
 
   .prompt-send-btn:disabled {
