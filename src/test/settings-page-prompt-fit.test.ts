@@ -48,6 +48,17 @@ const emptyPreview = {
 };
 
 async function makeRoot(activePrompt: LlmPrompt | null = null) {
+  let finishRemoval!: () => void;
+  let failRemoval!: (error: unknown) => void;
+  const removeLlmPrompt = vi.fn(
+    () =>
+      new Promise<FeedPreferences>((resolve, reject) => {
+        finishRemoval = () => {
+          resolve(structuredClone(saved["your-feed"] ?? {}));
+        };
+        failRemoval = reject;
+      }),
+  );
   let failFit!: (error: unknown) => void;
   let finishFit!: () => void;
   const patchPreferences = vi.fn((_feedName: string, values: FeedPreferences) =>
@@ -69,6 +80,7 @@ async function makeRoot(activePrompt: LlmPrompt | null = null) {
         getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: activePrompt }),
         patchPreferences,
         fitLlmPrompt,
+        removeLlmPrompt,
         listFeeds: vi.fn().mockResolvedValue({ feeds: [] }),
         createFeedPreview: vi.fn().mockResolvedValue({
           requestId: "preview-1",
@@ -94,6 +106,13 @@ async function makeRoot(activePrompt: LlmPrompt | null = null) {
     root,
     patchPreferences,
     fitLlmPrompt,
+    removeLlmPrompt,
+    finishRemoval: () => {
+      finishRemoval();
+    },
+    failRemoval: (error: unknown) => {
+      failRemoval(error);
+    },
     failFit: (error: unknown) => {
       failFit(error);
     },
@@ -324,5 +343,119 @@ describe("SettingsPage prompt fit with the real stores", () => {
     expect(root.preferencesStore.valuesFor("your-feed").sourceWeights.llm).toBe(0.2);
     await click("Redo last settings change");
     expect(root.preferencesStore.valuesFor("your-feed").sourceWeights.llm).toBe(0);
+  });
+
+  it("removes the prompt, keeps the draft and clears obsolete history and locks", async () => {
+    const { root, finishFit, finishRemoval, removeLlmPrompt } = await makeRoot();
+    const page = await openSettings();
+    await sendPrompt(page, "saved prompt");
+    finishFit();
+    await settle(page);
+    page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Lock Prompt weight"]')?.click();
+    const input = page.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected input");
+    input.value = "unsent replacement";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(page);
+    expect(
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.disabled,
+    ).toBe(false);
+    page.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[aria-label="Remove active prompt"]')
+      ?.click();
+    await settle(page);
+    expect(removeLlmPrompt).toHaveBeenCalledWith("v1");
+    expect(
+      page.shadowRoot?.querySelector('[aria-label="Remove active prompt"]')?.textContent,
+    ).toContain("Removing…");
+    expect(page.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.disabled).toBe(
+      true,
+    );
+    expect(page.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled).toBe(
+      true,
+    );
+    expect(
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(page.shadowRoot?.querySelector(".active-prompt-text")?.textContent).toBe("saved prompt");
+    finishRemoval();
+    await settle(page);
+    expect(input.value).toBe("unsent replacement");
+    expect(page.shadowRoot?.querySelector(".active-prompt")).toBeNull();
+    expect(root.preferencesStore.llmPrompt).toBeNull();
+    expect(root.preferencesStore.valuesFor("your-feed").sourceWeights.llm).toBe(0);
+    expect(
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(page.shadowRoot?.querySelectorAll('[aria-pressed="true"]').length).toBe(0);
+    expect(page.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview")?.disabled).toBe(
+      false,
+    );
+  });
+
+  it("preserves prompt, draft and history when removal fails", async () => {
+    const { root, finishFit, failRemoval } = await makeRoot();
+    const page = await openSettings();
+    await sendPrompt(page, "saved prompt");
+    finishFit();
+    await settle(page);
+    const weights = { ...root.preferencesStore.valuesFor("your-feed").sourceWeights };
+    const input = page.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (!input) throw new Error("Expected input");
+    input.value = "unsent draft";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(page);
+    page.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[aria-label="Remove active prompt"]')
+      ?.click();
+    await settle(page);
+    failRemoval(new Error("internal diagnostics"));
+    await settle(page);
+    expect(page.shadowRoot?.querySelector(".prompt-toast")?.textContent).toContain(
+      "We couldn’t remove your prompt",
+    );
+    expect(page.shadowRoot?.querySelector(".active-prompt-text")?.textContent).toBe("saved prompt");
+    expect(input.value).toBe("unsent draft");
+    expect(root.preferencesStore.valuesFor("your-feed").sourceWeights).toEqual(weights);
+    expect(
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Undo last settings change"]')
+        ?.disabled,
+    ).toBe(false);
+  });
+
+  it("applies a removal to a reopened page even when the old page is gone", async () => {
+    const { root, finishRemoval } = await makeRoot({
+      promptKey: "old",
+      prompt: "saved",
+      createdAt: "2026-09-17T10:00:00Z",
+    });
+    const oldPage = await openSettings();
+    oldPage.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[aria-label="Remove active prompt"]')
+      ?.click();
+    await settle(oldPage);
+    oldPage.remove();
+    const reopened = await openSettings();
+    finishRemoval();
+    await settle(reopened);
+    expect(reopened.shadowRoot?.querySelector(".active-prompt")).toBeNull();
+    expect(root.preferencesStore.llmPromptResetFresh).toBe(false);
+    expect(reopened.shadowRoot?.querySelector<HTMLButtonElement>("#update-preview")?.disabled).toBe(
+      false,
+    );
+  });
+
+  it("keeps automatic saving for short inputs without an interpretation or review step", async () => {
+    const { root, finishFit } = await makeRoot();
+    const page = await openSettings();
+    await sendPrompt(page, "xshby");
+    finishFit();
+    await settle(page);
+    expect(root.preferencesStore.llmPrompt?.prompt).toBe("xshby");
+    expect(page.shadowRoot?.querySelector(".active-prompt-text")?.textContent).toBe("xshby");
+    expect(page.shadowRoot?.querySelector(".prompt-toast")).toBeNull();
   });
 });

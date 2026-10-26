@@ -106,4 +106,5 @@ export interface IFeedApiService {
   ): Promise<FeedPreferences>;
   getLlmPrompt(): Promise<LlmPromptStatus>;
   fitLlmPrompt(prompt: string): Promise<LlmPrompt>;
+  removeLlmPrompt(promptKey: string): Promise<FeedPreferences>;
 }

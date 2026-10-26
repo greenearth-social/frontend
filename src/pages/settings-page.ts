@@ -107,6 +107,11 @@ export class SettingsPage extends MobxLitElement {
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
   @state() private promptDraft = "";
+  @state() private activePromptExpanded = false;
+  @state() private activePromptOverflows = false;
+  private activePromptKey: string | null = null;
+  private observedPromptText: HTMLElement | null = null;
+  private promptResizeObserver: ResizeObserver | null = null;
   @state() private lockedSources: SourceWeightKey[] = [];
   private sourceStartWeights: SourceWeights | null = null;
   private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -152,6 +157,9 @@ export class SettingsPage extends MobxLitElement {
   }
 
   disconnectedCallback(): void {
+    this.promptResizeObserver?.disconnect();
+    this.promptResizeObserver = null;
+    this.observedPromptText = null;
     window.removeEventListener("focus", this.requestLifecycleBaselineSync);
     window.removeEventListener("pagehide", this.handleFrontendLeft);
     window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
@@ -203,7 +211,14 @@ export class SettingsPage extends MobxLitElement {
       this.settingsRevision++;
       void this.#activateSelectedFeed(this.selectedAlgorithm);
     }
+    this.#applyPromptReset();
     this.#applyFreshPrompt();
+    const key = getRootStore()?.preferencesStore.llmPrompt?.promptKey ?? null;
+    if (key !== this.activePromptKey) {
+      this.activePromptKey = key;
+      this.activePromptExpanded = false;
+    }
+    this.#observePromptText();
   }
 
   render() {
@@ -277,7 +292,7 @@ export class SettingsPage extends MobxLitElement {
                 <button
                   class="mobile-preview-btn"
                   type="button"
-                  ?disabled=${!this.previewNeeded || previewBusy}
+                  ?disabled=${this.#settingsBusy() || !this.previewNeeded || previewBusy}
                   @click=${() => {
                     void this.#previewChanges();
                   }}
@@ -290,7 +305,7 @@ export class SettingsPage extends MobxLitElement {
                 type="button"
                 aria-label=${historyLabel}
                 title=${historyLabel}
-                ?disabled=${this.isLoading || this.isApplyingHistory || this.historyEntry === null}
+                ?disabled=${this.#settingsBusy() || this.isApplyingHistory || this.historyEntry === null}
                 @click=${() => {
                   void this.#toggleHistory();
                 }}
@@ -305,7 +320,7 @@ export class SettingsPage extends MobxLitElement {
                 class="reset-defaults-btn"
                 type="button"
                 aria-label="Reset settings to defaults"
-                ?disabled=${this.isLoading || this.isResetting || isAtDefaults}
+                ?disabled=${this.#settingsBusy() || this.isResetting || isAtDefaults}
                 @click=${() => {
                   void this.#restoreDefaults();
                 }}
@@ -366,7 +381,7 @@ export class SettingsPage extends MobxLitElement {
               }"
               type="button"
               aria-busy=${previewGenerating ? "true" : "false"}
-              ?disabled=${!this.previewNeeded || previewBusy}
+              ?disabled=${this.#settingsBusy() || !this.previewNeeded || previewBusy}
               @click=${() => {
                 void this.#previewChanges();
               }}
@@ -474,7 +489,7 @@ export class SettingsPage extends MobxLitElement {
             thumbIconSize="20"
             .valueText=${FRESHNESS_PRESETS[freshness]?.label ?? "7d"}
             ariaLabel="Time Window"
-            ?disabled=${this.isLoading}
+            ?disabled=${this.#settingsBusy()}
             @slider-preview=${(event: CustomEvent<{ value: number }>) => {
               this.previewFreshness = event.detail.value;
             }}
@@ -529,47 +544,145 @@ export class SettingsPage extends MobxLitElement {
   }
 
   #renderPromptEditor(): TemplateResult {
-    const fitted = getRootStore()?.preferencesStore.llmPrompt?.prompt ?? "";
+    const store = getRootStore()?.preferencesStore;
+    const fitted = store?.llmPrompt;
     const draft = this.promptDraft;
-    const isFitting = getRootStore()?.preferencesStore.isFittingLlmPrompt ?? false;
-    const canSend = !this.isLoading && !isFitting && draft.trim().length > 0;
+    const isFitting = store?.isFittingLlmPrompt ?? false;
+    const isRemoving = store?.isRemovingLlmPrompt ?? false;
+    const canSend = !this.#settingsBusy() && !isFitting && draft.trim().length > 0;
     return html`
       <div class="prompt-editor">
         ${
           fitted
             ? html`
                 <div class="active-prompt">
-                  <span class="active-prompt-label">Active prompt</span>
-                  <p class="active-prompt-text">${fitted}</p>
+                  <div class="active-prompt-header">
+                    <span class="active-prompt-label">Active prompt</span>
+                    <button
+                      class="prompt-remove-btn"
+                      type="button"
+                      aria-label="Remove active prompt"
+                      ?disabled=${isRemoving || isFitting || this.isLoading}
+                      @click=${() => {
+                        void store.removeLlmPrompt(fitted.promptKey);
+                      }}
+                    >
+                      ${isRemoving ? "Removing…" : "Remove"}
+                    </button>
+                  </div>
+                  <p
+                    id="active-prompt-text"
+                    class="active-prompt-text ${this.activePromptExpanded ? "expanded" : ""}"
+                    .textContent=${fitted.prompt}
+                  ></p>
+                  ${
+                    this.activePromptOverflows
+                      ? html`
+                          <button
+                            class="prompt-expand-btn"
+                            type="button"
+                            aria-controls="active-prompt-text"
+                            aria-expanded=${this.activePromptExpanded ? "true" : "false"}
+                            @click=${() => {
+                              this.activePromptExpanded = !this.activePromptExpanded;
+                            }}
+                          >
+                            ${this.activePromptExpanded ? "Show less" : "Show more"}
+                          </button>
+                        `
+                      : ""
+                  }
                 </div>
               `
             : ""
         }
-        <textarea
-          class="prompt-input"
-          rows="2"
-          placeholder="Describe what you want to see, e.g. hopeful science news"
-          aria-label="Prompt"
-          maxlength=${MAX_PROMPT_CHARS}
-          .value=${draft}
-          ?disabled=${isFitting}
-          @input=${(event: Event) => {
-            this.promptDraft = (event.target as HTMLTextAreaElement).value;
-          }}
-        ></textarea>
-        <button
-          class="prompt-send-btn"
-          type="button"
-          ?disabled=${!canSend}
-          @click=${() => {
-            void this.#sendPrompt(draft);
-          }}
-        >
-          ${isFitting ? "Thinking…" : "Send"}
-        </button>
-        <span class="prompt-count">${draft.length} / ${MAX_PROMPT_CHARS}</span>
+        <div class="prompt-composer">
+          <textarea
+            class="prompt-input"
+            rows="3"
+            placeholder="Describe what you want to see, e.g. hopeful science news"
+            aria-label="Prompt"
+            maxlength=${MAX_PROMPT_CHARS}
+            .value=${draft}
+            ?disabled=${isFitting}
+            @input=${(event: Event) => {
+              this.promptDraft = (event.target as HTMLTextAreaElement).value;
+            }}
+          ></textarea>
+          <div class="prompt-footer">
+            <span class="prompt-count">${draft.length} / ${MAX_PROMPT_CHARS}</span>
+            <button
+              class="prompt-send-btn"
+              type="button"
+              ?disabled=${!canSend}
+              @click=${() => {
+                void this.#sendPrompt(draft);
+              }}
+            >
+              ${isFitting ? "Thinking…" : "Send"}
+            </button>
+          </div>
+        </div>
       </div>
     `;
+  }
+
+  #observePromptText(): void {
+    const text = this.renderRoot.querySelector<HTMLElement>(".active-prompt-text");
+    if (text !== this.observedPromptText) {
+      this.promptResizeObserver?.disconnect();
+      this.observedPromptText = text;
+      if (text && typeof ResizeObserver !== "undefined") {
+        this.promptResizeObserver = new ResizeObserver(() => {
+          this.#measurePromptOverflow();
+        });
+        this.promptResizeObserver.observe(text);
+      }
+    }
+    this.#measurePromptOverflow();
+  }
+
+  #measurePromptOverflow(): void {
+    const text = this.observedPromptText;
+    const lineHeight = text ? parseFloat(getComputedStyle(text).lineHeight) : 0;
+    this.activePromptOverflows = Boolean(
+      text && lineHeight > 0 && text.scrollHeight > lineHeight * 3 + 1,
+    );
+  }
+
+  #settingsBusy(): boolean {
+    return (
+      this.isLoading ||
+      Boolean(
+        this.selectedAlgorithm === LLM_PROMPT_FEED &&
+        (getRootStore()?.preferencesStore.isRemovingLlmPrompt ||
+          getRootStore()?.preferencesStore.isRefreshingLlmPrompt),
+      )
+    );
+  }
+
+  #applyPromptReset(): void {
+    const store = getRootStore()?.preferencesStore;
+    if (
+      !store?.llmPromptResetFresh ||
+      !this.isConnected ||
+      this.selectedAlgorithm !== LLM_PROMPT_FEED
+    )
+      return;
+    store.markLlmPromptResetApplied();
+    this.lockedSources = [];
+    this.historyEntry = null;
+    this.previewSourceWeights = null;
+    this.previewPurpose = null;
+    this.previewPolitics = null;
+    this.previewFreshness = null;
+    this.previewAuthorPenalty = null;
+    this.previewTopicPenalty = null;
+    this.sourceStartWeights = null;
+    this.previewNeeded = true;
+    this.settingsRevision++;
+    this.previewAnimationOperation++;
+    this.previewPhase = "idle";
   }
 
   // Fit the prompt on the server. What the page does with a fitted prompt is
@@ -577,7 +690,14 @@ export class SettingsPage extends MobxLitElement {
   async #sendPrompt(draft: string): Promise<void> {
     const root = getRootStore();
     const prompt = draft.trim();
-    if (!root || !prompt || root.preferencesStore.isFittingLlmPrompt) return;
+    if (
+      !root ||
+      !prompt ||
+      root.preferencesStore.isFittingLlmPrompt ||
+      root.preferencesStore.isRemovingLlmPrompt ||
+      root.preferencesStore.isRefreshingLlmPrompt
+    )
+      return;
     try {
       await root.preferencesStore.fitLlmPrompt(prompt);
       if (this.promptDraft === draft) this.promptDraft = "";
@@ -591,7 +711,7 @@ export class SettingsPage extends MobxLitElement {
     const failure = store?.llmPromptFailure;
     return html`
       <div class="prompt-status" role="status" aria-live="polite">
-        ${store?.isFittingLlmPrompt ? "Thinking about your prompt…" : ""}
+        ${store?.isRemovingLlmPrompt ? "Removing your prompt…" : store?.isFittingLlmPrompt ? "Thinking about your prompt…" : ""}
       </div>
       ${
         failure && this.selectedAlgorithm === LLM_PROMPT_FEED
@@ -602,8 +722,8 @@ export class SettingsPage extends MobxLitElement {
                   type="button"
                   aria-label="Dismiss prompt error"
                   @click=${() => {
-              store.dismissLlmPromptFailure();
-            }}
+                    store.dismissLlmPromptFailure();
+                  }}
                 >
                   ×
                 </button>
@@ -667,7 +787,7 @@ export class SettingsPage extends MobxLitElement {
     const canLock = isLocked || this.lockedSources.length < this.#maxLocks();
     const canAdjust = bounds.max - bounds.min > 0.0001;
     const isDerived = !isLocked && !canAdjust;
-    const adjustmentDisabled = this.isLoading || inactive || isLocked || isDerived;
+    const adjustmentDisabled = this.#settingsBusy() || inactive || isLocked || isDerived;
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
     const thinking = key === "llm" && getRootStore()?.preferencesStore.isFittingLlmPrompt;
     return html`
@@ -710,7 +830,7 @@ export class SettingsPage extends MobxLitElement {
                 : `Keep ${label} fixed when other sources change`
               : "At least one source must remain unlocked"
           }
-          ?disabled=${inactive || !canLock}
+          ?disabled=${this.#settingsBusy() || inactive || !canLock}
           @click=${() => {
             this.#toggleSourceLock(key);
           }}
@@ -744,7 +864,7 @@ export class SettingsPage extends MobxLitElement {
               .valueText=${balanceValueText}
               .showValue=${false}
               ariaLabel="Engaging to constructive balance"
-              ?disabled=${this.isLoading}
+              ?disabled=${this.#settingsBusy()}
               @slider-preview=${(event: CustomEvent<{ value: number }>) => {
                 this.previewPurpose = event.detail.value;
               }}
@@ -784,7 +904,7 @@ export class SettingsPage extends MobxLitElement {
                     .icons=${LIFECYCLE_ICONS}
                     .valueText=${authorPenalty.toFixed(1)}
                     ariaLabel="Repeated author penalty"
-                    ?disabled=${this.isLoading}
+                    ?disabled=${this.#settingsBusy()}
                     @slider-preview=${(event: CustomEvent<{ value: number }>) => {
                       this.previewAuthorPenalty = event.detail.value;
                     }}
@@ -807,7 +927,7 @@ export class SettingsPage extends MobxLitElement {
                     .icons=${LIFECYCLE_ICONS}
                     .valueText=${topicPenalty.toFixed(1)}
                     ariaLabel="Repeated topic penalty"
-                    ?disabled=${this.isLoading}
+                    ?disabled=${this.#settingsBusy()}
                     @slider-preview=${(event: CustomEvent<{ value: number }>) => {
                       this.previewTopicPenalty = event.detail.value;
                     }}
@@ -860,7 +980,7 @@ export class SettingsPage extends MobxLitElement {
             .icons=${LIFECYCLE_ICONS}
             .valueText=${formatPolitics(politics)}
             ariaLabel="Politics multiplier"
-            ?disabled=${this.isLoading}
+            ?disabled=${this.#settingsBusy()}
             @slider-preview=${(event: CustomEvent<{ value: number }>) => {
               this.previewPolitics = event.detail.value;
             }}
@@ -951,7 +1071,7 @@ export class SettingsPage extends MobxLitElement {
   }
 
   async #restoreDefaults(): Promise<void> {
-    if (this.isResetting) return;
+    if (this.isResetting || this.#settingsBusy()) return;
     const root = getRootStore();
     if (!root) return;
     const before = this.#settingsPatch(root.preferencesStore.valuesFor(this.selectedAlgorithm));
@@ -1014,6 +1134,7 @@ export class SettingsPage extends MobxLitElement {
   }
 
   #toggleSourceLock(key: SourceWeightKey): void {
+    if (this.#settingsBusy()) return;
     const isLocked = this.lockedSources.includes(key);
     if (!isLocked && this.lockedSources.length >= this.#maxLocks()) return;
     this.previewSourceWeights = null;
@@ -1081,7 +1202,8 @@ export class SettingsPage extends MobxLitElement {
     origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
   ): Promise<boolean> {
     const root = getRootStore();
-    if (!root || JSON.stringify(before) === JSON.stringify(after)) return false;
+    if (!root || this.#settingsBusy() || JSON.stringify(before) === JSON.stringify(after))
+      return false;
     const previousHistory = this.historyEntry;
     const entry: SettingsHistoryEntry = {
       id: ++this.changeSequence,
@@ -1112,7 +1234,7 @@ export class SettingsPage extends MobxLitElement {
   async #toggleHistory(): Promise<void> {
     const root = getRootStore();
     const entry = this.historyEntry;
-    if (!root || !entry || this.isApplyingHistory) return;
+    if (!root || !entry || this.isApplyingHistory || this.#settingsBusy()) return;
     const previousMode = entry.mode;
     const nextMode = previousMode === "undo" ? "redo" : "undo";
     const patch = previousMode === "undo" ? entry.before : entry.after;
@@ -1146,7 +1268,13 @@ export class SettingsPage extends MobxLitElement {
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
-    if (!store || !root || !this.previewNeeded || this.#isPreviewBusy(store)) {
+    if (
+      !store ||
+      !root ||
+      this.#settingsBusy() ||
+      !this.previewNeeded ||
+      this.#isPreviewBusy(store)
+    ) {
       return;
     }
     const previousPhase: PreviewPhase = this.previewPhase === "complete" ? "complete" : "idle";

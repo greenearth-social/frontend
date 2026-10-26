@@ -14,6 +14,40 @@ describe("FeedApiService", () => {
     vi.unstubAllGlobals();
   });
 
+  it("removes the current prompt with its encoded key and maps the resulting preferences", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        source_weights: {
+          following: 0.3,
+          network_likes: 0.2,
+          authors_topics: 0.25,
+          popular: 0.25,
+          llm: 0,
+        },
+        freshness: 3,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+    await expect(service.removeLlmPrompt("a key/+?")).resolves.toEqual({
+      sourceWeights: {
+        following: 0.3,
+        networkLikes: 0.2,
+        authorsTopics: 0.25,
+        popular: 0.25,
+        llm: 0,
+      },
+      freshness: 3,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/feeds/llm-query-vectors/current?prompt_key=a%20key%2F%2B%3F",
+      {
+        method: "DELETE",
+        headers: { Authorization: "Bearer token" },
+      },
+    );
+  });
+
   it("preserves structured errors, retry metadata and the server request ID", async () => {
     const detail = {
       code: "llm_query_vector_rate_limited",

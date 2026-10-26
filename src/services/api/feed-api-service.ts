@@ -405,6 +405,14 @@ export class FeedApiService implements IFeedApiService {
     return { promptKey: response.vector_id, prompt, createdAt: new Date().toISOString() };
   }
 
+  async removeLlmPrompt(promptKey: string): Promise<FeedPreferences> {
+    const response = await this._fetch<ApiPreferences>(
+      `/api/feeds/llm-query-vectors/current?prompt_key=${encodeURIComponent(promptKey)}`,
+      { method: "DELETE" },
+    );
+    return mapPreferences(response);
+  }
+
   private async _fetch<T>(path: string, init?: RequestInit): Promise<T> {
     const token = await this.getAuthToken();
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };

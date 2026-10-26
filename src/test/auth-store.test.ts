@@ -67,6 +67,7 @@ describe("AuthStore account changes", () => {
         patchPreferences: vi.fn(),
         getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         fitLlmPrompt: vi.fn(),
+        removeLlmPrompt: vi.fn(),
       },
       analyticsService: {
         identify: vi.fn(),
@@ -108,6 +109,7 @@ describe("AuthStore account changes", () => {
         patchPreferences: vi.fn(),
         getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         fitLlmPrompt: vi.fn(),
+        removeLlmPrompt: vi.fn(),
       },
       analyticsService: {
         identify: vi.fn(),

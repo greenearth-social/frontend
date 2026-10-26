@@ -6,6 +6,8 @@ import type {
   LlmPromptStatus,
 } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
+import { FeedApiError } from "../types";
+import { redistributeSourceWeights } from "../../utils/source-weight-math";
 
 const MOCK_FEED_DETAIL: FeedDetailResponse = {
   requestId: "abc123-def456-ghi789",
@@ -383,5 +385,33 @@ export class MockFeedApiService implements IFeedApiService {
       createdAt: new Date().toISOString(),
     };
     return Promise.resolve(this.llmPrompt);
+  }
+
+  removeLlmPrompt(promptKey: string): Promise<FeedPreferences> {
+    if (this.llmPrompt && this.llmPrompt.promptKey !== promptKey) {
+      return Promise.reject(
+        new FeedApiError(409, "Prompt changed", {
+          detail: { code: "llm_query_vector_prompt_changed" },
+        }),
+      );
+    }
+    const defaults = {
+      following: 0.3,
+      networkLikes: 0.2,
+      authorsTopics: 0.25,
+      popular: 0.25,
+      llm: 0,
+    };
+    const current = this.preferencesByFeed["your-feed"] ?? {};
+    const weights = current.sourceWeights ?? defaults;
+    const sourceWeights =
+      weights.llm === 1
+        ? defaults
+        : weights.llm === 0
+          ? weights
+          : redistributeSourceWeights(weights, "llm", 0);
+    this.preferencesByFeed["your-feed"] = { ...current, sourceWeights };
+    this.llmPrompt = null;
+    return Promise.resolve(structuredClone(this.preferencesByFeed["your-feed"]));
   }
 }

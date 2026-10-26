@@ -1,7 +1,7 @@
 import { FeedApiError } from "../services/types";
 
 export interface LlmPromptFailure {
-  category: "rate_limited" | "pool_too_small" | "prompt_not_accepted" | "system";
+  category: "rate_limited" | "pool_too_small" | "prompt_not_accepted" | "prompt_changed" | "system";
   message: string;
 }
 
@@ -13,6 +13,17 @@ export function describeLlmPromptError(error: unknown, now = Date.now()): LlmPro
     !Array.isArray(error.detail)
       ? (error.detail as Record<string, unknown>)
       : {};
+  if (
+    error instanceof FeedApiError &&
+    error.status === 409 &&
+    detail.code === "llm_query_vector_prompt_changed"
+  ) {
+    return {
+      category: "prompt_changed",
+      message:
+        "Your prompt changed in another session. Settings have been refreshed. Please try again.",
+    };
+  }
   if (error instanceof FeedApiError && error.status === 429) {
     const scopes = Array.isArray(detail.scopes) ? detail.scopes : [];
     const user = scopes.includes("user");

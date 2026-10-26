@@ -764,33 +764,115 @@ export const settingsPageStyles = css`
   }
 
   .active-prompt {
-    grid-column: 1 / -1;
     min-width: 0;
+    padding: 0.125rem 0.75rem 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.75rem;
+    background: rgba(9, 30, 66, 0.22);
     color: #fff;
+  }
+
+  .active-prompt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .active-prompt-label {
     font-size: 0.75rem;
-    font-weight: 600;
-    opacity: 0.8;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
   }
 
   .active-prompt-text {
-    margin: 0.25rem 0 0.5rem;
-    font-size: 0.9rem;
-    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+
+  .active-prompt-text.expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .prompt-remove-btn,
+  .prompt-expand-btn {
+    min-height: 44px;
+    padding: 0.375rem 0;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .prompt-remove-btn {
+    min-width: 5rem;
+    margin-right: -0.375rem;
+    text-align: center;
+  }
+
+  .prompt-expand-btn {
+    min-width: 5rem;
+    margin-bottom: -0.375rem;
+    text-align: left;
+  }
+
+  .prompt-remove-btn:hover:not(:disabled),
+  .prompt-expand-btn:hover {
+    color: #fff;
+    text-decoration: underline;
+  }
+
+  .prompt-remove-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .prompt-remove-btn:focus-visible,
+  .prompt-expand-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
   }
 
   .prompt-card .prompt-editor {
     grid-column: 1 / -1;
     grid-row: 2;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.375rem;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 0.25rem;
+  }
+
+  .prompt-composer {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 0.75rem;
+    background: rgba(15, 40, 90, 0.35);
+  }
+
+  .prompt-composer:focus-within {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: rgba(15, 40, 90, 0.45);
+  }
+
+  .prompt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 0.5rem 0.5rem 0.75rem;
   }
 
   .prompt-card .source-slider-main,
@@ -802,16 +884,15 @@ export const settingsPageStyles = css`
     display: block;
     box-sizing: border-box;
     width: 100%;
-    min-height: 3rem;
+    min-height: 5.5rem;
     resize: vertical;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border: 0;
     outline: none;
-    background: rgba(15, 40, 90, 0.35);
+    background: transparent;
     color: #fff;
     font: inherit;
-    font-size: 0.9rem;
+    font-size: 1rem;
     line-height: 1.4;
   }
 
@@ -819,15 +900,11 @@ export const settingsPageStyles = css`
     color: rgba(255, 255, 255, 0.72);
   }
 
-  .prompt-input:focus {
-    border-color: rgba(255, 255, 255, 0.7);
-    background: rgba(15, 40, 90, 0.45);
-  }
-
   .prompt-send-btn {
     box-sizing: border-box;
     width: 7.5rem;
-    height: 36px;
+    height: 44px;
+    flex: none;
     padding: 0.35rem 0.8rem;
     border: 1px solid var(--bluesky-brand);
     border-radius: 999px;
@@ -844,8 +921,6 @@ export const settingsPageStyles = css`
   }
 
   .prompt-count {
-    grid-column: 1;
-    justify-self: end;
     color: rgba(255, 255, 255, 0.72);
     font-size: 0.75rem;
   }
