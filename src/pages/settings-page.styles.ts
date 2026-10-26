@@ -802,6 +802,14 @@ export const settingsPageStyles = css`
     -webkit-line-clamp: unset;
   }
 
+  .active-prompt-text::before {
+    content: "“";
+  }
+
+  .active-prompt-text::after {
+    content: "”";
+  }
+
   .prompt-remove-btn,
   .prompt-expand-btn {
     min-height: 44px;
@@ -817,9 +825,17 @@ export const settingsPageStyles = css`
   }
 
   .prompt-remove-btn {
-    min-width: 5rem;
-    margin-right: -0.375rem;
+    box-sizing: border-box;
+    min-width: 6rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 999px;
+    background: rgba(15, 40, 90, 0.3);
+    font-weight: 600;
     text-align: center;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
   }
 
   .prompt-expand-btn {
@@ -828,7 +844,12 @@ export const settingsPageStyles = css`
     text-align: left;
   }
 
-  .prompt-remove-btn:hover:not(:disabled),
+  .prompt-remove-btn:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+
   .prompt-expand-btn:hover {
     color: #fff;
     text-decoration: underline;
