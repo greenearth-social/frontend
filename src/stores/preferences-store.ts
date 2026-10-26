@@ -1,9 +1,11 @@
-import { makeAutoObservable } from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 import type { RootStore } from "./root-store";
 import type { FeedPreferences, LlmPrompt, Preferences, SourceWeights } from "../services/types";
 import { ALGORITHM_IDS, feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
 import type { FeedControlEventProperties, FeedControlName } from "../services/analytics/types";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
+import { FeedApiError } from "../services/types";
+import { describeLlmPromptError, type LlmPromptFailure } from "../utils/llm-prompt-error";
 
 export type SourceWeightChangeOrigin =
   | "following"
@@ -197,6 +199,7 @@ export class PreferencesStore {
   // Kept here, not on the settings page, so they survive the page being
   // closed or the feed being switched while a fit runs.
   isFittingLlmPrompt = false;
+  llmPromptFailure: LlmPromptFailure | null = null;
   // A prompt was fitted and the settings page has not reacted to it yet.
   llmPromptFresh = false;
   private saveSequence = 0;
@@ -234,22 +237,47 @@ export class PreferencesStore {
   // Gives null when the account changed while the fit was running, so one
   // account's prompt never lands in another's settings.
   async fitLlmPrompt(prompt: string): Promise<LlmPrompt | null> {
+    if (this.isFittingLlmPrompt) return null;
     const generation = this.accountGeneration;
     this.isFittingLlmPrompt = true;
+    this.llmPromptFailure = null;
     try {
       const fitted = await this.root.services.feedApiService.fitLlmPrompt(prompt);
       if (generation !== this.accountGeneration) return null;
       // A prompt status still on its way is older than this fit.
-      this.llmStatusRequest++;
-      this.llmPrompt = fitted;
-      this.llmPromptFresh = true;
+      runInAction(() => {
+        this.llmStatusRequest++;
+        this.llmPrompt = fitted;
+        this.llmPromptFresh = true;
+      });
       this.root.services.analyticsService.capture("promptFitted", {
         ...feedAnalyticsProperties(LLM_PROMPT_FEED),
       });
       return fitted;
+    } catch (error) {
+      if (generation !== this.accountGeneration) return null;
+      const failure = describeLlmPromptError(error);
+      runInAction(() => {
+        this.llmPromptFailure = failure;
+      });
+      console.error("Prompt generation failed", {
+        category: failure.category,
+        errorType: error instanceof Error ? error.name : typeof error,
+        status: error instanceof FeedApiError ? error.status : undefined,
+        requestId: error instanceof FeedApiError ? error.requestId : undefined,
+      });
+      throw error;
     } finally {
-      if (generation === this.accountGeneration) this.isFittingLlmPrompt = false;
+      if (generation === this.accountGeneration) {
+        runInAction(() => {
+          this.isFittingLlmPrompt = false;
+        });
+      }
     }
+  }
+
+  dismissLlmPromptFailure(): void {
+    this.llmPromptFailure = null;
   }
 
   markLlmPromptApplied(): void {
@@ -327,6 +355,7 @@ export class PreferencesStore {
     this.llmCgEnabled = false;
     this.llmPrompt = null;
     this.isFittingLlmPrompt = false;
+    this.llmPromptFailure = null;
     this.llmPromptFresh = false;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();

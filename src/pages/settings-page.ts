@@ -6,7 +6,6 @@ import type { AlgorithmId } from "../constants/algorithms";
 import { ALGORITHMS, feedAnalyticsProperties } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { FeedPreferences, Preferences, SourceWeights } from "../services/types";
-import { FeedApiError } from "../services/types";
 import type { FeedControlName } from "../services/analytics/types";
 import { DEFAULT_PREFERENCES, LLM_PROMPT_FEED } from "../stores/preferences-store";
 import type { SourceWeightChangeOrigin } from "../stores/preferences-store";
@@ -107,9 +106,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewNeeded = false;
   @state() private historyEntry: SettingsHistoryEntry | null = null;
   @state() private settingsError = "";
-  // null shows the fitted prompt; a string is what the user is typing.
-  @state() private promptDraft: string | null = null;
-  @state() private promptError = "";
+  @state() private promptDraft = "";
   @state() private lockedSources: SourceWeightKey[] = [];
   private sourceStartWeights: SourceWeights | null = null;
   private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -441,6 +438,7 @@ export class SettingsPage extends MobxLitElement {
         </aside>
       </div>
 
+      ${this.#renderPromptToast()}
       ${
         this.isLoading
           ? ""
@@ -532,11 +530,21 @@ export class SettingsPage extends MobxLitElement {
 
   #renderPromptEditor(): TemplateResult {
     const fitted = getRootStore()?.preferencesStore.llmPrompt?.prompt ?? "";
-    const draft = this.promptDraft ?? fitted;
+    const draft = this.promptDraft;
     const isFitting = getRootStore()?.preferencesStore.isFittingLlmPrompt ?? false;
     const canSend = !this.isLoading && !isFitting && draft.trim().length > 0;
     return html`
       <div class="prompt-editor">
+        ${
+          fitted
+            ? html`
+                <div class="active-prompt">
+                  <span class="active-prompt-label">Active prompt</span>
+                  <p class="active-prompt-text">${fitted}</p>
+                </div>
+              `
+            : ""
+        }
         <textarea
           class="prompt-input"
           rows="2"
@@ -547,7 +555,6 @@ export class SettingsPage extends MobxLitElement {
           ?disabled=${isFitting}
           @input=${(event: Event) => {
             this.promptDraft = (event.target as HTMLTextAreaElement).value;
-            this.promptError = "";
           }}
         ></textarea>
         <button
@@ -558,10 +565,9 @@ export class SettingsPage extends MobxLitElement {
             void this.#sendPrompt(draft);
           }}
         >
-          ${isFitting ? "Fitting…" : "Send"}
+          ${isFitting ? "Thinking…" : "Send"}
         </button>
         <span class="prompt-count">${draft.length} / ${MAX_PROMPT_CHARS}</span>
-        ${this.promptError ? html`<p class="prompt-error" role="alert">${this.promptError}</p>` : ""}
       </div>
     `;
   }
@@ -572,16 +578,40 @@ export class SettingsPage extends MobxLitElement {
     const root = getRootStore();
     const prompt = draft.trim();
     if (!root || !prompt || root.preferencesStore.isFittingLlmPrompt) return;
-    this.promptError = "";
     try {
       await root.preferencesStore.fitLlmPrompt(prompt);
-      this.promptDraft = null;
-    } catch (error) {
-      this.promptError =
-        error instanceof FeedApiError && error.status === 422
-          ? "Not enough recent posts match that prompt. Try something broader."
-          : "The prompt could not be fitted. Please try again.";
+      if (this.promptDraft === draft) this.promptDraft = "";
+    } catch {
+      // The account-scoped store owns the failure, including after navigation.
     }
+  }
+
+  #renderPromptToast(): TemplateResult {
+    const store = getRootStore()?.preferencesStore;
+    const failure = store?.llmPromptFailure;
+    return html`
+      <div class="prompt-status" role="status" aria-live="polite">
+        ${store?.isFittingLlmPrompt ? "Thinking about your prompt…" : ""}
+      </div>
+      ${
+        failure && this.selectedAlgorithm === LLM_PROMPT_FEED
+          ? html`
+              <div class="prompt-toast" role="alert" aria-atomic="true">
+                <p>${failure.message}</p>
+                <button
+                  type="button"
+                  aria-label="Dismiss prompt error"
+                  @click=${() => {
+              store.dismissLlmPromptFailure();
+            }}
+                >
+                  ×
+                </button>
+              </div>
+            `
+          : ""
+      }
+    `;
   }
 
   // A newly fitted prompt makes the shown preview stale and gets a starting
@@ -639,9 +669,11 @@ export class SettingsPage extends MobxLitElement {
     const isDerived = !isLocked && !canAdjust;
     const adjustmentDisabled = this.isLoading || inactive || isLocked || isDerived;
     const sliderMax = isLocked || isDerived ? 1 : bounds.max;
+    const thinking = key === "llm" && getRootStore()?.preferencesStore.isFittingLlmPrompt;
     return html`
       <div
-        class="control-card source-card source-slider-card ${key === "llm" ? "prompt-card" : ""} ${inactive ? "inactive" : ""}"
+        class="control-card source-card source-slider-card ${key === "llm" ? "prompt-card" : ""} ${inactive ? "inactive" : ""} ${thinking ? "thinking" : ""}"
+        aria-busy=${thinking ? "true" : "false"}
       >
         ${this.#titleButton(nodeId, label)} ${key === "llm" ? this.#renderPromptEditor() : ""}
         <div class="source-slider-main">

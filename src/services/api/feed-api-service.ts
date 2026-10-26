@@ -420,7 +420,29 @@ export class FeedApiService implements IFeedApiService {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "unknown error");
-      throw new FeedApiError(res.status, `API ${String(res.status)}: ${body}`);
+      let detail: unknown;
+      try {
+        const parsed: unknown = JSON.parse(body);
+        if (typeof parsed === "object" && parsed !== null && "detail" in parsed) {
+          detail = parsed.detail;
+        }
+      } catch {
+        // Proxies can return HTML or plain text instead of the API's JSON.
+      }
+      const retryAfter = res.headers.get("Retry-After");
+      const seconds = retryAfter?.trim() ? Number(retryAfter) : NaN;
+      const retryAt = retryAfter && !Number.isFinite(seconds) ? Date.parse(retryAfter) : NaN;
+      const retryAfterSeconds =
+        Number.isFinite(seconds) && seconds >= 0
+          ? seconds
+          : Number.isFinite(retryAt)
+            ? Math.max(0, Math.ceil((retryAt - Date.now()) / 1000))
+            : undefined;
+      throw new FeedApiError(res.status, `API ${String(res.status)}: ${body}`, {
+        detail,
+        retryAfterSeconds,
+        requestId: res.headers.get("x-request-id") ?? undefined,
+      });
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

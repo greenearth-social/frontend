@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FeedPreferences, FeedPreferencesByFeed, LlmPrompt } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { PreferencesStore } from "../stores/preferences-store";
+import { FeedApiError } from "../services/types";
 import type { AlgorithmId } from "../constants/algorithms";
 
 const loaded: FeedPreferencesByFeed = {
@@ -204,6 +205,58 @@ describe("PreferencesStore.load", () => {
     expect(store.isFittingLlmPrompt).toBe(false);
     expect(store.llmPromptFresh).toBe(false);
     expect(capture).not.toHaveBeenCalledWith("promptFitted", expect.anything());
+  });
+
+  it("retains typed failures, logs safe diagnostics, and clears them on retry and account reset", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store } = makeStore(vi.fn());
+    const error = new FeedApiError(422, "sensitive provider details", {
+      detail: { code: "llm_query_vector_prompt_not_accepted" },
+      requestId: "req-123",
+    });
+    const serviceFit = vi
+      .fn()
+      .mockRejectedValueOnce(error)
+      .mockReturnValueOnce(new Promise(() => {}));
+    store.root.services.feedApiService.fitLlmPrompt = serviceFit;
+    await expect(store.fitLlmPrompt("private prompt")).rejects.toBe(error);
+    expect(store.llmPromptFailure?.category).toBe("prompt_not_accepted");
+    expect(log).toHaveBeenCalledWith("Prompt generation failed", {
+      category: "prompt_not_accepted",
+      errorType: "FeedApiError",
+      status: 422,
+      requestId: "req-123",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private prompt");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("sensitive provider details");
+    void store.fitLlmPrompt("retry");
+    expect(store.llmPromptFailure).toBeNull();
+    await expect(store.fitLlmPrompt("duplicate")).resolves.toBeNull();
+    expect(serviceFit).toHaveBeenCalledTimes(2);
+    store.reset();
+    expect(store.llmPromptFailure).toBeNull();
+    log.mockRestore();
+  });
+
+  it("ignores a failed request from a previous account without disturbing its new request", async () => {
+    const { store } = makeStore(vi.fn());
+    let failOld!: (error: Error) => void;
+    const oldRequest = new Promise<LlmPrompt>((_resolve, reject) => {
+      failOld = reject;
+    });
+    const serviceFit = vi
+      .fn()
+      .mockReturnValueOnce(oldRequest)
+      .mockReturnValueOnce(new Promise(() => {}));
+    store.root.services.feedApiService.fitLlmPrompt = serviceFit;
+    store.activateAccount("account-a");
+    const fit = store.fitLlmPrompt("old prompt");
+    store.activateAccount("account-b");
+    void store.fitLlmPrompt("new account prompt");
+    failOld(new Error("old account failure"));
+    expect(await fit).toBeNull();
+    expect(store.llmPromptFailure).toBeNull();
+    expect(store.isFittingLlmPrompt).toBe(true);
   });
 
   it("keeps a fresh fit when an older prompt status arrives after it", async () => {

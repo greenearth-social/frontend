@@ -52,13 +52,27 @@ export interface AcceptedFeedPreview {
   acceptedUntil: string | null;
 }
 
+export interface FeedApiErrorMetadata {
+  detail?: unknown;
+  retryAfterSeconds?: number;
+  requestId?: string;
+}
+
 export class FeedApiError extends Error {
+  readonly detail: unknown;
+  readonly retryAfterSeconds: number | undefined;
+  readonly requestId: string | undefined;
+
   constructor(
     readonly status: number,
     message: string,
+    metadata: FeedApiErrorMetadata = {},
   ) {
     super(message);
     this.name = "FeedApiError";
+    this.detail = metadata.detail;
+    this.retryAfterSeconds = metadata.retryAfterSeconds;
+    this.requestId = metadata.requestId;
   }
 }
 

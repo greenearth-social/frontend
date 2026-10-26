@@ -722,7 +722,65 @@ export const settingsPageStyles = css`
   }
 
   .prompt-card {
+    position: relative;
     grid-template-rows: auto auto auto;
+  }
+
+  .prompt-card.thinking::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(
+      from var(--prompt-light-angle),
+      transparent 70%,
+      #bfdbfe 90%,
+      #fff 97%,
+      transparent
+    );
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: prompt-light 2.4s linear infinite;
+  }
+
+  @keyframes prompt-light {
+    from {
+      --prompt-light-angle: 0deg;
+    }
+    to {
+      --prompt-light-angle: 360deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .prompt-card.thinking::after {
+      animation: none;
+      background: #bfdbfe;
+    }
+  }
+
+  .active-prompt {
+    grid-column: 1 / -1;
+    min-width: 0;
+    color: #fff;
+  }
+
+  .active-prompt-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  .active-prompt-text {
+    margin: 0.25rem 0 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .prompt-card .prompt-editor {
@@ -767,6 +825,8 @@ export const settingsPageStyles = css`
   }
 
   .prompt-send-btn {
+    box-sizing: border-box;
+    width: 7.5rem;
     height: 36px;
     padding: 0.35rem 0.8rem;
     border: 1px solid var(--bluesky-brand);
@@ -790,11 +850,63 @@ export const settingsPageStyles = css`
     font-size: 0.75rem;
   }
 
-  .prompt-error {
-    grid-column: 1 / -1;
-    margin: 0;
-    color: #fff;
+  .prompt-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .prompt-toast {
+    position: fixed;
+    z-index: 70;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 0.875rem;
+    background: var(--bluesky-bg-card);
+    color: var(--bluesky-text);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .prompt-toast p {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .prompt-toast button {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin: -0.25rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .prompt-toast button:focus-visible {
+    outline: 2px solid var(--bluesky-brand);
+    outline-offset: 2px;
+  }
+
+  .prompt-toast button:hover {
+    background: var(--bluesky-bg-hover);
   }
 
   .source-slider-main {
