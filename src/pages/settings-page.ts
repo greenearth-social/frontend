@@ -567,7 +567,7 @@ export class SettingsPage extends MobxLitElement {
                         void store.removeLlmPrompt(fitted.promptKey);
                       }}
                     >
-                      ${isRemoving ? "Removing…" : "Remove"}
+                      <span class="prompt-remove-label">${isRemoving ? "Removing…" : "Remove"}</span>
                     </button>
                   </div>
                   <p

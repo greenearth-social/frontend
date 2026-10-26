@@ -765,7 +765,7 @@ export const settingsPageStyles = css`
 
   .active-prompt {
     min-width: 0;
-    padding: 0.125rem 0.75rem 0.625rem;
+    padding: 0.5rem 0.75rem 0.625rem;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 0.75rem;
     background: rgba(9, 30, 66, 0.22);
@@ -774,6 +774,7 @@ export const settingsPageStyles = css`
 
   .active-prompt-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
@@ -825,14 +826,27 @@ export const settingsPageStyles = css`
   }
 
   .prompt-remove-btn {
-    box-sizing: border-box;
-    min-width: 6rem;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 999px;
-    background: rgba(15, 40, 90, 0.3);
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    border-radius: 0.5rem;
     font-weight: 600;
     text-align: center;
+    white-space: nowrap;
+  }
+
+  .prompt-remove-label {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.08);
     transition:
       background-color 150ms ease,
       border-color 150ms ease;
@@ -844,7 +858,7 @@ export const settingsPageStyles = css`
     text-align: left;
   }
 
-  .prompt-remove-btn:hover:not(:disabled) {
+  .prompt-remove-btn:hover:not(:disabled) .prompt-remove-label {
     border-color: rgba(255, 255, 255, 0.75);
     background: rgba(255, 255, 255, 0.16);
     color: #fff;
