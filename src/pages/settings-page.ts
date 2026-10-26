@@ -112,6 +112,9 @@ export class SettingsPage extends MobxLitElement {
   private activePromptKey: string | null = null;
   private observedPromptText: HTMLElement | null = null;
   private promptResizeObserver: ResizeObserver | null = null;
+  private observedPromptInput: HTMLTextAreaElement | null = null;
+  private promptInputResizeObserver: ResizeObserver | null = null;
+  private promptInputWidth = 0;
   @state() private lockedSources: SourceWeightKey[] = [];
   private sourceStartWeights: SourceWeights | null = null;
   private baselineSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -160,6 +163,10 @@ export class SettingsPage extends MobxLitElement {
     this.promptResizeObserver?.disconnect();
     this.promptResizeObserver = null;
     this.observedPromptText = null;
+    this.promptInputResizeObserver?.disconnect();
+    this.promptInputResizeObserver = null;
+    this.observedPromptInput = null;
+    this.promptInputWidth = 0;
     window.removeEventListener("focus", this.requestLifecycleBaselineSync);
     window.removeEventListener("pagehide", this.handleFrontendLeft);
     window.removeEventListener("pageshow", this.requestLifecycleBaselineSync);
@@ -219,6 +226,7 @@ export class SettingsPage extends MobxLitElement {
       this.activePromptExpanded = false;
     }
     this.#observePromptText();
+    this.#observePromptInput();
   }
 
   render() {
@@ -556,8 +564,7 @@ export class SettingsPage extends MobxLitElement {
           fitted
             ? html`
                 <div class="active-prompt">
-                  <div class="active-prompt-header">
-                    <span class="active-prompt-label">Active prompt</span>
+                  <div class="active-prompt-content ${this.activePromptExpanded ? "expanded" : ""}">
                     <button
                       class="prompt-remove-btn"
                       type="button"
@@ -567,14 +574,17 @@ export class SettingsPage extends MobxLitElement {
                         void store.removeLlmPrompt(fitted.promptKey);
                       }}
                     >
-                      <span class="prompt-remove-label">${isRemoving ? "Removing…" : "Remove"}</span>
+                      <span class="prompt-remove-label"
+                        >${isRemoving ? "Removing…" : "Remove"}</span
+                      >
                     </button>
+                    <span class="active-prompt-label">Active prompt</span>
+                    <p
+                      id="active-prompt-text"
+                      class="active-prompt-text"
+                      .textContent=${fitted.prompt}
+                    ></p>
                   </div>
-                  <p
-                    id="active-prompt-text"
-                    class="active-prompt-text ${this.activePromptExpanded ? "expanded" : ""}"
-                    .textContent=${fitted.prompt}
-                  ></p>
                   ${
                     this.activePromptOverflows
                       ? html`
@@ -599,8 +609,8 @@ export class SettingsPage extends MobxLitElement {
         <div class="prompt-composer">
           <textarea
             class="prompt-input"
-            rows="3"
-            placeholder="Describe what you want to see, e.g. hopeful science news"
+            rows="1"
+            placeholder="What would you like to see?"
             aria-label="Prompt"
             maxlength=${MAX_PROMPT_CHARS}
             .value=${draft}
@@ -648,6 +658,32 @@ export class SettingsPage extends MobxLitElement {
     this.activePromptOverflows = Boolean(
       text && lineHeight > 0 && text.scrollHeight > lineHeight * 3 + 1,
     );
+  }
+
+  #observePromptInput(): void {
+    const input = this.renderRoot.querySelector<HTMLTextAreaElement>(".prompt-input");
+    if (input !== this.observedPromptInput) {
+      this.promptInputResizeObserver?.disconnect();
+      this.observedPromptInput = input;
+      this.promptInputWidth = 0;
+      if (input && typeof ResizeObserver !== "undefined") {
+        this.promptInputResizeObserver = new ResizeObserver(([entry]) => {
+          if (entry && entry.contentRect.width !== this.promptInputWidth) {
+            this.promptInputWidth = entry.contentRect.width;
+            this.#resizePromptInput();
+          }
+        });
+        this.promptInputResizeObserver.observe(input);
+      }
+    }
+    this.#resizePromptInput();
+  }
+
+  #resizePromptInput(): void {
+    const input = this.observedPromptInput;
+    if (!input) return;
+    input.style.height = "auto";
+    if (input.value) input.style.height = `${String(input.scrollHeight)}px`;
   }
 
   #settingsBusy(): boolean {

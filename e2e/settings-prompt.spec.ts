@@ -82,17 +82,34 @@ for (const width of [320, 375, 768, 1280]) {
     expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await expect(card.locator("script")).toHaveCount(0);
     const text = card.locator(".active-prompt-text");
+    const promptContent = card.locator(".active-prompt-content");
+    const panel = await card.locator(".active-prompt").boundingBox();
+    const title = await card.locator(".active-prompt-label").boundingBox();
+    const remove = await page.getByRole("button", { name: "Remove active prompt" }).boundingBox();
+    expect((title?.y ?? 0) - (panel?.y ?? 0)).toBeLessThanOrEqual(10);
+    const lines = await text.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return Array.from(range.getClientRects(), ({ x, y, right }) => ({ x, y, right }));
+    });
+    const removeBottom = (remove?.y ?? 0) + (remove?.height ?? 0);
+    expect(lines[0]?.y).toBeLessThan(removeBottom);
+    expect(lines[0]?.right).toBeLessThanOrEqual(remove?.x ?? 0);
+    expect(lines.some((line) => line.y >= removeBottom && line.right > (remove?.x ?? 0))).toBe(
+      true,
+    );
     await expect(page.getByRole("button", { name: "Show more", exact: true })).toBeVisible();
-    const collapsed = await text.boundingBox();
+    const collapsed = await promptContent.boundingBox();
     await page.getByRole("button", { name: "Show more", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    expect((await text.boundingBox())?.height).toBeGreaterThan(collapsed?.height ?? 0);
+    expect((await promptContent.boundingBox())?.height).toBeGreaterThan(collapsed?.height ?? 0);
     await page.getByRole("button", { name: "Show less", exact: true }).click();
-    await expect(text).not.toHaveClass(/expanded/);
+    await expect(promptContent).not.toHaveClass(/expanded/);
     const inputBox = await input.boundingBox();
+    expect(inputBox?.height).toBeLessThanOrEqual(44);
     const composer = await card.locator(".prompt-composer").boundingBox();
     expect(inputBox?.width).toBeGreaterThanOrEqual((composer?.width ?? 0) - 2);
     const before = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
@@ -106,8 +123,8 @@ for (const width of [320, 375, 768, 1280]) {
     await expect(input).toBeDisabled();
     await expect(card).toHaveAttribute("aria-busy", "true");
     const during = await thinking.boundingBox();
-    expect(during?.width).toBe(before?.width);
-    expect(during?.height).toBe(before?.height);
+    expect(during?.width).toBeCloseTo(before?.width ?? 0, 3);
+    expect(during?.height).toBeCloseTo(before?.height ?? 0, 3);
     const border = await card.evaluate((element) => {
       const style = getComputedStyle(element, "::after");
       return { animation: style.animationName, pointerEvents: style.pointerEvents };
@@ -126,9 +143,11 @@ for (const width of [320, 375, 768, 1280]) {
     await page.screenshot({ path: testInfo.outputPath("prompt-thinking.png") });
     await finishPrompt(page);
     await expect(input).toHaveValue("");
+    expect((await input.boundingBox())?.height).toBeCloseTo(inputBox?.height ?? 0, 3);
     await expect(card.locator(".active-prompt-text")).toHaveText("New science prompt");
     await expect(page.getByRole("button", { name: "Show more", exact: true })).toHaveCount(0);
     await expect(card).toHaveAttribute("aria-busy", "false");
+    await card.screenshot({ path: testInfo.outputPath("prompt-compact.png") });
     await input.fill("Failed replacement");
     await page.getByRole("button", { name: "Send", exact: true }).click();
     await finishPrompt(page, true);
@@ -148,6 +167,45 @@ for (const width of [320, 375, 768, 1280]) {
     await expect(toast).toHaveCount(0);
   });
 }
+
+test("prompt input grows with wrapping and newlines, reflows on resize and shrinks after success", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await openSettings(page);
+  await preparePrompt(page);
+  const input = page.getByRole("textbox", { name: "Prompt", exact: true });
+  const emptyHeight = (await input.boundingBox())?.height ?? 0;
+  const draft = "Hopeful science discoveries, technology and nature. ".repeat(4);
+  await input.fill(draft);
+  await expect
+    .poll(async () => (await input.boundingBox())?.height ?? 0)
+    .toBeGreaterThan(emptyHeight);
+  const narrowHeight = (await input.boundingBox())?.height ?? 0;
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect
+    .poll(async () => (await input.boundingBox())?.height ?? 0)
+    .toBeLessThan(narrowHeight);
+  const wideHeight = (await input.boundingBox())?.height ?? 0;
+  await page.setViewportSize({ width: 375, height: 900 });
+  await expect
+    .poll(async () => (await input.boundingBox())?.height ?? 0)
+    .toBeGreaterThan(wideHeight);
+  await expect(input).toHaveValue(draft);
+  await input.fill("science");
+  await expect.poll(async () => (await input.boundingBox())?.height ?? 0).toBeCloseTo(emptyHeight, 3);
+  await input.fill("science\nnature\ntechnology");
+  await expect
+    .poll(async () => (await input.boundingBox())?.height ?? 0)
+    .toBeGreaterThan(emptyHeight + 40);
+  expect(await input.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(
+    true,
+  );
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await finishPrompt(page);
+  await expect(input).toHaveValue("");
+  await expect.poll(async () => (await input.boundingBox())?.height ?? 0).toBeCloseTo(emptyHeight, 3);
+});
 
 test("reduced motion uses a static loading border", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });

@@ -764,43 +764,40 @@ export const settingsPageStyles = css`
   }
 
   .active-prompt {
+    --active-prompt-line-height: 1.3125rem;
     min-width: 0;
-    padding: 0.5rem 0.75rem 0.625rem;
+    padding: 0.375rem 0.75rem 0.5rem;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 0.75rem;
     background: rgba(9, 30, 66, 0.22);
     color: #fff;
   }
 
-  .active-prompt-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+  .active-prompt-content {
+    display: flow-root;
+    max-height: calc(1.125rem + 0.375rem + 3 * var(--active-prompt-line-height));
+    overflow: hidden;
+  }
+
+  .active-prompt-content.expanded {
+    max-height: none;
   }
 
   .active-prompt-label {
+    display: block;
+    margin-bottom: 0.375rem;
     font-size: 0.75rem;
     font-weight: 500;
+    line-height: 1.125rem;
     color: rgba(255, 255, 255, 0.7);
   }
 
   .active-prompt-text {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
     margin: 0;
     font-size: 0.875rem;
-    line-height: 1.5;
+    line-height: var(--active-prompt-line-height);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-  }
-
-  .active-prompt-text.expanded {
-    display: block;
-    -webkit-line-clamp: unset;
   }
 
   .active-prompt-text::before,
@@ -831,12 +828,13 @@ export const settingsPageStyles = css`
   }
 
   .prompt-remove-btn {
+    float: right;
     display: inline-flex;
-    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
+    margin-left: 0.75rem;
     padding: 6px 0;
-    border-radius: 0.5rem;
+    border-radius: 999px;
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
@@ -850,7 +848,7 @@ export const settingsPageStyles = css`
     min-height: 32px;
     padding: 0.25rem 0.625rem;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 0.5rem;
+    border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     transition:
       background-color 150ms ease,
@@ -879,7 +877,11 @@ export const settingsPageStyles = css`
     cursor: default;
   }
 
-  .prompt-remove-btn:focus-visible,
+  .prompt-remove-btn:focus-visible {
+    outline: none;
+  }
+
+  .prompt-remove-btn:focus-visible .prompt-remove-label,
   .prompt-expand-btn:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 2px;
@@ -924,8 +926,9 @@ export const settingsPageStyles = css`
     display: block;
     box-sizing: border-box;
     width: 100%;
-    min-height: 5.5rem;
-    resize: vertical;
+    min-height: calc(1.4em + 1.25rem);
+    resize: none;
+    overflow-y: hidden;
     padding: 0.625rem 0.75rem;
     border: 0;
     outline: none;
@@ -950,7 +953,7 @@ export const settingsPageStyles = css`
     flex: none;
     padding: 6px 0;
     border: 0;
-    border-radius: 0.5rem;
+    border-radius: 999px;
     background: transparent;
     color: #fff;
     font: inherit;
@@ -969,7 +972,7 @@ export const settingsPageStyles = css`
     min-height: 32px;
     padding: 0.25rem 0.625rem;
     border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 0.5rem;
+    border-radius: 999px;
     background: rgba(255, 255, 255, 0.12);
     line-height: 1.25;
     transition:
