@@ -722,17 +722,199 @@ export const settingsPageStyles = css`
   }
 
   .prompt-card {
+    position: relative;
     grid-template-rows: auto auto auto;
+  }
+
+  .prompt-card.thinking::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(
+      from var(--prompt-light-angle),
+      transparent 70%,
+      #bfdbfe 90%,
+      #fff 97%,
+      transparent
+    );
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: prompt-light 2.4s linear infinite;
+  }
+
+  @keyframes prompt-light {
+    from {
+      --prompt-light-angle: 0deg;
+    }
+    to {
+      --prompt-light-angle: 360deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .prompt-card.thinking::after {
+      animation: none;
+      background: #bfdbfe;
+    }
+  }
+
+  .active-prompt {
+    --active-prompt-line-height: 1.3125rem;
+    min-width: 0;
+    padding: 0.375rem 0.75rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.75rem;
+    background: rgba(9, 30, 66, 0.22);
+    color: #fff;
+  }
+
+  .active-prompt-content {
+    display: flow-root;
+    max-height: calc(1.125rem + 0.375rem + 3 * var(--active-prompt-line-height));
+    overflow: hidden;
+  }
+
+  .active-prompt-content.expanded {
+    max-height: none;
+  }
+
+  .active-prompt-label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.125rem;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .active-prompt-text {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: var(--active-prompt-line-height);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .active-prompt-text::before,
+  .active-prompt-text::after {
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  .active-prompt-text::before {
+    content: "“";
+  }
+
+  .active-prompt-text::after {
+    content: "”";
+  }
+
+  .prompt-remove-btn,
+  .prompt-expand-btn {
+    min-height: 44px;
+    padding: 0.375rem 0;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .prompt-remove-btn {
+    float: right;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.75rem;
+    padding: 6px 0;
+    border-radius: 999px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .prompt-remove-label {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .prompt-expand-btn {
+    min-width: 5rem;
+    margin-bottom: -0.375rem;
+    text-align: left;
+  }
+
+  .prompt-remove-btn:hover:not(:disabled) .prompt-remove-label {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+
+  .prompt-expand-btn:hover {
+    color: #fff;
+    text-decoration: underline;
+  }
+
+  .prompt-remove-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .prompt-remove-btn:focus-visible {
+    outline: none;
+  }
+
+  .prompt-remove-btn:focus-visible .prompt-remove-label,
+  .prompt-expand-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
   }
 
   .prompt-card .prompt-editor {
     grid-column: 1 / -1;
     grid-row: 2;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.375rem;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 0.25rem;
+  }
+
+  .prompt-composer {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 0.75rem;
+    background: rgba(15, 40, 90, 0.35);
+  }
+
+  .prompt-composer:focus-within {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: rgba(15, 40, 90, 0.45);
+  }
+
+  .prompt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 0.5rem 0.5rem 0.75rem;
   }
 
   .prompt-card .source-slider-main,
@@ -744,16 +926,16 @@ export const settingsPageStyles = css`
     display: block;
     box-sizing: border-box;
     width: 100%;
-    min-height: 3rem;
-    resize: vertical;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 0.75rem;
+    min-height: calc(1.4em + 1.25rem);
+    resize: none;
+    overflow-y: hidden;
+    padding: 0.625rem 0.75rem;
+    border: 0;
     outline: none;
-    background: rgba(15, 40, 90, 0.35);
+    background: transparent;
     color: #fff;
     font: inherit;
-    font-size: 0.9rem;
+    font-size: 1rem;
     line-height: 1.4;
   }
 
@@ -761,21 +943,51 @@ export const settingsPageStyles = css`
     color: rgba(255, 255, 255, 0.72);
   }
 
-  .prompt-input:focus {
-    border-color: rgba(255, 255, 255, 0.7);
-    background: rgba(15, 40, 90, 0.45);
-  }
-
   .prompt-send-btn {
-    height: 36px;
-    padding: 0.35rem 0.8rem;
-    border: 1px solid var(--bluesky-brand);
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: 5.5rem;
+    height: 44px;
+    flex: none;
+    padding: 6px 0;
+    border: 0;
     border-radius: 999px;
-    background: var(--bluesky-brand);
+    background: transparent;
     color: #fff;
     font: inherit;
+    font-size: 0.8125rem;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
+  }
+
+  .prompt-send-label {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 32px;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    line-height: 1.25;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .prompt-send-btn:hover:not(:disabled) .prompt-send-label {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .prompt-send-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
   }
 
   .prompt-send-btn:disabled {
@@ -784,17 +996,67 @@ export const settingsPageStyles = css`
   }
 
   .prompt-count {
-    grid-column: 1;
-    justify-self: end;
     color: rgba(255, 255, 255, 0.72);
     font-size: 0.75rem;
   }
 
-  .prompt-error {
-    grid-column: 1 / -1;
-    margin: 0;
-    color: #fff;
+  .prompt-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .prompt-toast {
+    position: fixed;
+    z-index: 70;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1rem;
+    border: 1px solid var(--bluesky-border);
+    border-radius: 0.875rem;
+    background: var(--bluesky-bg-card);
+    color: var(--bluesky-text);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .prompt-toast p {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .prompt-toast button {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin: -0.25rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .prompt-toast button:focus-visible {
+    outline: 2px solid var(--bluesky-brand);
+    outline-offset: 2px;
+  }
+
+  .prompt-toast button:hover {
+    background: var(--bluesky-bg-hover);
   }
 
   .source-slider-main {

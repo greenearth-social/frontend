@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedApiService } from "../services/api/feed-api-service";
+import { FeedApiError } from "../services/types";
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -11,6 +12,107 @@ function jsonResponse(body: unknown): Response {
 describe("FeedApiService", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("removes the current prompt with its encoded key and maps the resulting preferences", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        source_weights: {
+          following: 0.3,
+          network_likes: 0.2,
+          authors_topics: 0.25,
+          popular: 0.25,
+          llm: 0,
+        },
+        freshness: 3,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+    await expect(service.removeLlmPrompt("a key/+?")).resolves.toEqual({
+      sourceWeights: {
+        following: 0.3,
+        networkLikes: 0.2,
+        authorsTopics: 0.25,
+        popular: 0.25,
+        llm: 0,
+      },
+      freshness: 3,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/feeds/llm-query-vectors/current?prompt_key=a%20key%2F%2B%3F",
+      {
+        method: "DELETE",
+        headers: { Authorization: "Bearer token" },
+      },
+    );
+  });
+
+  it("preserves structured errors, retry metadata and the server request ID", async () => {
+    const detail = {
+      code: "llm_query_vector_rate_limited",
+      scopes: ["user"],
+      retry_at: "2026-10-26T15:30:00Z",
+      retry_after_seconds: 120,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail }), {
+          status: 429,
+          headers: { "Retry-After": "120", "x-request-id": "request-123" },
+        }),
+      ),
+    );
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+    await expect(service.fitLlmPrompt("science")).rejects.toMatchObject({
+      name: "FeedApiError",
+      status: 429,
+      detail,
+      retryAfterSeconds: 120,
+      requestId: "request-123",
+    });
+  });
+
+  it.each(["not JSON", "{broken", "null", "[]"])("tolerates error body %s", async (body) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 502 })));
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+    await expect(service.fitLlmPrompt("science")).rejects.toBeInstanceOf(FeedApiError);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 502 })));
+    await expect(service.fitLlmPrompt("science")).rejects.toMatchObject({
+      status: 502,
+      detail: undefined,
+      retryAfterSeconds: undefined,
+    });
+  });
+
+  it("accepts an HTTP date in Retry-After and ignores invalid retry headers", async () => {
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+    const retry = new Date(Date.now() + 120_000).toUTCString();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("limited", {
+          status: 429,
+          headers: { "Retry-After": retry },
+        }),
+      ),
+    );
+    await expect(service.fitLlmPrompt("science")).rejects.toMatchObject({
+      retryAfterSeconds: expect.any(Number) as unknown,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("limited", {
+          status: 429,
+          headers: { "Retry-After": "invalid" },
+        }),
+      ),
+    );
+    await expect(service.fitLlmPrompt("science")).rejects.toMatchObject({
+      retryAfterSeconds: undefined,
+    });
   });
 
   it("records a Settings visit through the authenticated API", async () => {

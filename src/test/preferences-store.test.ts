@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FeedPreferences, FeedPreferencesByFeed, LlmPrompt } from "../services/types";
 import type { RootStore } from "../stores/root-store";
 import { PreferencesStore } from "../stores/preferences-store";
+import { FeedApiError } from "../services/types";
 import type { AlgorithmId } from "../constants/algorithms";
 
 const loaded: FeedPreferencesByFeed = {
@@ -29,6 +30,8 @@ const loaded: FeedPreferencesByFeed = {
   random: { freshness: 1 },
 };
 
+const activePrompt = { promptKey: "active", prompt: "saved", createdAt: "2026-10-25T10:00:00Z" };
+
 function makeStore(
   patchPreferences: (feedName: AlgorithmId, values: FeedPreferences) => Promise<FeedPreferences>,
   preferences: FeedPreferencesByFeed = loaded,
@@ -46,6 +49,169 @@ function makeStore(
   } as unknown as RootStore;
   return { store: new PreferencesStore(root), capture };
 }
+
+describe("PreferencesStore.removeLlmPrompt", () => {
+  it("waits for pending writes and blocks new Your Feed mutations during removal", async () => {
+    let finishSave!: (saved: FeedPreferences) => void;
+    const patch = vi.fn().mockReturnValue(
+      new Promise<FeedPreferences>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    const { store } = makeStore(patch);
+    await store.load();
+    store.llmPrompt = activePrompt;
+    const remove = vi.fn().mockResolvedValue(loaded["your-feed"]);
+    store.root.services.feedApiService.removeLlmPrompt = remove;
+    const save = store.savePatch("your-feed", { freshness: 2 });
+    const removal = store.removeLlmPrompt("active");
+    expect(store.isRemovingLlmPrompt).toBe(true);
+    expect(remove).not.toHaveBeenCalled();
+    await expect(store.savePatch("your-feed", { freshness: 4 })).resolves.toBe(false);
+    await expect(store.syncSnapshot("your-feed", { freshness: 4 })).resolves.toBe(false);
+    await expect(store.restoreDefaults("your-feed")).resolves.toBe(false);
+    await expect(store.fitLlmPrompt("replacement")).resolves.toBeNull();
+    finishSave({ freshness: 2 });
+    await save;
+    await expect(removal).resolves.toBe(true);
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith("active");
+    expect(store.llmPrompt).toBeNull();
+    expect(store.llmPromptResetFresh).toBe(true);
+    expect(store.isRemovingLlmPrompt).toBe(false);
+    expect(store.valuesFor("your-feed").sourceWeights.llm).toBe(0);
+  });
+
+  it("waits for a standalone queued save before sending removal", async () => {
+    let finishSave!: (saved: FeedPreferences) => void;
+    const { store } = makeStore(
+      vi.fn().mockReturnValue(
+        new Promise<FeedPreferences>((resolve) => {
+          finishSave = resolve;
+        }),
+      ),
+    );
+    await store.load();
+    const remove = vi.fn().mockResolvedValue(loaded["your-feed"]);
+    store.root.services.feedApiService.removeLlmPrompt = remove;
+    const save = store.save("your-feed", "freshness", 2);
+    const removal = store.removeLlmPrompt("active");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(remove).not.toHaveBeenCalled();
+    finishSave({ freshness: 2 });
+    await save;
+    await expect(removal).resolves.toBe(true);
+  });
+
+  it("does not send removal after the account changes while it is queued", async () => {
+    const { store } = makeStore(vi.fn());
+    const remove = vi.fn();
+    store.root.services.feedApiService.removeLlmPrompt = remove;
+    const removal = store.removeLlmPrompt("active");
+    store.reset();
+    await expect(removal).resolves.toBe(false);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    "ignores a removal completing for a previous account (success=%s)",
+    async (succeed) => {
+      const { store } = makeStore(vi.fn());
+      await store.load();
+      let finish!: (value: FeedPreferences) => void;
+      let fail!: (error: Error) => void;
+      const remove = vi.fn().mockReturnValue(
+        new Promise<FeedPreferences>((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        }),
+      );
+      store.root.services.feedApiService.removeLlmPrompt = remove;
+      const removal = store.removeLlmPrompt("active");
+      await vi.waitFor(() => {
+        expect(remove).toHaveBeenCalled();
+      });
+      store.reset();
+      store.llmPrompt = { ...activePrompt, promptKey: "new-account" };
+      if (succeed) finish({ sourceWeights: loaded["your-feed"]?.sourceWeights });
+      else fail(new Error("old account failure"));
+      await expect(removal).resolves.toBe(false);
+      expect(store.llmPrompt.promptKey).toBe("new-account");
+      expect(store.llmPromptFailure).toBeNull();
+      expect(store.llmPromptResetFresh).toBe(false);
+    },
+  );
+
+  it("refreshes the active prompt and preferences after a removal conflict", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store } = makeStore(vi.fn());
+    await store.load();
+    store.llmPrompt = activePrompt;
+    const newer = { ...activePrompt, promptKey: "newer", prompt: "other session" };
+    store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: true, prompt: newer });
+    store.root.services.feedApiService.removeLlmPrompt = vi.fn().mockRejectedValue(
+      new FeedApiError(409, "conflict", {
+        detail: { code: "llm_query_vector_prompt_changed" },
+      }),
+    );
+    await expect(store.removeLlmPrompt("active")).resolves.toBe(false);
+    expect(store.llmPrompt.promptKey).toBe("newer");
+    expect(store.llmPromptResetFresh).toBe(true);
+    expect(store.llmPromptFailure?.message).toContain("Settings have been refreshed");
+    log.mockRestore();
+  });
+
+  it("requests a reload if conflict recovery fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store } = makeStore(vi.fn());
+    await store.load();
+    store.llmPrompt = activePrompt;
+    store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockRejectedValue(new Error("offline"));
+    store.root.services.feedApiService.removeLlmPrompt = vi.fn().mockRejectedValue(
+      new FeedApiError(409, "conflict", {
+        detail: { code: "llm_query_vector_prompt_changed" },
+      }),
+    );
+    await store.removeLlmPrompt("active");
+    expect(store.llmPromptFailure?.message).toContain("Reload Settings");
+    expect(store.llmPrompt.promptKey).toBe("active");
+    log.mockRestore();
+  });
+
+  it("blocks new preference writes while refreshing a fit conflict", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const patch = vi.fn();
+    const { store } = makeStore(patch);
+    await store.load();
+    let finishStatus!: (value: { enabled: true; prompt: LlmPrompt | null }) => void;
+    store.root.services.feedApiService.getLlmPrompt = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+    const error = new FeedApiError(409, "conflict", {
+      detail: { code: "llm_query_vector_prompt_changed" },
+    });
+    store.root.services.feedApiService.fitLlmPrompt = vi.fn().mockRejectedValue(error);
+    const fit = store.fitLlmPrompt("new query").catch((failure: unknown) => failure);
+    await vi.waitFor(() => {
+      expect(store.isRefreshingLlmPrompt).toBe(true);
+    });
+    await expect(store.savePatch("your-feed", { freshness: 2 })).resolves.toBe(false);
+    expect(patch).not.toHaveBeenCalled();
+    finishStatus({ enabled: true, prompt: null });
+    await expect(fit).resolves.toBe(error);
+    expect(store.isRefreshingLlmPrompt).toBe(false);
+    expect(store.llmPromptFailure?.category).toBe("prompt_changed");
+    expect(store.llmPromptResetFresh).toBe(true);
+    log.mockRestore();
+  });
+});
 
 describe("PreferencesStore.load", () => {
   it("loads independent values and API-configured controls for every feed", async () => {
@@ -204,6 +370,58 @@ describe("PreferencesStore.load", () => {
     expect(store.isFittingLlmPrompt).toBe(false);
     expect(store.llmPromptFresh).toBe(false);
     expect(capture).not.toHaveBeenCalledWith("promptFitted", expect.anything());
+  });
+
+  it("retains typed failures, logs safe diagnostics, and clears them on retry and account reset", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { store } = makeStore(vi.fn());
+    const error = new FeedApiError(422, "sensitive provider details", {
+      detail: { code: "llm_query_vector_prompt_not_accepted" },
+      requestId: "req-123",
+    });
+    const serviceFit = vi
+      .fn()
+      .mockRejectedValueOnce(error)
+      .mockReturnValueOnce(new Promise(() => {}));
+    store.root.services.feedApiService.fitLlmPrompt = serviceFit;
+    await expect(store.fitLlmPrompt("private prompt")).rejects.toBe(error);
+    expect(store.llmPromptFailure?.category).toBe("prompt_not_accepted");
+    expect(log).toHaveBeenCalledWith("Prompt generation failed", {
+      category: "prompt_not_accepted",
+      errorType: "FeedApiError",
+      status: 422,
+      requestId: "req-123",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private prompt");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("sensitive provider details");
+    void store.fitLlmPrompt("retry");
+    expect(store.llmPromptFailure).toBeNull();
+    await expect(store.fitLlmPrompt("duplicate")).resolves.toBeNull();
+    expect(serviceFit).toHaveBeenCalledTimes(2);
+    store.reset();
+    expect(store.llmPromptFailure).toBeNull();
+    log.mockRestore();
+  });
+
+  it("ignores a failed request from a previous account without disturbing its new request", async () => {
+    const { store } = makeStore(vi.fn());
+    let failOld!: (error: Error) => void;
+    const oldRequest = new Promise<LlmPrompt>((_resolve, reject) => {
+      failOld = reject;
+    });
+    const serviceFit = vi
+      .fn()
+      .mockReturnValueOnce(oldRequest)
+      .mockReturnValueOnce(new Promise(() => {}));
+    store.root.services.feedApiService.fitLlmPrompt = serviceFit;
+    store.activateAccount("account-a");
+    const fit = store.fitLlmPrompt("old prompt");
+    store.activateAccount("account-b");
+    void store.fitLlmPrompt("new account prompt");
+    failOld(new Error("old account failure"));
+    expect(await fit).toBeNull();
+    expect(store.llmPromptFailure).toBeNull();
+    expect(store.isFittingLlmPrompt).toBe(true);
   });
 
   it("keeps a fresh fit when an older prompt status arrives after it", async () => {

@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@property --prompt-light-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 :root {
   --bluesky-bg: #15202b;
   --bluesky-bg-card: #1e2732;
@@ -47,7 +53,8 @@
     overscroll-behavior-y: none;
     background-color: var(--bluesky-bg);
     color: var(--bluesky-text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
   a {

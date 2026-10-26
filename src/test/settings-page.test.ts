@@ -77,7 +77,6 @@ import "../pages/settings-page";
 import type { IconRangeSlider } from "../components/icon-range-slider";
 import { MOBILE_PREVIEW_SETTLE_DELAY_MS } from "../pages/settings-page";
 import { settingsPageStyles } from "../pages/settings-page.styles";
-import { FeedApiError } from "../services/types";
 
 const POLITICS_FEEDS = ["your-feed", "best-of-friends"] as const;
 
@@ -640,56 +639,6 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).toBeNull();
   });
 
-  it("shows an error and leaves the weights alone when the fit fails", async () => {
-    const store = testState.rootStore.preferencesStore;
-    store.fitLlmPrompt.mockRejectedValue(new Error("boom"));
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
-    if (!input) throw new Error("Expected prompt input");
-    input.value = "anything";
-    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-    await element.updateComplete;
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
-    await element.updateComplete;
-    await Promise.resolve();
-    await element.updateComplete;
-
-    expect(element.shadowRoot?.querySelector(".prompt-error")?.textContent).toContain(
-      "could not be fitted",
-    );
-    expect(store.savePatch).not.toHaveBeenCalled();
-    expect(element.shadowRoot?.querySelector(".source-slider-card.inactive")).not.toBeNull();
-  });
-
-  it("says the prompt is too narrow on a 422 and drops the error on the next edit", async () => {
-    const store = testState.rootStore.preferencesStore;
-    store.fitLlmPrompt.mockRejectedValue(new FeedApiError(422, "too few posts"));
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".prompt-input");
-    if (!input) throw new Error("Expected prompt input");
-    input.value = "anything";
-    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-    await element.updateComplete;
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.click();
-    await element.updateComplete;
-    await Promise.resolve();
-    await element.updateComplete;
-    expect(element.shadowRoot?.querySelector(".prompt-error")?.textContent).toContain(
-      "Try something broader",
-    );
-
-    input.value = "anything else";
-    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-    await element.updateComplete;
-    expect(element.shadowRoot?.querySelector(".prompt-error")).toBeNull();
-  });
-
   it("drops a fit that finished for another account", async () => {
     const store = testState.rootStore.preferencesStore;
     store.fitLlmPrompt.mockResolvedValue(null);
@@ -798,7 +747,7 @@ describe("SettingsPage", () => {
     document.body.appendChild(reopened);
     await reopened.updateComplete;
     const send = reopened.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn");
-    expect(send?.textContent).toContain("Fitting…");
+    expect(send?.textContent).toContain("Thinking…");
     expect(send?.disabled).toBe(true);
     reopened.shadowRoot
       ?.querySelector<HTMLButtonElement>('[aria-label="Lock Following weight"]')

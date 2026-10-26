@@ -1,9 +1,11 @@
-import { makeAutoObservable } from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 import type { RootStore } from "./root-store";
 import type { FeedPreferences, LlmPrompt, Preferences, SourceWeights } from "../services/types";
 import { ALGORITHM_IDS, feedAnalyticsProperties, type AlgorithmId } from "../constants/algorithms";
 import type { FeedControlEventProperties, FeedControlName } from "../services/analytics/types";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
+import { FeedApiError } from "../services/types";
+import { describeLlmPromptError, type LlmPromptFailure } from "../utils/llm-prompt-error";
 
 export type SourceWeightChangeOrigin =
   | "following"
@@ -197,6 +199,11 @@ export class PreferencesStore {
   // Kept here, not on the settings page, so they survive the page being
   // closed or the feed being switched while a fit runs.
   isFittingLlmPrompt = false;
+  isRemovingLlmPrompt = false;
+  isRefreshingLlmPrompt = false;
+  llmPromptFailure: LlmPromptFailure | null = null;
+  // The visible Settings page must invalidate history/locks after a removal or conflict.
+  llmPromptResetFresh = false;
   // A prompt was fitted and the settings page has not reacted to it yet.
   llmPromptFresh = false;
   private saveSequence = 0;
@@ -234,21 +241,158 @@ export class PreferencesStore {
   // Gives null when the account changed while the fit was running, so one
   // account's prompt never lands in another's settings.
   async fitLlmPrompt(prompt: string): Promise<LlmPrompt | null> {
+    if (this.isFittingLlmPrompt || this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt)
+      return null;
     const generation = this.accountGeneration;
     this.isFittingLlmPrompt = true;
+    this.llmPromptFailure = null;
     try {
       const fitted = await this.root.services.feedApiService.fitLlmPrompt(prompt);
       if (generation !== this.accountGeneration) return null;
       // A prompt status still on its way is older than this fit.
-      this.llmStatusRequest++;
-      this.llmPrompt = fitted;
-      this.llmPromptFresh = true;
+      runInAction(() => {
+        this.llmStatusRequest++;
+        this.llmPrompt = fitted;
+        this.llmPromptFresh = true;
+      });
       this.root.services.analyticsService.capture("promptFitted", {
         ...feedAnalyticsProperties(LLM_PROMPT_FEED),
       });
       return fitted;
+    } catch (error) {
+      if (generation !== this.accountGeneration) return null;
+      const failure = describeLlmPromptError(error);
+      if (
+        failure.category === "prompt_changed" &&
+        !(await this.refreshLlmPromptState(generation))
+      ) {
+        failure.message =
+          "Your prompt changed in another session. Reload Settings before trying again.";
+      }
+      if (generation !== this.accountGeneration) return null;
+      runInAction(() => {
+        this.llmPromptFailure = failure;
+      });
+      console.error("Prompt generation failed", {
+        category: failure.category,
+        errorType: error instanceof Error ? error.name : typeof error,
+        status: error instanceof FeedApiError ? error.status : undefined,
+        requestId: error instanceof FeedApiError ? error.requestId : undefined,
+      });
+      throw error;
     } finally {
-      if (generation === this.accountGeneration) this.isFittingLlmPrompt = false;
+      if (generation === this.accountGeneration) {
+        runInAction(() => {
+          this.isFittingLlmPrompt = false;
+        });
+      }
+    }
+  }
+
+  dismissLlmPromptFailure(): void {
+    this.llmPromptFailure = null;
+  }
+
+  async removeLlmPrompt(promptKey: string): Promise<boolean> {
+    if (this.isFittingLlmPrompt || this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt)
+      return false;
+    const generation = this.accountGeneration;
+    this.isRemovingLlmPrompt = true;
+    this.llmPromptFailure = null;
+    this.llmStatusRequest++;
+    try {
+      if (!(await this.waitForPendingSaves(LLM_PROMPT_FEED)))
+        throw new Error("Pending settings save failed");
+      await this.saveQueueByFeed[LLM_PROMPT_FEED];
+      if (generation !== this.accountGeneration) return false;
+      const saved = await this.root.services.feedApiService.removeLlmPrompt(promptKey);
+      if (generation !== this.accountGeneration) return false;
+      runInAction(() => {
+        const current = this.valuesFor(LLM_PROMPT_FEED);
+        this.valuesByFeed[LLM_PROMPT_FEED] = {
+          ...current,
+          ...saved,
+          sourceWeights: { ...(saved.sourceWeights ?? current.sourceWeights) },
+        };
+        this.llmStatusRequest++;
+        this.llmPrompt = null;
+        this.llmPromptFresh = false;
+        this.llmPromptResetFresh = true;
+      });
+      return true;
+    } catch (error) {
+      if (generation !== this.accountGeneration) return false;
+      const failure = describeLlmPromptError(error);
+      if (
+        failure.category === "prompt_changed" &&
+        !(await this.refreshLlmPromptState(generation))
+      ) {
+        failure.message =
+          "Your prompt changed in another session. Reload Settings before trying again.";
+      }
+      if (generation !== this.accountGeneration) return false;
+      runInAction(() => {
+        this.llmPromptFailure =
+          failure.category === "prompt_changed"
+            ? failure
+            : {
+                category: "system",
+                message: "We couldn’t remove your prompt. Please try again.",
+              };
+      });
+      console.error("Prompt removal failed", {
+        category: failure.category,
+        errorType: error instanceof Error ? error.name : typeof error,
+        status: error instanceof FeedApiError ? error.status : undefined,
+        requestId: error instanceof FeedApiError ? error.requestId : undefined,
+      });
+      return false;
+    } finally {
+      if (generation === this.accountGeneration) {
+        runInAction(() => {
+          this.isRemovingLlmPrompt = false;
+        });
+      }
+    }
+  }
+
+  markLlmPromptResetApplied(): void {
+    this.llmPromptResetFresh = false;
+  }
+
+  private async refreshLlmPromptState(generation: number): Promise<boolean> {
+    const request = ++this.llmStatusRequest;
+    this.isRefreshingLlmPrompt = true;
+    try {
+      await this.waitForPendingSaves(LLM_PROMPT_FEED);
+      if (generation !== this.accountGeneration) return false;
+      const [status, preferences] = await Promise.all([
+        this.root.services.feedApiService.getLlmPrompt(),
+        this.root.services.feedApiService.getPreferences(),
+      ]);
+      if (generation !== this.accountGeneration || request !== this.llmStatusRequest) return false;
+      runInAction(() => {
+        this.llmCgEnabled = status.enabled;
+        this.llmPrompt = status.enabled ? status.prompt : null;
+        this.llmPromptFresh = false;
+        this.llmPromptResetFresh = true;
+        const current = this.valuesFor(LLM_PROMPT_FEED);
+        const saved = preferences[LLM_PROMPT_FEED] ?? {};
+        this.valuesByFeed[LLM_PROMPT_FEED] = {
+          ...current,
+          ...saved,
+          sourceWeights: { ...(saved.sourceWeights ?? current.sourceWeights) },
+        };
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (generation === this.accountGeneration) {
+        runInAction(() => {
+          this.isRefreshingLlmPrompt = false;
+        });
+      }
     }
   }
 
@@ -327,6 +471,10 @@ export class PreferencesStore {
     this.llmCgEnabled = false;
     this.llmPrompt = null;
     this.isFittingLlmPrompt = false;
+    this.isRemovingLlmPrompt = false;
+    this.isRefreshingLlmPrompt = false;
+    this.llmPromptResetFresh = false;
+    this.llmPromptFailure = null;
     this.llmPromptFresh = false;
     this.loadPromise = null;
     this.pendingSavePromisesByFeed = emptyPendingSavesByFeed();
@@ -339,6 +487,8 @@ export class PreferencesStore {
     value: number | SourceWeights,
     origin?: SourceWeightChangeOrigin,
   ): Promise<void> {
+    if (feedName === LLM_PROMPT_FEED && (this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt))
+      return;
     const property = CONTROL_PROPERTIES[control];
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const normalizedValue =
@@ -396,11 +546,15 @@ export class PreferencesStore {
     patch: FeedPreferences,
     origins: Partial<Record<FeedControlName, SourceWeightChangeOrigin>> = {},
   ): Promise<boolean> {
+    if (feedName === LLM_PROMPT_FEED && (this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt))
+      return Promise.resolve(false);
     const operation = this.performSavePatch(feedName, patch, origins);
     return this.trackPendingSave(feedName, operation);
   }
 
   syncSnapshot(feedName: AlgorithmId, patch: FeedPreferences): Promise<boolean> {
+    if (feedName === LLM_PROMPT_FEED && (this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt))
+      return Promise.resolve(false);
     const generation = this.accountGeneration;
     const snapshot = {
       ...patch,
@@ -555,6 +709,8 @@ export class PreferencesStore {
   }
 
   async restoreDefaults(feedName: AlgorithmId): Promise<boolean> {
+    if (feedName === LLM_PROMPT_FEED && (this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt))
+      return false;
     // Reset what the Settings page exposes, even if an older or partial load
     // did not populate the control metadata. This keeps Sources in
     // the same atomic reset as freshness and ranking.
