@@ -29,6 +29,11 @@
       "collectionGroup": "user_history_cache",
       "fieldPath": "*",
       "indexes": []
+    },
+    {
+      "collectionGroup": "request_less_history",
+      "fieldPath": "*",
+      "indexes": []
     }
   ]
 }
