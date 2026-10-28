@@ -122,7 +122,9 @@ export interface FeedItemView {
 export function weightedRankScore(modelScores: ModelScoreView[]): number | null {
   const totalWeight = modelScores.reduce((sum, s) => sum + s.weight, 0);
   if (totalWeight <= 0) return null;
-  return modelScores.reduce((sum, s) => sum + s.score * s.weight, 0) / totalWeight;
+  // Signed contributions offset one another before the final score is floored.
+  const weightedScore = modelScores.reduce((sum, s) => sum + s.score * s.weight, 0) / totalWeight;
+  return Math.max(0, weightedScore);
 }
 
 export function scoreAxisPositionPct(score: number): number {

@@ -696,6 +696,7 @@ export class RankScoresChart extends LitElement {
                 <p>
                   Rankers estimate how engaging and constructive a post may be. Each score is
                   multiplied by the ranker's influence when the relevance score is calculated.
+                  Engaging scores may also reflect posts you've asked to see less of.
                 </p>
               </div>
             `
@@ -753,11 +754,24 @@ export class RankScoresChart extends LitElement {
   }
 
   #renderScorePopup(i: FeedItemView, selectionScore: number | null) {
-    const weightedTotal = weightedRankScore(i.modelScores);
     const totalWeight = i.modelScores.reduce((sum, model) => sum + model.weight, 0);
+    const weightedTotal =
+      totalWeight > 0
+        ? i.modelScores.reduce((sum, model) => sum + model.score * model.weight, 0) / totalWeight
+        : null;
+    const flooredTotal = weightedRankScore(i.modelScores);
     const weightedParts = i.modelScores
       .map((model) => `(${model.score.toFixed(3)} × ${(model.weight / totalWeight).toFixed(2)})`)
       .join(" + ");
+    const floorExplanation =
+      weightedTotal !== null && flooredTotal !== null
+        ? html`
+            <p>The combined score has a minimum of zero before any politics adjustment.</p>
+            <div class="score-formula">
+              max(0, ${weightedTotal.toFixed(3)}) = ${flooredTotal.toFixed(3)}
+            </div>
+          `
+        : "";
 
     if (i.diversification) {
       const relevance = i.diversification.relevance;
@@ -787,7 +801,7 @@ export class RankScoresChart extends LitElement {
                 `
               : ""
           }
-          ${this.#renderPoliticsAdjustment(i)}
+          ${floorExplanation} ${this.#renderPoliticsAdjustment(i)}
           <p>The recorded rank score is normalized against the strongest post in this batch.</p>
           ${
             rankScore !== null && batchLeaderScore !== null
@@ -840,7 +854,7 @@ export class RankScoresChart extends LitElement {
               `
             : ""
         }
-        ${this.#renderPoliticsAdjustment(i)}
+        ${floorExplanation} ${this.#renderPoliticsAdjustment(i)}
         ${
           relevanceScore !== null
             ? html`

@@ -39,6 +39,23 @@ describe("weightedRankScore", () => {
     expect(weightedRankScore([])).toBeNull();
     expect(weightedRankScore([{ name: "a", weight: 0, score: 0.5 }])).toBeNull();
   });
+
+  it.each([
+    { engaging: -0.6, constructive: 0.2, expected: 0 },
+    { engaging: -0.4, constructive: 1.2, expected: 0.4 },
+    { engaging: 1.5, constructive: 1.9, expected: 1.7 },
+  ])(
+    "floors only the final weighted average: $expected",
+    ({ engaging, constructive, expected }) => {
+      const scores = [
+        { name: "heavy_ranker", weight: 2, score: engaging },
+        { name: "perspective", weight: 2, score: constructive },
+      ];
+
+      expect(weightedRankScore(scores)).toBeCloseTo(expected);
+      expect(scores.map((score) => score.score)).toEqual([engaging, constructive]);
+    },
+  );
 });
 
 describe("transformFeedItems", () => {
@@ -90,6 +107,19 @@ describe("transformFeedItems", () => {
     expect(result[0]?.modelScores[0]).toHaveProperty("name");
     expect(result[0]?.modelScores[0]).toHaveProperty("weight");
     expect(result[0]?.modelScores[0]).toHaveProperty("score");
+  });
+
+  it("preserves signed model contributions and recorded rank scores", () => {
+    const modelScores = [
+      { name: "heavy_ranker", weight: 1, score: -0.6 },
+      { name: "perspective", weight: 1, score: 1.2 },
+    ];
+    const result = transformFeedItems(
+      items.map((item) => ({ ...item, modelScores, rankScore: -0.4 })),
+    );
+
+    expect(result[0]?.modelScores).toEqual(modelScores);
+    expect(result[0]?.rankScore).toBe(-0.4);
   });
 
   it("preserves rank fields", () => {

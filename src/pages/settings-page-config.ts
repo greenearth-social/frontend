@@ -73,7 +73,7 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     label: "Engaging",
     type: "signal",
     description:
-      "An ML model predicts the probability you'll like a post based on your historical behavior.",
+      "An ML model scores posts using your likes and may lower scores for posts similar to those you've asked to see less of.",
   },
   constructiveness: {
     label: "Constructive",

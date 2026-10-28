@@ -242,6 +242,99 @@ describe("RankScoresChart", () => {
     element.remove();
   });
 
+  it("floors a negative weighted fallback without changing the signed model score", async () => {
+    const element = document.createElement("rank-scores-chart");
+    element.item = {
+      ...item(),
+      rankScore: null,
+      diversification: null,
+      modelScores: [
+        { name: "heavy_ranker", weight: 1, score: -0.6 },
+        { name: "perspective", weight: 1, score: 0.2 },
+      ],
+    };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe("0.00");
+    const rows = [...(element.shadowRoot?.querySelectorAll(".ranker-item") ?? [])];
+    const engagingRow = rows.find((row) => row.textContent.includes("Engaging"));
+    expect(engagingRow?.querySelector(".ranker-value")?.textContent.trim()).toBe("-0.60");
+    element.remove();
+  });
+
+  it.each([false, true])(
+    "explains the final score floor before politics with diversification %s",
+    async (diversify) => {
+      const element = document.createElement("rank-scores-chart");
+      element.item = {
+        ...item(),
+        rankScore: 0,
+        modelScores: [
+          { name: "heavy_ranker", weight: 1, score: -0.6 },
+          { name: "perspective", weight: 1, score: 0.2 },
+        ],
+        politicsAdjustment: {
+          setting: 2,
+          topicScore: 1,
+          scoreMultiplier: 2,
+          scoreBefore: 0,
+          scoreAfter: 0,
+        },
+        diversification: diversify
+          ? { relevance: 0, score: -0.15, authorPenalty: 0.1, contentPenalty: 0.05 }
+          : null,
+      };
+      document.body.appendChild(element);
+      await element.updateComplete;
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".final-score-info-button")?.click();
+      await element.updateComplete;
+
+      const text = normalizedText(element.shadowRoot?.querySelector(".score-popup"));
+      const blend = "(-0.600 × 0.50) + (0.200 × 0.50) = -0.200";
+      const floor = "max(0, -0.200) = 0.000";
+      const politics = "(0.000 × 2.000) = 0.000";
+      expect(text).toContain(blend);
+      expect(text).toContain("minimum of zero before any politics adjustment");
+      expect(text).toContain(floor);
+      expect(text).toContain(politics);
+      expect(text.indexOf(blend)).toBeLessThan(text.indexOf(floor));
+      expect(text.indexOf(floor)).toBeLessThan(text.indexOf(politics));
+      expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe(
+        diversify ? "-0.15" : "0.00",
+      );
+      element.remove();
+    },
+  );
+
+  it.each([
+    { rankScore: -0.4, scoreAfter: 0.8, expected: "-0.40" },
+    { rankScore: null, scoreAfter: -0.3, expected: "-0.30" },
+  ])(
+    "keeps recorded scores authoritative: $expected",
+    async ({ rankScore, scoreAfter, expected }) => {
+      const element = document.createElement("rank-scores-chart");
+      element.item = {
+        ...item(),
+        rankScore,
+        diversification: null,
+        modelScores: [{ name: "heavy_ranker", weight: 1, score: -0.6 }],
+        politicsAdjustment: {
+          setting: 1,
+          topicScore: 0,
+          scoreMultiplier: 1,
+          scoreBefore: scoreAfter,
+          scoreAfter,
+        },
+      };
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".score-value")?.textContent.trim()).toBe(expected);
+      element.remove();
+    },
+  );
+
   it("explains the weighted ranker formula when diversification is absent", async () => {
     const element = document.createElement("rank-scores-chart");
     element.item = { ...item(), diversification: null };
