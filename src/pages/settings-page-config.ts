@@ -93,6 +93,18 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     description:
       "Controls how strongly posts similar to topics already selected are moved down. 0 turns this penalty off; 1 applies its maximum strength.",
   },
+  features_in_progress: {
+    label: "Features in progress",
+    type: "config",
+    description:
+      "Experiments we are trying out with a small group before deciding whether they belong in everyone's feed. They may change or disappear.",
+  },
+  balance_sources: {
+    label: "Balance sources",
+    type: "config",
+    description:
+      "The ranking model learns from what you have already liked, so posts from a new source (like your Prompt) tend to score low and get crowded out. With this on, each source is graded on its own curve: its best post counts as a 1 and its weakest as a 0, so every source gets a fair share of the feed.",
+  },
   politics: {
     label: "Politics",
     type: "config",
