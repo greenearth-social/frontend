@@ -8,6 +8,7 @@ import type {
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
 import type { RootStore } from "./root-store";
+import { reportClientError } from "../services/telemetry/telemetry-service";
 
 const DEFAULT_POSTS_PER_PAGE = 20;
 
@@ -199,6 +200,9 @@ export class FeedStore {
       if (seq !== this._feedListLoadSeq) return;
 
       console.error("FeedStore.loadFeedList error:", e);
+      reportClientError("FeedListLoadError", {
+        message: e instanceof Error ? e.message : String(e),
+      });
       this.error = e instanceof Error ? e.message : "Failed to load feed list";
       this.feedListLoadState = "error";
     } finally {
@@ -289,6 +293,10 @@ export class FeedStore {
 
       console.error("FeedStore.loadFeedDetail error:", e);
       if (background) return;
+      reportClientError("FeedDetailLoadError", {
+        requestId,
+        message: e instanceof Error ? e.message : String(e),
+      });
       this.error = e instanceof Error ? e.message : "Failed to load feed";
       this._allItems = [];
       this.currentApiReleaseSha = null;
