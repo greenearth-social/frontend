@@ -574,7 +574,7 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <section class="section section-features">
         <div class="section-heading">
-          <h2 class="section-title">Features in progress</h2>
+          <h2 class="section-title">Features in progress (visible to team only)</h2>
           <button
             class="section-info-btn"
             type="button"

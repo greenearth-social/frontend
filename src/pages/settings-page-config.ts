@@ -94,7 +94,7 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
       "Controls how strongly posts similar to topics already selected are moved down. 0 turns this penalty off; 1 applies its maximum strength.",
   },
   features_in_progress: {
-    label: "Features in progress",
+    label: "Features in progress (visible to team only)",
     type: "config",
     description:
       "Experiments we are trying out with a small group before deciding whether they belong in everyone's feed. They may change or disappear.",

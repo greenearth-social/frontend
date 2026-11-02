@@ -215,7 +215,7 @@ describe("SettingsPage", () => {
       "Sources",
       "Ranking",
       "Diversification",
-      "Features in progress",
+      "Features in progress (visible to team only)",
     ]);
     expect(element.shadowRoot?.querySelector(".politics-card .coming-soon")).toBeNull();
     expect(
