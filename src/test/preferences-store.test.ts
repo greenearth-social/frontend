@@ -521,6 +521,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -550,6 +551,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -577,6 +579,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
