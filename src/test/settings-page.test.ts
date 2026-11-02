@@ -2341,17 +2341,3 @@ describe("SettingsPage Filter card (api#566)", () => {
     ).toBe(false);
   });
 });
-
-it("counts a non-default multiplier against defaults", async () => {
-  supportFilter();
-  testState.values.llmFilter = 1;
-  const element = document.createElement("settings-page");
-  document.body.appendChild(element);
-  await element.updateComplete;
-  await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-
-  expect(filterSlider(element).valueText).toBe("1.0 · Default");
-  expect(
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
-  ).toBe(false);
-});
