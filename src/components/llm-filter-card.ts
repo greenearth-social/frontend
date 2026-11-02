@@ -141,6 +141,7 @@ export class LlmFilterCard extends MobxLitElement {
               <button
                 class="prompt-send-btn filter-prompt-send-btn"
                 type="button"
+                aria-label="Send filter prompt"
                 ?disabled=${!canSend}
                 @click=${() => {
                   void this.#send(draft);
