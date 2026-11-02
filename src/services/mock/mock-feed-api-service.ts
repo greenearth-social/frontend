@@ -3,6 +3,7 @@ import type {
   FeedPreferencesByFeed,
   IFeedApiService,
   LlmPrompt,
+  LlmPromptRole,
   LlmPromptStatus,
 } from "../types";
 import type { FeedListResponse, FeedDetailResponse } from "../../models/feed-debug-snapshot";
@@ -220,6 +221,7 @@ export class MockFeedApiService implements IFeedApiService {
   private previewPreferences = new Map<string, FeedPreferences>();
   private previewSequence = 0;
   private llmPrompt: LlmPrompt | null = null;
+  private llmFilterPrompt: LlmPrompt | null = null;
   private preferencesByFeed: FeedPreferencesByFeed = {
     "your-feed": {
       sourceWeights: {
@@ -234,6 +236,7 @@ export class MockFeedApiService implements IFeedApiService {
       politics: 0.5,
       authorPenalty: 0.7,
       topicPenalty: 0.7,
+      llmFilter: 0.5,
     },
     "best-of-friends": {
       freshness: 5,
@@ -374,20 +377,38 @@ export class MockFeedApiService implements IFeedApiService {
     return Promise.resolve(structuredClone(prefs));
   }
 
-  getLlmPrompt(): Promise<LlmPromptStatus> {
-    return Promise.resolve({ enabled: true, prompt: this.llmPrompt });
+  getLlmPrompt(role: LlmPromptRole = "cg"): Promise<LlmPromptStatus> {
+    return Promise.resolve({
+      enabled: true,
+      prompt: role === "filter" ? this.llmFilterPrompt : this.llmPrompt,
+    });
   }
 
-  fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
-    this.llmPrompt = {
-      promptKey: `mock-${String(Date.now())}`,
+  fitLlmPrompt(prompt: string, role: LlmPromptRole = "cg"): Promise<LlmPrompt> {
+    const fitted = {
+      promptKey: `mock-${role}-${String(Date.now())}`,
       prompt,
+      subject: role === "filter" ? `posts about ${prompt}` : null,
       createdAt: new Date().toISOString(),
     };
-    return Promise.resolve(this.llmPrompt);
+    if (role === "filter") this.llmFilterPrompt = fitted;
+    else this.llmPrompt = fitted;
+    return Promise.resolve(fitted);
   }
 
-  removeLlmPrompt(promptKey: string): Promise<FeedPreferences> {
+  removeLlmPrompt(promptKey: string, role: LlmPromptRole = "cg"): Promise<FeedPreferences> {
+    if (role === "filter") {
+      if (this.llmFilterPrompt && this.llmFilterPrompt.promptKey !== promptKey) {
+        return Promise.reject(
+          new FeedApiError(409, "Prompt changed", {
+            detail: { code: "llm_query_vector_prompt_changed" },
+          }),
+        );
+      }
+      // The filter has no source weight, so preferences come back unchanged.
+      this.llmFilterPrompt = null;
+      return Promise.resolve(structuredClone(this.preferencesByFeed["your-feed"] ?? {}));
+    }
     if (this.llmPrompt && this.llmPrompt.promptKey !== promptKey) {
       return Promise.reject(
         new FeedApiError(409, "Prompt changed", {

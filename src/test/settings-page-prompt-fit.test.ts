@@ -98,6 +98,9 @@ async function makeRoot(activePrompt: LlmPrompt | null = null) {
       unavailableReasonFor: vi.fn().mockReturnValue(null),
     },
   } as unknown as RootStore;
+  root.llmFilterStore = {
+    load: vi.fn().mockResolvedValue(undefined),
+  } as unknown as RootStore["llmFilterStore"];
   root.preferencesStore = new PreferencesStore(root);
   root.settingsPreviewStore = new SettingsPreviewStore(root);
   testState.root = root;

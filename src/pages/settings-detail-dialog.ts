@@ -3,12 +3,14 @@ import type { AlgorithmId } from "../constants/algorithms";
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import type { SourceWeights } from "../services/types";
 import { formatPolitics, formatWeight, SETTINGS_NODES } from "./settings-page-config";
+import { formatLlmFilter } from "../components/llm-filter-card";
 
 interface SettingsDetailDialogOptions {
   nodeId: string | null;
   weights: SourceWeights;
   purpose: number;
   politics: number;
+  llmFilter: number;
   freshness: number;
   selectedAlgorithm: AlgorithmId;
   onClose: () => void;
@@ -30,7 +32,7 @@ function metrics(values: Array<[string, string]>): TemplateResult {
 }
 
 function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
-  const { nodeId, weights, purpose, politics, freshness, selectedAlgorithm } = options;
+  const { nodeId, weights, purpose, politics, llmFilter, freshness, selectedAlgorithm } = options;
   if (nodeId === "time_window") {
     return metrics([["Current", FRESHNESS_PRESETS[freshness]?.label ?? "7d"]]);
   }
@@ -54,6 +56,7 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
     return metrics([["Weight", `${String(Math.round(purpose * 100))}%`]]);
   }
   if (nodeId === "politics") return metrics([["Current", formatPolitics(politics)]]);
+  if (nodeId === "llm_filter") return metrics([["Current", formatLlmFilter(llmFilter)]]);
   return html``;
 }
 

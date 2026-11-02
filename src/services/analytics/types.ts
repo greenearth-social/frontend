@@ -7,7 +7,8 @@ export type FeedControlName =
   | "purpose"
   | "author_penalty"
   | "topic_penalty"
-  | "normalize_rank_by_generator";
+  | "normalize_rank_by_generator"
+  | "llm_filter";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 
@@ -38,7 +39,7 @@ export interface AnalyticsEventProperties {
   };
   settingsViewed: FeedAnalyticsProperties;
   howItWorksViewed: FeedAnalyticsProperties;
-  promptFitted: FeedAnalyticsProperties;
+  promptFitted: FeedAnalyticsProperties & { prompt_role?: "cg" | "filter" };
   howItWorksComponentClicked: FeedAnalyticsProperties & {
     component_id: string;
     component_label: string;

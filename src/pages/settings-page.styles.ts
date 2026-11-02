@@ -774,7 +774,8 @@ export const settingsPageStyles = css`
     grid-template-rows: auto auto auto;
   }
 
-  .prompt-card.thinking::after {
+  .prompt-card.thinking::after,
+  .filter-card.thinking::after {
     content: "";
     position: absolute;
     inset: -2px;
@@ -805,7 +806,8 @@ export const settingsPageStyles = css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .prompt-card.thinking::after {
+    .prompt-card.thinking::after,
+    .filter-card.thinking::after {
       animation: none;
       background: #bfdbfe;
     }
@@ -933,6 +935,48 @@ export const settingsPageStyles = css`
   .prompt-expand-btn:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 2px;
+  }
+
+  /* The Filter card (api#566): title, prompt editor, multiplier slider. */
+  .filter-card {
+    position: relative;
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0.375rem 0.5rem 0.625rem;
+  }
+
+  .filter-card .prompt-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-card.inactive .filter-slider {
+    opacity: 0.45;
+  }
+
+  .filter-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(127, 29, 29, 0.55);
+    font-size: 0.9rem;
+  }
+
+  .filter-error p {
+    flex: 1;
+    margin: 0;
+  }
+
+  .filter-error button {
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
   }
 
   .prompt-card .prompt-editor {

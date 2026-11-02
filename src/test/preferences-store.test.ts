@@ -47,6 +47,7 @@ function makeStore(
       },
       analyticsService: { capture },
     },
+    llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
   } as unknown as RootStore;
   return { store: new PreferencesStore(root), capture };
 }
@@ -1174,5 +1175,28 @@ describe("PreferencesStore.restoreDefaults", () => {
       purpose: 0.65,
     });
     consoleError.mockRestore();
+  });
+});
+
+describe("PreferencesStore and the filter prompt (api#566)", () => {
+  it("defaults the multiplier to Min", () => {
+    const { store } = makeStore(vi.fn());
+    expect(store.valuesFor("your-feed").llmFilter).toBe(0.5);
+  });
+
+  it("asks the filter store to load only once the llm-cg gate says yes", async () => {
+    const { store } = makeStore(vi.fn());
+    store.activateAccount("acct-1");
+    await store.load();
+    await Promise.resolve();
+    expect(store.root.llmFilterStore.load).toHaveBeenCalledWith("acct-1");
+
+    const off = makeStore(vi.fn());
+    off.store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: false });
+    await off.store.load();
+    await Promise.resolve();
+    expect(off.store.root.llmFilterStore.load).not.toHaveBeenCalled();
   });
 });

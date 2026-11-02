@@ -734,3 +734,77 @@ describe("FeedApiService", () => {
     });
   });
 });
+
+describe("FeedApiService filter prompt (api#566)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads, fits and removes the filter prompt under role=filter", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          prompt_key: "f1",
+          prompt: "no airplanes",
+          subject: "posts about airplanes",
+          created_at: "2026-11-02T10:00:00Z",
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ vector_id: "f2", subject: "posts about airplanes" }))
+      .mockResolvedValueOnce(jsonResponse({ llm_filter: 0.5 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt("filter")).resolves.toEqual({
+      enabled: true,
+      prompt: {
+        promptKey: "f1",
+        prompt: "no airplanes",
+        subject: "posts about airplanes",
+        createdAt: "2026-11-02T10:00:00Z",
+      },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/llm-query-vectors/current?role=filter");
+
+    await expect(service.fitLlmPrompt("airplanes", "filter")).resolves.toMatchObject({
+      promptKey: "f2",
+      subject: "posts about airplanes",
+    });
+    const init = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ prompt: "airplanes", role: "filter" });
+
+    await expect(service.removeLlmPrompt("f1", "filter")).resolves.toEqual({ llmFilter: 0.5 });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      "/api/feeds/llm-query-vectors/current?prompt_key=f1&role=filter",
+    );
+  });
+
+  it("leaves the source prompt requests as they were", async () => {
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ vector_id: "v1" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await service.fitLlmPrompt("hopeful science", "cg");
+    await service.getLlmPrompt("cg");
+
+    expect(JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
+      prompt: "hopeful science",
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/feeds/llm-query-vectors/current");
+  });
+
+  it("round-trips the llm_filter preference", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ llm_filter: 1.5 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.patchPreferences("your-feed", { llmFilter: 1.5 })).resolves.toEqual({
+      llmFilter: 1.5,
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ llm_filter: 1.5 });
+  });
+});

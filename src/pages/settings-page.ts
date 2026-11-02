@@ -22,6 +22,7 @@ import {
 import "../components/icon-range-slider";
 import "../components/feedback-form";
 import "../components/settings-feed-preview";
+import "../components/llm-filter-card";
 import type { SettingsFeedPreview } from "../components/settings-feed-preview";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
 import { settingsPageStyles } from "./settings-page.styles";
@@ -96,6 +97,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
   @state() private previewPolitics: number | null = null;
+  @state() private previewLlmFilter: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private previewAuthorPenalty: number | null = null;
   @state() private previewTopicPenalty: number | null = null;
@@ -202,6 +204,7 @@ export class SettingsPage extends MobxLitElement {
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewPolitics = null;
+      this.previewLlmFilter = null;
       this.previewFreshness = null;
       this.previewAuthorPenalty = null;
       this.previewTopicPenalty = null;
@@ -245,10 +248,12 @@ export class SettingsPage extends MobxLitElement {
       authorPenalty: 0.7,
       topicPenalty: 0.7,
       normalizeRankByGenerator: false,
+      llmFilter: 0.5,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
     const politics = this.previewPolitics ?? preferences.politics;
+    const llmFilter = this.previewLlmFilter ?? preferences.llmFilter;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const authorPenalty = this.previewAuthorPenalty ?? preferences.authorPenalty;
     const topicPenalty = this.previewTopicPenalty ?? preferences.topicPenalty;
@@ -373,6 +378,7 @@ export class SettingsPage extends MobxLitElement {
                                       ${this.#renderFeaturesInProgressSection(
                                         weights,
                                         preferences.normalizeRankByGenerator,
+                                        llmFilter,
                                       )}
                                     `
                                   : ""
@@ -482,6 +488,7 @@ export class SettingsPage extends MobxLitElement {
               weights,
               purpose,
               politics,
+              llmFilter,
               freshness,
               selectedAlgorithm: this.selectedAlgorithm,
               onClose: () => {
@@ -570,6 +577,7 @@ export class SettingsPage extends MobxLitElement {
   #renderFeaturesInProgressSection(
     weights: SourceWeights,
     normalizeRankByGenerator: boolean,
+    llmFilter: number,
   ): TemplateResult {
     return html`
       <section class="section section-features">
@@ -588,6 +596,29 @@ export class SettingsPage extends MobxLitElement {
         </div>
         <div class="source-list">
           ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
+          ${
+            this.#supportsControl("llm_filter")
+              ? html`
+                  <llm-filter-card
+                    .setting=${llmFilter}
+                    .disabled=${this.#settingsBusy()}
+                    @filter-preview=${(event: CustomEvent<{ value: number }>) => {
+                      this.previewLlmFilter = event.detail.value;
+                    }}
+                    @filter-change=${(event: CustomEvent<{ value: number }>) => {
+                      this.#commitLlmFilter(event.detail.value);
+                    }}
+                    @filter-help=${() => {
+                      this.#openNode("llm_filter");
+                    }}
+                    @filter-prompt-changed=${() => {
+                      this.previewNeeded = true;
+                      this.settingsRevision++;
+                    }}
+                  ></llm-filter-card>
+                `
+              : ""
+          }
           ${
             this.#supportsControl("normalize_rank_by_generator")
               ? html`
@@ -678,7 +709,7 @@ export class SettingsPage extends MobxLitElement {
           <textarea
             class="prompt-input"
             rows="1"
-            placeholder="What would you like to see?"
+            placeholder="Describe what you want more of"
             aria-label="Prompt"
             maxlength=${MAX_PROMPT_CHARS}
             .value=${draft}
@@ -779,6 +810,7 @@ export class SettingsPage extends MobxLitElement {
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewPolitics = null;
+    this.previewLlmFilter = null;
     this.previewFreshness = null;
     this.previewAuthorPenalty = null;
     this.previewTopicPenalty = null;
@@ -1165,6 +1197,12 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
+      this.#supportsControl("llm_filter") &&
+      preferences.llmFilter !== DEFAULT_PREFERENCES.llmFilter
+    ) {
+      return false;
+    }
+    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -1266,6 +1304,14 @@ export class SettingsPage extends MobxLitElement {
     const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).purpose;
     if (current === undefined || current === value) return;
     void this.#applyImmediateChange({ purpose: current }, { purpose: value });
+  }
+
+  #commitLlmFilter(value: number): void {
+    this.previewLlmFilter = null;
+    if (!this.#supportsControl("llm_filter")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).llmFilter;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ llmFilter: current }, { llmFilter: value });
   }
 
   #commitPolitics(value: number): void {

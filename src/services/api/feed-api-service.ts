@@ -5,6 +5,7 @@ import type {
   FeedPreviewSession,
   IFeedApiService,
   LlmPrompt,
+  LlmPromptRole,
   LlmPromptStatus,
 } from "../types";
 import { FeedApiError } from "../types";
@@ -29,11 +30,13 @@ interface ApiPreferences {
   author_penalty?: number;
   topic_penalty?: number;
   normalize_rank_by_generator?: boolean;
+  llm_filter?: number;
 }
 
 interface ApiLlmPrompt {
   prompt_key: string;
   prompt: string;
+  subject?: string | null;
   created_at: string;
 }
 
@@ -156,6 +159,7 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
   if (prefs.normalize_rank_by_generator !== undefined) {
     mapped.normalizeRankByGenerator = prefs.normalize_rank_by_generator;
   }
+  if (prefs.llm_filter !== undefined) mapped.llmFilter = prefs.llm_filter;
   return mapped;
 }
 
@@ -178,6 +182,7 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
   if (prefs.normalizeRankByGenerator !== undefined) {
     serialized.normalize_rank_by_generator = prefs.normalizeRankByGenerator;
   }
+  if (prefs.llmFilter !== undefined) serialized.llm_filter = prefs.llmFilter;
   return serialized;
 }
 
@@ -383,10 +388,13 @@ export class FeedApiService implements IFeedApiService {
     return mapPreferences(response);
   }
 
-  async getLlmPrompt(): Promise<LlmPromptStatus> {
+  // cg is the api's default role, so its requests are unchanged from before api#566.
+  async getLlmPrompt(role: LlmPromptRole = "cg"): Promise<LlmPromptStatus> {
     let response: ApiLlmPrompt | null;
     try {
-      response = await this._fetch<ApiLlmPrompt | null>("/api/feeds/llm-query-vectors/current");
+      response = await this._fetch<ApiLlmPrompt | null>(
+        `/api/feeds/llm-query-vectors/current${role === "filter" ? "?role=filter" : ""}`,
+      );
     } catch (error) {
       // 403 is the api saying the llm-cg feature flag is off for this account.
       if (error instanceof FeedApiError && error.status === 403) return { enabled: false };
@@ -398,23 +406,33 @@ export class FeedApiService implements IFeedApiService {
       prompt: {
         promptKey: response.prompt_key,
         prompt: response.prompt,
+        ...(response.subject ? { subject: response.subject } : {}),
         createdAt: response.created_at,
       },
     };
   }
 
-  async fitLlmPrompt(prompt: string): Promise<LlmPrompt> {
-    const response = await this._fetch<{ vector_id: string }>("/api/feeds/llm-query-vectors/fit", {
-      method: "POST",
-      body: JSON.stringify({ prompt }),
-      headers: { "Content-Type": "application/json" },
-    });
-    return { promptKey: response.vector_id, prompt, createdAt: new Date().toISOString() };
+  async fitLlmPrompt(prompt: string, role: LlmPromptRole = "cg"): Promise<LlmPrompt> {
+    const response = await this._fetch<{ vector_id: string; subject?: string | null }>(
+      "/api/feeds/llm-query-vectors/fit",
+      {
+        method: "POST",
+        body: JSON.stringify(role === "filter" ? { prompt, role } : { prompt }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return {
+      promptKey: response.vector_id,
+      prompt,
+      ...(response.subject ? { subject: response.subject } : {}),
+      createdAt: new Date().toISOString(),
+    };
   }
 
-  async removeLlmPrompt(promptKey: string): Promise<FeedPreferences> {
+  async removeLlmPrompt(promptKey: string, role: LlmPromptRole = "cg"): Promise<FeedPreferences> {
     const response = await this._fetch<ApiPreferences>(
-      `/api/feeds/llm-query-vectors/current?prompt_key=${encodeURIComponent(promptKey)}`,
+      `/api/feeds/llm-query-vectors/current?prompt_key=${encodeURIComponent(promptKey)}` +
+        (role === "filter" ? "&role=filter" : ""),
       { method: "DELETE" },
     );
     return mapPreferences(response);

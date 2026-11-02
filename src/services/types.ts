@@ -27,13 +27,21 @@ export interface Preferences {
   topicPenalty: number; // 0-1; default 0.7
   // Grade each source's rank scores on its own curve (api#572); default off.
   normalizeRankByGenerator: boolean;
+  // Multiplier on posts the Filter prompt describes (api#566): 0.5-2; default 0.5, neutral 1.
+  llmFilter: number;
 }
 
 export type FeedPreferences = Partial<Preferences>;
 
+// The two fitted prompts (api#566): the candidate generator's ("cg", the Prompt
+// source) and the ranking filter's. Each is fitted, read and removed on its own.
+export type LlmPromptRole = "cg" | "filter";
+
 export interface LlmPrompt {
   promptKey: string;
   prompt: string;
+  // Filter prompts: the neutral description the api fitted to ("posts about airplanes").
+  subject?: string | null;
   createdAt: string;
 }
 
@@ -106,7 +114,7 @@ export interface IFeedApiService {
     feedName: import("../constants/algorithms").AlgorithmId,
     prefs: FeedPreferences,
   ): Promise<FeedPreferences>;
-  getLlmPrompt(): Promise<LlmPromptStatus>;
-  fitLlmPrompt(prompt: string): Promise<LlmPrompt>;
-  removeLlmPrompt(promptKey: string): Promise<FeedPreferences>;
+  getLlmPrompt(role?: LlmPromptRole): Promise<LlmPromptStatus>;
+  fitLlmPrompt(prompt: string, role?: LlmPromptRole): Promise<LlmPrompt>;
+  removeLlmPrompt(promptKey: string, role?: LlmPromptRole): Promise<FeedPreferences>;
 }
