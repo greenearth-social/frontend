@@ -59,6 +59,9 @@ function signature(
     freshness: patch.freshness,
     politics: patch.politics,
     purpose: patch.purpose,
+    authorPenalty: patch.authorPenalty,
+    topicPenalty: patch.topicPenalty,
+    normalizeRankByGenerator: patch.normalizeRankByGenerator,
   });
 }
 
