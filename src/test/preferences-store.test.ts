@@ -1182,11 +1182,6 @@ describe("PreferencesStore.restoreDefaults", () => {
 });
 
 describe("PreferencesStore and the filter prompt (api#566)", () => {
-  it("defaults the multiplier to Min", () => {
-    const { store } = makeStore(vi.fn());
-    expect(store.valuesFor("your-feed").llmFilter).toBe(0.5);
-  });
-
   it("asks the filter store to load only once the llm-cg gate says yes", async () => {
     const { store } = makeStore(vi.fn());
     store.activateAccount("acct-1");

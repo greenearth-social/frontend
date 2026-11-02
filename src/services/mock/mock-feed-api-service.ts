@@ -398,14 +398,6 @@ export class MockFeedApiService implements IFeedApiService {
 
   removeLlmPrompt(promptKey: string, role: LlmPromptRole = "cg"): Promise<FeedPreferences> {
     if (role === "filter") {
-      if (this.llmFilterPrompt && this.llmFilterPrompt.promptKey !== promptKey) {
-        return Promise.reject(
-          new FeedApiError(409, "Prompt changed", {
-            detail: { code: "llm_query_vector_prompt_changed" },
-          }),
-        );
-      }
-      // The filter has no source weight, so preferences come back unchanged.
       this.llmFilterPrompt = null;
       return Promise.resolve(structuredClone(this.preferencesByFeed["your-feed"] ?? {}));
     }

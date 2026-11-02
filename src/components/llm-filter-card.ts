@@ -5,18 +5,13 @@ import { getRootStore } from "../main";
 import { LIFECYCLE_ICONS, MAX_PROMPT_CHARS } from "../pages/settings-page-config";
 import "./icon-range-slider";
 
-// The Filter card (api#566), one of the Features in progress on Your Feed: a
-// second fitted prompt and a slider that scales the rank score of every post
-// of that kind, from any source. Renders into the page's own DOM so the
-// settings page styles apply; its state lives in the root's llmFilterStore.
-//
-// It never saves preferences itself. The slider emits `filter-preview` and
-// `filter-change` with the multiplier, and the page saves it like politics,
-// so undo and redo keep working. `filter-help` asks the page to open the
-// help popup; `filter-prompt-changed` says the shown preview went stale.
+// The Filter card (api#566): a second fitted prompt and a slider that scales
+// the rank score of every post of that kind. Renders into the page's DOM so
+// its styles apply; state lives in the root's llmFilterStore. It never saves
+// preferences: it emits filter-preview / filter-change / filter-help /
+// filter-prompt-changed and the page acts, so undo and redo keep working.
 
-// Saved value is the multiplier; slider position is the index, so the stops
-// need not be evenly spaced.
+// Saved value is the multiplier; slider position is the index.
 export const LLM_FILTER_STOPS = [0.5, 0.75, 1, 1.5, 2];
 
 const LLM_FILTER_LABELS: Record<number, string> = {
@@ -44,7 +39,6 @@ export function llmFilterStopIndex(value: number): number {
 @customElement("llm-filter-card")
 export class LlmFilterCard extends MobxLitElement {
   @property({ type: Number }) setting = 0.5;
-  // The page's "settings busy" state: another save, undo or reset in flight.
   @property({ type: Boolean }) disabled = false;
   @state() private draft = "";
 
@@ -65,7 +59,7 @@ export class LlmFilterCard extends MobxLitElement {
       if (this.draft === draft) this.draft = "";
       this.#emit("filter-prompt-changed");
     } catch {
-      // The store owns the failure and shows it below the editor.
+      // The store keeps the failure; it shows below the editor.
     }
   }
 
@@ -156,24 +150,7 @@ export class LlmFilterCard extends MobxLitElement {
               </button>
             </div>
           </div>
-          ${
-            failure
-              ? html`
-                  <div class="filter-error" role="alert" aria-atomic="true">
-                    <p>${failure.message}</p>
-                    <button
-                      type="button"
-                      aria-label="Dismiss filter prompt error"
-                      @click=${() => {
-                        store?.dismissFailure();
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                `
-              : ""
-          }
+          ${failure ? html`<p class="filter-error" role="alert">${failure.message}</p>` : ""}
         </div>
         <div class="filter-slider">
           <icon-range-slider

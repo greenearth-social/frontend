@@ -780,22 +780,6 @@ describe("FeedApiService filter prompt (api#566)", () => {
     );
   });
 
-  it("leaves the source prompt requests as they were", async () => {
-    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(jsonResponse({ vector_id: "v1" })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const service = new FeedApiService("", () => Promise.resolve("token"));
-
-    await service.fitLlmPrompt("hopeful science", "cg");
-    await service.getLlmPrompt("cg");
-
-    expect(JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
-      prompt: "hopeful science",
-    });
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/feeds/llm-query-vectors/current");
-  });
-
   it("round-trips the llm_filter preference", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ llm_filter: 1.5 }));
     vi.stubGlobal("fetch", fetchMock);

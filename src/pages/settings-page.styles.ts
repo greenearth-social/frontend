@@ -957,26 +957,11 @@ export const settingsPageStyles = css`
   }
 
   .filter-error {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
+    margin: 0;
     padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
     background: rgba(127, 29, 29, 0.55);
     font-size: 0.9rem;
-  }
-
-  .filter-error p {
-    flex: 1;
-    margin: 0;
-  }
-
-  .filter-error button {
-    border: 0;
-    background: none;
-    color: inherit;
-    font-size: 1.1rem;
-    cursor: pointer;
   }
 
   .prompt-card .prompt-editor {

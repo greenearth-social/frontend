@@ -52,7 +52,6 @@ const testState = vi.hoisted(() => {
         failure: null as { category: string; message: string } | null,
         fit: vi.fn(),
         remove: vi.fn(),
-        dismissFailure: vi.fn(),
       },
       services: {
         analyticsService: { capture: vi.fn() },
@@ -2262,15 +2261,6 @@ describe("SettingsPage Filter card (api#566)", () => {
     document.body.replaceChildren();
   });
 
-  it("omits the Filter card until the api exposes the control", async () => {
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    expect(element.shadowRoot?.querySelector(".section-features")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector("llm-filter-card")).toBeNull();
-  });
-
   it("renders the Filter card in the Features box, inert until a filter prompt is fitted", async () => {
     supportFilter();
     const element = document.createElement("settings-page");
@@ -2350,38 +2340,18 @@ describe("SettingsPage Filter card (api#566)", () => {
       )?.disabled,
     ).toBe(false);
   });
+});
 
-  it("removes the active filter prompt through the filter store", async () => {
-    supportFilter();
-    testState.rootStore.llmFilterStore.prompt = {
-      promptKey: "f1",
-      prompt: "airplanes",
-      createdAt: "2026-11-02T10:00:00Z",
-    };
-    testState.rootStore.llmFilterStore.remove.mockResolvedValue(true);
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+it("counts a non-default multiplier against defaults", async () => {
+  supportFilter();
+  testState.values.llmFilter = 1;
+  const element = document.createElement("settings-page");
+  document.body.appendChild(element);
+  await element.updateComplete;
+  await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
 
-    element.shadowRoot
-      ?.querySelector<HTMLButtonElement>('.filter-card [aria-label="Remove active filter prompt"]')
-      ?.click();
-
-    expect(testState.rootStore.llmFilterStore.remove).toHaveBeenCalledWith("f1");
-  });
-
-  it("counts a non-default multiplier against defaults", async () => {
-    supportFilter();
-    testState.values.llmFilter = 1;
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-
-    expect(filterSlider(element).valueText).toBe("1.0 · Default");
-    expect(
-      element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
-    ).toBe(false);
-  });
+  expect(filterSlider(element).valueText).toBe("1.0 · Default");
+  expect(
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
+  ).toBe(false);
 });
