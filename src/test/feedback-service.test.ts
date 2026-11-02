@@ -29,6 +29,7 @@ const submission: FeedbackSubmission = {
     purpose: 0.5,
     authorPenalty: 0.7,
     topicPenalty: 0.7,
+    normalizeRankByGenerator: false,
   },
   snapshot: {
     requestId: "request-1",
