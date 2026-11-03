@@ -950,7 +950,7 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
-  // Balance sources (api#572) lives in the Prompt card: it exists so a new
+  // Normalize score by CG (api#572, team-only wording) lives in the Prompt card: it exists so a new
   // source like the prompt is not crowded out by the sources the model knows.
   #renderBalanceSwitch(): TemplateResult {
     if (!this.#supportsControl("normalize_rank_by_generator")) return html``;
@@ -961,10 +961,10 @@ export class SettingsPage extends MobxLitElement {
       <div class="balance-row">
         ${renderToggleSwitch({
           inputClass: "balance-switch-input",
-          ariaLabel: "Balance sources in ranking",
+          ariaLabel: "Normalize score by CG",
           checked: enabled,
           disabled: this.#settingsBusy(),
-          text: "Balance sources",
+          text: "Normalize score by CG",
           onChange: (checked) => {
             this.#commitNormalizeRankByGenerator(checked);
           },
@@ -972,7 +972,7 @@ export class SettingsPage extends MobxLitElement {
         <button
           class="balance-help"
           type="button"
-          aria-label="Learn more about Balance sources"
+          aria-label="Learn more about Normalize score by CG"
           @click=${() => {
             this.#openNode("balance_sources");
           }}

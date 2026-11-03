@@ -631,7 +631,7 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".section-features")).toBeNull();
   });
 
-  it("omits the Balance sources switch until the api exposes the control", async () => {
+  it("omits the Normalize score by CG switch until the api exposes the control", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
@@ -640,7 +640,7 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".balance-switch-input")).toBeNull();
   });
 
-  it("saves the Balance sources switch, at the foot of the Prompt card, as one undoable change", async () => {
+  it("saves the Normalize score by CG switch, at the foot of the Prompt card, as one undoable change", async () => {
     testState.rootStore.preferencesStore.supportsControl.mockImplementation(
       (_feedName: string, control: string) => control === "normalize_rank_by_generator",
     );
@@ -651,7 +651,7 @@ describe("SettingsPage", () => {
     const checkbox = element.shadowRoot?.querySelector<HTMLInputElement>(
       ".prompt-card .balance-row .balance-switch-input",
     );
-    if (!checkbox) throw new Error("Balance sources switch missing");
+    if (!checkbox) throw new Error("Normalize score by CG switch missing");
     expect(checkbox.getAttribute("role")).toBe("switch");
     expect(element.shadowRoot?.querySelector(".feature-toggle-card")).toBeNull();
     expect(checkbox.checked).toBe(false);
@@ -678,7 +678,7 @@ describe("SettingsPage", () => {
     ).toBe(false);
   });
 
-  it("reflects a saved Balance sources value and counts it against defaults", async () => {
+  it("reflects a saved Normalize score by CG value and counts it against defaults", async () => {
     testState.rootStore.preferencesStore.supportsControl.mockImplementation(
       (_feedName: string, control: string) => control === "normalize_rank_by_generator",
     );

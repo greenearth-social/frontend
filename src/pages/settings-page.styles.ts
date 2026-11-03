@@ -554,7 +554,7 @@ export const settingsPageStyles = css`
     line-height: 1.3;
   }
 
-  /* Balance sources sits at the foot of the Prompt card, full width. */
+  /* Normalize score by CG sits at the foot of the Prompt card, full width. */
   .balance-row {
     grid-column: 1 / -1;
     display: flex;

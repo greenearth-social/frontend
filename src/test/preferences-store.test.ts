@@ -250,7 +250,7 @@ describe("PreferencesStore.load", () => {
     expect(store.supportsControl("best-of-friends", "normalize_rank_by_generator")).toBe(false);
   });
 
-  it("saves the Balance sources toggle and reports it as an on/off change", async () => {
+  it("saves the Normalize score by CG toggle and reports it as an on/off change", async () => {
     const patch = vi.fn().mockResolvedValue({ normalizeRankByGenerator: true });
     const { store, capture } = makeStore(patch);
     await store.load();
@@ -273,7 +273,7 @@ describe("PreferencesStore.load", () => {
     );
   });
 
-  it("includes the Balance sources toggle in restore defaults when the feed exposes it", async () => {
+  it("includes the Normalize score by CG toggle in restore defaults when the feed exposes it", async () => {
     const patch = vi
       .fn()
       .mockImplementation((_feed: AlgorithmId, values: FeedPreferences) => Promise.resolve(values));
