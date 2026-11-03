@@ -1359,6 +1359,7 @@ export class SettingsPage extends MobxLitElement {
     if (this.#supportsControl("normalize_rank_by_generator")) {
       patch.normalizeRankByGenerator = values.normalizeRankByGenerator;
     }
+    if (this.#supportsControl("llm_filter")) patch.llmFilter = values.llmFilter;
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {

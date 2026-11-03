@@ -2310,6 +2310,40 @@ describe("SettingsPage second prompt card (api#566)", () => {
     expect(testState.rootStore.preferencesStore.fitLlmPrompt).not.toHaveBeenCalled();
   });
 
+  it("sends the switch with the preview request so turning it off regenerates the preview", async () => {
+    supportFilter();
+    testState.rootStore.llmFilterStore.prompt = {
+      promptKey: "f1",
+      prompt: "be uplifting, no airplanes",
+      createdAt: "2026-11-02T10:00:00Z",
+    };
+    const generated = { items: [] };
+    testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+
+    const toggle = filterToggle(element);
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+    await element.updateComplete;
+    const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+    if (!feed) throw new Error("Settings feed preview was not rendered");
+    vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+    await vi.waitFor(() => {
+      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(
+        generated,
+      );
+    });
+
+    expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ llmFilter: false }),
+    );
+  });
+
   it("saves the switch as one undoable change and shows the prompt as typed", async () => {
     supportFilter();
     testState.rootStore.llmFilterStore.prompt = {
