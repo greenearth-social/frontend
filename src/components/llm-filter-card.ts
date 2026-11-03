@@ -86,7 +86,7 @@ export class LlmFilterCard extends MobxLitElement {
                       >
                         <span aria-hidden="true">${isRemoving ? "…" : "×"}</span>
                       </button>
-                      <span class="active-prompt-label">Active prompt</span>
+                      <span class="active-prompt-label">Active filter</span>
                       <p class="active-prompt-text" .textContent=${fitted.prompt}></p>
                     </div>
                   </div>
