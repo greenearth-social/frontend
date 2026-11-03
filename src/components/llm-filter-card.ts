@@ -3,12 +3,14 @@ import { MobxLitElement } from "@adobe/lit-mobx";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
 import { MAX_PROMPT_CHARS } from "../pages/settings-page-config";
+import { renderToggleSwitch } from "./toggle-switch";
 
 // The second fitted prompt (api#566, "filter" in the api): "Most posts I see
 // should: ...". While it is on, the ranking moves the posts it describes up.
 // Renders into the page's DOM so its styles apply; state lives in the root's
-// llmFilterStore. It never saves preferences: it emits filter-change /
-// filter-prompt-changed and the page acts, so undo and redo keep working.
+// llmFilterStore. It never saves preferences: it emits filter-change and
+// filter-prompt-changed ({ fitted }) and the page acts, so undo and redo keep
+// working; after a fit the page switches the filter on.
 
 export const LLM_FILTER_TITLE = "Most posts I see should:";
 export const LLM_FILTER_PLACEHOLDER =
@@ -35,7 +37,7 @@ export class LlmFilterCard extends MobxLitElement {
     try {
       await store.fit(text);
       if (this.draft === draft) this.draft = "";
-      this.#emit("filter-prompt-changed");
+      this.#emit("filter-prompt-changed", { fitted: true });
     } catch {
       // The store keeps the failure; it shows below the editor.
     }
@@ -43,7 +45,9 @@ export class LlmFilterCard extends MobxLitElement {
 
   async #remove(promptKey: string): Promise<void> {
     const store = getRootStore()?.llmFilterStore;
-    if (store && (await store.remove(promptKey))) this.#emit("filter-prompt-changed");
+    if (store && (await store.remove(promptKey))) {
+      this.#emit("filter-prompt-changed", { fitted: false });
+    }
   }
 
   render(): TemplateResult {
@@ -92,7 +96,7 @@ export class LlmFilterCard extends MobxLitElement {
           <div class="prompt-composer">
             <textarea
               class="prompt-input filter-prompt-input"
-              rows="1"
+              rows="2"
               placeholder=${LLM_FILTER_PLACEHOLDER}
               aria-label="Filter prompt"
               maxlength=${MAX_PROMPT_CHARS}
@@ -119,20 +123,18 @@ export class LlmFilterCard extends MobxLitElement {
           </div>
           ${failure ? html`<p class="filter-error" role="alert">${failure.message}</p>` : ""}
         </div>
-        <label class="feature-toggle filter-toggle">
-          <input
-            class="feature-toggle-input filter-toggle-input"
-            type="checkbox"
-            aria-label="Apply the filter prompt to my feed"
-            .checked=${this.enabled}
-            ?disabled=${toggleDisabled}
-            @change=${(event: Event) => {
-              if (toggleDisabled) return;
-              this.#emit("filter-change", { enabled: (event.target as HTMLInputElement).checked });
-            }}
-          />
-          <span class="feature-toggle-text">Apply to my feed</span>
-        </label>
+        <div class="filter-toggle">
+          ${renderToggleSwitch({
+            inputClass: "filter-toggle-input",
+            ariaLabel: "Filter active",
+            checked: this.enabled,
+            disabled: toggleDisabled,
+            text: this.enabled ? "Filter is active" : "Filter is inactive",
+            onChange: (enabled) => {
+              this.#emit("filter-change", { enabled });
+            },
+          })}
+        </div>
       </div>
     `;
   }

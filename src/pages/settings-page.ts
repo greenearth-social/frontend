@@ -23,6 +23,7 @@ import "../components/icon-range-slider";
 import "../components/feedback-form";
 import "../components/settings-feed-preview";
 import "../components/llm-filter-card";
+import { renderToggleSwitch } from "../components/toggle-switch";
 
 // The Prompt source card reads as one sentence the person completes (2026-11-03).
 const PROMPT_CARD_TITLE = "I want you to find some posts that:";
@@ -377,11 +378,7 @@ export class SettingsPage extends MobxLitElement {
                                 this.#showFeaturesInProgress()
                                   ? html`
                                       ${this.#renderArrow()}
-                                      ${this.#renderFeaturesInProgressSection(
-                                        weights,
-                                        preferences.normalizeRankByGenerator,
-                                        llmFilter,
-                                      )}
+                                      ${this.#renderFeaturesInProgressSection(weights, llmFilter)}
                                     `
                                   : ""
                               }
@@ -576,11 +573,7 @@ export class SettingsPage extends MobxLitElement {
     );
   }
 
-  #renderFeaturesInProgressSection(
-    weights: SourceWeights,
-    normalizeRankByGenerator: boolean,
-    llmFilter: boolean,
-  ): TemplateResult {
+  #renderFeaturesInProgressSection(weights: SourceWeights, llmFilter: boolean): TemplateResult {
     return html`
       <section class="section section-features">
         <div class="section-heading">
@@ -607,37 +600,13 @@ export class SettingsPage extends MobxLitElement {
                     @filter-change=${(event: CustomEvent<{ enabled: boolean }>) => {
                       this.#commitLlmFilter(event.detail.enabled);
                     }}
-                    @filter-prompt-changed=${() => {
+                    @filter-prompt-changed=${(event: CustomEvent<{ fitted: boolean }>) => {
                       this.previewNeeded = true;
                       this.settingsRevision++;
+                      // A fresh filter prompt is meant to be felt: switch it on.
+                      if (event.detail.fitted) this.#commitLlmFilter(true);
                     }}
                   ></llm-filter-card>
-                `
-              : ""
-          }
-          ${
-            this.#supportsControl("normalize_rank_by_generator")
-              ? html`
-                  <div class="control-card feature-toggle-card">
-                    ${this.#titleButton("balance_sources", "Balance sources")}
-                    <label class="feature-toggle">
-                      <input
-                        class="feature-toggle-input"
-                        type="checkbox"
-                        aria-label="Balance sources in ranking"
-                        .checked=${normalizeRankByGenerator}
-                        ?disabled=${this.#settingsBusy()}
-                        @change=${(event: Event) => {
-                          this.#commitNormalizeRankByGenerator(
-                            (event.target as HTMLInputElement).checked,
-                          );
-                        }}
-                      />
-                      <span class="feature-toggle-text">
-                        Grade each source on its own curve so none is crowded out
-                      </span>
-                    </label>
-                  </div>
                 `
               : ""
           }
@@ -975,6 +944,40 @@ export class SettingsPage extends MobxLitElement {
           <svg viewBox="0 0 640 640" aria-hidden="true">
             <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
           </svg>
+        </button>
+        ${key === "llm" ? this.#renderBalanceSwitch() : ""}
+      </div>
+    `;
+  }
+
+  // Balance sources (api#572) lives in the Prompt card: it exists so a new
+  // source like the prompt is not crowded out by the sources the model knows.
+  #renderBalanceSwitch(): TemplateResult {
+    if (!this.#supportsControl("normalize_rank_by_generator")) return html``;
+    const enabled =
+      getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).normalizeRankByGenerator ??
+      false;
+    return html`
+      <div class="balance-row">
+        ${renderToggleSwitch({
+          inputClass: "balance-switch-input",
+          ariaLabel: "Balance sources in ranking",
+          checked: enabled,
+          disabled: this.#settingsBusy(),
+          text: "Balance sources",
+          onChange: (checked) => {
+            this.#commitNormalizeRankByGenerator(checked);
+          },
+        })}
+        <button
+          class="balance-help"
+          type="button"
+          aria-label="Learn more about Balance sources"
+          @click=${() => {
+            this.#openNode("balance_sources");
+          }}
+        >
+          <span class="question-icon" aria-hidden="true">?</span>
         </button>
       </div>
     `;

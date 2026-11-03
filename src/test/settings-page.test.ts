@@ -631,16 +631,16 @@ describe("SettingsPage", () => {
     expect(element.shadowRoot?.querySelector(".section-features")).toBeNull();
   });
 
-  it("omits the Balance sources checkbox until the api exposes the control", async () => {
+  it("omits the Balance sources switch until the api exposes the control", async () => {
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector(".section-features")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".feature-toggle-input")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".balance-switch-input")).toBeNull();
   });
 
-  it("saves the Balance sources checkbox as one undoable change", async () => {
+  it("saves the Balance sources switch, at the foot of the Prompt card, as one undoable change", async () => {
     testState.rootStore.preferencesStore.supportsControl.mockImplementation(
       (_feedName: string, control: string) => control === "normalize_rank_by_generator",
     );
@@ -648,8 +648,12 @@ describe("SettingsPage", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    const checkbox = element.shadowRoot?.querySelector<HTMLInputElement>(".feature-toggle-input");
-    if (!checkbox) throw new Error("Balance sources checkbox missing");
+    const checkbox = element.shadowRoot?.querySelector<HTMLInputElement>(
+      ".prompt-card .balance-row .balance-switch-input",
+    );
+    if (!checkbox) throw new Error("Balance sources switch missing");
+    expect(checkbox.getAttribute("role")).toBe("switch");
+    expect(element.shadowRoot?.querySelector(".feature-toggle-card")).toBeNull();
     expect(checkbox.checked).toBe(false);
     expect(checkbox.disabled).toBe(false);
     const undo = element.shadowRoot?.querySelector<HTMLButtonElement>(
@@ -684,7 +688,7 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     expect(
-      element.shadowRoot?.querySelector<HTMLInputElement>(".feature-toggle-input")?.checked,
+      element.shadowRoot?.querySelector<HTMLInputElement>(".balance-switch-input")?.checked,
     ).toBe(true);
     expect(
       element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
@@ -2285,8 +2289,37 @@ describe("SettingsPage second prompt card (api#566)", () => {
     );
     expect(card?.querySelector("icon-range-slider")).toBeNull();
     const toggle = filterToggle(element);
+    expect(toggle.getAttribute("role")).toBe("switch");
     expect(toggle.disabled).toBe(true);
     expect(toggle.checked).toBe(true);
+    expect(card?.querySelector(".ge-switch-text")?.textContent).toBe("Filter is active");
+  });
+
+  it("switches the filter on again when a new filter prompt is fitted", async () => {
+    supportFilter();
+    testState.values.llmFilter = false;
+    testState.rootStore.llmFilterStore.fit.mockResolvedValue(null);
+    const element = document.createElement("settings-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+    expect(element.shadowRoot?.querySelector(".filter-card .ge-switch-text")?.textContent).toBe(
+      "Filter is inactive",
+    );
+
+    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".filter-prompt-input");
+    if (!input) throw new Error("Filter prompt input missing");
+    input.value = "be kind";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+    element.shadowRoot?.querySelector<HTMLButtonElement>(".filter-prompt-send-btn")?.click();
+    await vi.waitFor(() => {
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledWith(
+        "your-feed",
+        { llmFilter: true },
+        {},
+      );
+    });
   });
 
   it("sends the filter prompt to the filter store, not the Prompt source", async () => {

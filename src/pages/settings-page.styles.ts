@@ -483,16 +483,10 @@ export const settingsPageStyles = css`
     color: #fcd34d;
   }
 
-  .feature-toggle-card {
-    display: grid;
-    gap: 0.375rem;
-    min-width: 0;
-    padding: 0.375rem 0.5rem 0.625rem;
-    background: linear-gradient(145deg, #b45309, #92400e);
-  }
-
-  .feature-toggle {
-    display: flex;
+  /* Sliding on/off switch over a native checkbox (components/toggle-switch.ts). */
+  .ge-switch {
+    position: relative;
+    display: inline-flex;
     align-items: center;
     gap: 0.625rem;
     min-height: 44px;
@@ -500,25 +494,91 @@ export const settingsPageStyles = css`
     cursor: pointer;
   }
 
-  .feature-toggle-input {
-    width: 1.25rem;
-    height: 1.25rem;
+  .ge-switch-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
     margin: 0;
-    flex-shrink: 0;
-    accent-color: #fcd34d;
-    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
   }
 
-  .feature-toggle-input:disabled,
-  .feature-toggle:has(.feature-toggle-input:disabled) {
+  .ge-switch-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    transition: background-color 150ms ease;
+  }
+
+  .ge-switch-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: transform 150ms ease;
+  }
+
+  .ge-switch-input:checked + .ge-switch-track {
+    background: #22c55e;
+  }
+
+  .ge-switch-input:checked + .ge-switch-track::after {
+    transform: translateX(18px);
+  }
+
+  .ge-switch-input:focus-visible + .ge-switch-track {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+  }
+
+  .ge-switch:has(.ge-switch-input:disabled) {
     cursor: not-allowed;
-    opacity: 0.6;
   }
 
-  .feature-toggle-text {
+  .ge-switch-input:disabled + .ge-switch-track {
+    opacity: 0.5;
+  }
+
+  .ge-switch-text {
     color: rgba(255, 255, 255, 0.92);
     font-size: 0.8125rem;
     line-height: 1.3;
+  }
+
+  /* Balance sources sits at the foot of the Prompt card, full width. */
+  .balance-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .balance-help {
+    display: inline-grid;
+    place-items: center;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .balance-help:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -3px;
+    border-radius: 8px;
   }
 
   .section-title {
@@ -950,6 +1010,11 @@ export const settingsPageStyles = css`
 
   .filter-card.inactive .filter-toggle {
     opacity: 0.45;
+  }
+
+  .filter-toggle {
+    display: flex;
+    min-width: 0;
   }
 
   .filter-error {
