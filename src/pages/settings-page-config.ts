@@ -109,7 +109,7 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     label: "Filter",
     type: "config",
     description:
-      "Describe a kind of post and the ranking adjusts the score of every post of that kind, whichever source found it. The slider sets the direction: Min halves a matching post's score, Max doubles it, 1.0 is neutral. The card shows how your description was understood. Unlike the Prompt source, the filter cannot bring in posts the other sources did not already find.",
+      "Describe what most of your feed should be like and the ranking moves the posts that fit up, whichever source found them. It is simply on or off. Unlike the Prompt source, it cannot bring in posts the other sources did not already find.",
   },
   politics: {
     label: "Politics",

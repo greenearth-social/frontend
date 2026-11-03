@@ -30,13 +30,12 @@ interface ApiPreferences {
   author_penalty?: number;
   topic_penalty?: number;
   normalize_rank_by_generator?: boolean;
-  llm_filter?: number;
+  llm_filter?: boolean;
 }
 
 interface ApiLlmPrompt {
   prompt_key: string;
   prompt: string;
-  subject?: string | null;
   created_at: string;
 }
 
@@ -406,25 +405,20 @@ export class FeedApiService implements IFeedApiService {
       prompt: {
         promptKey: response.prompt_key,
         prompt: response.prompt,
-        ...(response.subject ? { subject: response.subject } : {}),
         createdAt: response.created_at,
       },
     };
   }
 
   async fitLlmPrompt(prompt: string, role: LlmPromptRole = "cg"): Promise<LlmPrompt> {
-    const response = await this._fetch<{ vector_id: string; subject?: string | null }>(
-      "/api/feeds/llm-query-vectors/fit",
-      {
-        method: "POST",
-        body: JSON.stringify(role === "filter" ? { prompt, role } : { prompt }),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    const response = await this._fetch<{ vector_id: string }>("/api/feeds/llm-query-vectors/fit", {
+      method: "POST",
+      body: JSON.stringify(role === "filter" ? { prompt, role } : { prompt }),
+      headers: { "Content-Type": "application/json" },
+    });
     return {
       promptKey: response.vector_id,
       prompt,
-      ...(response.subject ? { subject: response.subject } : {}),
       createdAt: new Date().toISOString(),
     };
   }

@@ -2,43 +2,21 @@ import { html, type TemplateResult } from "lit";
 import { MobxLitElement } from "@adobe/lit-mobx";
 import { customElement, property, state } from "lit/decorators.js";
 import { getRootStore } from "../main";
-import { LIFECYCLE_ICONS, MAX_PROMPT_CHARS } from "../pages/settings-page-config";
-import "./icon-range-slider";
+import { MAX_PROMPT_CHARS } from "../pages/settings-page-config";
 
-// The Filter card (api#566): a second fitted prompt and a slider that scales
-// the rank score of every post of that kind. Renders into the page's DOM so
-// its styles apply; state lives in the root's llmFilterStore. It never saves
-// preferences: it emits filter-preview / filter-change / filter-help /
+// The second fitted prompt (api#566, "filter" in the api): "Most posts I see
+// should: ...". While it is on, the ranking moves the posts it describes up.
+// Renders into the page's DOM so its styles apply; state lives in the root's
+// llmFilterStore. It never saves preferences: it emits filter-change /
 // filter-prompt-changed and the page acts, so undo and redo keep working.
 
-// Saved value is the multiplier; slider position is the index.
-export const LLM_FILTER_STOPS = [0.5, 0.75, 1, 1.5, 2];
-
-const LLM_FILTER_LABELS: Record<number, string> = {
-  0.5: "0.5 · Min",
-  0.75: "0.75 · Less",
-  1: "1.0 · Default",
-  1.5: "1.5 · More",
-  2: "2.0 · Max",
-};
-
-export function formatLlmFilter(value: number): string {
-  return LLM_FILTER_LABELS[value] ?? value.toFixed(2);
-}
-
-export function llmFilterStopIndex(value: number): number {
-  return LLM_FILTER_STOPS.reduce(
-    (nearest, stop, index) =>
-      Math.abs(stop - value) < Math.abs((LLM_FILTER_STOPS[nearest] ?? value) - value)
-        ? index
-        : nearest,
-    0,
-  );
-}
+export const LLM_FILTER_TITLE = "Most posts I see should:";
+export const LLM_FILTER_PLACEHOLDER =
+  "(e.g.) be generally uplifting and funny. And not discuss airplanes or cars.";
 
 @customElement("llm-filter-card")
 export class LlmFilterCard extends MobxLitElement {
-  @property({ type: Number }) setting = 0.5;
+  @property({ type: Boolean }) enabled = true;
   @property({ type: Boolean }) disabled = false;
   @state() private draft = "";
 
@@ -76,24 +54,16 @@ export class LlmFilterCard extends MobxLitElement {
     const failure = store?.failure ?? null;
     const draft = this.draft;
     const inactive = fitted === null;
-    const sliderDisabled = this.disabled || inactive;
+    const toggleDisabled = this.disabled || inactive;
     const canSend = !this.disabled && !isFitting && draft.trim().length > 0;
     return html`
       <div
         class="control-card source-card filter-card ${inactive ? "inactive" : ""} ${isFitting ? "thinking" : ""}"
         aria-busy=${isFitting ? "true" : "false"}
       >
-        <button
-          class="component-title"
-          type="button"
-          aria-label="Learn more about Filter"
-          @click=${() => {
-            this.#emit("filter-help");
-          }}
-        >
-          <span class="component-title-text">Filter</span>
-          <span class="question-icon" aria-hidden="true">?</span>
-        </button>
+        <div class="component-title component-title-static">
+          <span class="component-title-text">${LLM_FILTER_TITLE}</span>
+        </div>
         <div class="prompt-editor filter-prompt-editor">
           ${
             fitted
@@ -104,20 +74,16 @@ export class LlmFilterCard extends MobxLitElement {
                         class="prompt-remove-btn"
                         type="button"
                         aria-label="Remove active filter prompt"
+                        title="Remove"
                         ?disabled=${isRemoving || isFitting}
                         @click=${() => {
                           void this.#remove(fitted.promptKey);
                         }}
                       >
-                        <span class="prompt-remove-label"
-                          >${isRemoving ? "Removing…" : "Remove"}</span
-                        >
+                        <span aria-hidden="true">${isRemoving ? "…" : "×"}</span>
                       </button>
-                      <span class="active-prompt-label">Filtering</span>
-                      <p
-                        class="active-prompt-text"
-                        .textContent=${fitted.subject ?? fitted.prompt}
-                      ></p>
+                      <span class="active-prompt-label">Active prompt</span>
+                      <p class="active-prompt-text" .textContent=${fitted.prompt}></p>
                     </div>
                   </div>
                 `
@@ -127,7 +93,7 @@ export class LlmFilterCard extends MobxLitElement {
             <textarea
               class="prompt-input filter-prompt-input"
               rows="1"
-              placeholder="Describe the posts, e.g. airplanes"
+              placeholder=${LLM_FILTER_PLACEHOLDER}
               aria-label="Filter prompt"
               maxlength=${MAX_PROMPT_CHARS}
               .value=${draft}
@@ -153,26 +119,20 @@ export class LlmFilterCard extends MobxLitElement {
           </div>
           ${failure ? html`<p class="filter-error" role="alert">${failure.message}</p>` : ""}
         </div>
-        <div class="filter-slider">
-          <icon-range-slider
-            min="0"
-            .max=${LLM_FILTER_STOPS.length - 1}
-            step="1"
-            .value=${llmFilterStopIndex(this.setting)}
-            .icons=${LIFECYCLE_ICONS}
-            .valueText=${formatLlmFilter(this.setting)}
-            ariaLabel="Filter multiplier"
-            ?disabled=${sliderDisabled}
-            @slider-preview=${(event: CustomEvent<{ value: number }>) => {
-              if (sliderDisabled) return;
-              this.#emit("filter-preview", { value: LLM_FILTER_STOPS[event.detail.value] });
+        <label class="feature-toggle filter-toggle">
+          <input
+            class="feature-toggle-input filter-toggle-input"
+            type="checkbox"
+            aria-label="Apply the filter prompt to my feed"
+            .checked=${this.enabled}
+            ?disabled=${toggleDisabled}
+            @change=${(event: Event) => {
+              if (toggleDisabled) return;
+              this.#emit("filter-change", { enabled: (event.target as HTMLInputElement).checked });
             }}
-            @slider-change=${(event: CustomEvent<{ value: number }>) => {
-              if (sliderDisabled) return;
-              this.#emit("filter-change", { value: LLM_FILTER_STOPS[event.detail.value] });
-            }}
-          ></icon-range-slider>
-        </div>
+          />
+          <span class="feature-toggle-text">Apply to my feed</span>
+        </label>
       </div>
     `;
   }

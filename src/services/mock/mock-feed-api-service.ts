@@ -236,7 +236,7 @@ export class MockFeedApiService implements IFeedApiService {
       politics: 0.5,
       authorPenalty: 0.7,
       topicPenalty: 0.7,
-      llmFilter: 0.5,
+      llmFilter: true,
     },
     "best-of-friends": {
       freshness: 5,
@@ -388,7 +388,6 @@ export class MockFeedApiService implements IFeedApiService {
     const fitted = {
       promptKey: `mock-${role}-${String(Date.now())}`,
       prompt,
-      subject: role === "filter" ? `posts about ${prompt}` : null,
       createdAt: new Date().toISOString(),
     };
     if (role === "filter") this.llmFilterPrompt = fitted;

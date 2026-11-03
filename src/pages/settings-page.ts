@@ -23,6 +23,10 @@ import "../components/icon-range-slider";
 import "../components/feedback-form";
 import "../components/settings-feed-preview";
 import "../components/llm-filter-card";
+
+// The Prompt source card reads as one sentence the person completes (2026-11-03).
+const PROMPT_CARD_TITLE = "I want you to find some posts that:";
+const PROMPT_CARD_PLACEHOLDER = "(e.g.) are about music a nerdy person might like.";
 import type { SettingsFeedPreview } from "../components/settings-feed-preview";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
 import { settingsPageStyles } from "./settings-page.styles";
@@ -97,7 +101,6 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewSourceWeights: SourceWeights | null = null;
   @state() private previewPurpose: number | null = null;
   @state() private previewPolitics: number | null = null;
-  @state() private previewLlmFilter: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private previewAuthorPenalty: number | null = null;
   @state() private previewTopicPenalty: number | null = null;
@@ -204,7 +207,6 @@ export class SettingsPage extends MobxLitElement {
       this.previewSourceWeights = null;
       this.previewPurpose = null;
       this.previewPolitics = null;
-      this.previewLlmFilter = null;
       this.previewFreshness = null;
       this.previewAuthorPenalty = null;
       this.previewTopicPenalty = null;
@@ -248,12 +250,12 @@ export class SettingsPage extends MobxLitElement {
       authorPenalty: 0.7,
       topicPenalty: 0.7,
       normalizeRankByGenerator: false,
-      llmFilter: 0.5,
+      llmFilter: true,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
     const politics = this.previewPolitics ?? preferences.politics;
-    const llmFilter = this.previewLlmFilter ?? preferences.llmFilter;
+    const llmFilter = preferences.llmFilter;
     const freshness = this.previewFreshness ?? preferences.freshness;
     const authorPenalty = this.previewAuthorPenalty ?? preferences.authorPenalty;
     const topicPenalty = this.previewTopicPenalty ?? preferences.topicPenalty;
@@ -577,7 +579,7 @@ export class SettingsPage extends MobxLitElement {
   #renderFeaturesInProgressSection(
     weights: SourceWeights,
     normalizeRankByGenerator: boolean,
-    llmFilter: number,
+    llmFilter: boolean,
   ): TemplateResult {
     return html`
       <section class="section section-features">
@@ -600,16 +602,10 @@ export class SettingsPage extends MobxLitElement {
             this.#supportsControl("llm_filter")
               ? html`
                   <llm-filter-card
-                    .setting=${llmFilter}
+                    .enabled=${llmFilter}
                     .disabled=${this.#settingsBusy()}
-                    @filter-preview=${(event: CustomEvent<{ value: number }>) => {
-                      this.previewLlmFilter = event.detail.value;
-                    }}
-                    @filter-change=${(event: CustomEvent<{ value: number }>) => {
-                      this.#commitLlmFilter(event.detail.value);
-                    }}
-                    @filter-help=${() => {
-                      this.#openNode("llm_filter");
+                    @filter-change=${(event: CustomEvent<{ enabled: boolean }>) => {
+                      this.#commitLlmFilter(event.detail.enabled);
                     }}
                     @filter-prompt-changed=${() => {
                       this.previewNeeded = true;
@@ -668,14 +664,13 @@ export class SettingsPage extends MobxLitElement {
                       class="prompt-remove-btn"
                       type="button"
                       aria-label="Remove active prompt"
+                      title="Remove"
                       ?disabled=${isRemoving || isFitting || this.isLoading}
                       @click=${() => {
                         void store.removeLlmPrompt(fitted.promptKey);
                       }}
                     >
-                      <span class="prompt-remove-label"
-                        >${isRemoving ? "Removing…" : "Remove"}</span
-                      >
+                      <span aria-hidden="true">${isRemoving ? "…" : "×"}</span>
                     </button>
                     <span class="active-prompt-label">Active prompt</span>
                     <p
@@ -709,7 +704,7 @@ export class SettingsPage extends MobxLitElement {
           <textarea
             class="prompt-input"
             rows="1"
-            placeholder="Describe what you want more of"
+            placeholder=${PROMPT_CARD_PLACEHOLDER}
             aria-label="Prompt"
             maxlength=${MAX_PROMPT_CHARS}
             .value=${draft}
@@ -810,7 +805,6 @@ export class SettingsPage extends MobxLitElement {
     this.previewSourceWeights = null;
     this.previewPurpose = null;
     this.previewPolitics = null;
-    this.previewLlmFilter = null;
     this.previewFreshness = null;
     this.previewAuthorPenalty = null;
     this.previewTopicPenalty = null;
@@ -931,7 +925,14 @@ export class SettingsPage extends MobxLitElement {
         class="control-card source-card source-slider-card ${key === "llm" ? "prompt-card" : ""} ${inactive ? "inactive" : ""} ${thinking ? "thinking" : ""}"
         aria-busy=${thinking ? "true" : "false"}
       >
-        ${this.#titleButton(nodeId, label)} ${key === "llm" ? this.#renderPromptEditor() : ""}
+        ${
+          key === "llm"
+            ? html`<div class="component-title component-title-static">
+                <span class="component-title-text">${PROMPT_CARD_TITLE}</span>
+              </div>`
+            : this.#titleButton(nodeId, label)
+        }
+        ${key === "llm" ? this.#renderPromptEditor() : ""}
         <div class="source-slider-main">
           <icon-range-slider
             min="0"
@@ -1306,12 +1307,11 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ purpose: current }, { purpose: value });
   }
 
-  #commitLlmFilter(value: number): void {
-    this.previewLlmFilter = null;
+  #commitLlmFilter(enabled: boolean): void {
     if (!this.#supportsControl("llm_filter")) return;
     const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).llmFilter;
-    if (current === undefined || current === value) return;
-    void this.#applyImmediateChange({ llmFilter: current }, { llmFilter: value });
+    if (current === undefined || current === enabled) return;
+    void this.#applyImmediateChange({ llmFilter: current }, { llmFilter: enabled });
   }
 
   #commitPolitics(value: number): void {

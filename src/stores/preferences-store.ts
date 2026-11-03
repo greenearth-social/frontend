@@ -34,7 +34,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   authorPenalty: 0.7,
   topicPenalty: 0.7,
   normalizeRankByGenerator: false,
-  llmFilter: 0.5,
+  llmFilter: true,
 };
 
 // The prompt source only exists on Your Feed.
@@ -127,11 +127,11 @@ function controlChanged(
 }
 
 function booleanEventProperties(
-  control: "normalize_rank_by_generator",
+  control: "normalize_rank_by_generator" | "llm_filter",
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
-  const property = CONTROL_PROPERTIES[control] as "normalizeRankByGenerator";
+  const property = CONTROL_PROPERTIES[control] as "normalizeRankByGenerator" | "llmFilter";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   return {
@@ -144,12 +144,15 @@ function booleanEventProperties(
 }
 
 function numericEventProperties(
-  control: Exclude<FeedControlName, "source_weights" | "normalize_rank_by_generator">,
+  control: Exclude<
+    FeedControlName,
+    "source_weights" | "normalize_rank_by_generator" | "llm_filter"
+  >,
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
   const property = CONTROL_PROPERTIES[control] as
-    "freshness" | "politics" | "purpose" | "authorPenalty" | "topicPenalty" | "llmFilter";
+    "freshness" | "politics" | "purpose" | "authorPenalty" | "topicPenalty";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   const base: FeedControlEventProperties = {
@@ -191,7 +194,7 @@ function controlEventProperties(
   newValues: Preferences,
   origin?: SourceWeightChangeOrigin,
 ): FeedControlEventProperties {
-  if (control === "normalize_rank_by_generator") {
+  if (control === "normalize_rank_by_generator" || control === "llm_filter") {
     return booleanEventProperties(control, previousValues, newValues);
   }
   if (control !== "source_weights") {

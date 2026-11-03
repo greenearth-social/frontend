@@ -15,7 +15,7 @@ const testState = vi.hoisted(() => {
     authorPenalty: 0.7,
     topicPenalty: 0.7,
     normalizeRankByGenerator: false,
-    llmFilter: 0.5,
+    llmFilter: true,
   };
   return {
     values,
@@ -44,7 +44,6 @@ const testState = vi.hoisted(() => {
         prompt: null as {
           promptKey: string;
           prompt: string;
-          subject?: string;
           createdAt: string;
         } | null,
         isFitting: false,
@@ -138,7 +137,7 @@ describe("SettingsPage", () => {
     testState.values.purpose = 0.5;
     testState.values.authorPenalty = 0.7;
     testState.values.topicPenalty = 0.7;
-    testState.values.llmFilter = 0.5;
+    testState.values.llmFilter = true;
     testState.rootStore.llmFilterStore.prompt = null;
     testState.rootStore.llmFilterStore.failure = null;
     testState.rootStore.llmFilterStore.fit.mockReset();
@@ -698,7 +697,7 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     const card = element.shadowRoot?.querySelector(".source-slider-card.inactive");
-    expect(card?.textContent).toContain("Prompt");
+    expect(card?.textContent).toContain("I want you to find some posts that:");
     const slider = Array.from(
       element.shadowRoot?.querySelectorAll<IconRangeSlider>("icon-range-slider") ?? [],
     ).find((candidate) => candidate.ariaLabel === "Prompt amount");
@@ -2126,7 +2125,13 @@ describe("SettingsPage", () => {
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(11);
+    // The two prompt cards read as sentences to complete and carry no question mark.
+    expect(element.shadowRoot?.querySelectorAll(".component-title .question-icon").length).toBe(10);
+    expect(
+      element.shadowRoot?.querySelectorAll(
+        ".prompt-card .question-icon, .filter-card .question-icon",
+      ).length,
+    ).toBe(0);
     expect(element.shadowRoot?.textContent).not.toContain("Engaging vs. Constructive");
     expect(element.shadowRoot?.querySelector(".master-label")).toBeNull();
   });
@@ -2221,13 +2226,13 @@ describe("SettingsPage", () => {
   });
 });
 
-describe("SettingsPage Filter card (api#566)", () => {
-  function filterSlider(element: HTMLElement): IconRangeSlider {
-    const slider = element.shadowRoot?.querySelector<IconRangeSlider>(
-      ".filter-card icon-range-slider",
+describe("SettingsPage second prompt card (api#566)", () => {
+  function filterToggle(element: HTMLElement): HTMLInputElement {
+    const toggle = element.shadowRoot?.querySelector<HTMLInputElement>(
+      ".filter-card .filter-toggle-input",
     );
-    if (!slider) throw new Error("Filter slider was not rendered");
-    return slider;
+    if (!toggle) throw new Error("Filter toggle was not rendered");
+    return toggle;
   }
 
   function supportFilter(): void {
@@ -2238,7 +2243,7 @@ describe("SettingsPage Filter card (api#566)", () => {
 
   beforeEach(() => {
     document.body.replaceChildren();
-    testState.values.llmFilter = 0.5;
+    testState.values.llmFilter = true;
     testState.rootStore.preferencesStore.llmCgEnabled = true;
     testState.rootStore.llmFilterStore.prompt = null;
     testState.rootStore.llmFilterStore.failure = null;
@@ -2261,7 +2266,7 @@ describe("SettingsPage Filter card (api#566)", () => {
     document.body.replaceChildren();
   });
 
-  it("renders the Filter card in the Features box, inert until a filter prompt is fitted", async () => {
+  it("renders the card in the Features box as a sentence to complete, inert until a prompt is fitted", async () => {
     supportFilter();
     const element = document.createElement("settings-page");
     document.body.appendChild(element);
@@ -2271,13 +2276,17 @@ describe("SettingsPage Filter card (api#566)", () => {
     const card = element.shadowRoot?.querySelector(".section-features .filter-card");
     expect(card).not.toBeNull();
     expect(card?.classList.contains("inactive")).toBe(true);
-    expect(card?.querySelector(".component-title-text")?.textContent).toBe("Filter");
-    expect(card?.querySelector<HTMLTextAreaElement>(".filter-prompt-input")?.placeholder).toBe(
-      "Describe the posts, e.g. airplanes",
+    expect(card?.querySelector(".component-title-text")?.textContent).toBe(
+      "Most posts I see should:",
     );
-    const slider = filterSlider(element);
-    expect(slider.disabled).toBe(true);
-    expect(slider.valueText).toBe("0.5 · Min");
+    expect(card?.querySelector(".component-title .question-icon")).toBeNull();
+    expect(card?.querySelector<HTMLTextAreaElement>(".filter-prompt-input")?.placeholder).toBe(
+      "(e.g.) be generally uplifting and funny. And not discuss airplanes or cars.",
+    );
+    expect(card?.querySelector("icon-range-slider")).toBeNull();
+    const toggle = filterToggle(element);
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.checked).toBe(true);
   });
 
   it("sends the filter prompt to the filter store, not the Prompt source", async () => {
@@ -2301,12 +2310,11 @@ describe("SettingsPage Filter card (api#566)", () => {
     expect(testState.rootStore.preferencesStore.fitLlmPrompt).not.toHaveBeenCalled();
   });
 
-  it("saves a slider stop as the multiplier, as one undoable change", async () => {
+  it("saves the switch as one undoable change and shows the prompt as typed", async () => {
     supportFilter();
     testState.rootStore.llmFilterStore.prompt = {
       promptKey: "f1",
-      prompt: "I don't want airplanes",
-      subject: "posts about airplanes",
+      prompt: "be uplifting, no airplanes",
       createdAt: "2026-11-02T10:00:00Z",
     };
     const element = document.createElement("settings-page");
@@ -2316,22 +2324,24 @@ describe("SettingsPage Filter card (api#566)", () => {
 
     const card = element.shadowRoot?.querySelector(".filter-card");
     expect(card?.classList.contains("inactive")).toBe(false);
-    // The card shows how the api understood the prompt, not the wish as typed.
-    expect(card?.querySelector(".active-prompt-text")?.textContent).toBe("posts about airplanes");
-    const slider = filterSlider(element);
-    expect(slider.disabled).toBe(false);
+    expect(card?.querySelector(".active-prompt-text")?.textContent).toBe(
+      "be uplifting, no airplanes",
+    );
+    const remove = card?.querySelector<HTMLButtonElement>(".prompt-remove-btn");
+    expect(remove?.getAttribute("aria-label")).toBe("Remove active filter prompt");
+    expect(remove?.textContent.trim()).toBe("×");
+    const toggle = filterToggle(element);
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.checked).toBe(true);
 
-    changeSlider(slider, 3, "slider-preview");
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-    expect(filterSlider(element).valueText).toBe("1.5 · More");
-    changeSlider(slider, 3);
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
     await Promise.resolve();
     await element.updateComplete;
 
     expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
       "your-feed",
-      { llmFilter: 1.5 },
+      { llmFilter: false },
       {},
     );
     expect(

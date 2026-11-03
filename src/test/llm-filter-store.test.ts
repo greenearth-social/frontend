@@ -6,8 +6,7 @@ import { LlmFilterStore } from "../stores/llm-filter-store";
 
 const filterPrompt: LlmPrompt = {
   promptKey: "f1",
-  prompt: "I don't want airplanes",
-  subject: "posts about airplanes",
+  prompt: "be uplifting, no airplanes",
   createdAt: "2026-11-02T10:00:00Z",
 };
 
@@ -47,7 +46,7 @@ describe("LlmFilterStore", () => {
   it("re-reads the prompt after a conflict and keeps the failure", async () => {
     const { store, root } = makeStore(filterPrompt);
     await store.load("acct-1");
-    const other = { ...filterPrompt, promptKey: "f9", subject: "posts about boats" };
+    const other = { ...filterPrompt, promptKey: "f9", prompt: "be about boats" };
     root.services.feedApiService.getLlmPrompt = vi
       .fn()
       .mockResolvedValue({ enabled: true, prompt: other });

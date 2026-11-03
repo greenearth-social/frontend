@@ -27,8 +27,8 @@ export interface Preferences {
   topicPenalty: number; // 0-1; default 0.7
   // Grade each source's rank scores on its own curve (api#572); default off.
   normalizeRankByGenerator: boolean;
-  // Multiplier on posts the Filter prompt describes (api#566): 0.5-2; default 0.5, neutral 1.
-  llmFilter: number;
+  // Whether the second prompt ("Most posts I see should: ...", api#566) ranks the feed; default on.
+  llmFilter: boolean;
 }
 
 export type FeedPreferences = Partial<Preferences>;
@@ -40,8 +40,6 @@ export type LlmPromptRole = "cg" | "filter";
 export interface LlmPrompt {
   promptKey: string;
   prompt: string;
-  // Filter prompts: the neutral description the api fitted to ("posts about airplanes").
-  subject?: string | null;
   createdAt: string;
 }
 

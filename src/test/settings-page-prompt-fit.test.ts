@@ -370,8 +370,9 @@ describe("SettingsPage prompt fit with the real stores", () => {
     await settle(page);
     expect(removeLlmPrompt).toHaveBeenCalledWith("v1");
     expect(
-      page.shadowRoot?.querySelector('[aria-label="Remove active prompt"]')?.textContent,
-    ).toContain("Removing…");
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Remove active prompt"]')
+        ?.disabled,
+    ).toBe(true);
     expect(page.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.disabled).toBe(
       true,
     );

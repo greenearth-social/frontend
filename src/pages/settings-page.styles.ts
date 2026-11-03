@@ -737,6 +737,13 @@ export const settingsPageStyles = css`
     transform: scale(0.98);
   }
 
+  /* Titles that read as a sentence to complete; nothing to click. */
+  .component-title-static,
+  .component-title-static:active {
+    cursor: default;
+    transform: none;
+  }
+
   .sources-layout {
     min-width: 0;
   }
@@ -863,7 +870,6 @@ export const settingsPageStyles = css`
     content: "”";
   }
 
-  .prompt-remove-btn,
   .prompt-expand-btn {
     min-height: 44px;
     padding: 0.375rem 0;
@@ -877,29 +883,23 @@ export const settingsPageStyles = css`
     cursor: pointer;
   }
 
+  /* A small round × in the corner of the active prompt. */
   .prompt-remove-btn {
     float: right;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0.75rem;
-    padding: 6px 0;
-    border-radius: 999px;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  .prompt-remove-label {
-    display: inline-flex;
-    box-sizing: border-box;
-    align-items: center;
-    justify-content: center;
-    min-height: 32px;
-    padding: 0.25rem 0.625rem;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin: 0 0 0.25rem 0.5rem;
+    padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    font: inherit;
+    font-size: 1.125rem;
+    line-height: 1;
+    cursor: pointer;
     transition:
       background-color 150ms ease,
       border-color 150ms ease;
@@ -911,7 +911,7 @@ export const settingsPageStyles = css`
     text-align: left;
   }
 
-  .prompt-remove-btn:hover:not(:disabled) .prompt-remove-label {
+  .prompt-remove-btn:hover:not(:disabled) {
     border-color: rgba(255, 255, 255, 0.75);
     background: rgba(255, 255, 255, 0.16);
     color: #fff;
@@ -927,17 +927,13 @@ export const settingsPageStyles = css`
     cursor: default;
   }
 
-  .prompt-remove-btn:focus-visible {
-    outline: none;
-  }
-
-  .prompt-remove-btn:focus-visible .prompt-remove-label,
+  .prompt-remove-btn:focus-visible,
   .prompt-expand-btn:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 2px;
   }
 
-  /* The Filter card (api#566): title, prompt editor, multiplier slider. */
+  /* The second prompt card (api#566): title, prompt editor, on/off switch. */
   .filter-card {
     position: relative;
     display: grid;
@@ -952,7 +948,7 @@ export const settingsPageStyles = css`
     gap: 0.5rem;
   }
 
-  .filter-card.inactive .filter-slider {
+  .filter-card.inactive .filter-toggle {
     opacity: 0.45;
   }
 

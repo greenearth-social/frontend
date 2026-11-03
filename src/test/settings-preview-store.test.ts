@@ -208,7 +208,7 @@ describe("SettingsPreviewStore", () => {
       { normalizeRankByGenerator: false },
       { normalizeRankByGenerator: true },
     ],
-    ["llmFilter", { llmFilter: 0.5 }, { llmFilter: 2 }],
+    ["llmFilter", { llmFilter: true }, { llmFilter: false }],
   ])("generates a new preview when %s changes", async (_control, before, after) => {
     const { root, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
@@ -243,7 +243,7 @@ describe("SettingsPreviewStore", () => {
     const { root, llmFilterStore, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
-    const patch = { freshness: 2, purpose: 0.4, politics: 0, llmFilter: 0.5 };
+    const patch = { freshness: 2, purpose: 0.4, politics: 0, llmFilter: true };
     llmFilterStore.prompt = { promptKey: "filter-a" };
 
     await store.preview(patch);
