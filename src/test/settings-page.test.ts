@@ -2257,7 +2257,7 @@ describe("SettingsPage", () => {
       return toggle;
     }
 
-    async function flipToggle(element: HTMLElement): Promise<void> {
+    async function flipToggle(element: Awaited<ReturnType<typeof mountWithFilter>>): Promise<void> {
       const toggle = filterToggle(element);
       toggle.checked = false;
       toggle.dispatchEvent(new Event("change", { bubbles: true }));
