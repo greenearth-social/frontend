@@ -98,6 +98,9 @@ async function makeRoot(activePrompt: LlmPrompt | null = null) {
       unavailableReasonFor: vi.fn().mockReturnValue(null),
     },
   } as unknown as RootStore;
+  root.llmFilterStore = {
+    load: vi.fn().mockResolvedValue(undefined),
+  } as unknown as RootStore["llmFilterStore"];
   root.preferencesStore = new PreferencesStore(root);
   root.settingsPreviewStore = new SettingsPreviewStore(root);
   testState.root = root;
@@ -367,8 +370,9 @@ describe("SettingsPage prompt fit with the real stores", () => {
     await settle(page);
     expect(removeLlmPrompt).toHaveBeenCalledWith("v1");
     expect(
-      page.shadowRoot?.querySelector('[aria-label="Remove active prompt"]')?.textContent,
-    ).toContain("Removing…");
+      page.shadowRoot?.querySelector<HTMLButtonElement>('[aria-label="Remove active prompt"]')
+        ?.disabled,
+    ).toBe(true);
     expect(page.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-send-btn")?.disabled).toBe(
       true,
     );

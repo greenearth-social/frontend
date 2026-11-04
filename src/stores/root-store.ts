@@ -6,6 +6,7 @@ import { UIStore } from "./ui-store";
 import { PreferencesStore } from "./preferences-store";
 import { FeedbackStore } from "./feedback-store";
 import { SettingsPreviewStore } from "./settings-preview-store";
+import { LlmFilterStore } from "./llm-filter-store";
 
 export class RootStore {
   services: ServiceProvider;
@@ -16,11 +17,13 @@ export class RootStore {
   preferencesStore: PreferencesStore;
   feedbackStore: FeedbackStore;
   settingsPreviewStore: SettingsPreviewStore;
+  llmFilterStore: LlmFilterStore;
 
   constructor(services: ServiceProvider) {
     this.services = services;
 
     this.preferencesStore = new PreferencesStore(this);
+    this.llmFilterStore = new LlmFilterStore(this);
     this.settingsPreviewStore = new SettingsPreviewStore(this);
     this.feedStore = new FeedStore(this);
     this.uiStore = new UIStore();

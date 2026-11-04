@@ -483,16 +483,10 @@ export const settingsPageStyles = css`
     color: #fcd34d;
   }
 
-  .feature-toggle-card {
-    display: grid;
-    gap: 0.375rem;
-    min-width: 0;
-    padding: 0.375rem 0.5rem 0.625rem;
-    background: linear-gradient(145deg, #b45309, #92400e);
-  }
-
-  .feature-toggle {
-    display: flex;
+  /* Sliding on/off switch over a native checkbox (components/toggle-switch.ts). */
+  .ge-switch {
+    position: relative;
+    display: inline-flex;
     align-items: center;
     gap: 0.625rem;
     min-height: 44px;
@@ -500,25 +494,86 @@ export const settingsPageStyles = css`
     cursor: pointer;
   }
 
-  .feature-toggle-input {
-    width: 1.25rem;
-    height: 1.25rem;
+  .ge-switch-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
     margin: 0;
-    flex-shrink: 0;
-    accent-color: #fcd34d;
-    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
   }
 
-  .feature-toggle-input:disabled,
-  .feature-toggle:has(.feature-toggle-input:disabled) {
+  .ge-switch-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    transition: background-color 150ms ease;
+  }
+
+  .ge-switch-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: transform 150ms ease;
+  }
+
+  .ge-switch-input:checked + .ge-switch-track {
+    background: #22c55e;
+  }
+
+  .ge-switch-input:checked + .ge-switch-track::after {
+    transform: translateX(18px);
+  }
+
+  .ge-switch-input:focus-visible + .ge-switch-track {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+  }
+
+  .ge-switch:has(.ge-switch-input:disabled) {
     cursor: not-allowed;
-    opacity: 0.6;
   }
 
-  .feature-toggle-text {
+  .ge-switch-input:disabled + .ge-switch-track {
+    opacity: 0.5;
+  }
+
+  .ge-switch-text {
     color: rgba(255, 255, 255, 0.92);
     font-size: 0.8125rem;
     line-height: 1.3;
+  }
+
+  /* Normalize score by CG sits at the foot of the Prompt card, full width. */
+  .balance-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .balance-help {
+    display: inline-grid;
+    place-items: center;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
   }
 
   .section-title {
@@ -728,13 +783,23 @@ export const settingsPageStyles = css`
     margin-left: 0;
   }
 
-  .component-title:focus-visible {
+  .component-title:focus-visible,
+  .balance-help:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: -3px;
   }
 
   .component-title:active {
     transform: scale(0.98);
+  }
+
+  /* Titles that read as a sentence to complete; nothing to click. */
+  .component-title-static,
+  .component-title-static:active {
+    /* A div, not a button: size it border-box so width: 100% plus padding fits. */
+    box-sizing: border-box;
+    cursor: default;
+    transform: none;
   }
 
   .sources-layout {
@@ -774,7 +839,8 @@ export const settingsPageStyles = css`
     grid-template-rows: auto auto auto;
   }
 
-  .prompt-card.thinking::after {
+  .prompt-card.thinking::after,
+  .filter-card.thinking::after {
     content: "";
     position: absolute;
     inset: -2px;
@@ -805,7 +871,8 @@ export const settingsPageStyles = css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .prompt-card.thinking::after {
+    .prompt-card.thinking::after,
+    .filter-card.thinking::after {
       animation: none;
       background: #bfdbfe;
     }
@@ -861,7 +928,6 @@ export const settingsPageStyles = css`
     content: "”";
   }
 
-  .prompt-remove-btn,
   .prompt-expand-btn {
     min-height: 44px;
     padding: 0.375rem 0;
@@ -875,29 +941,23 @@ export const settingsPageStyles = css`
     cursor: pointer;
   }
 
+  /* A small round × in the corner of the active prompt. */
   .prompt-remove-btn {
     float: right;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0.75rem;
-    padding: 6px 0;
-    border-radius: 999px;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  .prompt-remove-label {
-    display: inline-flex;
-    box-sizing: border-box;
-    align-items: center;
-    justify-content: center;
-    min-height: 32px;
-    padding: 0.25rem 0.625rem;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin: 0 0 0.25rem 0.5rem;
+    padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    font: inherit;
+    font-size: 1.125rem;
+    line-height: 1;
+    cursor: pointer;
     transition:
       background-color 150ms ease,
       border-color 150ms ease;
@@ -909,7 +969,7 @@ export const settingsPageStyles = css`
     text-align: left;
   }
 
-  .prompt-remove-btn:hover:not(:disabled) .prompt-remove-label {
+  .prompt-remove-btn:hover:not(:disabled) {
     border-color: rgba(255, 255, 255, 0.75);
     background: rgba(255, 255, 255, 0.16);
     color: #fff;
@@ -925,17 +985,35 @@ export const settingsPageStyles = css`
     cursor: default;
   }
 
-  .prompt-remove-btn:focus-visible {
-    outline: none;
-  }
-
-  .prompt-remove-btn:focus-visible .prompt-remove-label,
+  .prompt-remove-btn:focus-visible,
   .prompt-expand-btn:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 2px;
   }
 
-  .prompt-card .prompt-editor {
+  /* The second prompt card (api#566): title, prompt editor, on/off switch. */
+  .filter-card {
+    position: relative;
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0.375rem 0.5rem 0.625rem;
+  }
+
+  .filter-card.inactive .filter-toggle {
+    opacity: 0.45;
+  }
+
+  .filter-error {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(127, 29, 29, 0.55);
+    font-size: 0.9rem;
+  }
+
+  .prompt-card .prompt-editor,
+  .filter-card .prompt-editor {
     grid-column: 1 / -1;
     grid-row: 2;
     display: flex;

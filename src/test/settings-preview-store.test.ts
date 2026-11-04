@@ -69,8 +69,10 @@ function harness(generatedAt = new Date().toISOString()) {
   });
   const getFeedDetail = vi.fn().mockResolvedValue(detail("baseline-1", ["a", "b", "c"]));
   const preferencesStore = { llmPrompt: null as { promptKey: string } | null };
+  const llmFilterStore = { prompt: null as { promptKey: string } | null };
   const root = {
     preferencesStore,
+    llmFilterStore,
     services: {
       feedApiService: {
         listFeeds,
@@ -84,6 +86,7 @@ function harness(generatedAt = new Date().toISOString()) {
   return {
     root,
     preferencesStore,
+    llmFilterStore,
     acceptFeedPreview,
     createFeedPreview,
     getFeedDetail,
@@ -205,6 +208,7 @@ describe("SettingsPreviewStore", () => {
       { normalizeRankByGenerator: false },
       { normalizeRankByGenerator: true },
     ],
+    ["llmFilter", { llmFilter: true }, { llmFilter: false }],
   ])("generates a new preview when %s changes", async (_control, before, after) => {
     const { root, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
@@ -231,6 +235,22 @@ describe("SettingsPreviewStore", () => {
     expect(createFeedPreview).toHaveBeenCalledTimes(1);
 
     preferencesStore.llmPrompt = { promptKey: "prompt-b" };
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("generates again for the same settings once the filter prompt changes", async () => {
+    const { root, llmFilterStore, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2, purpose: 0.4, politics: 0, llmFilter: true };
+    llmFilterStore.prompt = { promptKey: "filter-a" };
+
+    await store.preview(patch);
+    await store.preview(patch);
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+
+    llmFilterStore.prompt = { promptKey: "filter-b" };
     await store.preview(patch);
     expect(createFeedPreview).toHaveBeenCalledTimes(2);
   });

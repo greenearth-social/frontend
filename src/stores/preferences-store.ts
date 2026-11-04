@@ -34,6 +34,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   authorPenalty: 0.7,
   topicPenalty: 0.7,
   normalizeRankByGenerator: false,
+  llmFilter: true,
 };
 
 // The prompt source only exists on Your Feed.
@@ -47,6 +48,7 @@ const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   author_penalty: "authorPenalty",
   topic_penalty: "topicPenalty",
   normalize_rank_by_generator: "normalizeRankByGenerator",
+  llm_filter: "llmFilter",
 };
 
 const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
@@ -57,6 +59,7 @@ const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
   authorPenalty: "author_penalty",
   topicPenalty: "topic_penalty",
   normalizeRankByGenerator: "normalize_rank_by_generator",
+  llmFilter: "llm_filter",
 };
 
 const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
@@ -124,11 +127,11 @@ function controlChanged(
 }
 
 function booleanEventProperties(
-  control: "normalize_rank_by_generator",
+  control: "normalize_rank_by_generator" | "llm_filter",
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
-  const property = CONTROL_PROPERTIES[control] as "normalizeRankByGenerator";
+  const property = CONTROL_PROPERTIES[control] as "normalizeRankByGenerator" | "llmFilter";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   return {
@@ -141,7 +144,10 @@ function booleanEventProperties(
 }
 
 function numericEventProperties(
-  control: Exclude<FeedControlName, "source_weights" | "normalize_rank_by_generator">,
+  control: Exclude<
+    FeedControlName,
+    "source_weights" | "normalize_rank_by_generator" | "llm_filter"
+  >,
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
@@ -188,7 +194,7 @@ function controlEventProperties(
   newValues: Preferences,
   origin?: SourceWeightChangeOrigin,
 ): FeedControlEventProperties {
-  if (control === "normalize_rank_by_generator") {
+  if (control === "normalize_rank_by_generator" || control === "llm_filter") {
     return booleanEventProperties(control, previousValues, newValues);
   }
   if (control !== "source_weights") {
@@ -480,6 +486,8 @@ export class PreferencesStore {
     if (generation !== this.accountGeneration || request !== this.llmStatusRequest) return;
     this.llmCgEnabled = llmStatus.enabled;
     this.llmPrompt = llmStatus.enabled ? llmStatus.prompt : null;
+    // Same gate, second prompt (api#566).
+    if (llmStatus.enabled) void this.root.llmFilterStore.load(this.accountId);
   }
 
   reset(): void {

@@ -100,10 +100,16 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
       "Experiments we are trying out with a small group before deciding whether they belong in everyone's feed. They may change or disappear.",
   },
   balance_sources: {
-    label: "Balance sources",
+    label: "Normalize score by CG",
     type: "config",
     description:
       "The ranking model learns from what you have already liked, so posts from a new source (like your Prompt) tend to score low and get crowded out. With this on, each source is graded on its own curve: its best post counts as a 1 and its weakest as a 0, so every source gets a fair share of the feed.",
+  },
+  llm_filter: {
+    label: "Filter",
+    type: "config",
+    description:
+      "Describe what most of your feed should be like and the ranking moves the posts that fit up, whichever source found them. It is simply on or off. Unlike the Prompt source, it cannot bring in posts the other sources did not already find.",
   },
   politics: {
     label: "Politics",

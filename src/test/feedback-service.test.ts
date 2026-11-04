@@ -30,6 +30,7 @@ const submission: FeedbackSubmission = {
     authorPenalty: 0.7,
     topicPenalty: 0.7,
     normalizeRankByGenerator: false,
+    llmFilter: true,
   },
   snapshot: {
     requestId: "request-1",
