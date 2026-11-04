@@ -800,6 +800,8 @@ export const settingsPageStyles = css`
   /* Titles that read as a sentence to complete; nothing to click. */
   .component-title-static,
   .component-title-static:active {
+    /* A div, not a button: size it border-box so width: 100% plus padding fits. */
+    box-sizing: border-box;
     cursor: default;
     transform: none;
   }

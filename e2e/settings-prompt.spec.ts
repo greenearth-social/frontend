@@ -297,7 +297,9 @@ test("HTTP removal preserves the draft and survives leaving and reopening Settin
   const input = page.getByRole("textbox", { name: "Prompt", exact: true });
   await input.fill("unsent draft");
   await page.getByRole("button", { name: "Remove active prompt" }).click();
-  await expect(page.getByRole("button", { name: "Remove active prompt" })).toHaveText("Removing…");
+  const removing = page.getByRole("button", { name: "Remove active prompt" });
+  await expect(removing).toHaveText("…");
+  await expect(removing).toBeDisabled();
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Reset settings to defaults", exact: true }),
