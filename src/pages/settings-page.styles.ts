@@ -570,15 +570,10 @@ export const settingsPageStyles = css`
     min-height: 32px;
     padding: 0;
     border: 0;
+    border-radius: 8px;
     background: transparent;
     color: inherit;
     cursor: pointer;
-  }
-
-  .balance-help:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: -3px;
-    border-radius: 8px;
   }
 
   .section-title {
@@ -788,7 +783,8 @@ export const settingsPageStyles = css`
     margin-left: 0;
   }
 
-  .component-title:focus-visible {
+  .component-title:focus-visible,
+  .balance-help:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: -3px;
   }
@@ -1004,19 +1000,8 @@ export const settingsPageStyles = css`
     padding: 0.375rem 0.5rem 0.625rem;
   }
 
-  .filter-card .prompt-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
   .filter-card.inactive .filter-toggle {
     opacity: 0.45;
-  }
-
-  .filter-toggle {
-    display: flex;
-    min-width: 0;
   }
 
   .filter-error {
@@ -1027,7 +1012,8 @@ export const settingsPageStyles = css`
     font-size: 0.9rem;
   }
 
-  .prompt-card .prompt-editor {
+  .prompt-card .prompt-editor,
+  .filter-card .prompt-editor {
     grid-column: 1 / -1;
     grid-row: 2;
     display: flex;

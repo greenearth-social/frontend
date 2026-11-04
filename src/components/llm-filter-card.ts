@@ -12,8 +12,8 @@ import { renderToggleSwitch } from "./toggle-switch";
 // filter-prompt-changed ({ fitted }) and the page acts, so undo and redo keep
 // working; after a fit the page switches the filter on.
 
-export const LLM_FILTER_TITLE = "Most posts I see should:";
-export const LLM_FILTER_PLACEHOLDER =
+const LLM_FILTER_TITLE = "Most posts I see should:";
+const LLM_FILTER_PLACEHOLDER =
   "(e.g.) be generally uplifting and funny. And not discuss airplanes or cars.";
 
 @customElement("llm-filter-card")
@@ -68,7 +68,7 @@ export class LlmFilterCard extends MobxLitElement {
         <div class="component-title component-title-static">
           <span class="component-title-text">${LLM_FILTER_TITLE}</span>
         </div>
-        <div class="prompt-editor filter-prompt-editor">
+        <div class="prompt-editor">
           ${
             fitted
               ? html`

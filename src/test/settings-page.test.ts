@@ -2228,193 +2228,134 @@ describe("SettingsPage", () => {
       expect.objectContaining({ component_id: "popular", feed_name: "your-feed" }),
     );
   });
-});
 
-describe("SettingsPage second prompt card (api#566)", () => {
-  function filterToggle(element: HTMLElement): HTMLInputElement {
-    const toggle = element.shadowRoot?.querySelector<HTMLInputElement>(
-      ".filter-card .filter-toggle-input",
-    );
-    if (!toggle) throw new Error("Filter toggle was not rendered");
-    return toggle;
-  }
+  describe("second prompt card (api#566)", () => {
+    const fittedPrompt = {
+      promptKey: "f1",
+      prompt: "be uplifting, no airplanes",
+      createdAt: "2026-11-02T10:00:00Z",
+    };
 
-  function supportFilter(): void {
-    testState.rootStore.preferencesStore.supportsControl.mockImplementation(
-      (_feedName: string, control: string) => control === "llm_filter",
-    );
-  }
+    // The page with only the llm_filter control exposed, filter card rendered.
+    async function mountWithFilter(prompt: typeof fittedPrompt | null = null) {
+      testState.rootStore.preferencesStore.supportsControl.mockImplementation(
+        (_feedName: string, control: string) => control === "llm_filter",
+      );
+      testState.rootStore.llmFilterStore.prompt = prompt;
+      const element = document.createElement("settings-page");
+      document.body.appendChild(element);
+      await element.updateComplete;
+      await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+      return element;
+    }
 
-  beforeEach(() => {
-    document.body.replaceChildren();
-    testState.values.llmFilter = true;
-    testState.rootStore.preferencesStore.llmCgEnabled = true;
-    testState.rootStore.llmFilterStore.prompt = null;
-    testState.rootStore.llmFilterStore.failure = null;
-    testState.rootStore.llmFilterStore.fit.mockReset();
-    testState.rootStore.llmFilterStore.remove.mockReset();
-    testState.rootStore.preferencesStore.savePatch.mockReset();
-    testState.rootStore.preferencesStore.savePatch.mockImplementation(
-      (_feedName: string, patch: Partial<typeof testState.values>) => {
-        Object.assign(testState.values, patch);
-        return Promise.resolve(true);
-      },
-    );
-    testState.rootStore.preferencesStore.supportsControl.mockReset();
-    testState.rootStore.preferencesStore.supportsControl.mockReturnValue(false);
-    testState.rootStore.preferencesStore.valuesFor.mockReset();
-    testState.rootStore.preferencesStore.valuesFor.mockReturnValue(testState.values);
-  });
+    function filterToggle(element: HTMLElement): HTMLInputElement {
+      const toggle = element.shadowRoot?.querySelector<HTMLInputElement>(
+        ".filter-card .filter-toggle-input",
+      );
+      if (!toggle) throw new Error("Filter toggle was not rendered");
+      return toggle;
+    }
 
-  afterEach(() => {
-    document.body.replaceChildren();
-  });
+    async function flipToggle(element: HTMLElement): Promise<void> {
+      const toggle = filterToggle(element);
+      toggle.checked = false;
+      toggle.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+      await element.updateComplete;
+    }
 
-  it("renders the card in the Features box as a sentence to complete, inert until a prompt is fitted", async () => {
-    supportFilter();
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+    it("renders as a sentence to complete, inert until a prompt is fitted", async () => {
+      const element = await mountWithFilter();
 
-    const card = element.shadowRoot?.querySelector(".section-features .filter-card");
-    expect(card).not.toBeNull();
-    expect(card?.classList.contains("inactive")).toBe(true);
-    expect(card?.querySelector(".component-title-text")?.textContent).toBe(
-      "Most posts I see should:",
-    );
-    expect(card?.querySelector(".component-title .question-icon")).toBeNull();
-    expect(card?.querySelector<HTMLTextAreaElement>(".filter-prompt-input")?.placeholder).toBe(
-      "(e.g.) be generally uplifting and funny. And not discuss airplanes or cars.",
-    );
-    expect(card?.querySelector("icon-range-slider")).toBeNull();
-    const toggle = filterToggle(element);
-    expect(toggle.getAttribute("role")).toBe("switch");
-    expect(toggle.disabled).toBe(true);
-    expect(toggle.checked).toBe(true);
-    expect(card?.querySelector(".ge-switch-text")?.textContent).toBe("Filter is active");
-  });
+      const card = element.shadowRoot?.querySelector(".section-features .filter-card");
+      expect(card?.classList.contains("inactive")).toBe(true);
+      expect(card?.querySelector(".component-title-text")?.textContent).toBe(
+        "Most posts I see should:",
+      );
+      expect(card?.querySelector(".question-icon")).toBeNull();
+      expect(card?.querySelector<HTMLTextAreaElement>(".filter-prompt-input")?.placeholder).toBe(
+        "(e.g.) be generally uplifting and funny. And not discuss airplanes or cars.",
+      );
+      const toggle = filterToggle(element);
+      expect(toggle.getAttribute("role")).toBe("switch");
+      expect(toggle.disabled).toBe(true);
+      expect(toggle.checked).toBe(true);
+      expect(card?.querySelector(".ge-switch-text")?.textContent).toBe("Filter is active");
+    });
 
-  it("switches the filter on again when a new filter prompt is fitted", async () => {
-    supportFilter();
-    testState.values.llmFilter = false;
-    testState.rootStore.llmFilterStore.fit.mockResolvedValue(null);
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-    expect(element.shadowRoot?.querySelector(".filter-card .ge-switch-text")?.textContent).toBe(
-      "Filter is inactive",
-    );
+    it("sends the prompt to the filter store, not the Prompt source, and switches the filter on", async () => {
+      testState.values.llmFilter = false;
+      testState.rootStore.llmFilterStore.fit.mockResolvedValue(null);
+      const element = await mountWithFilter();
+      expect(element.shadowRoot?.querySelector(".filter-card .ge-switch-text")?.textContent).toBe(
+        "Filter is inactive",
+      );
 
-    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".filter-prompt-input");
-    if (!input) throw new Error("Filter prompt input missing");
-    input.value = "be kind";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".filter-prompt-send-btn")?.click();
-    await vi.waitFor(() => {
-      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledWith(
+      const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".filter-prompt-input");
+      if (!input) throw new Error("Filter prompt input missing");
+      input.value = "airplanes";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".filter-prompt-send-btn")?.click();
+
+      expect(testState.rootStore.llmFilterStore.fit).toHaveBeenCalledWith("airplanes");
+      expect(testState.rootStore.preferencesStore.fitLlmPrompt).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledWith(
+          "your-feed",
+          { llmFilter: true },
+          {},
+        );
+      });
+    });
+
+    it("sends the switch with the preview request so turning it off regenerates the preview", async () => {
+      const generated = { items: [] };
+      testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
+      const element = await mountWithFilter(fittedPrompt);
+
+      await flipToggle(element);
+      const feed = element.shadowRoot?.querySelector("settings-feed-preview");
+      if (!feed) throw new Error("Settings feed preview was not rendered");
+      vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
+      element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
+      await vi.waitFor(() => {
+        expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(
+          generated,
+        );
+      });
+
+      expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ llmFilter: false }),
+      );
+    });
+
+    it("saves the switch as one undoable change and shows the prompt as typed", async () => {
+      const element = await mountWithFilter(fittedPrompt);
+
+      const card = element.shadowRoot?.querySelector(".filter-card");
+      expect(card?.classList.contains("inactive")).toBe(false);
+      expect(card?.querySelector(".active-prompt-text")?.textContent).toBe(
+        "be uplifting, no airplanes",
+      );
+      const remove = card?.querySelector<HTMLButtonElement>(".prompt-remove-btn");
+      expect(remove?.getAttribute("aria-label")).toBe("Remove active filter prompt");
+      expect(remove?.textContent.trim()).toBe("×");
+      expect(filterToggle(element).disabled).toBe(false);
+
+      await flipToggle(element);
+
+      expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
         "your-feed",
-        { llmFilter: true },
+        { llmFilter: false },
         {},
       );
+      expect(
+        element.shadowRoot?.querySelector<HTMLButtonElement>(
+          '[aria-label="Undo last settings change"]',
+        )?.disabled,
+      ).toBe(false);
     });
-  });
-
-  it("sends the filter prompt to the filter store, not the Prompt source", async () => {
-    supportFilter();
-    testState.rootStore.llmFilterStore.fit.mockResolvedValue(null);
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-
-    const input = element.shadowRoot?.querySelector<HTMLTextAreaElement>(".filter-prompt-input");
-    if (!input) throw new Error("Filter prompt input missing");
-    input.value = "airplanes";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-    const send = element.shadowRoot?.querySelector<HTMLButtonElement>(".filter-prompt-send-btn");
-    expect(send?.disabled).toBe(false);
-    send?.click();
-
-    expect(testState.rootStore.llmFilterStore.fit).toHaveBeenCalledWith("airplanes");
-    expect(testState.rootStore.preferencesStore.fitLlmPrompt).not.toHaveBeenCalled();
-  });
-
-  it("sends the switch with the preview request so turning it off regenerates the preview", async () => {
-    supportFilter();
-    testState.rootStore.llmFilterStore.prompt = {
-      promptKey: "f1",
-      prompt: "be uplifting, no airplanes",
-      createdAt: "2026-11-02T10:00:00Z",
-    };
-    const generated = { items: [] };
-    testState.rootStore.settingsPreviewStore.preview.mockResolvedValue(generated);
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-
-    const toggle = filterToggle(element);
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-    await element.updateComplete;
-    const feed = element.shadowRoot?.querySelector("settings-feed-preview");
-    if (!feed) throw new Error("Settings feed preview was not rendered");
-    vi.spyOn(feed, "animateTo").mockResolvedValue(undefined);
-    element.shadowRoot?.querySelector<HTMLButtonElement>(".update-preview-btn")?.click();
-    await vi.waitFor(() => {
-      expect(testState.rootStore.settingsPreviewStore.acceptPreview).toHaveBeenCalledWith(
-        generated,
-      );
-    });
-
-    expect(testState.rootStore.settingsPreviewStore.preview).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ llmFilter: false }),
-    );
-  });
-
-  it("saves the switch as one undoable change and shows the prompt as typed", async () => {
-    supportFilter();
-    testState.rootStore.llmFilterStore.prompt = {
-      promptKey: "f1",
-      prompt: "be uplifting, no airplanes",
-      createdAt: "2026-11-02T10:00:00Z",
-    };
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-    await element.shadowRoot?.querySelector("llm-filter-card")?.updateComplete;
-
-    const card = element.shadowRoot?.querySelector(".filter-card");
-    expect(card?.classList.contains("inactive")).toBe(false);
-    expect(card?.querySelector(".active-prompt-text")?.textContent).toBe(
-      "be uplifting, no airplanes",
-    );
-    const remove = card?.querySelector<HTMLButtonElement>(".prompt-remove-btn");
-    expect(remove?.getAttribute("aria-label")).toBe("Remove active filter prompt");
-    expect(remove?.textContent.trim()).toBe("×");
-    const toggle = filterToggle(element);
-    expect(toggle.disabled).toBe(false);
-    expect(toggle.checked).toBe(true);
-
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-    await element.updateComplete;
-
-    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
-      "your-feed",
-      { llmFilter: false },
-      {},
-    );
-    expect(
-      element.shadowRoot?.querySelector<HTMLButtonElement>(
-        '[aria-label="Undo last settings change"]',
-      )?.disabled,
-    ).toBe(false);
   });
 });

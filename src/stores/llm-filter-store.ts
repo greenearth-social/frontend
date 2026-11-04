@@ -24,10 +24,6 @@ export class LlmFilterStore {
     makeAutoObservable(this, { root: false });
   }
 
-  get fitted(): boolean {
-    return this.prompt !== null;
-  }
-
   // Called by the preferences store once the llm-cg gate is open for this account.
   async load(accountId: string | null): Promise<void> {
     if (accountId !== this.accountId) {
