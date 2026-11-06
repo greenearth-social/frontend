@@ -104,6 +104,8 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewPolitics: number | null = null;
   @state() private previewFreshness: number | null = null;
   @state() private previewAuthorPenalty: number | null = null;
+  @state() private previewMinRankScore: number | null = null;
+  @state() private previewLlmFilterStrength: number | null = null;
   @state() private previewTopicPenalty: number | null = null;
   @state() private mobilePreviewOpen = false;
   @state() private previewPhase: PreviewPhase = "idle";
@@ -211,6 +213,8 @@ export class SettingsPage extends MobxLitElement {
       this.previewFreshness = null;
       this.previewAuthorPenalty = null;
       this.previewTopicPenalty = null;
+      this.previewMinRankScore = null;
+      this.previewLlmFilterStrength = null;
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
@@ -252,6 +256,8 @@ export class SettingsPage extends MobxLitElement {
       topicPenalty: 0.7,
       normalizeRankByGenerator: false,
       llmFilter: true,
+      minRankScore: 0.15,
+      llmFilterStrength: 0.5,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
@@ -260,6 +266,7 @@ export class SettingsPage extends MobxLitElement {
     const freshness = this.previewFreshness ?? preferences.freshness;
     const authorPenalty = this.previewAuthorPenalty ?? preferences.authorPenalty;
     const topicPenalty = this.previewTopicPenalty ?? preferences.topicPenalty;
+    const minRankScore = this.previewMinRankScore ?? preferences.minRankScore;
     const isAtDefaults = this.#isAtDefaults(preferences);
     const previewStore = getSettingsPreviewStore();
     const previewGenerating =
@@ -591,6 +598,7 @@ export class SettingsPage extends MobxLitElement {
         </div>
         <div class="source-list">
           ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
+          ${this.#renderMinRankScoreSlider()}
           ${
             this.#supportsControl("llm_filter")
               ? html`
@@ -607,11 +615,68 @@ export class SettingsPage extends MobxLitElement {
                       if (event.detail.fitted) this.#commitLlmFilter(true);
                     }}
                   ></llm-filter-card>
+                  ${this.#renderLlmFilterStrengthSlider()}
                 `
               : ""
           }
         </div>
+        ${this.#renderGeneratorStats()}
       </section>
+    `;
+  }
+
+  // Experimental, local only: per-source counts and combined-score quartiles of
+  // the preview on display. Empty until a preview has been generated.
+  #renderGeneratorStats(): TemplateResult {
+    const stats = getSettingsPreviewStore()?.displayedScoreStats ?? [];
+    if (stats.length === 0) return html``;
+    const num = (value: number | null): string => (value === null ? "–" : value.toFixed(3));
+    const floor = (
+      this.previewMinRankScore ??
+      getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).minRankScore ??
+      0.15
+    ).toFixed(2);
+    return html`
+      <div class="cg-stats">
+        <div class="cg-stats-title">
+          Preview by source · combined score = models × politics × filter, before the floor (${floor})
+          ${this.#helpButton("cg_stats", "Preview by source")}
+        </div>
+        <table class="cg-stats-table">
+          <thead>
+            <tr>
+              <th class="cg-stats-name">source</th>
+              <th title="returned by the generator">got</th>
+              <th title="reached the ranker after merge">ranked</th>
+              <th title="survived min rank score">≥ floor</th>
+              <th title="in the final slate">served</th>
+              <th class="cg-stats-sep">min</th>
+              <th>q1</th>
+              <th>med</th>
+              <th>q3</th>
+              <th>max</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.map(
+              (s) => html`
+                <tr>
+                  <td class="cg-stats-name">${s.name}</td>
+                  <td>${s.retrieved}</td>
+                  <td>${s.ranked}</td>
+                  <td>${s.afterFloor}</td>
+                  <td>${s.served}</td>
+                  <td class="cg-stats-sep">${num(s.min)}</td>
+                  <td>${num(s.q1)}</td>
+                  <td>${num(s.median)}</td>
+                  <td>${num(s.q3)}</td>
+                  <td>${num(s.max)}</td>
+                </tr>
+              `,
+            )}
+          </tbody>
+        </table>
+      </div>
     `;
   }
 
@@ -777,6 +842,8 @@ export class SettingsPage extends MobxLitElement {
     this.previewFreshness = null;
     this.previewAuthorPenalty = null;
     this.previewTopicPenalty = null;
+    this.previewMinRankScore = null;
+    this.previewLlmFilterStrength = null;
     this.sourceStartWeights = null;
     this.previewNeeded = true;
     this.settingsRevision++;
@@ -1027,6 +1094,64 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  // Experimental, local only: the rank-score floor (SlateCutoffs.min_rank_score) as a slider.
+  #renderMinRankScoreSlider(): TemplateResult {
+    if (!this.#supportsControl("min_rank_score")) return html``;
+    const stored =
+      getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).minRankScore ?? 0.15;
+    const value = this.previewMinRankScore ?? stored;
+    return html`
+      <div class="balance-row">
+        <icon-range-slider
+          min="0"
+          max="1"
+          step="0.01"
+          .value=${value}
+          .icons=${LIFECYCLE_ICONS}
+          .valueText=${`Min rank score ${value.toFixed(2)}`}
+          ariaLabel="Min rank score"
+          ?disabled=${this.#settingsBusy()}
+          @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+            this.previewMinRankScore = event.detail.value;
+          }}
+          @slider-change=${(event: CustomEvent<{ value: number }>) => {
+            this.#commitMinRankScore(event.detail.value);
+          }}
+        ></icon-range-slider>
+        ${this.#helpButton("min_rank_score", "Min rank score")}
+      </div>
+    `;
+  }
+
+  // Experimental, local only: the multiplier a perfect filter match earns.
+  #renderLlmFilterStrengthSlider(): TemplateResult {
+    if (!this.#supportsControl("llm_filter_strength")) return html``;
+    const stored =
+      getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).llmFilterStrength ?? 0.5;
+    const value = this.previewLlmFilterStrength ?? stored;
+    return html`
+      <div class="balance-row">
+        <icon-range-slider
+          min="0"
+          max="1"
+          step="0.05"
+          .value=${value}
+          .icons=${LIFECYCLE_ICONS}
+          .valueText=${`Filter weight ${value.toFixed(2)}: 0 = ranker only, 1 = prompt match only`}
+          ariaLabel="Filter weight"
+          ?disabled=${this.#settingsBusy()}
+          @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+            this.previewLlmFilterStrength = event.detail.value;
+          }}
+          @slider-change=${(event: CustomEvent<{ value: number }>) => {
+            this.#commitLlmFilterStrength(event.detail.value);
+          }}
+        ></icon-range-slider>
+        ${this.#helpButton("llm_filter_strength", "Filter weight")}
+      </div>
+    `;
+  }
+
   #renderDiversificationSection(authorPenalty: number, topicPenalty: number): TemplateResult {
     return html`
       <section class="section section-diversification">
@@ -1133,6 +1258,22 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  // The small "?" used next to the experimental controls (same look as the balance switch's).
+  #helpButton(nodeId: string, label: string): TemplateResult {
+    return html`
+      <button
+        class="balance-help"
+        type="button"
+        aria-label=${`Learn more about ${label}`}
+        @click=${() => {
+          this.#openNode(nodeId);
+        }}
+      >
+        <span class="question-icon" aria-hidden="true">?</span>
+      </button>
+    `;
+  }
+
   #titleButton(nodeId: string, label: string, questionFirst = false): TemplateResult {
     return html`
       <button
@@ -1207,6 +1348,18 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
+      this.#supportsControl("min_rank_score") &&
+      preferences.minRankScore !== DEFAULT_PREFERENCES.minRankScore
+    ) {
+      return false;
+    }
+    if (
+      this.#supportsControl("llm_filter_strength") &&
+      preferences.llmFilterStrength !== DEFAULT_PREFERENCES.llmFilterStrength
+    ) {
+      return false;
+    }
+    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -1236,6 +1389,8 @@ export class SettingsPage extends MobxLitElement {
     this.previewFreshness = null;
     this.previewAuthorPenalty = null;
     this.previewTopicPenalty = null;
+    this.previewMinRankScore = null;
+    this.previewLlmFilterStrength = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
     this.isResetting = true;
@@ -1343,6 +1498,24 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ topicPenalty: current }, { topicPenalty: value });
   }
 
+  #commitLlmFilterStrength(value: number): void {
+    this.previewLlmFilterStrength = null;
+    if (!this.#supportsControl("llm_filter_strength")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).llmFilterStrength;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ llmFilterStrength: current }, { llmFilterStrength: value });
+  }
+
+  #commitMinRankScore(value: number): void {
+    this.previewMinRankScore = null;
+    if (!this.#supportsControl("min_rank_score")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).minRankScore;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange({ minRankScore: current }, { minRankScore: value });
+  }
+
   #commitNormalizeRankByGenerator(enabled: boolean): void {
     if (!this.#supportsControl("normalize_rank_by_generator")) return;
     const current = getRootStore()?.preferencesStore.valuesFor(
@@ -1363,6 +1536,10 @@ export class SettingsPage extends MobxLitElement {
       patch.normalizeRankByGenerator = values.normalizeRankByGenerator;
     }
     if (this.#supportsControl("llm_filter")) patch.llmFilter = values.llmFilter;
+    if (this.#supportsControl("min_rank_score")) patch.minRankScore = values.minRankScore;
+    if (this.#supportsControl("llm_filter_strength")) {
+      patch.llmFilterStrength = values.llmFilterStrength;
+    }
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {

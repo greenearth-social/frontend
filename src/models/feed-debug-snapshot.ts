@@ -10,6 +10,21 @@ export interface FeedSummary {
   generatorDiagnostics: GeneratorDiagnostic[];
 }
 
+// Experimental, local only: per-generator counts and combined-score quartiles
+// of a settings preview (api documents.GeneratorScoreStats).
+export interface GeneratorScoreStats {
+  name: string;
+  retrieved: number;
+  ranked: number;
+  afterFloor: number;
+  served: number;
+  min: number | null;
+  q1: number | null;
+  median: number | null;
+  q3: number | null;
+  max: number | null;
+}
+
 export interface GeneratorDiagnostic {
   name: string;
   weight: number;
@@ -54,6 +69,14 @@ export interface PoliticsAdjustmentView {
   scoreAfter: number;
 }
 
+// Experimental, local only: the LLM filter's per-post numbers.
+export interface FilterAdjustmentView {
+  weight: number;
+  filterScore: number | null;
+  scoreBefore: number;
+  scoreAfter: number;
+}
+
 export interface ApiFeedItem {
   atUri: string;
   rank: number | null;
@@ -65,6 +88,7 @@ export interface ApiFeedItem {
   generators: GeneratorView[];
   modelScores: ModelScoreView[];
   politicsAdjustment?: PoliticsAdjustmentView | null;
+  filterAdjustment?: FilterAdjustmentView | null;
   diversification: DiversificationView | null;
   media: ApiMediaView | null;
   engagement: ApiEngagementView | null;
@@ -79,6 +103,7 @@ export interface FeedDetailResponse {
   items: ApiFeedItem[] | null | undefined;
   filteringCounts: FilteringCounts;
   generatorDiagnostics?: GeneratorDiagnostic[];
+  generatorScoreStats?: GeneratorScoreStats[];
 }
 
 export interface FilteringCounts {
@@ -112,6 +137,7 @@ export interface FeedItemView {
   afterRankPosition: number | null;
   modelScores: ModelScoreView[];
   politicsAdjustment?: PoliticsAdjustmentView | null;
+  filterAdjustment?: FilterAdjustmentView | null;
   diversification: DiversificationView | null;
   replyCount: number;
   repostCount: number;
@@ -155,6 +181,7 @@ export function transformFeedItems(apiItems: ApiFeedItem[] | null | undefined): 
     afterRankPosition: item.afterRankPosition ?? null,
     modelScores: item.modelScores,
     politicsAdjustment: item.politicsAdjustment ?? null,
+    filterAdjustment: item.filterAdjustment ?? null,
     diversification: item.diversification,
     replyCount: item.engagement?.replyCount ?? 0,
     repostCount: item.engagement?.repostCount ?? 0,

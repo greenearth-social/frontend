@@ -4,6 +4,7 @@ import type {
   FeedItemView,
   FilteringCounts,
   GeneratorDiagnostic,
+  GeneratorScoreStats,
 } from "../models/feed-debug-snapshot";
 import { transformFeedItems } from "../models/feed-debug-snapshot";
 import { emptySnapshotExplanation } from "../models/feed-empty-state";
@@ -75,6 +76,8 @@ export interface GeneratedSettingsPreview {
   items: FeedItemView[];
   filteringCounts: FilteringCounts;
   generatorDiagnostics: GeneratorDiagnostic[];
+  // Experimental: empty for served feeds, filled for generated previews.
+  generatorScoreStats: GeneratorScoreStats[];
   signature: string;
 }
 
@@ -97,6 +100,8 @@ export class SettingsPreviewStore {
   displayedItems: FeedItemView[] = [];
   baselineFilteringCounts: FilteringCounts = { ...EMPTY_FILTERING_COUNTS };
   displayedFilteringCounts: FilteringCounts = { ...EMPTY_FILTERING_COUNTS };
+  // Experimental: stats of the preview on display; empty while the baseline shows.
+  displayedScoreStats: GeneratorScoreStats[] = [];
   baselineRequestId: string | null = null;
   baselineGeneratedAt: string | null = null;
   isLoadingBaseline = false;
@@ -481,6 +486,7 @@ export class SettingsPreviewStore {
     if (preview.feedName !== this.activeFeed || preview.generation !== this.feedGeneration) return;
     this.displayedItems = preview.items;
     this.displayedFilteringCounts = preview.filteringCounts;
+    this.displayedScoreStats = [...preview.generatorScoreStats];
     this.displayRevision++;
     this.acceptanceConflict = false;
     this.error = null;
@@ -516,6 +522,7 @@ export class SettingsPreviewStore {
     if (replaceDisplayed) {
       this.displayedItems = [...items];
       this.displayedFilteringCounts = { ...filteringCounts };
+      this.displayedScoreStats = [];
       this.displayRevision++;
     }
     this.baselineRequestId = requestId;
@@ -548,6 +555,7 @@ export class SettingsPreviewStore {
       items: [...cached.items],
       filteringCounts: { ...cached.filteringCounts },
       generatorDiagnostics: [...cached.generatorDiagnostics],
+      generatorScoreStats: [...cached.generatorScoreStats],
     };
   }
 
@@ -611,6 +619,7 @@ export class SettingsPreviewStore {
       items: transformFeedItems(detail.items),
       filteringCounts: detail.filteringCounts,
       generatorDiagnostics: diagnostics,
+      generatorScoreStats: detail.generatorScoreStats ?? [],
       signature: previewSignature,
     });
   }

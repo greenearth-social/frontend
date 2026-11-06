@@ -29,6 +29,10 @@ export interface Preferences {
   normalizeRankByGenerator: boolean;
   // Whether the second prompt ("Most posts I see should: ...", api#566) ranks the feed; default on.
   llmFilter: boolean;
+  // Experimental, local only: rank-score floor, 0-1; api default 0.15.
+  minRankScore: number;
+  // Experimental, local only: blend weight of the filter match, 0 (ranker only) to 1 (match only).
+  llmFilterStrength: number;
 }
 
 export type FeedPreferences = Partial<Preferences>;

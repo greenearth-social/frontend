@@ -31,6 +31,8 @@ interface ApiPreferences {
   topic_penalty?: number;
   normalize_rank_by_generator?: boolean;
   llm_filter?: boolean;
+  min_rank_score?: number;
+  llm_filter_strength?: number;
 }
 
 interface ApiLlmPrompt {
@@ -85,6 +87,12 @@ interface ApiFeedItemResponse {
     score_before: number;
     score_after: number;
   } | null;
+  filter_adjustment?: {
+    weight: number;
+    filter_score: number | null;
+    score_before: number;
+    score_after: number;
+  } | null;
   diversification: {
     relevance: number;
     score: number;
@@ -124,6 +132,18 @@ interface ApiFeedDetailResponse {
   unavailable_count?: number;
   partial_item_count?: number;
   generator_diagnostics?: ApiFeedSummary["generator_diagnostics"];
+  generator_score_stats?: {
+    name: string;
+    retrieved: number;
+    ranked: number;
+    after_floor: number;
+    served: number;
+    min: number | null;
+    q1: number | null;
+    median: number | null;
+    q3: number | null;
+    max: number | null;
+  }[];
 }
 
 interface ApiFeedPreviewResponse {
@@ -159,6 +179,8 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
     mapped.normalizeRankByGenerator = prefs.normalize_rank_by_generator;
   }
   if (prefs.llm_filter !== undefined) mapped.llmFilter = prefs.llm_filter;
+  if (prefs.min_rank_score !== undefined) mapped.minRankScore = prefs.min_rank_score;
+  if (prefs.llm_filter_strength !== undefined) mapped.llmFilterStrength = prefs.llm_filter_strength;
   return mapped;
 }
 
@@ -182,6 +204,10 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
     serialized.normalize_rank_by_generator = prefs.normalizeRankByGenerator;
   }
   if (prefs.llmFilter !== undefined) serialized.llm_filter = prefs.llmFilter;
+  if (prefs.minRankScore !== undefined) serialized.min_rank_score = prefs.minRankScore;
+  if (prefs.llmFilterStrength !== undefined) {
+    serialized.llm_filter_strength = prefs.llmFilterStrength;
+  }
   return serialized;
 }
 
@@ -207,6 +233,14 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
           scoreMultiplier: item.politics_adjustment.score_multiplier,
           scoreBefore: item.politics_adjustment.score_before,
           scoreAfter: item.politics_adjustment.score_after,
+        }
+      : null,
+    filterAdjustment: item.filter_adjustment
+      ? {
+          weight: item.filter_adjustment.weight,
+          filterScore: item.filter_adjustment.filter_score,
+          scoreBefore: item.filter_adjustment.score_before,
+          scoreAfter: item.filter_adjustment.score_after,
         }
       : null,
     diversification: item.diversification
@@ -266,6 +300,18 @@ function mapFeedDetail(response: ApiFeedDetailResponse): FeedDetailResponse {
       status: diagnostic.status,
       reason: diagnostic.reason,
       mode: diagnostic.mode,
+    })),
+    generatorScoreStats: (response.generator_score_stats ?? []).map((s) => ({
+      name: s.name,
+      retrieved: s.retrieved,
+      ranked: s.ranked,
+      afterFloor: s.after_floor,
+      served: s.served,
+      min: s.min,
+      q1: s.q1,
+      median: s.median,
+      q3: s.q3,
+      max: s.max,
     })),
   };
 }

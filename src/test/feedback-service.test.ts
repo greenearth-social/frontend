@@ -31,6 +31,8 @@ const submission: FeedbackSubmission = {
     topicPenalty: 0.7,
     normalizeRankByGenerator: false,
     llmFilter: true,
+    minRankScore: 0.15,
+    llmFilterStrength: 0.5,
   },
   snapshot: {
     requestId: "request-1",

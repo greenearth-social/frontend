@@ -121,6 +121,27 @@ export class FeedItemCard extends MobxLitElement {
     .bluesky-btn wa-icon {
       font-size: 0.875rem;
     }
+    /* Experimental: score trail under the post text. */
+    .score-trail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.75rem;
+      margin: 0.35rem 0 0.5rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.7rem;
+      opacity: 0.85;
+    }
+    .score-trail b {
+      font-weight: 600;
+      opacity: 0.7;
+    }
+    .score-trail .st-muted {
+      opacity: 0.5;
+    }
+    .score-trail .st-final {
+      font-weight: 600;
+    }
+
     .post-content {
       font-size: 0.9375rem;
       line-height: 1.45;
@@ -199,6 +220,7 @@ export class FeedItemCard extends MobxLitElement {
         </div>
 
         <p class="post-content">${i.content}</p>
+        ${this.#renderScoreTrail()}
 
         <div class="chart-section">
           <rank-scores-chart
@@ -208,6 +230,47 @@ export class FeedItemCard extends MobxLitElement {
             .constructiveInfluence=${this.constructiveInfluence}
           ></rank-scores-chart>
         </div>
+      </div>
+    `;
+  }
+
+  // Experimental, local only: every score along the ranking path, in order.
+  #renderScoreTrail() {
+    const i = this.item;
+    if (!i || i.modelScores.length === 0) return html``;
+    const f3 = (v: number | null | undefined): string => (v == null ? "–" : v.toFixed(3));
+    const short = (name: string): string =>
+      name === "heavy_ranker" ? "HR" : name === "perspective" ? "persp" : name;
+    const totalWeight = i.modelScores.reduce((sum, m) => sum + m.weight, 0);
+    const mean =
+      totalWeight > 0
+        ? i.modelScores.reduce((sum, m) => sum + m.score * m.weight, 0) / totalWeight
+        : null;
+    const pol = i.politicsAdjustment;
+    const flt = i.filterAdjustment;
+    return html`
+      <div class="score-trail">
+        ${i.modelScores.map(
+          (m) => html`<span class="st-cell"><b>${short(m.name)}</b> ${f3(m.score)}</span>`,
+        )}
+        <span class="st-cell"><b>mean</b> ${f3(mean)}</span>
+        ${
+          pol
+            ? html`<span class="st-cell"
+                ><b>politics</b> p=${f3(pol.topicScore)} ×${pol.scoreMultiplier.toFixed(2)} →
+                ${f3(pol.scoreAfter)}</span
+              >`
+            : ""
+        }
+        ${
+          flt
+            ? html`<span class="st-cell"
+                ><b>filter</b> f=${f3(flt.filterScore)} w=${flt.weight.toFixed(2)} →
+                ${f3(flt.scoreAfter)}</span
+              >`
+            : html`<span class="st-cell st-muted"><b>filter</b> off</span>`
+        }
+        <span class="st-cell st-final"><b>final</b> ${f3(i.rankScore)}</span>
       </div>
     `;
   }

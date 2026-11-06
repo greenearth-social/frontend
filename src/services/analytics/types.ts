@@ -8,7 +8,9 @@ export type FeedControlName =
   | "author_penalty"
   | "topic_penalty"
   | "normalize_rank_by_generator"
-  | "llm_filter";
+  | "llm_filter"
+  | "min_rank_score"
+  | "llm_filter_strength";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 

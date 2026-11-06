@@ -35,6 +35,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   topicPenalty: 0.7,
   normalizeRankByGenerator: false,
   llmFilter: true,
+  minRankScore: 0.15,
+  llmFilterStrength: 0.5,
 };
 
 // The prompt source only exists on Your Feed.
@@ -49,6 +51,8 @@ const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   topic_penalty: "topicPenalty",
   normalize_rank_by_generator: "normalizeRankByGenerator",
   llm_filter: "llmFilter",
+  min_rank_score: "minRankScore",
+  llm_filter_strength: "llmFilterStrength",
 };
 
 const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
@@ -60,6 +64,8 @@ const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
   topicPenalty: "topic_penalty",
   normalizeRankByGenerator: "normalize_rank_by_generator",
   llmFilter: "llm_filter",
+  minRankScore: "min_rank_score",
+  llmFilterStrength: "llm_filter_strength",
 };
 
 const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
@@ -152,7 +158,13 @@ function numericEventProperties(
   newValues: Preferences,
 ): FeedControlEventProperties {
   const property = CONTROL_PROPERTIES[control] as
-    "freshness" | "politics" | "purpose" | "authorPenalty" | "topicPenalty";
+    | "freshness"
+    | "politics"
+    | "purpose"
+    | "authorPenalty"
+    | "topicPenalty"
+    | "minRankScore"
+    | "llmFilterStrength";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   const base: FeedControlEventProperties = {
@@ -752,6 +764,10 @@ export class PreferencesStore {
     if (this.supportsControl(feedName, "topic_penalty")) controls.push("topic_penalty");
     if (this.supportsControl(feedName, "normalize_rank_by_generator")) {
       controls.push("normalize_rank_by_generator");
+    }
+    if (this.supportsControl(feedName, "min_rank_score")) controls.push("min_rank_score");
+    if (this.supportsControl(feedName, "llm_filter_strength")) {
+      controls.push("llm_filter_strength");
     }
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const changedControls = controls.filter((control) =>

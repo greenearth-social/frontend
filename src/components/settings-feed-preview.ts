@@ -122,6 +122,8 @@ export class SettingsFeedPreview extends LitElement {
   @state() private phase: "idle" | "fade-out" | "move" | "fade-in" = "idle";
   @state() private removedUris = new Set<string>();
   @state() private newUris = new Set<string>();
+  // Experimental, local only: show every score along the ranking path on each card.
+  @state() private showDevInfo = false;
   private isAnimating = false;
   private animationOperation = 0;
   private activeAnimations = new Set<Animation>();
@@ -147,6 +149,46 @@ export class SettingsFeedPreview extends LitElement {
       display: grid;
       gap: 0.5rem;
       padding: 0.75rem;
+    }
+
+    /* Experimental: dev info toggle; cards grow to fit the trail while it is on. */
+    .dev-toggle {
+      display: inline-flex;
+      align-items: center;
+      margin: 0.75rem 0 0 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border: 1px solid var(--text-secondary, #8b98a5);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-secondary, #8b98a5);
+      font-size: 0.65rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .dev-toggle.on {
+      border-color: #fcd34d;
+      color: #fcd34d;
+    }
+
+    .feed.dev-info .card {
+      max-height: none;
+    }
+
+    .trail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem 0.75rem;
+      margin-top: 0.4rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #c7d0d9;
+    }
+
+    .trail b {
+      font-weight: 650;
+      color: var(--text-primary, #e7e9ea);
     }
 
     .pagination {
@@ -563,7 +605,17 @@ export class SettingsFeedPreview extends LitElement {
     const totalPages = this.totalPagesFor(this.currentSlate);
     const paginationDisabled = this.loading || this.phase !== "idle";
     return html`
-      <div class="feed ${this.phase}" aria-live="polite">
+      <button
+        class="dev-toggle ${this.showDevInfo ? "on" : ""}"
+        type="button"
+        aria-pressed=${this.showDevInfo}
+        @click=${() => {
+          this.showDevInfo = !this.showDevInfo;
+        }}
+      >
+        dev info ${this.showDevInfo ? "on" : "off"}
+      </button>
+      <div class="feed ${this.phase} ${this.showDevInfo ? "dev-info" : ""}" aria-live="polite">
         ${repeat(
           this.renderedItems,
           (item) => item.atUri,
@@ -619,6 +671,50 @@ export class SettingsFeedPreview extends LitElement {
     this.renderedItems = this.pageItems(this.currentSlate, nextPage);
   }
 
+  // Experimental, local only: HR, perspective, mean, politics, filter, final, per card.
+  private renderTrail(item: FeedItemView) {
+    const f3 = (v: number | null | undefined): string => (v == null ? "–" : v.toFixed(3));
+    const short = (name: string): string =>
+      name === "heavy_ranker" ? "HR" : name === "perspective" ? "persp" : name;
+    const totalWeight = item.modelScores.reduce((sum, m) => sum + m.weight, 0);
+    const mean =
+      totalWeight > 0
+        ? item.modelScores.reduce((sum, m) => sum + m.score * m.weight, 0) / totalWeight
+        : null;
+    const pol = item.politicsAdjustment;
+    const flt = item.filterAdjustment;
+    const gens = item.generators.map((g) => g.name).join("+");
+    return html`
+      <div class="trail">
+        <span><b>src</b> ${gens || "–"}</span>
+        ${item.modelScores.map((m) => html`<span><b>${short(m.name)}</b> ${f3(m.score)}</span>`)}
+        <span><b>mean</b> ${f3(mean)}</span>
+        ${
+          pol
+            ? html`<span
+                ><b>politics</b> p=${f3(pol.topicScore)} ×${pol.scoreMultiplier.toFixed(2)} →
+                ${f3(pol.scoreAfter)}</span
+              >`
+            : nothing
+        }
+        ${
+          flt
+            ? html`<span
+                ><b>filter</b> f=${f3(flt.filterScore)} w=${flt.weight.toFixed(2)} →
+                ${f3(flt.scoreAfter)}</span
+              >`
+            : html`<span><b>filter</b> off</span>`
+        }
+        <span><b>final</b> ${f3(item.rankScore)}</span>
+        ${
+          item.diversification
+            ? html`<span><b>mmr</b> ${f3(item.diversification.score)}</span>`
+            : nothing
+        }
+      </div>
+    `;
+  }
+
   private renderCard(item: FeedItemView) {
     const source = generatorPresentation(item.generators[0]?.name);
     const contentLabels = countedMediaLabels(item);
@@ -665,6 +761,7 @@ export class SettingsFeedPreview extends LitElement {
             </div>`
           : nothing
       }
+      ${this.showDevInfo ? this.renderTrail(item) : nothing}
     `;
     const className = `card ${item.isPartial ? "partial" : ""} ${this.removedUris.has(item.atUri) ? "removed" : ""} ${this.newUris.has(item.atUri) ? "new" : ""}`;
     const style = `--source-border:${source.border};--source-color:${source.color};--removal-delay:${String(removalDelay)}ms;--reveal-delay:${String(revealDelay)}ms`;

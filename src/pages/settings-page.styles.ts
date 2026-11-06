@@ -483,6 +483,48 @@ export const settingsPageStyles = css`
     color: #fcd34d;
   }
 
+  /* Experimental: per-source preview stats table. */
+  .cg-stats {
+    margin-top: 0.75rem;
+    overflow-x: auto;
+  }
+
+  .cg-stats-title {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.75;
+    margin-bottom: 0.35rem;
+  }
+
+  .cg-stats-table {
+    border-collapse: collapse;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .cg-stats-table th,
+  .cg-stats-table td {
+    padding: 0.2rem 0.55rem;
+    text-align: right;
+  }
+
+  .cg-stats-table th {
+    font-weight: 600;
+    opacity: 0.7;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .cg-stats-table .cg-stats-name {
+    text-align: left;
+  }
+
+  .cg-stats-table .cg-stats-sep {
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
   /* Sliding on/off switch over a native checkbox (components/toggle-switch.ts). */
   .ge-switch {
     position: relative;

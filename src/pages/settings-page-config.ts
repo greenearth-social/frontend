@@ -111,6 +111,24 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     description:
       "Describe what most of your feed should be like and the ranking moves the posts that fit up, whichever source found them. It is simply on or off. Unlike the Prompt source, it cannot bring in posts the other sources did not already find.",
   },
+  min_rank_score: {
+    label: "Min rank score (experimental)",
+    type: "config",
+    description:
+      "Every post gets one combined score: the ranking models' average, times the politics multiplier, times the filter multiplier. Posts below this floor are dropped before diversification. The feed is empty when nothing clears it (no fallback on this branch). Normal value 0.15.",
+  },
+  llm_filter_strength: {
+    label: "Filter weight (experimental)",
+    type: "config",
+    description:
+      "Blends the ranker's score with how well the post fits your filter prompt (0 to 1): score = (1 − w) × ranker + w × match. At 0 the prompt is ignored, at 1 the feed is ordered by prompt match alone. Default 0.5.",
+  },
+  cg_stats: {
+    label: "Preview by source (experimental)",
+    type: "config",
+    description:
+      "Per source: posts it returned, how many reached the ranker after duplicates merged, how many cleared the floor, how many ended up in the slate; then the five-number summary of their combined score before the floor. A post found by two sources counts under the first.",
+  },
   politics: {
     label: "Politics",
     type: "config",
