@@ -36,33 +36,30 @@ function generatorLabel(name: string): string {
 }
 
 // Names everything that decides which posts a preview shows, so a saved
-// preview can only be reused for the same account, feed, prompt and settings.
+// preview can only be reused for the same account, feed, prompts and settings.
+// The whole patch goes in, keys sorted, so a new control is covered the day it
+// exists: a hand-kept field list here has twice let a slider move reuse a
+// preview the api then rejected as stale (#572's normalize flag, #566's filter).
 function signature(
   accountId: string | null,
   feedName: AlgorithmId,
   promptKey: string | null,
+  filterPromptKey: string | null,
   patch: FeedPreferences,
 ): string {
-  return JSON.stringify({
-    accountId,
-    feedName,
-    promptKey,
-    sourceWeights: patch.sourceWeights
-      ? {
-          following: patch.sourceWeights.following,
-          networkLikes: patch.sourceWeights.networkLikes,
-          authorsTopics: patch.sourceWeights.authorsTopics,
-          popular: patch.sourceWeights.popular,
-          llm: patch.sourceWeights.llm,
-        }
-      : undefined,
-    freshness: patch.freshness,
-    politics: patch.politics,
-    purpose: patch.purpose,
-    authorPenalty: patch.authorPenalty,
-    topicPenalty: patch.topicPenalty,
-    normalizeRankByGenerator: patch.normalizeRankByGenerator,
-  });
+  return stableStringify({ accountId, feedName, promptKey, filterPromptKey, patch });
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  const record = value as Record<string, unknown>;
+  const entries = Object.keys(record)
+    .sort()
+    .filter((key) => record[key] !== undefined)
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`);
+  return `{${entries.join(",")}}`;
 }
 
 function sameSlate(a: FeedItemView[], b: FeedItemView[]): boolean {
@@ -389,6 +386,7 @@ export class SettingsPreviewStore {
       this.accountId,
       feedName,
       this.root.preferencesStore.llmPrompt?.promptKey ?? null,
+      this.root.llmFilterStore.prompt?.promptKey ?? null,
       patch,
     );
     const generation = this.feedGeneration;

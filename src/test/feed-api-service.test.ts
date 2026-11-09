@@ -734,3 +734,59 @@ describe("FeedApiService", () => {
     });
   });
 });
+
+describe("FeedApiService filter prompt (api#566)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads, fits and removes the filter prompt under role=filter", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          prompt_key: "f1",
+          prompt: "be uplifting",
+          created_at: "2026-11-02T10:00:00Z",
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ vector_id: "f2" }))
+      .mockResolvedValueOnce(jsonResponse({ llm_filter: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.getLlmPrompt("filter")).resolves.toEqual({
+      enabled: true,
+      prompt: {
+        promptKey: "f1",
+        prompt: "be uplifting",
+        createdAt: "2026-11-02T10:00:00Z",
+      },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/llm-query-vectors/current?role=filter");
+
+    await expect(service.fitLlmPrompt("be funny", "filter")).resolves.toMatchObject({
+      promptKey: "f2",
+      prompt: "be funny",
+    });
+    const init = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ prompt: "be funny", role: "filter" });
+
+    await expect(service.removeLlmPrompt("f1", "filter")).resolves.toEqual({ llmFilter: true });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      "/api/feeds/llm-query-vectors/current?prompt_key=f1&role=filter",
+    );
+  });
+
+  it("round-trips the llm_filter preference", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ llm_filter: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = new FeedApiService("", () => Promise.resolve("token"));
+
+    await expect(service.patchPreferences("your-feed", { llmFilter: false })).resolves.toEqual({
+      llmFilter: false,
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ llm_filter: false });
+  });
+});

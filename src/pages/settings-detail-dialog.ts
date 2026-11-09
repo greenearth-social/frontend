@@ -9,6 +9,7 @@ interface SettingsDetailDialogOptions {
   weights: SourceWeights;
   purpose: number;
   politics: number;
+  llmFilter: boolean;
   freshness: number;
   selectedAlgorithm: AlgorithmId;
   onClose: () => void;
@@ -30,7 +31,7 @@ function metrics(values: Array<[string, string]>): TemplateResult {
 }
 
 function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
-  const { nodeId, weights, purpose, politics, freshness, selectedAlgorithm } = options;
+  const { nodeId, weights, purpose, politics, llmFilter, freshness, selectedAlgorithm } = options;
   if (nodeId === "time_window") {
     return metrics([["Current", FRESHNESS_PRESETS[freshness]?.label ?? "7d"]]);
   }
@@ -54,6 +55,7 @@ function popupValues(options: SettingsDetailDialogOptions): TemplateResult {
     return metrics([["Weight", `${String(Math.round(purpose * 100))}%`]]);
   }
   if (nodeId === "politics") return metrics([["Current", formatPolitics(politics)]]);
+  if (nodeId === "llm_filter") return metrics([["Current", llmFilter ? "On" : "Off"]]);
   return html``;
 }
 

@@ -50,6 +50,7 @@ const preferences: Preferences = {
   authorPenalty: 0.7,
   topicPenalty: 0.7,
   normalizeRankByGenerator: false,
+  llmFilter: true,
 };
 
 describe("AuthStore account changes", () => {

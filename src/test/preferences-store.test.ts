@@ -47,6 +47,7 @@ function makeStore(
       },
       analyticsService: { capture },
     },
+    llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
   } as unknown as RootStore;
   return { store: new PreferencesStore(root), capture };
 }
@@ -249,7 +250,7 @@ describe("PreferencesStore.load", () => {
     expect(store.supportsControl("best-of-friends", "normalize_rank_by_generator")).toBe(false);
   });
 
-  it("saves the Balance sources toggle and reports it as an on/off change", async () => {
+  it("saves the Normalize score by CG toggle and reports it as an on/off change", async () => {
     const patch = vi.fn().mockResolvedValue({ normalizeRankByGenerator: true });
     const { store, capture } = makeStore(patch);
     await store.load();
@@ -272,7 +273,7 @@ describe("PreferencesStore.load", () => {
     );
   });
 
-  it("includes the Balance sources toggle in restore defaults when the feed exposes it", async () => {
+  it("includes the Normalize score by CG toggle in restore defaults when the feed exposes it", async () => {
     const patch = vi
       .fn()
       .mockImplementation((_feed: AlgorithmId, values: FeedPreferences) => Promise.resolve(values));
@@ -520,6 +521,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -549,6 +551,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -576,6 +579,7 @@ describe("PreferencesStore.load", () => {
           getLlmPrompt: vi.fn().mockResolvedValue({ enabled: true, prompt: null }),
         },
       },
+      llmFilterStore: { load: vi.fn().mockResolvedValue(undefined) },
     } as unknown as RootStore;
     const store = new PreferencesStore(root);
 
@@ -1174,5 +1178,23 @@ describe("PreferencesStore.restoreDefaults", () => {
       purpose: 0.65,
     });
     consoleError.mockRestore();
+  });
+});
+
+describe("PreferencesStore and the filter prompt (api#566)", () => {
+  it("asks the filter store to load only once the llm-cg gate says yes", async () => {
+    const { store } = makeStore(vi.fn());
+    store.activateAccount("acct-1");
+    await store.load();
+    await Promise.resolve();
+    expect(store.root.llmFilterStore.load).toHaveBeenCalledWith("acct-1");
+
+    const off = makeStore(vi.fn());
+    off.store.root.services.feedApiService.getLlmPrompt = vi
+      .fn()
+      .mockResolvedValue({ enabled: false });
+    await off.store.load();
+    await Promise.resolve();
+    expect(off.store.root.llmFilterStore.load).not.toHaveBeenCalled();
   });
 });
