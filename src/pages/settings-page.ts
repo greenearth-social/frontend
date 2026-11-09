@@ -244,6 +244,7 @@ export class SettingsPage extends MobxLitElement {
       politics: 0.5,
       authorPenalty: 0.7,
       topicPenalty: 0.7,
+      normalizeRankByGenerator: false,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
@@ -365,6 +366,17 @@ export class SettingsPage extends MobxLitElement {
                               ${this.#renderRankingSection(purpose, politics)}
                               ${this.#renderArrow()}
                               ${this.#renderDiversificationSection(authorPenalty, topicPenalty)}
+                              ${
+                                this.#showFeaturesInProgress()
+                                  ? html`
+                                      ${this.#renderArrow()}
+                                      ${this.#renderFeaturesInProgressSection(
+                                        weights,
+                                        preferences.normalizeRankByGenerator,
+                                      )}
+                                    `
+                                  : ""
+                              }
                             `
                       }
                     </div>
@@ -373,7 +385,6 @@ export class SettingsPage extends MobxLitElement {
                       surface="controls"
                       .selectedFeed=${this.selectedAlgorithm}
                       prompt="Want to change something or learn more? Tell us!"
-                      placeholder="Share your settings feedback or questions"
                     ></feedback-form>
                   `
             }
@@ -527,11 +538,6 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <div class="sources-layout">
         <div class="source-list">
-          ${
-            getRootStore()?.preferencesStore.llmCgEnabled
-              ? this.#renderSourceControl("llm", "llm", "Prompt", weights)
-              : ""
-          }
           ${this.#renderSourceControl("following", "following", "Following", weights)}
           ${this.#renderSourceControl(
             "networkLikes",
@@ -548,6 +554,67 @@ export class SettingsPage extends MobxLitElement {
           ${this.#renderSourceControl("popular", "popular", "Popular", weights)}
         </div>
       </div>
+    `;
+  }
+
+  // The llm-cg cohort flag gates the whole box, so the people who have the
+  // Prompt source today are the people who see the experiments.
+  #showFeaturesInProgress(): boolean {
+    return (
+      this.selectedAlgorithm === LLM_PROMPT_FEED &&
+      (getRootStore()?.preferencesStore.llmCgEnabled ?? false)
+    );
+  }
+
+  #renderFeaturesInProgressSection(
+    weights: SourceWeights,
+    normalizeRankByGenerator: boolean,
+  ): TemplateResult {
+    return html`
+      <section class="section section-features">
+        <div class="section-heading">
+          <h2 class="section-title">Features in progress (visible to team only)</h2>
+          <button
+            class="section-info-btn"
+            type="button"
+            aria-label="Learn more about features in progress"
+            @click=${() => {
+              this.#openNode("features_in_progress");
+            }}
+          >
+            <span class="question-icon" aria-hidden="true">?</span>
+          </button>
+        </div>
+        <div class="source-list">
+          ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
+          ${
+            this.#supportsControl("normalize_rank_by_generator")
+              ? html`
+                  <div class="control-card feature-toggle-card">
+                    ${this.#titleButton("balance_sources", "Balance sources")}
+                    <label class="feature-toggle">
+                      <input
+                        class="feature-toggle-input"
+                        type="checkbox"
+                        aria-label="Balance sources in ranking"
+                        .checked=${normalizeRankByGenerator}
+                        ?disabled=${this.#settingsBusy()}
+                        @change=${(event: Event) => {
+                          this.#commitNormalizeRankByGenerator(
+                            (event.target as HTMLInputElement).checked,
+                          );
+                        }}
+                      />
+                      <span class="feature-toggle-text">
+                        Grade each source on its own curve so none is crowded out
+                      </span>
+                    </label>
+                  </div>
+                `
+              : ""
+          }
+        </div>
+      </section>
     `;
   }
 
@@ -1091,6 +1158,12 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
+      this.#supportsControl("normalize_rank_by_generator") &&
+      preferences.normalizeRankByGenerator !== DEFAULT_PREFERENCES.normalizeRankByGenerator
+    ) {
+      return false;
+    }
+    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -1220,10 +1293,25 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ topicPenalty: current }, { topicPenalty: value });
   }
 
+  #commitNormalizeRankByGenerator(enabled: boolean): void {
+    if (!this.#supportsControl("normalize_rank_by_generator")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).normalizeRankByGenerator;
+    if (current === undefined || current === enabled) return;
+    void this.#applyImmediateChange(
+      { normalizeRankByGenerator: current },
+      { normalizeRankByGenerator: enabled },
+    );
+  }
+
   #settingsPatch(values: Preferences): FeedPreferences {
     const patch: FeedPreferences = { freshness: values.freshness };
     if (this.#supportsControl("author_penalty")) patch.authorPenalty = values.authorPenalty;
     if (this.#supportsControl("topic_penalty")) patch.topicPenalty = values.topicPenalty;
+    if (this.#supportsControl("normalize_rank_by_generator")) {
+      patch.normalizeRankByGenerator = values.normalizeRankByGenerator;
+    }
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {

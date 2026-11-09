@@ -25,6 +25,8 @@ export interface Preferences {
   purpose: number; // 0-1
   authorPenalty: number; // 0-1; default 0.7
   topicPenalty: number; // 0-1; default 0.7
+  // Grade each source's rank scores on its own curve (api#572); default off.
+  normalizeRankByGenerator: boolean;
 }
 
 export type FeedPreferences = Partial<Preferences>;

@@ -19,6 +19,7 @@ const loaded: FeedPreferencesByFeed = {
     purpose: 0.5,
     authorPenalty: 0.2,
     topicPenalty: 0.8,
+    normalizeRankByGenerator: false,
   },
   "best-of-friends": {
     freshness: 3,
@@ -243,6 +244,48 @@ describe("PreferencesStore.load", () => {
     expect(store.supportsControl("your-feed", "politics")).toBe(true);
     expect(store.supportsControl("best-of-friends", "politics")).toBe(true);
     expect(store.supportsControl("random", "politics")).toBe(false);
+    expect(store.valuesFor("your-feed").normalizeRankByGenerator).toBe(false);
+    expect(store.supportsControl("your-feed", "normalize_rank_by_generator")).toBe(true);
+    expect(store.supportsControl("best-of-friends", "normalize_rank_by_generator")).toBe(false);
+  });
+
+  it("saves the Balance sources toggle and reports it as an on/off change", async () => {
+    const patch = vi.fn().mockResolvedValue({ normalizeRankByGenerator: true });
+    const { store, capture } = makeStore(patch);
+    await store.load();
+
+    await expect(store.savePatch("your-feed", { normalizeRankByGenerator: true })).resolves.toBe(
+      true,
+    );
+
+    expect(patch).toHaveBeenCalledWith("your-feed", { normalizeRankByGenerator: true });
+    expect(store.valuesFor("your-feed").normalizeRankByGenerator).toBe(true);
+    expect(capture).toHaveBeenCalledWith(
+      "feedControlChanged",
+      expect.objectContaining({
+        control_name: "normalize_rank_by_generator",
+        previous_enabled: false,
+        new_enabled: true,
+        previous_label: "off",
+        new_label: "on",
+      }),
+    );
+  });
+
+  it("includes the Balance sources toggle in restore defaults when the feed exposes it", async () => {
+    const patch = vi
+      .fn()
+      .mockImplementation((_feed: AlgorithmId, values: FeedPreferences) => Promise.resolve(values));
+    const { store } = makeStore(patch, {
+      ...loaded,
+      "your-feed": { ...loaded["your-feed"], normalizeRankByGenerator: true },
+    });
+    await store.load();
+
+    await expect(store.restoreDefaults("your-feed")).resolves.toBe(true);
+
+    expect(patch.mock.calls.at(-1)?.[1]).toMatchObject({ normalizeRankByGenerator: false });
+    expect(store.valuesFor("your-feed").normalizeRankByGenerator).toBe(false);
   });
 
   it("keeps the prompt source off when the api says the llm-cg flag is off", async () => {

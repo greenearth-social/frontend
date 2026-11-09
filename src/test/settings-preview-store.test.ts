@@ -197,6 +197,28 @@ describe("SettingsPreviewStore", () => {
     ]);
   });
 
+  it.each([
+    ["authorPenalty", { authorPenalty: 0.2 }, { authorPenalty: 0.9 }],
+    ["topicPenalty", { topicPenalty: 0.2 }, { topicPenalty: 0.9 }],
+    [
+      "normalizeRankByGenerator",
+      { normalizeRankByGenerator: false },
+      { normalizeRankByGenerator: true },
+    ],
+  ])("generates a new preview when %s changes", async (_control, before, after) => {
+    const { root, createFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const base = { freshness: 2, purpose: 0.4, politics: 0 };
+
+    await store.preview({ ...base, ...before });
+    await store.preview({ ...base, ...before });
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+
+    await store.preview({ ...base, ...after });
+    expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
   it("generates again for the same settings once the prompt changes", async () => {
     const { root, preferencesStore, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);

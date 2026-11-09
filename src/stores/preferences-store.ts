@@ -33,6 +33,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   purpose: 0.5,
   authorPenalty: 0.7,
   topicPenalty: 0.7,
+  normalizeRankByGenerator: false,
 };
 
 // The prompt source only exists on Your Feed.
@@ -45,6 +46,7 @@ const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   purpose: "purpose",
   author_penalty: "authorPenalty",
   topic_penalty: "topicPenalty",
+  normalize_rank_by_generator: "normalizeRankByGenerator",
 };
 
 const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
@@ -54,6 +56,7 @@ const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
   purpose: "purpose",
   authorPenalty: "author_penalty",
   topicPenalty: "topic_penalty",
+  normalizeRankByGenerator: "normalize_rank_by_generator",
 };
 
 const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
@@ -120,8 +123,25 @@ function controlChanged(
   return previous[CONTROL_PROPERTIES[control]] !== next[CONTROL_PROPERTIES[control]];
 }
 
+function booleanEventProperties(
+  control: "normalize_rank_by_generator",
+  previousValues: Preferences,
+  newValues: Preferences,
+): FeedControlEventProperties {
+  const property = CONTROL_PROPERTIES[control] as "normalizeRankByGenerator";
+  const previousValue = previousValues[property];
+  const newValue = newValues[property];
+  return {
+    control_name: control,
+    previous_enabled: previousValue,
+    new_enabled: newValue,
+    previous_label: previousValue ? "on" : "off",
+    new_label: newValue ? "on" : "off",
+  };
+}
+
 function numericEventProperties(
-  control: Exclude<FeedControlName, "source_weights">,
+  control: Exclude<FeedControlName, "source_weights" | "normalize_rank_by_generator">,
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
@@ -168,6 +188,9 @@ function controlEventProperties(
   newValues: Preferences,
   origin?: SourceWeightChangeOrigin,
 ): FeedControlEventProperties {
+  if (control === "normalize_rank_by_generator") {
+    return booleanEventProperties(control, previousValues, newValues);
+  }
   if (control !== "source_weights") {
     return numericEventProperties(control, previousValues, newValues);
   }
@@ -484,7 +507,7 @@ export class PreferencesStore {
   async save(
     feedName: AlgorithmId,
     control: FeedControlName,
-    value: number | SourceWeights,
+    value: number | boolean | SourceWeights,
     origin?: SourceWeightChangeOrigin,
   ): Promise<void> {
     if (feedName === LLM_PROMPT_FEED && (this.isRemovingLlmPrompt || this.isRefreshingLlmPrompt))
@@ -492,7 +515,7 @@ export class PreferencesStore {
     const property = CONTROL_PROPERTIES[control];
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const normalizedValue =
-      control === "source_weights" ? { ...(value as SourceWeights) } : (value as number);
+      control === "source_weights" ? { ...(value as SourceWeights) } : (value as number | boolean);
     const optimisticValues = {
       ...previousValues,
       [property]: normalizedValue,
@@ -719,6 +742,9 @@ export class PreferencesStore {
     if (this.supportsControl(feedName, "politics")) controls.push("politics");
     if (this.supportsControl(feedName, "author_penalty")) controls.push("author_penalty");
     if (this.supportsControl(feedName, "topic_penalty")) controls.push("topic_penalty");
+    if (this.supportsControl(feedName, "normalize_rank_by_generator")) {
+      controls.push("normalize_rank_by_generator");
+    }
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const changedControls = controls.filter((control) =>
       controlChanged(control, previousValues, DEFAULT_PREFERENCES),
@@ -736,7 +762,7 @@ export class PreferencesStore {
       const normalizedDefault =
         control === "source_weights"
           ? { ...(defaultValue as SourceWeights) }
-          : (defaultValue as number);
+          : (defaultValue as number | boolean);
       Object.assign(optimisticValues, { [property]: normalizedDefault });
       Object.assign(patch, { [property]: normalizedDefault });
       this.saveVersions[`${feedName}:${control}`] = version;
