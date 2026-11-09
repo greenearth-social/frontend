@@ -19,42 +19,51 @@ vi.mock("../main", () => ({
 
 import "../components/feed-item-card";
 
-describe("FeedItemCard analytics", () => {
+describe("FeedItemCard", () => {
   beforeEach(() => {
     vi.useRealTimers();
     document.body.replaceChildren();
     testState.rootStore.services.analyticsService.capture.mockReset();
   });
 
-  it("captures an outbound Bluesky post click without post content", async () => {
-    const items = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
-    const item = items.find((candidate) => candidate.postUrl !== null);
-    if (!item) throw new Error("Fixture has no Bluesky post URL");
-    const element = document.createElement("feed-item-card");
-    element.item = item;
-    document.body.appendChild(element);
-    await element.updateComplete;
+  it.each([".bluesky-btn", ".media-tile"])(
+    "captures a click on %s once without post content",
+    async (selector) => {
+      const items = transformFeedItems(
+        (sampleFixture as unknown as { items: ApiFeedItem[] }).items,
+      );
+      const item = items.find((candidate) => candidate.postUrl !== null);
+      if (!item) throw new Error("Fixture has no Bluesky post URL");
+      const element = document.createElement("feed-item-card");
+      element.item = item;
+      document.body.appendChild(element);
+      await element.updateComplete;
 
-    const link = element.shadowRoot?.querySelector<HTMLAnchorElement>(".bluesky-btn");
-    link?.addEventListener("click", (event) => {
-      event.preventDefault();
-    });
-    link?.click();
+      const link = element.shadowRoot?.querySelector<HTMLAnchorElement>(selector);
+      expect(link?.href).toBe(item.postUrl);
+      expect(link?.target).toBe("_blank");
+      expect(link?.rel).toBe("noopener noreferrer");
+      link?.addEventListener("click", (event) => {
+        event.preventDefault();
+      });
+      link?.click();
 
-    expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
-      "postOpenedInBluesky",
-      {
-        item_uri: item.atUri,
-        feed_name: "your-feed",
-        final_position: item.finalPosition,
-      },
-    );
-    expect(
-      JSON.stringify(testState.rootStore.services.analyticsService.capture.mock.calls),
-    ).not.toContain(item.content);
-  });
+      expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledTimes(1);
+      expect(testState.rootStore.services.analyticsService.capture).toHaveBeenCalledWith(
+        "postOpenedInBluesky",
+        {
+          item_uri: item.atUri,
+          feed_name: "your-feed",
+          final_position: item.finalPosition,
+        },
+      );
+      expect(
+        JSON.stringify(testState.rootStore.services.analyticsService.capture.mock.calls),
+      ).not.toContain(item.content);
+    },
+  );
 
-  it("shows a compact post age and counted media labels", async () => {
+  it("shows a compact post age and non-image media labels", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-02T16:00:00Z"));
     const items = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
@@ -68,7 +77,7 @@ describe("FeedItemCard analytics", () => {
       imageUrls: ["one.jpg", "two.jpg"],
       videoUrl: "video.mp4",
       linkCard: { title: "Example", description: "", imageUrl: "" },
-      mediaLabels: ["image", "video", "link", "2 videos", "3 links"],
+      mediaLabels: ["image", "1 image", "2 images", "video", "link", "2 videos", "3 links"],
     };
     document.body.appendChild(element);
     await element.updateComplete;
@@ -81,7 +90,7 @@ describe("FeedItemCard analytics", () => {
       Array.from(element.shadowRoot?.querySelectorAll(".content-badge") ?? []).map(
         (badge) => badge.textContent,
       ),
-    ).toEqual(["2 images", "1 video", "1 link", "2 videos", "3 links"]);
+    ).toEqual(["1 video", "1 link", "2 videos", "3 links"]);
     vi.useRealTimers();
   });
 
@@ -124,5 +133,86 @@ describe("FeedItemCard analytics", () => {
         (badge) => badge.textContent,
       ),
     ).toEqual(["2 videos", "3 links"]);
+  });
+
+  it("renders every image below the author and above the ranking details", async () => {
+    const [item] = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
+    if (!item) throw new Error("Fixture has no posts");
+    const element = document.createElement("feed-item-card");
+    element.item = { ...item, imageUrls: ["one.jpg", "two.jpg", "three.jpg", "four.jpg"] };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const images = element.shadowRoot?.querySelectorAll<HTMLImageElement>(".post-image");
+    expect(images).toHaveLength(4);
+    images?.forEach((image, index) => {
+      expect(image.getAttribute("src")).toBe(element.item?.imageUrls[index]);
+      expect(image.loading).toBe("lazy");
+      expect(image.decoding).toBe("async");
+      expect(image.getAttribute("width")).toBe("640");
+      expect(image.getAttribute("height")).toBe("480");
+      expect(image.alt).toContain(`Image ${String(index + 1)} of 4`);
+      expect(image.closest("a")?.getAttribute("aria-label")).toContain("Open post");
+    });
+    expect(element.shadowRoot?.querySelector(".post-body.has-images-and-text")).not.toBeNull();
+    const sections = Array.from(element.shadowRoot?.querySelector(".card")?.children ?? []);
+    expect(sections.map((section) => section.className)).toEqual([
+      "author-row",
+      "post-body-container",
+      "chart-section",
+    ]);
+  });
+
+  it("keeps failed images linked and resets failures when the post changes", async () => {
+    const [item] = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
+    if (!item) throw new Error("Fixture has no posts");
+    const element = document.createElement("feed-item-card");
+    element.item = { ...item, imageUrls: ["one.jpg", "two.jpg"] };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.shadowRoot?.querySelector(".post-image")?.dispatchEvent(new Event("error"));
+    await element.updateComplete;
+
+    const fallback = element.shadowRoot?.querySelector(".image-unavailable");
+    expect(fallback?.textContent).toContain("Image unavailable");
+    expect(fallback?.closest("a")?.href).toBe(item.postUrl);
+    expect(element.shadowRoot?.querySelectorAll(".post-image")).toHaveLength(1);
+
+    element.item = { ...item, atUri: "at://another-post", imageUrls: ["one.jpg"] };
+    await element.updateComplete;
+    expect(element.shadowRoot?.querySelector(".image-unavailable")).toBeNull();
+    expect(element.shadowRoot?.querySelectorAll(".post-image")).toHaveLength(1);
+  });
+
+  it("shows image-only posts without an empty text column or a link when there is no post URL", async () => {
+    const [item] = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
+    if (!item) throw new Error("Fixture has no posts");
+    const element = document.createElement("feed-item-card");
+    element.item = { ...item, postUrl: null, content: "", imageUrls: ["one.jpg"] };
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".post-image")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".single-image")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".has-images-and-text")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".post-content")).toBeNull();
+    expect(element.shadowRoot?.querySelector(".media-gallery a")).toBeNull();
+  });
+
+  it("keeps text-only and video-only posts free of galleries and players", async () => {
+    const items = transformFeedItems((sampleFixture as unknown as { items: ApiFeedItem[] }).items);
+    const element = document.createElement("feed-item-card");
+    document.body.appendChild(element);
+    for (const videoUrl of [null, "video.mp4"]) {
+      const item = items[0];
+      if (!item) throw new Error("Fixture has no posts");
+      element.item = { ...item, imageUrls: [], videoUrl };
+      await element.updateComplete;
+
+      expect(element.shadowRoot?.querySelector(".post-content")?.textContent).toBe(item.content);
+      expect(element.shadowRoot?.querySelector(".has-images-and-text")).toBeNull();
+      expect(element.shadowRoot?.querySelector(".media-gallery, video, iframe")).toBeNull();
+    }
   });
 });

@@ -385,7 +385,6 @@ export class SettingsPage extends MobxLitElement {
                       surface="controls"
                       .selectedFeed=${this.selectedAlgorithm}
                       prompt="Want to change something or learn more? Tell us!"
-                      placeholder="Share your settings feedback or questions"
                     ></feedback-form>
                   `
             }
