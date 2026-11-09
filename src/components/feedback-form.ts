@@ -10,7 +10,8 @@ export class FeedbackForm extends LitElement {
   @property({ type: String }) surface: FeedbackSurface = "general";
   @property({ type: String }) selectedFeed: AlgorithmId = "your-feed";
   @property({ type: String }) prompt = "";
-  @property({ type: String }) placeholder = "Share your feedback";
+  @property({ type: String }) placeholder =
+    "Questions? Feature requests? We will reply by DM on BlueSky, or include your email.";
 
   @state() private response = "";
   @state() private isSubmitting = false;

@@ -101,7 +101,6 @@ export class FeedbackPage extends LitElement {
           surface="general"
           .selectedFeed=${this.selectedAlgorithm}
           .prompt=${`We'd love to know what you think of ${ALGORITHMS[this.selectedAlgorithm].label}`}
-          placeholder="Share your feedback"
         ></feedback-form>
       </div>
     `;

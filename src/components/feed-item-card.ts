@@ -1,6 +1,6 @@
 import { MobxLitElement } from "@adobe/lit-mobx";
-import { html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { html, css, nothing, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type { FeedItemView } from "../models/feed-debug-snapshot";
 import type { AlgorithmId } from "../constants/algorithms";
 import { getRootStore } from "../main";
@@ -14,6 +14,8 @@ export class FeedItemCard extends MobxLitElement {
   @property({ attribute: false }) algorithmId: AlgorithmId | null = null;
   @property({ type: Number }) engagingInfluence = 0.5;
   @property({ type: Number }) constructiveInfluence = 0.5;
+
+  @state() private failedImageUrls = new Set<string>();
 
   static styles = css`
     :host {
@@ -121,13 +123,75 @@ export class FeedItemCard extends MobxLitElement {
     .bluesky-btn wa-icon {
       font-size: 0.875rem;
     }
+    .post-body-container {
+      container: post-card / inline-size;
+    }
+    .post-body {
+      display: grid;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      min-width: 0;
+    }
+    .media-gallery {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 0.5rem;
+      width: 100%;
+      min-width: 0;
+      aspect-ratio: 4 / 3;
+      max-height: 320px;
+    }
+    .media-gallery.single-image {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .media-gallery.three-images > :first-child {
+      grid-row: span 2;
+    }
+    .media-tile {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      background: var(--bluesky-bg);
+      color: var(--bluesky-text-secondary);
+      text-decoration: none;
+    }
+    a.media-tile:hover {
+      background: var(--bluesky-bg-hover);
+    }
+    .media-tile:focus-visible {
+      outline: 2px solid var(--bluesky-brand);
+      outline-offset: 2px;
+    }
+    .post-image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      object-fit: contain;
+    }
+    .image-unavailable {
+      padding: 0.75rem;
+      font-size: 0.8125rem;
+      text-align: center;
+    }
     .post-content {
+      min-width: 0;
       font-size: 0.9375rem;
       line-height: 1.45;
       color: var(--bluesky-text);
-      margin-top: 0.5rem;
+      margin: 0;
       white-space: pre-wrap;
-      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    @container post-card (min-width: 640px) {
+      .post-body.has-images-and-text {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+      }
     }
     .chart-section {
       margin-top: 0.75rem;
@@ -144,14 +208,15 @@ export class FeedItemCard extends MobxLitElement {
     const displayName = i.displayName || handle;
     const initial = (displayName[0] ?? "?").toUpperCase();
     const postAge = compactRelativeTime(i.createdAt);
-    const mediaLabels = countedMediaLabels(i);
+    const mediaLabels = countedMediaLabels(i).filter((label) => !/^\d+ images?$/i.test(label));
+    const hasText = i.content.trim().length > 0;
 
     return html`
       <div class="card">
         <div class="author-row">
           ${
             i.avatarUrl
-              ? html`<img src=${i.avatarUrl} alt="" class="avatar" />`
+              ? html`<img src=${i.avatarUrl} alt="" class="avatar" width="40" height="40" />`
               : html`<div class="avatar-placeholder">${initial}</div>`
           }
           <div class="author-info">
@@ -175,20 +240,7 @@ export class FeedItemCard extends MobxLitElement {
                       rel="noopener noreferrer"
                       class="bluesky-btn"
                       title="Open in Bluesky"
-                      @click=${(e: Event) => {
-                        e.stopPropagation();
-                        const root = getRootStore();
-                        const requestId = root?.feedStore.currentRequestId;
-                        const feedName = requestId
-                          ? root.feedStore.feedList.find((feed) => feed.requestId === requestId)
-                              ?.feedName
-                          : undefined;
-                        root?.services.analyticsService.capture("postOpenedInBluesky", {
-                          item_uri: i.atUri,
-                          feed_name: feedName ?? "unknown",
-                          final_position: i.finalPosition,
-                        });
-                      }}
+                      @click=${this.#handleBlueskyClick}
                     >
                       <wa-icon name="bluesky" library="app"></wa-icon>
                     </a>
@@ -198,7 +250,18 @@ export class FeedItemCard extends MobxLitElement {
           </div>
         </div>
 
-        <p class="post-content">${i.content}</p>
+        ${
+          i.imageUrls.length > 0 || hasText
+            ? html`<div class="post-body-container">
+                <div
+                  class="post-body ${i.imageUrls.length > 0 && hasText ? "has-images-and-text" : ""}"
+                >
+                  ${this.#renderImages(i, displayName)}
+                  ${hasText ? html`<p class="post-content">${i.content}</p>` : nothing}
+                </div>
+              </div>`
+            : nothing
+        }
 
         <div class="chart-section">
           <rank-scores-chart
@@ -211,6 +274,73 @@ export class FeedItemCard extends MobxLitElement {
       </div>
     `;
   }
+
+  protected willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+    if (changedProperties.has("item")) this.failedImageUrls = new Set();
+  }
+
+  #renderImages(item: FeedItemView, displayName: string) {
+    if (item.imageUrls.length === 0) return nothing;
+
+    return html`<div
+      class="media-gallery ${item.imageUrls.length === 1 ? "single-image" : ""} ${
+        item.imageUrls.length === 3 ? "three-images" : ""
+      }"
+    >
+      ${item.imageUrls.map((url, index) => {
+        const description = `Image ${String(index + 1)} of ${String(item.imageUrls.length)} from ${displayName}'s post`;
+        const content = this.failedImageUrls.has(url)
+          ? html`<span
+              class="image-unavailable"
+              role="img"
+              aria-label=${`${description}: image unavailable`}
+              >Image unavailable</span
+            >`
+          : html`<img
+              class="post-image"
+              src=${url}
+              alt=${description}
+              width="640"
+              height="480"
+              loading="lazy"
+              decoding="async"
+              @error=${() => {
+                this.failedImageUrls = new Set([...this.failedImageUrls, url]);
+              }}
+            />`;
+
+        return item.postUrl
+          ? html`<a
+              class="media-tile"
+              href=${item.postUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label=${`Open post by ${displayName} in Bluesky (image ${String(index + 1)} of ${String(item.imageUrls.length)})`}
+              @click=${this.#handleBlueskyClick}
+              >${content}</a
+            >`
+          : html`<div class="media-tile">${content}</div>`;
+      })}
+    </div>`;
+  }
+
+  #handleBlueskyClick = (event: Event): void => {
+    event.stopPropagation();
+    const item = this.item;
+    if (!item) return;
+
+    const root = getRootStore();
+    const requestId = root?.feedStore.currentRequestId;
+    const feedName = requestId
+      ? root.feedStore.feedList.find((feed) => feed.requestId === requestId)?.feedName
+      : undefined;
+    root?.services.analyticsService.capture("postOpenedInBluesky", {
+      item_uri: item.atUri,
+      feed_name: feedName ?? "unknown",
+      final_position: item.finalPosition,
+    });
+  };
 
   private _loggedAtUri: string | null = null;
 

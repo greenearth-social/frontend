@@ -30,4 +30,14 @@ test("previews feedback without contacting PostHog in local test mode", async ({
   );
   await expect(form.locator("pre")).toContainText('"feedback_submission_id":');
   expect(postHogRequests).toEqual([]);
+
+  for (const feed of ["your-feed", "best-of-friends", "random"]) {
+    for (const surface of ["settings", "feedback"]) {
+      await page.goto(`/#/${surface}/${feed}`);
+      await expect(page.locator("feedback-form textarea")).toHaveAttribute(
+        "placeholder",
+        "Questions? Feature requests? We will reply by DM on BlueSky, or include your email.",
+      );
+    }
+  }
 });
