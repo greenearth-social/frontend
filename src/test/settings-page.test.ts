@@ -14,7 +14,6 @@ const testState = vi.hoisted(() => {
     purpose: 0.5,
     authorPenalty: 0.7,
     topicPenalty: 0.7,
-    normalizeRankByGenerator: false,
   };
   return {
     values,
@@ -611,66 +610,6 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     expect(element.shadowRoot?.querySelector(".section-features")).toBeNull();
-  });
-
-  it("omits the Balance sources checkbox until the api exposes the control", async () => {
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    expect(element.shadowRoot?.querySelector(".section-features")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".feature-toggle-input")).toBeNull();
-  });
-
-  it("saves the Balance sources checkbox as one undoable change", async () => {
-    testState.rootStore.preferencesStore.supportsControl.mockImplementation(
-      (_feedName: string, control: string) => control === "normalize_rank_by_generator",
-    );
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    const checkbox = element.shadowRoot?.querySelector<HTMLInputElement>(".feature-toggle-input");
-    if (!checkbox) throw new Error("Balance sources checkbox missing");
-    expect(checkbox.checked).toBe(false);
-    expect(checkbox.disabled).toBe(false);
-    const undo = element.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[aria-label="Undo last settings change"]',
-    );
-    expect(undo?.disabled).toBe(true);
-
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-    await element.updateComplete;
-
-    expect(testState.rootStore.preferencesStore.savePatch).toHaveBeenCalledExactlyOnceWith(
-      "your-feed",
-      { normalizeRankByGenerator: true },
-      {},
-    );
-    expect(
-      element.shadowRoot?.querySelector<HTMLButtonElement>(
-        '[aria-label="Undo last settings change"]',
-      )?.disabled,
-    ).toBe(false);
-  });
-
-  it("reflects a saved Balance sources value and counts it against defaults", async () => {
-    testState.rootStore.preferencesStore.supportsControl.mockImplementation(
-      (_feedName: string, control: string) => control === "normalize_rank_by_generator",
-    );
-    testState.values.normalizeRankByGenerator = true;
-    const element = document.createElement("settings-page");
-    document.body.appendChild(element);
-    await element.updateComplete;
-
-    expect(
-      element.shadowRoot?.querySelector<HTMLInputElement>(".feature-toggle-input")?.checked,
-    ).toBe(true);
-    expect(
-      element.shadowRoot?.querySelector<HTMLButtonElement>(".reset-defaults-btn")?.disabled,
-    ).toBe(false);
   });
 
   it("keeps the Prompt source faded and inert until a prompt is fitted", async () => {
