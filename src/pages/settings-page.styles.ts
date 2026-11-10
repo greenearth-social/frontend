@@ -483,44 +483,6 @@ export const settingsPageStyles = css`
     color: #fcd34d;
   }
 
-  .feature-toggle-card {
-    display: grid;
-    gap: 0.375rem;
-    min-width: 0;
-    padding: 0.375rem 0.5rem 0.625rem;
-    background: linear-gradient(145deg, #b45309, #92400e);
-  }
-
-  .feature-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    min-height: 44px;
-    padding: 0 0.25rem;
-    cursor: pointer;
-  }
-
-  .feature-toggle-input {
-    width: 1.25rem;
-    height: 1.25rem;
-    margin: 0;
-    flex-shrink: 0;
-    accent-color: #fcd34d;
-    cursor: pointer;
-  }
-
-  .feature-toggle-input:disabled,
-  .feature-toggle:has(.feature-toggle-input:disabled) {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  .feature-toggle-text {
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.8125rem;
-    line-height: 1.3;
-  }
-
   .section-title {
     margin: 0 0 0.5rem;
     color: #93b4f5;

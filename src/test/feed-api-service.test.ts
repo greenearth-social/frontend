@@ -387,7 +387,6 @@ describe("FeedApiService", () => {
               politics: 0,
               author_penalty: 0.2,
               topic_penalty: 0.8,
-              normalize_rank_by_generator: false,
             },
             "best-of-friends": {
               freshness: 2,
@@ -417,7 +416,6 @@ describe("FeedApiService", () => {
         politics: 0,
         authorPenalty: 0.2,
         topicPenalty: 0.8,
-        normalizeRankByGenerator: false,
       },
       "best-of-friends": {
         freshness: 2,
@@ -464,24 +462,17 @@ describe("FeedApiService", () => {
   });
 
   it("serializes preference updates as snake_case", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({
-        freshness: 2,
-        author_penalty: 0.2,
-        topic_penalty: 0.8,
-        normalize_rank_by_generator: true,
-      }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ freshness: 2, author_penalty: 0.2, topic_penalty: 0.8 }));
     vi.stubGlobal("fetch", fetchMock);
     const service = new FeedApiService("", () => Promise.resolve("token"));
 
-    const saved = await service.patchPreferences("best-of-friends", {
+    await service.patchPreferences("best-of-friends", {
       freshness: 2,
       authorPenalty: 0.2,
       topicPenalty: 0.8,
-      normalizeRankByGenerator: true,
     });
-    expect(saved.normalizeRankByGenerator).toBe(true);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/feeds/preferences/best-of-friends");
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
@@ -490,7 +481,6 @@ describe("FeedApiService", () => {
       freshness: 2,
       author_penalty: 0.2,
       topic_penalty: 0.8,
-      normalize_rank_by_generator: true,
     });
   });
 

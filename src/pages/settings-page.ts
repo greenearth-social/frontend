@@ -244,7 +244,6 @@ export class SettingsPage extends MobxLitElement {
       politics: 0.5,
       authorPenalty: 0.7,
       topicPenalty: 0.7,
-      normalizeRankByGenerator: false,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
@@ -370,10 +369,7 @@ export class SettingsPage extends MobxLitElement {
                                 this.#showFeaturesInProgress()
                                   ? html`
                                       ${this.#renderArrow()}
-                                      ${this.#renderFeaturesInProgressSection(
-                                        weights,
-                                        preferences.normalizeRankByGenerator,
-                                      )}
+                                      ${this.#renderFeaturesInProgressSection(weights)}
                                     `
                                   : ""
                               }
@@ -566,10 +562,7 @@ export class SettingsPage extends MobxLitElement {
     );
   }
 
-  #renderFeaturesInProgressSection(
-    weights: SourceWeights,
-    normalizeRankByGenerator: boolean,
-  ): TemplateResult {
+  #renderFeaturesInProgressSection(weights: SourceWeights): TemplateResult {
     return html`
       <section class="section section-features">
         <div class="section-heading">
@@ -585,35 +578,7 @@ export class SettingsPage extends MobxLitElement {
             <span class="question-icon" aria-hidden="true">?</span>
           </button>
         </div>
-        <div class="source-list">
-          ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
-          ${
-            this.#supportsControl("normalize_rank_by_generator")
-              ? html`
-                  <div class="control-card feature-toggle-card">
-                    ${this.#titleButton("balance_sources", "Balance sources")}
-                    <label class="feature-toggle">
-                      <input
-                        class="feature-toggle-input"
-                        type="checkbox"
-                        aria-label="Balance sources in ranking"
-                        .checked=${normalizeRankByGenerator}
-                        ?disabled=${this.#settingsBusy()}
-                        @change=${(event: Event) => {
-                          this.#commitNormalizeRankByGenerator(
-                            (event.target as HTMLInputElement).checked,
-                          );
-                        }}
-                      />
-                      <span class="feature-toggle-text">
-                        Grade each source on its own curve so none is crowded out
-                      </span>
-                    </label>
-                  </div>
-                `
-              : ""
-          }
-        </div>
+        <div class="source-list">${this.#renderSourceControl("llm", "llm", "Prompt", weights)}</div>
       </section>
     `;
   }
@@ -1158,12 +1123,6 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
-      this.#supportsControl("normalize_rank_by_generator") &&
-      preferences.normalizeRankByGenerator !== DEFAULT_PREFERENCES.normalizeRankByGenerator
-    ) {
-      return false;
-    }
-    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -1293,25 +1252,10 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ topicPenalty: current }, { topicPenalty: value });
   }
 
-  #commitNormalizeRankByGenerator(enabled: boolean): void {
-    if (!this.#supportsControl("normalize_rank_by_generator")) return;
-    const current = getRootStore()?.preferencesStore.valuesFor(
-      this.selectedAlgorithm,
-    ).normalizeRankByGenerator;
-    if (current === undefined || current === enabled) return;
-    void this.#applyImmediateChange(
-      { normalizeRankByGenerator: current },
-      { normalizeRankByGenerator: enabled },
-    );
-  }
-
   #settingsPatch(values: Preferences): FeedPreferences {
     const patch: FeedPreferences = { freshness: values.freshness };
     if (this.#supportsControl("author_penalty")) patch.authorPenalty = values.authorPenalty;
     if (this.#supportsControl("topic_penalty")) patch.topicPenalty = values.topicPenalty;
-    if (this.#supportsControl("normalize_rank_by_generator")) {
-      patch.normalizeRankByGenerator = values.normalizeRankByGenerator;
-    }
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;
     if (this.selectedAlgorithm === "your-feed") {

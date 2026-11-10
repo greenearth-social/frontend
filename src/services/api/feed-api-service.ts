@@ -28,7 +28,6 @@ interface ApiPreferences {
   purpose?: number;
   author_penalty?: number;
   topic_penalty?: number;
-  normalize_rank_by_generator?: boolean;
 }
 
 interface ApiLlmPrompt {
@@ -153,9 +152,6 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
   if (prefs.purpose !== undefined) mapped.purpose = prefs.purpose;
   if (prefs.author_penalty !== undefined) mapped.authorPenalty = prefs.author_penalty;
   if (prefs.topic_penalty !== undefined) mapped.topicPenalty = prefs.topic_penalty;
-  if (prefs.normalize_rank_by_generator !== undefined) {
-    mapped.normalizeRankByGenerator = prefs.normalize_rank_by_generator;
-  }
   return mapped;
 }
 
@@ -175,9 +171,6 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
   if (prefs.purpose !== undefined) serialized.purpose = prefs.purpose;
   if (prefs.authorPenalty !== undefined) serialized.author_penalty = prefs.authorPenalty;
   if (prefs.topicPenalty !== undefined) serialized.topic_penalty = prefs.topicPenalty;
-  if (prefs.normalizeRankByGenerator !== undefined) {
-    serialized.normalize_rank_by_generator = prefs.normalizeRankByGenerator;
-  }
   return serialized;
 }
 

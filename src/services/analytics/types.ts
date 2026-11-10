@@ -1,13 +1,7 @@
 import type { AlgorithmId } from "../../constants/algorithms";
 
 export type FeedControlName =
-  | "source_weights"
-  | "freshness"
-  | "politics"
-  | "purpose"
-  | "author_penalty"
-  | "topic_penalty"
-  | "normalize_rank_by_generator";
+  "source_weights" | "freshness" | "politics" | "purpose" | "author_penalty" | "topic_penalty";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 
@@ -71,8 +65,6 @@ export interface FeedControlEventProperties {
     | "redo";
   previous_value?: number;
   new_value?: number;
-  previous_enabled?: boolean;
-  new_enabled?: boolean;
   previous_label?: string;
   new_label?: string;
   previous_following_weight?: number;

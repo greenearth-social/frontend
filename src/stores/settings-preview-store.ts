@@ -61,7 +61,6 @@ function signature(
     purpose: patch.purpose,
     authorPenalty: patch.authorPenalty,
     topicPenalty: patch.topicPenalty,
-    normalizeRankByGenerator: patch.normalizeRankByGenerator,
   });
 }
 

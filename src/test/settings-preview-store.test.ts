@@ -200,11 +200,6 @@ describe("SettingsPreviewStore", () => {
   it.each([
     ["authorPenalty", { authorPenalty: 0.2 }, { authorPenalty: 0.9 }],
     ["topicPenalty", { topicPenalty: 0.2 }, { topicPenalty: 0.9 }],
-    [
-      "normalizeRankByGenerator",
-      { normalizeRankByGenerator: false },
-      { normalizeRankByGenerator: true },
-    ],
   ])("generates a new preview when %s changes", async (_control, before, after) => {
     const { root, createFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
