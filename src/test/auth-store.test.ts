@@ -53,6 +53,8 @@ const preferences: Preferences = {
   llmFilter: true,
   minRankScore: 0.15,
   llmFilterStrength: 0.5,
+  llmFilterMultiply: false,
+  llmFilterMultiplier: 2.0,
 };
 
 describe("AuthStore account changes", () => {

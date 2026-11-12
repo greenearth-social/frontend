@@ -265,8 +265,9 @@ export class FeedItemCard extends MobxLitElement {
         ${
           flt
             ? html`<span class="st-cell"
-                ><b>filter</b> f=${f3(flt.filterScore)} w=${flt.weight.toFixed(2)} →
-                ${f3(flt.scoreAfter)}</span
+                ><b>filter</b> f=${f3(flt.filterScore)}
+                ${flt.mode === "multiply" ? `×${flt.weight.toFixed(2)}` : `w=${flt.weight.toFixed(2)}`}
+                → ${f3(flt.scoreAfter)}</span
               >`
             : html`<span class="st-cell st-muted"><b>filter</b> off</span>`
         }

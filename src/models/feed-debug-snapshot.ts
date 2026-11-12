@@ -71,6 +71,8 @@ export interface PoliticsAdjustmentView {
 
 // Experimental, local only: the LLM filter's per-post numbers.
 export interface FilterAdjustmentView {
+  // blend: weight is the blend weight; multiply: weight is this post's factor.
+  mode: "blend" | "multiply";
   weight: number;
   filterScore: number | null;
   scoreBefore: number;

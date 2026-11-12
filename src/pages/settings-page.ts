@@ -106,6 +106,7 @@ export class SettingsPage extends MobxLitElement {
   @state() private previewAuthorPenalty: number | null = null;
   @state() private previewMinRankScore: number | null = null;
   @state() private previewLlmFilterStrength: number | null = null;
+  @state() private previewLlmFilterMultiplier: number | null = null;
   @state() private previewTopicPenalty: number | null = null;
   @state() private mobilePreviewOpen = false;
   @state() private previewPhase: PreviewPhase = "idle";
@@ -215,6 +216,7 @@ export class SettingsPage extends MobxLitElement {
       this.previewTopicPenalty = null;
       this.previewMinRankScore = null;
       this.previewLlmFilterStrength = null;
+      this.previewLlmFilterMultiplier = null;
       this.sourceStartWeights = null;
       this.lockedSources = [];
       this.selectedNode = null;
@@ -258,6 +260,8 @@ export class SettingsPage extends MobxLitElement {
       llmFilter: true,
       minRankScore: 0.15,
       llmFilterStrength: 0.5,
+      llmFilterMultiply: false,
+      llmFilterMultiplier: 2.0,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
@@ -615,7 +619,12 @@ export class SettingsPage extends MobxLitElement {
                       if (event.detail.fitted) this.#commitLlmFilter(true);
                     }}
                   ></llm-filter-card>
-                  ${this.#renderLlmFilterStrengthSlider()}
+                  ${this.#renderLlmFilterModeSwitch()}
+                  ${
+                    this.#llmFilterMultiply()
+                      ? this.#renderLlmFilterMultiplierSlider()
+                      : this.#renderLlmFilterStrengthSlider()
+                  }
                 `
               : ""
           }
@@ -639,8 +648,8 @@ export class SettingsPage extends MobxLitElement {
     return html`
       <div class="cg-stats">
         <div class="cg-stats-title">
-          Preview by source · combined score = models × politics × filter, before the floor (${floor})
-          ${this.#helpButton("cg_stats", "Preview by source")}
+          Preview by source · combined score = models × politics × filter, before the floor
+          (${floor}) ${this.#helpButton("cg_stats", "Preview by source")}
         </div>
         <table class="cg-stats-table">
           <thead>
@@ -844,6 +853,7 @@ export class SettingsPage extends MobxLitElement {
     this.previewTopicPenalty = null;
     this.previewMinRankScore = null;
     this.previewLlmFilterStrength = null;
+    this.previewLlmFilterMultiplier = null;
     this.sourceStartWeights = null;
     this.previewNeeded = true;
     this.settingsRevision++;
@@ -1152,6 +1162,64 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  #llmFilterMultiply(): boolean {
+    return (
+      this.#supportsControl("llm_filter_multiply") &&
+      (getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).llmFilterMultiply ??
+        false)
+    );
+  }
+
+  // Experimental, local only: blend (off) or multiply like politics (on).
+  #renderLlmFilterModeSwitch(): TemplateResult {
+    if (!this.#supportsControl("llm_filter_multiply")) return html``;
+    const enabled = this.#llmFilterMultiply();
+    return html`
+      <div class="balance-row">
+        ${renderToggleSwitch({
+          inputClass: "balance-switch-input",
+          ariaLabel: "Multiply instead of blend",
+          checked: enabled,
+          disabled: this.#settingsBusy(),
+          text: enabled ? "Filter design: multiply" : "Filter design: blend",
+          onChange: (checked) => {
+            this.#commitLlmFilterMultiply(checked);
+          },
+        })}
+        ${this.#helpButton("llm_filter_multiply", "Filter design")}
+      </div>
+    `;
+  }
+
+  // Experimental, local only: multiply mode's factor at a perfect match.
+  #renderLlmFilterMultiplierSlider(): TemplateResult {
+    if (!this.#supportsControl("llm_filter_multiplier")) return html``;
+    const stored =
+      getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm).llmFilterMultiplier ?? 2.0;
+    const value = this.previewLlmFilterMultiplier ?? stored;
+    return html`
+      <div class="balance-row">
+        <icon-range-slider
+          min="0"
+          max="3"
+          step="0.05"
+          .value=${value}
+          .icons=${LIFECYCLE_ICONS}
+          .valueText=${`Filter multiplier ×${value.toFixed(2)}: below 1 sinks matches, above 1 lifts them`}
+          ariaLabel="Filter multiplier"
+          ?disabled=${this.#settingsBusy()}
+          @slider-preview=${(event: CustomEvent<{ value: number }>) => {
+            this.previewLlmFilterMultiplier = event.detail.value;
+          }}
+          @slider-change=${(event: CustomEvent<{ value: number }>) => {
+            this.#commitLlmFilterMultiplier(event.detail.value);
+          }}
+        ></icon-range-slider>
+        ${this.#helpButton("llm_filter_multiplier", "Filter multiplier")}
+      </div>
+    `;
+  }
+
   #renderDiversificationSection(authorPenalty: number, topicPenalty: number): TemplateResult {
     return html`
       <section class="section section-diversification">
@@ -1360,6 +1428,18 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
+      this.#supportsControl("llm_filter_multiply") &&
+      preferences.llmFilterMultiply !== DEFAULT_PREFERENCES.llmFilterMultiply
+    ) {
+      return false;
+    }
+    if (
+      this.#supportsControl("llm_filter_multiplier") &&
+      preferences.llmFilterMultiplier !== DEFAULT_PREFERENCES.llmFilterMultiplier
+    ) {
+      return false;
+    }
+    if (
       this.selectedAlgorithm !== "random" &&
       preferences.purpose !== DEFAULT_PREFERENCES.purpose
     ) {
@@ -1391,6 +1471,7 @@ export class SettingsPage extends MobxLitElement {
     this.previewTopicPenalty = null;
     this.previewMinRankScore = null;
     this.previewLlmFilterStrength = null;
+    this.previewLlmFilterMultiplier = null;
     this.sourceStartWeights = null;
     this.lockedSources = [];
     this.isResetting = true;
@@ -1500,12 +1581,35 @@ export class SettingsPage extends MobxLitElement {
 
   #commitLlmFilterStrength(value: number): void {
     this.previewLlmFilterStrength = null;
+    this.previewLlmFilterMultiplier = null;
     if (!this.#supportsControl("llm_filter_strength")) return;
     const current = getRootStore()?.preferencesStore.valuesFor(
       this.selectedAlgorithm,
     ).llmFilterStrength;
     if (current === undefined || current === value) return;
     void this.#applyImmediateChange({ llmFilterStrength: current }, { llmFilterStrength: value });
+  }
+
+  #commitLlmFilterMultiply(enabled: boolean): void {
+    if (!this.#supportsControl("llm_filter_multiply")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).llmFilterMultiply;
+    if (current === undefined || current === enabled) return;
+    void this.#applyImmediateChange({ llmFilterMultiply: current }, { llmFilterMultiply: enabled });
+  }
+
+  #commitLlmFilterMultiplier(value: number): void {
+    this.previewLlmFilterMultiplier = null;
+    if (!this.#supportsControl("llm_filter_multiplier")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).llmFilterMultiplier;
+    if (current === undefined || current === value) return;
+    void this.#applyImmediateChange(
+      { llmFilterMultiplier: current },
+      { llmFilterMultiplier: value },
+    );
   }
 
   #commitMinRankScore(value: number): void {
@@ -1539,6 +1643,12 @@ export class SettingsPage extends MobxLitElement {
     if (this.#supportsControl("min_rank_score")) patch.minRankScore = values.minRankScore;
     if (this.#supportsControl("llm_filter_strength")) {
       patch.llmFilterStrength = values.llmFilterStrength;
+    }
+    if (this.#supportsControl("llm_filter_multiply")) {
+      patch.llmFilterMultiply = values.llmFilterMultiply;
+    }
+    if (this.#supportsControl("llm_filter_multiplier")) {
+      patch.llmFilterMultiplier = values.llmFilterMultiplier;
     }
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;

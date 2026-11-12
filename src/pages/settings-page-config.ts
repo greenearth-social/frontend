@@ -123,6 +123,18 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     description:
       "Blends the ranker's score with how well the post fits your filter prompt (0 to 1): score = (1 − w) × ranker + w × match. At 0 the prompt is ignored, at 1 the feed is ordered by prompt match alone. Default 0.5.",
   },
+  llm_filter_multiply: {
+    label: "Filter design (experimental)",
+    type: "config",
+    description:
+      "Off: blend. score = (1 − w) × ranker + w × match, set by Filter weight. On: multiply, like the politics slider. score = ranker × ((m − 1) × match + 1), set by Filter multiplier. Multiplying only reorders what the ranker already scored; blending can let the match outvote the ranker.",
+  },
+  llm_filter_multiplier: {
+    label: "Filter multiplier (experimental)",
+    type: "config",
+    description:
+      "Multiply mode only. What a perfect match's score is multiplied by (0 to 3). Above 1 lifts posts that fit the prompt, below 1 pushes them down, 1 changes nothing. A post with no match is left alone. Default 2.",
+  },
   cg_stats: {
     label: "Preview by source (experimental)",
     type: "config",

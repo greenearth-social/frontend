@@ -10,7 +10,9 @@ export type FeedControlName =
   | "normalize_rank_by_generator"
   | "llm_filter"
   | "min_rank_score"
-  | "llm_filter_strength";
+  | "llm_filter_strength"
+  | "llm_filter_multiply"
+  | "llm_filter_multiplier";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 

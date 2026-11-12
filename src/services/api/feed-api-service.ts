@@ -33,6 +33,8 @@ interface ApiPreferences {
   llm_filter?: boolean;
   min_rank_score?: number;
   llm_filter_strength?: number;
+  llm_filter_multiply?: boolean;
+  llm_filter_multiplier?: number;
 }
 
 interface ApiLlmPrompt {
@@ -88,6 +90,7 @@ interface ApiFeedItemResponse {
     score_after: number;
   } | null;
   filter_adjustment?: {
+    mode?: "blend" | "multiply";
     weight: number;
     filter_score: number | null;
     score_before: number;
@@ -181,6 +184,10 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
   if (prefs.llm_filter !== undefined) mapped.llmFilter = prefs.llm_filter;
   if (prefs.min_rank_score !== undefined) mapped.minRankScore = prefs.min_rank_score;
   if (prefs.llm_filter_strength !== undefined) mapped.llmFilterStrength = prefs.llm_filter_strength;
+  if (prefs.llm_filter_multiply !== undefined) mapped.llmFilterMultiply = prefs.llm_filter_multiply;
+  if (prefs.llm_filter_multiplier !== undefined) {
+    mapped.llmFilterMultiplier = prefs.llm_filter_multiplier;
+  }
   return mapped;
 }
 
@@ -207,6 +214,12 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
   if (prefs.minRankScore !== undefined) serialized.min_rank_score = prefs.minRankScore;
   if (prefs.llmFilterStrength !== undefined) {
     serialized.llm_filter_strength = prefs.llmFilterStrength;
+  }
+  if (prefs.llmFilterMultiply !== undefined) {
+    serialized.llm_filter_multiply = prefs.llmFilterMultiply;
+  }
+  if (prefs.llmFilterMultiplier !== undefined) {
+    serialized.llm_filter_multiplier = prefs.llmFilterMultiplier;
   }
   return serialized;
 }
@@ -237,6 +250,7 @@ function mapFeedItem(item: ApiFeedItemResponse): ApiFeedItem {
       : null,
     filterAdjustment: item.filter_adjustment
       ? {
+          mode: item.filter_adjustment.mode ?? "blend",
           weight: item.filter_adjustment.weight,
           filterScore: item.filter_adjustment.filter_score,
           scoreBefore: item.filter_adjustment.score_before,

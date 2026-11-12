@@ -33,6 +33,10 @@ export interface Preferences {
   minRankScore: number;
   // Experimental, local only: blend weight of the filter match, 0 (ranker only) to 1 (match only).
   llmFilterStrength: number;
+  // Experimental, local only: multiply (politics shape) instead of blend.
+  llmFilterMultiply: boolean;
+  // Experimental, local only: multiply mode's factor at a perfect match, 0-3; 1 changes nothing.
+  llmFilterMultiplier: number;
 }
 
 export type FeedPreferences = Partial<Preferences>;
