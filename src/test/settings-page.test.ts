@@ -649,7 +649,7 @@ describe("SettingsPage", () => {
     await element.updateComplete;
 
     const checkbox = element.shadowRoot?.querySelector<HTMLInputElement>(
-      ".prompt-card .balance-row .balance-switch-input",
+      ".prompt-card + .balance-row .balance-switch-input",
     );
     if (!checkbox) throw new Error("Normalize score by CG switch missing");
     expect(checkbox.getAttribute("role")).toBe("switch");
@@ -2251,7 +2251,7 @@ describe("SettingsPage", () => {
 
     function filterToggle(element: HTMLElement): HTMLInputElement {
       const toggle = element.shadowRoot?.querySelector<HTMLInputElement>(
-        ".filter-card .filter-toggle-input",
+        ".filter-card + .filter-toggle .filter-toggle-input",
       );
       if (!toggle) throw new Error("Filter toggle was not rendered");
       return toggle;
@@ -2281,14 +2281,16 @@ describe("SettingsPage", () => {
       expect(toggle.getAttribute("role")).toBe("switch");
       expect(toggle.disabled).toBe(true);
       expect(toggle.checked).toBe(true);
-      expect(card?.querySelector(".ge-switch-text")?.textContent).toBe("Filter is active");
+      expect(card?.nextElementSibling?.querySelector(".ge-switch-text")?.textContent).toBe(
+        "Filter is active",
+      );
     });
 
     it("sends the prompt to the filter store, not the Prompt source, and switches the filter on", async () => {
       testState.values.llmFilter = false;
       testState.rootStore.llmFilterStore.fit.mockResolvedValue(null);
       const element = await mountWithFilter();
-      expect(element.shadowRoot?.querySelector(".filter-card .ge-switch-text")?.textContent).toBe(
+      expect(element.shadowRoot?.querySelector(".filter-toggle .ge-switch-text")?.textContent).toBe(
         "Filter is inactive",
       );
 

@@ -1033,7 +1033,7 @@ export const settingsPageStyles = css`
     outline-offset: 2px;
   }
 
-  /* The second prompt card (api#566): title, prompt editor, on/off switch. */
+  /* The second prompt card (api#566): title and prompt editor; its switch sits below it. */
   .filter-card {
     position: relative;
     display: grid;
@@ -1042,7 +1042,15 @@ export const settingsPageStyles = css`
     padding: 0.375rem 0.5rem 0.625rem;
   }
 
-  .filter-card.inactive .filter-toggle {
+  /* Light-DOM host: the card, then its switch right below it, outside the card. */
+  llm-filter-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .filter-toggle.inactive {
     opacity: 0.45;
   }
 

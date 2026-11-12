@@ -123,18 +123,18 @@ export class LlmFilterCard extends MobxLitElement {
           </div>
           ${failure ? html`<p class="filter-error" role="alert">${failure.message}</p>` : ""}
         </div>
-        <div class="filter-toggle">
-          ${renderToggleSwitch({
-            inputClass: "filter-toggle-input",
-            ariaLabel: "Filter active",
-            checked: this.enabled,
-            disabled: toggleDisabled,
-            text: this.enabled ? "Filter is active" : "Filter is inactive",
-            onChange: (enabled) => {
-              this.#emit("filter-change", { enabled });
-            },
-          })}
-        </div>
+      </div>
+      <div class="filter-toggle ${inactive ? "inactive" : ""}">
+        ${renderToggleSwitch({
+          inputClass: "filter-toggle-input",
+          ariaLabel: "Filter active",
+          checked: this.enabled,
+          disabled: toggleDisabled,
+          text: this.enabled ? "Filter is active" : "Filter is inactive",
+          onChange: (enabled) => {
+            this.#emit("filter-change", { enabled });
+          },
+        })}
       </div>
     `;
   }

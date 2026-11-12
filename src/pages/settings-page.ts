@@ -602,7 +602,7 @@ export class SettingsPage extends MobxLitElement {
         </div>
         <div class="source-list">
           ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
-          ${this.#renderMinRankScoreSlider()}
+          ${this.#renderBalanceSwitch()} ${this.#renderMinRankScoreSlider()}
           ${
             this.#supportsControl("llm_filter")
               ? html`
@@ -1022,12 +1022,11 @@ export class SettingsPage extends MobxLitElement {
             <path d=${isLocked ? LOCKED_ICON_PATH : UNLOCKED_ICON_PATH}></path>
           </svg>
         </button>
-        ${key === "llm" ? this.#renderBalanceSwitch() : ""}
       </div>
     `;
   }
 
-  // Normalize score by CG (api#572, team-only wording) lives in the Prompt card: it exists so a new
+  // Normalize score by CG (api#572, team-only wording) sits right below the Prompt card: it exists so a new
   // source like the prompt is not crowded out by the sources the model knows.
   #renderBalanceSwitch(): TemplateResult {
     if (!this.#supportsControl("normalize_rank_by_generator")) return html``;
