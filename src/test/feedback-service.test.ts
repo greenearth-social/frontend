@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PostHogFeedbackService,
   buildFeedbackEvent,
   createFeedbackService,
 } from "../services/feedback/feedback-service";
-import type { IAnalyticsService } from "../services/analytics/types";
+import type { RuntimeConfig } from "../config/runtime-config";
 import type { FeedbackSubmission } from "../services/feedback/types";
 
 const submission: FeedbackSubmission = {
@@ -40,6 +40,21 @@ const submission: FeedbackSubmission = {
     unavailableCount: 2,
   },
 };
+
+const config: RuntimeConfig = {
+  environment: "production",
+  frontendReleaseSha: "frontend-sha",
+  posthog: { mode: "posthog", projectKey: "phc_project", host: "https://us.i.posthog.com/" },
+  feedback: {
+    mode: "posthog",
+    surveys: { controls: { surveyId: "survey-1", questionId: "question-1" } },
+  },
+};
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("feedback event payload", () => {
   it("uses PostHog survey response keys and compact snapshot context", () => {
@@ -105,53 +120,181 @@ describe("feedback event payload", () => {
   });
 
   it("returns a preview without initializing PostHog in test mode", async () => {
-    const analytics = {
-      identify: vi.fn(),
-      reset: vi.fn(),
-      capture: vi.fn(),
-    } as IAnalyticsService;
-    const service = createFeedbackService(
-      {
-        environment: "stage",
-        frontendReleaseSha: "stage-sha",
-        posthog: { mode: "disabled" },
-        feedback: { mode: "test" },
-      },
-      analytics,
-    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const service = createFeedbackService({
+      environment: "stage",
+      frontendReleaseSha: "stage-sha",
+      posthog: { mode: "disabled" },
+      feedback: { mode: "test" },
+    });
 
     const result = await service.submit(submission);
 
     expect(service.mode).toBe("test");
     expect(result.sent).toBe(false);
     expect(result.payload.properties.$survey_id).toBe("preview-controls-survey");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
+});
 
-  it("identifies once, captures the survey event, and resets on logout", async () => {
-    const analytics = {
-      identify: vi.fn(),
-      reset: vi.fn(),
-      capture: vi.fn(),
-    } as IAnalyticsService;
-    const surveys = {
-      general: { surveyId: "s1", questionId: "q1" },
-      controls: { surveyId: "s2", questionId: "q2" },
-      howItWorks: { surveyId: "s3", questionId: "q3" },
-    };
-    const service = new PostHogFeedbackService(analytics, surveys);
+describe("confirmed feedback delivery", () => {
+  it.each(["Ok", 1])("requires PostHog's positive acknowledgement (%s)", async (status) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status })));
+    vi.stubGlobal("fetch", fetchMock);
+    const service = createFeedbackService(config);
 
-    await service.submit(submission);
-    await service.submit(submission);
+    await expect(service.submit(submission)).resolves.toMatchObject({ sent: true });
 
-    expect(analytics.identify).toHaveBeenCalledTimes(2);
-    expect(analytics.identify).toHaveBeenCalledWith("did:plc:user");
-    expect(analytics.capture).toHaveBeenCalledTimes(2);
-    expect(analytics.capture).toHaveBeenCalledWith(
-      "survey sent",
+    expect(service).toBeInstanceOf(PostHogFeedbackService);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://us.i.posthog.com/i/v0/e/",
       expect.objectContaining({
-        $survey_id: "s2",
-        feedback_surface: "controls",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "omit",
       }),
     );
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(options.body as string)).toEqual({
+      api_key: "phc_project",
+      ...buildFeedbackEvent(submission, { surveyId: "survey-1", questionId: "question-1" }),
+      properties: expect.objectContaining({
+        $survey_id: "survey-1",
+        $survey_completed: true,
+        "$survey_response_question-1": submission.response,
+        feedback_submission_id: submission.submissionId,
+        feedback_surface: "controls",
+        surface: "greenearth_web",
+        environment: "production",
+        frontend_release_sha: "frontend-sha",
+        schema_version: 1,
+        app_route: "/settings",
+        api_release_sha: "api-sha",
+      }) as unknown,
+    });
   });
+
+  it("does not report success while the delivery receipt is pending", async () => {
+    let acknowledge: (receipt: unknown) => void = () => {};
+    const receipt = new Promise<unknown>((resolve) => {
+      acknowledge = resolve;
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => receipt }));
+    const settled = vi.fn();
+    const pending = createFeedbackService(config).submit(submission).then(settled);
+
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    acknowledge({ status: "Ok" });
+    await pending;
+    expect(settled).toHaveBeenCalledWith(expect.objectContaining({ sent: true }));
+  });
+
+  it("preserves hostname filters without including URL tokens", async () => {
+    window.location.hash = "#/auth/finish?token=private-oauth-token";
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"status":"Ok"}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createFeedbackService(config).submit(submission);
+
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(options.body as string)).toMatchObject({
+      properties: {
+        $host: window.location.host,
+        $pathname: window.location.pathname,
+        $current_url: `${window.location.origin}${window.location.pathname}#/settings`,
+      },
+    });
+    expect(options.body).not.toContain("private-oauth-token");
+  });
+
+  it.each([400, 429, 503])("rejects HTTP %i without claiming delivery", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"status":"Ok"}', { status })));
+
+    await expect(createFeedbackService(config).submit(submission)).rejects.toThrow(
+      "We couldn't confirm your feedback was received.",
+    );
+  });
+
+  it.each(["not JSON", "{}", "null", '{"status":0}', '{"status":"error"}', ""])(
+    "rejects missing or invalid acknowledgements (%s)",
+    async (body) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+
+      await expect(createFeedbackService(config).submit(submission)).rejects.toThrow(
+        "We couldn't confirm your feedback was received.",
+      );
+    },
+  );
+
+  it("rejects blocked or offline requests", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(createFeedbackService(config).submit(submission)).rejects.toThrow(
+      "Check your connection or browser's tracking protection",
+    );
+  });
+
+  it("aborts a stalled request and clears the timeout", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | null | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        signal = init?.signal;
+        return new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      }),
+    );
+    const result = expect(createFeedbackService(config).submit(submission)).rejects.toThrow(
+      "We couldn't confirm delivery in time.",
+    );
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await result;
+    expect(signal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps non-production feedback in no-network preview mode even with production keys", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const service = createFeedbackService({ ...config, environment: "stage" });
+
+    await expect(service.submit(submission)).resolves.toMatchObject({ sent: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when production capture is disabled or the survey is missing", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const disabled = createFeedbackService({ ...config, posthog: { mode: "disabled" } });
+
+    expect(disabled.mode).toBe("unavailable");
+    await expect(disabled.submit(submission)).rejects.toThrow(
+      "Feedback delivery is temporarily unavailable.",
+    );
+    await expect(
+      createFeedbackService(config).submit({ ...submission, surface: "general" }),
+    ).rejects.toThrow("Feedback is temporarily unavailable on this page.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([{ distinctId: "" }, { response: " " }])(
+    "does not send invalid submissions (%j)",
+    async (invalid) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(
+        createFeedbackService(config).submit({ ...submission, ...invalid }),
+      ).rejects.toThrow("Sign in and enter your feedback before sending.");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });

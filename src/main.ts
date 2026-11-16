@@ -25,7 +25,7 @@ async function init() {
     Object.assign(blueskyRuntimeConfig.blueskyUrls, runtimeConfig.blueskyUrls);
   }
   const analyticsService = await createAnalyticsService(runtimeConfig);
-  const feedbackService = createFeedbackService(runtimeConfig, analyticsService);
+  const feedbackService = createFeedbackService(runtimeConfig);
   let services: ServiceProvider;
 
   if (useMock) {

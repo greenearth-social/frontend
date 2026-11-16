@@ -108,8 +108,12 @@ Hash-based SPA routing handled entirely in `app-shell.ts`:
 
 ## Product analytics
 
-The frontend uses one shared PostHog client for product events and manual
-survey submissions. Network capture is enabled only by the production runtime
+The frontend uses a shared PostHog client for product events. Manual survey
+submissions go directly to PostHog's capture API and show success only after a
+successful HTTP response with a positive acknowledgement. Failed or timed-out
+submissions keep the feedback text for retry. This confirms PostHog's acceptance
+of the request; subsequent ingestion and Discord delivery are asynchronous.
+Network capture is enabled only by the production runtime
 configuration; stage, local development, mocks, and tests use no-op analytics.
 Autocapture, generic pageviews, exception capture, heatmaps, and session replay
 are disabled.

@@ -201,7 +201,7 @@ export class FeedbackForm extends LitElement {
     event.preventDefault();
     const response = this.response.trim();
     const store = getRootStore();
-    if (!response || !store) return;
+    if (!response || !store || this.isSubmitting) return;
 
     this.isSubmitting = true;
     this.message = "";

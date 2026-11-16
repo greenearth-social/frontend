@@ -3,7 +3,6 @@ import type {
   RuntimeConfig,
   SurveyRuntimeConfig,
 } from "../../config/runtime-config";
-import type { IAnalyticsService } from "../analytics/types";
 import type {
   FeedbackEventPayload,
   FeedbackSubmission,
@@ -31,6 +30,17 @@ const SURFACE_EVENT_VALUES: Record<FeedbackSurface, string> = {
   controls: "controls",
   howItWorks: "how_it_works",
 };
+
+const DELIVERY_TIMEOUT_MS = 10_000;
+const DELIVERY_ERROR =
+  "We couldn't confirm your feedback was received. Check your connection or browser's tracking protection, then try again.";
+
+interface PostHogFeedbackConfig {
+  projectKey: string;
+  host: string;
+  frontendReleaseSha: string | null;
+  surveys: Partial<Record<FeedbackSurface, SurveyRuntimeConfig>>;
+}
 
 export function buildFeedbackEvent(
   submission: FeedbackSubmission,
@@ -112,36 +122,91 @@ export class PostHogFeedbackService implements IFeedbackService {
   readonly mode = "posthog" as const;
   readonly unavailableReason = null;
 
-  constructor(
-    private analytics: IAnalyticsService,
-    private surveys: Partial<Record<FeedbackSurface, SurveyRuntimeConfig>>,
-  ) {}
+  constructor(private config: PostHogFeedbackConfig) {}
 
   unavailableReasonFor(surface: FeedbackSurface): string | null {
-    return this.surveys[surface] ? null : "Feedback is temporarily unavailable on this page.";
+    return this.config.surveys[surface]
+      ? null
+      : "Feedback is temporarily unavailable on this page.";
   }
 
-  submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
-    const survey = this.surveys[submission.surface];
+  async submit(submission: FeedbackSubmission): Promise<FeedbackSubmitResult> {
+    const survey = this.config.surveys[submission.surface];
     if (!survey) {
-      return Promise.reject(new Error("Feedback is temporarily unavailable on this page."));
+      throw new Error("Feedback is temporarily unavailable on this page.");
     }
-    this.analytics.identify(submission.distinctId);
+    if (!submission.distinctId.trim() || !submission.response.trim()) {
+      throw new Error("Sign in and enter your feedback before sending.");
+    }
     const payload = buildFeedbackEvent(submission, survey);
-    this.analytics.capture(payload.event, payload.properties);
-    return Promise.resolve({ sent: true, payload });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, DELIVERY_TIMEOUT_MS);
+
+    try {
+      // The browser SDK's capture() returns before delivery and has no receipt callback.
+      // Send this user-submitted message once, and require the capture API's acknowledgement.
+      const response = await fetch(`${this.config.host.replace(/\/+$/, "")}/i/v0/e/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "omit",
+        signal: controller.signal,
+        body: JSON.stringify({
+          api_key: this.config.projectKey,
+          ...payload,
+          properties: {
+            $host: window.location.host,
+            $pathname: window.location.pathname,
+            $current_url: `${window.location.origin}${window.location.pathname}#${submission.appRoute}`,
+            surface: "greenearth_web",
+            environment: "production",
+            frontend_release_sha: this.config.frontendReleaseSha,
+            schema_version: 1,
+            ...payload.properties,
+          },
+        }),
+      });
+      if (!response.ok) throw new Error(DELIVERY_ERROR);
+
+      const receipt: unknown = await response.json();
+      if (
+        typeof receipt !== "object" ||
+        receipt === null ||
+        !("status" in receipt) ||
+        (receipt.status !== "Ok" && receipt.status !== 1)
+      ) {
+        throw new Error(DELIVERY_ERROR);
+      }
+      // This confirms acceptance by PostHog, not subsequent Discord delivery.
+      return { sent: true, payload };
+    } catch {
+      throw new Error(
+        controller.signal.aborted
+          ? "We couldn't confirm delivery in time. Your feedback is still here. Please try again."
+          : DELIVERY_ERROR,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
 
-export function createFeedbackService(
-  config: RuntimeConfig,
-  analytics: IAnalyticsService,
-): IFeedbackService {
-  if (config.feedback.mode === "posthog") {
-    return new PostHogFeedbackService(analytics, config.feedback.surveys);
-  }
+export function createFeedbackService(config: RuntimeConfig): IFeedbackService {
   if (config.feedback.mode === "unavailable") {
     return new UnavailableFeedbackService(config.feedback.reason);
+  }
+  if (config.environment !== "production") return new TestFeedbackService();
+  if (config.feedback.mode === "posthog") {
+    if (config.posthog.mode !== "posthog") {
+      return new UnavailableFeedbackService("Feedback delivery is temporarily unavailable.");
+    }
+    return new PostHogFeedbackService({
+      projectKey: config.posthog.projectKey,
+      host: config.posthog.host,
+      frontendReleaseSha: config.frontendReleaseSha,
+      surveys: config.feedback.surveys,
+    });
   }
   return new TestFeedbackService();
 }
