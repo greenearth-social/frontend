@@ -37,6 +37,8 @@ export interface Preferences {
   llmFilterMultiply: boolean;
   // Experimental, local only: multiply mode's factor at a perfect match, 0-3; 1 changes nothing.
   llmFilterMultiplier: number;
+  // Experimental, local only: per-source z-score instead of min-max.
+  normalizeRankZscore: boolean;
 }
 
 export type FeedPreferences = Partial<Preferences>;

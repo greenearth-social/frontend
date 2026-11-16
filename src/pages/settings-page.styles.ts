@@ -1460,6 +1460,7 @@ export const settingsPageStyles = css`
   }
 
   .popup-description {
+    white-space: pre-line;
     margin: 0.75rem 0 0;
     color: var(--bluesky-text-secondary);
     font-size: 0.875rem;

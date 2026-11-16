@@ -55,6 +55,7 @@ const preferences: Preferences = {
   llmFilterStrength: 0.5,
   llmFilterMultiply: false,
   llmFilterMultiplier: 2.0,
+  normalizeRankZscore: false,
 };
 
 describe("AuthStore account changes", () => {

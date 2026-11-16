@@ -35,6 +35,7 @@ const submission: FeedbackSubmission = {
     llmFilterStrength: 0.5,
     llmFilterMultiply: false,
     llmFilterMultiplier: 2.0,
+    normalizeRankZscore: false,
   },
   snapshot: {
     requestId: "request-1",

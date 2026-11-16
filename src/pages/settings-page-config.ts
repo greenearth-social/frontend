@@ -105,6 +105,12 @@ export const SETTINGS_NODES: Record<string, SettingsNode> = {
     description:
       "The ranking model learns from what you have already liked, so posts from a new source (like your Prompt) tend to score low and get crowded out. With this on, each source is graded on its own curve: its best post counts as a 1 and its weakest as a 0, so every source gets a fair share of the feed.",
   },
+  normalize_rank_zscore: {
+    label: "Normalize method (experimental)",
+    type: "config",
+    description:
+      "Only matters with Normalize score by CG on. Both methods run per source, after the score floor.\n\nOff, min-max:\nnew = (score − min) / (max − min)\nThe source's best post is 1, its weakest 0. One post, or all posts equal: new = 1.\n\nOn, z-score:\nz = (score − mean) / spread\nnew = Φ(z) = ½ · (1 + erf(z / √2))\nspread is the source's standard deviation and Φ is the bell-curve share: the fraction of a normal curve below z.\n\nz = −2 → 0.02\nz = −1 → 0.16\nz = 0 → 0.50\nz = +1 → 0.84\nz = +2 → 0.98\n\nOne post, or all posts equal (no spread): new = 0.75.",
+  },
   llm_filter: {
     label: "Filter",
     type: "config",

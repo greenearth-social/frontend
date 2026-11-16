@@ -35,6 +35,7 @@ interface ApiPreferences {
   llm_filter_strength?: number;
   llm_filter_multiply?: boolean;
   llm_filter_multiplier?: number;
+  normalize_rank_zscore?: boolean;
 }
 
 interface ApiLlmPrompt {
@@ -188,6 +189,9 @@ function mapPreferences(prefs: ApiPreferences): FeedPreferences {
   if (prefs.llm_filter_multiplier !== undefined) {
     mapped.llmFilterMultiplier = prefs.llm_filter_multiplier;
   }
+  if (prefs.normalize_rank_zscore !== undefined) {
+    mapped.normalizeRankZscore = prefs.normalize_rank_zscore;
+  }
   return mapped;
 }
 
@@ -220,6 +224,9 @@ function serializePreferences(prefs: FeedPreferences): ApiPreferences {
   }
   if (prefs.llmFilterMultiplier !== undefined) {
     serialized.llm_filter_multiplier = prefs.llmFilterMultiplier;
+  }
+  if (prefs.normalizeRankZscore !== undefined) {
+    serialized.normalize_rank_zscore = prefs.normalizeRankZscore;
   }
   return serialized;
 }

@@ -39,6 +39,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   llmFilterStrength: 0.5,
   llmFilterMultiply: false,
   llmFilterMultiplier: 2.0,
+  normalizeRankZscore: false,
 };
 
 // The prompt source only exists on Your Feed.
@@ -57,6 +58,7 @@ const CONTROL_PROPERTIES: Record<FeedControlName, keyof Preferences> = {
   llm_filter_strength: "llmFilterStrength",
   llm_filter_multiply: "llmFilterMultiply",
   llm_filter_multiplier: "llmFilterMultiplier",
+  normalize_rank_zscore: "normalizeRankZscore",
 };
 
 const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
@@ -72,6 +74,7 @@ const PROPERTY_CONTROLS: Partial<Record<keyof Preferences, FeedControlName>> = {
   llmFilterStrength: "llm_filter_strength",
   llmFilterMultiply: "llm_filter_multiply",
   llmFilterMultiplier: "llm_filter_multiplier",
+  normalizeRankZscore: "normalize_rank_zscore",
 };
 
 const RESETTABLE_CONTROLS_BY_FEED: Record<AlgorithmId, FeedControlName[]> = {
@@ -139,12 +142,13 @@ function controlChanged(
 }
 
 function booleanEventProperties(
-  control: "normalize_rank_by_generator" | "llm_filter" | "llm_filter_multiply",
+  control:
+    "normalize_rank_by_generator" | "llm_filter" | "llm_filter_multiply" | "normalize_rank_zscore",
   previousValues: Preferences,
   newValues: Preferences,
 ): FeedControlEventProperties {
   const property = CONTROL_PROPERTIES[control] as
-    "normalizeRankByGenerator" | "llmFilter" | "llmFilterMultiply";
+    "normalizeRankByGenerator" | "llmFilter" | "llmFilterMultiply" | "normalizeRankZscore";
   const previousValue = previousValues[property];
   const newValue = newValues[property];
   return {
@@ -159,7 +163,11 @@ function booleanEventProperties(
 function numericEventProperties(
   control: Exclude<
     FeedControlName,
-    "source_weights" | "normalize_rank_by_generator" | "llm_filter" | "llm_filter_multiply"
+    | "source_weights"
+    | "normalize_rank_by_generator"
+    | "llm_filter"
+    | "llm_filter_multiply"
+    | "normalize_rank_zscore"
   >,
   previousValues: Preferences,
   newValues: Preferences,
@@ -217,7 +225,8 @@ function controlEventProperties(
   if (
     control === "normalize_rank_by_generator" ||
     control === "llm_filter" ||
-    control === "llm_filter_multiply"
+    control === "llm_filter_multiply" ||
+    control === "normalize_rank_zscore"
   ) {
     return booleanEventProperties(control, previousValues, newValues);
   }
@@ -786,6 +795,9 @@ export class PreferencesStore {
     }
     if (this.supportsControl(feedName, "llm_filter_multiplier")) {
       controls.push("llm_filter_multiplier");
+    }
+    if (this.supportsControl(feedName, "normalize_rank_zscore")) {
+      controls.push("normalize_rank_zscore");
     }
     const previousValues = clonePreferences(this.valuesFor(feedName));
     const changedControls = controls.filter((control) =>

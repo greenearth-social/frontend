@@ -262,6 +262,7 @@ export class SettingsPage extends MobxLitElement {
       llmFilterStrength: 0.5,
       llmFilterMultiply: false,
       llmFilterMultiplier: 2.0,
+      normalizeRankZscore: false,
     };
     const weights = this.previewSourceWeights ?? preferences.sourceWeights;
     const purpose = this.previewPurpose ?? preferences.purpose;
@@ -602,7 +603,8 @@ export class SettingsPage extends MobxLitElement {
         </div>
         <div class="source-list">
           ${this.#renderSourceControl("llm", "llm", "Prompt", weights)}
-          ${this.#renderBalanceSwitch()} ${this.#renderMinRankScoreSlider()}
+          ${this.#renderBalanceSwitch()} ${this.#renderNormalizeMethodSwitch()}
+          ${this.#renderMinRankScoreSlider()}
           ${
             this.#supportsControl("llm_filter")
               ? html`
@@ -1059,6 +1061,29 @@ export class SettingsPage extends MobxLitElement {
     `;
   }
 
+  // Experimental, local only: min-max (off) or z-score (on); shown while normalizing.
+  #renderNormalizeMethodSwitch(): TemplateResult {
+    if (!this.#supportsControl("normalize_rank_zscore")) return html``;
+    const values = getRootStore()?.preferencesStore.valuesFor(this.selectedAlgorithm);
+    if (!values?.normalizeRankByGenerator) return html``;
+    const enabled = values.normalizeRankZscore;
+    return html`
+      <div class="balance-row">
+        ${renderToggleSwitch({
+          inputClass: "balance-switch-input",
+          ariaLabel: "Z-score instead of min-max",
+          checked: enabled,
+          disabled: this.#settingsBusy(),
+          text: enabled ? "Normalize method: z-score" : "Normalize method: min-max",
+          onChange: (checked) => {
+            this.#commitNormalizeRankZscore(checked);
+          },
+        })}
+        ${this.#helpButton("normalize_rank_zscore", "Normalize method")}
+      </div>
+    `;
+  }
+
   #renderRankingSection(purpose: number, politics: number): TemplateResult {
     const constructivePercent = Math.round(purpose * 100);
     const engagingPercent = 100 - constructivePercent;
@@ -1433,6 +1458,12 @@ export class SettingsPage extends MobxLitElement {
       return false;
     }
     if (
+      this.#supportsControl("normalize_rank_zscore") &&
+      preferences.normalizeRankZscore !== DEFAULT_PREFERENCES.normalizeRankZscore
+    ) {
+      return false;
+    }
+    if (
       this.#supportsControl("llm_filter_multiplier") &&
       preferences.llmFilterMultiplier !== DEFAULT_PREFERENCES.llmFilterMultiplier
     ) {
@@ -1598,6 +1629,18 @@ export class SettingsPage extends MobxLitElement {
     void this.#applyImmediateChange({ llmFilterMultiply: current }, { llmFilterMultiply: enabled });
   }
 
+  #commitNormalizeRankZscore(enabled: boolean): void {
+    if (!this.#supportsControl("normalize_rank_zscore")) return;
+    const current = getRootStore()?.preferencesStore.valuesFor(
+      this.selectedAlgorithm,
+    ).normalizeRankZscore;
+    if (current === undefined || current === enabled) return;
+    void this.#applyImmediateChange(
+      { normalizeRankZscore: current },
+      { normalizeRankZscore: enabled },
+    );
+  }
+
   #commitLlmFilterMultiplier(value: number): void {
     this.previewLlmFilterMultiplier = null;
     if (!this.#supportsControl("llm_filter_multiplier")) return;
@@ -1648,6 +1691,9 @@ export class SettingsPage extends MobxLitElement {
     }
     if (this.#supportsControl("llm_filter_multiplier")) {
       patch.llmFilterMultiplier = values.llmFilterMultiplier;
+    }
+    if (this.#supportsControl("normalize_rank_zscore")) {
+      patch.normalizeRankZscore = values.normalizeRankZscore;
     }
     if (this.#supportsPolitics()) patch.politics = values.politics;
     if (this.selectedAlgorithm !== "random") patch.purpose = values.purpose;

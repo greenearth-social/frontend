@@ -12,7 +12,8 @@ export type FeedControlName =
   | "min_rank_score"
   | "llm_filter_strength"
   | "llm_filter_multiply"
-  | "llm_filter_multiplier";
+  | "llm_filter_multiplier"
+  | "normalize_rank_zscore";
 
 export type SignInFailureStage = "validation" | "initiation" | "callback";
 
