@@ -81,6 +81,9 @@
   --color-border: var(--bluesky-border);
   --color-text: var(--bluesky-text);
   --color-text-muted: var(--bluesky-text-secondary);
+  /* Legacy values kept so api#631 causes no visual change. Temporary: consolidate into --color-surface / --color-text-muted later. */
+  --color-surface-legacy: #16181c;
+  --color-text-muted-legacy: #8b98a5;
   --color-accent: var(--bluesky-brand);
   --color-accent-hover: var(--bluesky-brand-hover);
   --color-on-accent: #fff;
