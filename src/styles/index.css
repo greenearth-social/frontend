@@ -24,6 +24,80 @@
   --bluesky-repost: #00ba7c;
   --bluesky-nav-bg: #0f1923;
 
+  /* ==========================================================================
+     Design tokens
+     Additive layer: nothing consumes these yet, so there is no visual change.
+     Colors are aliases of --bluesky-* (resolved on :root), so they follow any
+     redefinition of those variables made on :root.
+     Breakpoints, by convention: 480 / 768 / 1024px. CSS variables can't be
+     used in @media, so the values are written out in each query.
+     Data/chart colors will be a separate --color-data-* set later.
+     ========================================================================== */
+
+  /* Type scale */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  /* Font weights */
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Line heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+
+  /* Spacing */
+  --space-0: 0;
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Semantic colors */
+  --color-bg: var(--bluesky-bg);
+  --color-surface: var(--bluesky-bg-card);
+  --color-surface-hover: var(--bluesky-bg-hover);
+  --color-nav: var(--bluesky-nav-bg);
+  --color-border: var(--bluesky-border);
+  --color-text: var(--bluesky-text);
+  --color-text-muted: var(--bluesky-text-secondary);
+  /* Legacy values kept so api#631 causes no visual change. Temporary: consolidate into --color-surface / --color-text-muted later. */
+  --color-surface-legacy: #16181c;
+  --color-text-muted-legacy: #8b98a5;
+  --color-accent: var(--bluesky-brand);
+  --color-accent-hover: var(--bluesky-brand-hover);
+  --color-on-accent: #fff;
+  --color-danger: var(--bluesky-danger);
+  --color-success: var(--bluesky-repost);
+  --color-header-glass: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
+  --color-scrim: rgb(0 0 0 / 0.5);
+
+  /* Shadows (copied from the most-used box-shadow values in src/) */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  /* ======================== end of design tokens ========================= */
+
   --wa-color-surface-default: var(--bluesky-bg);
   --wa-color-surface-raised: var(--bluesky-bg-hover);
   --wa-color-surface-border: var(--bluesky-border);

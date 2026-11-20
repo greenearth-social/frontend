@@ -131,7 +131,7 @@ export class SettingsFeedPreview extends LitElement {
     :host {
       display: block;
       min-height: 100%;
-      color: var(--text-primary, #e7e9ea);
+      color: var(--color-text);
     }
 
     .status {
@@ -139,7 +139,7 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 15rem;
       place-items: center;
       padding: 2rem;
-      color: var(--text-secondary, #71767b);
+      color: var(--color-text-muted);
       text-align: center;
     }
 
@@ -155,7 +155,7 @@ export class SettingsFeedPreview extends LitElement {
       justify-content: center;
       gap: 0.75rem;
       padding: 0.25rem 0.75rem 1rem;
-      color: var(--text-secondary, #8b98a5);
+      color: var(--color-text-muted-legacy);
       font-size: 0.75rem;
       font-variant-numeric: tabular-nums;
     }
@@ -168,8 +168,8 @@ export class SettingsFeedPreview extends LitElement {
       padding: 0;
       border: 1px solid var(--bluesky-border, #2f3336);
       border-radius: 999px;
-      background: color-mix(in srgb, var(--surface, #16181c) 88%, transparent);
-      color: var(--text-primary, #e7e9ea);
+      background: color-mix(in srgb, var(--color-surface-legacy) 88%, transparent);
+      color: var(--color-text);
       cursor: pointer;
     }
 
@@ -200,7 +200,7 @@ export class SettingsFeedPreview extends LitElement {
       padding: 0.75rem;
       border: 2px solid var(--source-border);
       border-radius: 0.875rem;
-      background: var(--surface, #16181c);
+      background: var(--color-surface-legacy);
       color: inherit;
       opacity: 1;
       text-decoration: none;
@@ -214,7 +214,7 @@ export class SettingsFeedPreview extends LitElement {
 
     a.card:hover,
     a.card:focus-visible {
-      background: color-mix(in srgb, var(--surface, #16181c) 92%, white);
+      background: color-mix(in srgb, var(--color-surface-legacy) 92%, white);
       outline: 2px solid var(--bluesky-brand, #1083fe);
       outline-offset: 1px;
     }
@@ -242,7 +242,7 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .card.partial .author {
-      color: var(--text-secondary, #8b98a5);
+      color: var(--color-text-muted-legacy);
     }
 
     .content-row {
@@ -285,7 +285,7 @@ export class SettingsFeedPreview extends LitElement {
       flex: none;
       align-items: center;
       gap: 0.125rem;
-      color: var(--text-secondary, #8b98a5);
+      color: var(--color-text-muted-legacy);
       font-size: 0.6875rem;
       font-variant-numeric: tabular-nums;
       font-weight: 650;
@@ -310,7 +310,7 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .movement.unchanged {
-      color: var(--text-secondary, #8b98a5);
+      color: var(--color-text-muted-legacy);
     }
 
     .snippet {
@@ -318,7 +318,7 @@ export class SettingsFeedPreview extends LitElement {
       overflow: hidden;
       max-height: 2.5rem;
       margin-top: 0.45rem;
-      color: var(--text-primary, #e7e9ea);
+      color: var(--color-text);
       font-size: 0.8125rem;
       line-height: 1.25rem;
       opacity: 1;
