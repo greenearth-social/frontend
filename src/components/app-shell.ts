@@ -17,6 +17,7 @@ import "../pages/feed-page";
 import "../pages/settings-page";
 import "../pages/feedback-page";
 import "../pages/not-found-page";
+import "./error-boundary";
 
 const NAV_ITEMS = [
   { icon: "activity", label: "Why Am I Seeing This?", page: "feed" },
@@ -882,23 +883,25 @@ export class AppShell extends MobxLitElement {
           @page-change=${this.#scrollToTop}
           @per-page-change=${this.#scrollToTop}
         >
-          ${
-            activePage === "settings"
-              ? html`<settings-page
-                  .onOpenMenu=${this.#openDrawer}
-                  .selectedAlgorithm=${selectedAlgorithm}
-                ></settings-page>`
-              : activePage === "feedback"
-                ? html`<feedback-page
+          <error-boundary boundaryName="MainPage">
+            ${
+              activePage === "settings"
+                ? html`<settings-page
                     .onOpenMenu=${this.#openDrawer}
                     .selectedAlgorithm=${selectedAlgorithm}
-                  ></feedback-page>`
-                : html`<feed-page
-                    .onOpenMenu=${this.#openDrawer}
-                    .authFailureMessage=${this._authFailureMessage}
-                    @auth-failure-dismissed=${this.#dismissAuthFailure}
-                  ></feed-page>`
-          }
+                  ></settings-page>`
+                : activePage === "feedback"
+                  ? html`<feedback-page
+                      .onOpenMenu=${this.#openDrawer}
+                      .selectedAlgorithm=${selectedAlgorithm}
+                    ></feedback-page>`
+                  : html`<feed-page
+                      .onOpenMenu=${this.#openDrawer}
+                      .authFailureMessage=${this._authFailureMessage}
+                      @auth-failure-dismissed=${this.#dismissAuthFailure}
+                    ></feed-page>`
+            }
+          </error-boundary>
         </main>
       </div>
     `;
