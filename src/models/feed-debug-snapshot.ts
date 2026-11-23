@@ -85,6 +85,8 @@ export interface FilteringCounts {
   storedItemCount: number;
   displayedItemCount: number;
   publiclyFilteredCount: number;
+  blockedItemCount?: number;
+  blockCheckUnavailableCount?: number;
   unavailableCount: number;
   partialItemCount?: number;
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FeedItemView } from "../models/feed-debug-snapshot";
+import type { FeedItemView, FilteringCounts } from "../models/feed-debug-snapshot";
 
 const testState = vi.hoisted(() => ({
   loadFeedList: vi.fn(),
@@ -14,6 +14,7 @@ const testState = vi.hoisted(() => ({
         feedName: "your-feed" | "best-of-friends" | "random";
       }>,
       currentRequestId: null as string | null,
+      currentFilteringCounts: null as FilteringCounts | null,
       filteringCountsByRequest: {},
       error: null as string | null,
       items: [] as FeedItemView[],
@@ -24,6 +25,7 @@ const testState = vi.hoisted(() => ({
       loadFeedList: vi.fn(),
       refreshFeedIfNew: vi.fn(),
       loadFeedDetail: vi.fn(),
+      retryBlockCheck: vi.fn(),
       goToPage: vi.fn(),
       setPostsPerPage: vi.fn(),
     },
@@ -74,6 +76,7 @@ describe("FeedPage pull to refresh", () => {
     testState.rootStore.feedStore.feedList = [];
     testState.rootStore.feedStore.items = [];
     testState.rootStore.feedStore.currentRequestId = null;
+    testState.rootStore.feedStore.currentFilteringCounts = null;
     testState.rootStore.feedStore.error = null;
     testState.rootStore.authStore.isSignedIn = true;
     testState.rootStore.accountStore.activeAccount.did = "did:plc:test";
@@ -81,11 +84,32 @@ describe("FeedPage pull to refresh", () => {
     testState.rootStore.feedStore.loadFeedList.mockReset();
     testState.rootStore.feedStore.refreshFeedIfNew.mockReset();
     testState.rootStore.feedStore.refreshFeedIfNew.mockResolvedValue(false);
+    testState.rootStore.feedStore.retryBlockCheck.mockReset();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     document.body.replaceChildren();
+  });
+
+  it("offers a block-check retry for a snapshot with zero verified posts", async () => {
+    const { feedStore } = testState.rootStore;
+    feedStore.currentRequestId = "r1";
+    feedStore.currentFilteringCounts = {
+      storedItemCount: 2,
+      displayedItemCount: 0,
+      publiclyFilteredCount: 0,
+      unavailableCount: 0,
+      blockCheckUnavailableCount: 2,
+    };
+    const element = document.createElement("feed-page");
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const warning = element.shadowRoot?.querySelector(".block-check-warning");
+    expect(warning?.textContent).toContain("Bluesky’s block check couldn’t finish.");
+    warning?.querySelector<HTMLButtonElement>("button")?.click();
+    expect(feedStore.retryBlockCheck).toHaveBeenCalledOnce();
   });
 
   it("keeps a pending empty-to-populated feed switch in the loading state", async () => {

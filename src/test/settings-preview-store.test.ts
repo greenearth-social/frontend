@@ -149,7 +149,7 @@ describe("SettingsPreviewStore", () => {
     expect(store.isDisplayingBaseline).toBe(false);
   });
 
-  it("keeps politics variants distinct and reuses their slates on Undo and Redo", async () => {
+  it("rechecks and reuses matching slates when Preview is requested again", async () => {
     const { root, acceptFeedPreview, createFeedPreview, getFeedPreview } = harness();
     const store = new SettingsPreviewStore(root);
     await store.activateFeed("your-feed");
@@ -170,23 +170,30 @@ describe("SettingsPreviewStore", () => {
       });
     getFeedPreview
       .mockResolvedValueOnce(detail("preview-a", ["a-1", "a-2"]))
+      .mockResolvedValueOnce(detail("preview-b", ["b-1", "b-2"]))
+      .mockResolvedValueOnce(detail("preview-a", ["a-1", "a-2"]))
       .mockResolvedValueOnce(detail("preview-b", ["b-1", "b-2"]));
 
     const first = await store.preview(firstPatch);
     if (first) await store.acceptGeneratedPreview(first, firstPatch);
     const second = await store.preview(secondPatch);
     if (second) await store.acceptGeneratedPreview(second, secondPatch);
-    const undo = await store.preview({ politics: 0, purpose: 0.4, freshness: 2 });
-    if (undo) await store.acceptGeneratedPreview(undo, firstPatch);
-    const redo = await store.preview({ freshness: 2, purpose: 0.4, politics: 2 });
-    if (redo) await store.acceptGeneratedPreview(redo, secondPatch);
+    const firstAgain = await store.preview({ politics: 0, purpose: 0.4, freshness: 2 });
+    if (firstAgain) await store.acceptGeneratedPreview(firstAgain, firstPatch);
+    const secondAgain = await store.preview({ freshness: 2, purpose: 0.4, politics: 2 });
+    if (secondAgain) await store.acceptGeneratedPreview(secondAgain, secondPatch);
 
     expect(createFeedPreview).toHaveBeenCalledTimes(2);
-    expect(getFeedPreview).toHaveBeenCalledTimes(2);
-    expect(undo?.requestId).toBe("preview-a");
-    expect(undo?.items.map((item) => item.atUri)).toEqual(["a-1", "a-2"]);
-    expect(redo?.requestId).toBe("preview-b");
-    expect(redo?.items.map((item) => item.atUri)).toEqual(["b-1", "b-2"]);
+    expect(getFeedPreview.mock.calls).toEqual([
+      ["preview-a"],
+      ["preview-b"],
+      ["preview-a"],
+      ["preview-b"],
+    ]);
+    expect(firstAgain?.requestId).toBe("preview-a");
+    expect(firstAgain?.items.map((item) => item.atUri)).toEqual(["a-1", "a-2"]);
+    expect(secondAgain?.requestId).toBe("preview-b");
+    expect(secondAgain?.items.map((item) => item.atUri)).toEqual(["b-1", "b-2"]);
     expect(acceptFeedPreview).toHaveBeenNthCalledWith(3, "your-feed", "preview-a", firstPatch, [
       "a-1",
       "a-2",
@@ -299,6 +306,7 @@ describe("SettingsPreviewStore", () => {
       });
     getFeedPreview
       .mockResolvedValueOnce(detail("preview-1", ["old-preview"]))
+      .mockResolvedValueOnce(detail("preview-2", ["replacement"]))
       .mockResolvedValueOnce(detail("preview-2", ["replacement"]));
     acceptFeedPreview
       .mockRejectedValueOnce(new FeedApiError(404, "Feed preview not found"))
@@ -319,6 +327,105 @@ describe("SettingsPreviewStore", () => {
     const reused = await store.preview(patch);
     expect(reused?.requestId).toBe("preview-2");
     expect(createFeedPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes the same partial preview and stages it only after verification", async () => {
+    const { root, createFeedPreview, getFeedPreview, acceptFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2 };
+    const partial = detail("preview-1", ["first", "last"]);
+    partial.filteringCounts.blockCheckUnavailableCount = 1;
+    getFeedPreview
+      .mockResolvedValueOnce(partial)
+      .mockResolvedValueOnce(detail("preview-1", ["first", "recovered", "last"]));
+
+    const generated = await store.preview(patch);
+    if (!generated) throw new Error("Expected a partial preview");
+    const displayable = await store.acceptGeneratedPreview(generated, patch);
+    if (!displayable) throw new Error("Expected verified cards");
+    store.acceptPreview(displayable);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["first", "last"]);
+    expect(acceptFeedPreview).not.toHaveBeenCalled();
+
+    await store.retryBlockCheck(patch, () => true);
+
+    expect(getFeedPreview.mock.calls).toEqual([["preview-1"], ["preview-1"]]);
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["first", "recovered", "last"]);
+    expect(acceptFeedPreview).toHaveBeenCalledExactlyOnceWith("your-feed", "preview-1", patch, [
+      "first",
+      "recovered",
+      "last",
+    ]);
+  });
+
+  it("recovers verified cards without staging settings edited since Preview", async () => {
+    const { root, createFeedPreview, getFeedPreview, acceptFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const partial = detail("preview-1", []);
+    partial.filteringCounts.blockCheckUnavailableCount = 1;
+    getFeedPreview
+      .mockResolvedValueOnce(partial)
+      .mockResolvedValueOnce(detail("preview-1", ["recovered"]));
+    const generated = await store.preview({ freshness: 2 });
+    if (!generated) throw new Error("Expected a partial preview");
+    store.acceptPreview(generated);
+
+    await store.retryBlockCheck({ freshness: 3 }, () => true);
+
+    expect(store.displayedItems.map((item) => item.atUri)).toEqual(["recovered"]);
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+    expect(acceptFeedPreview).not.toHaveBeenCalled();
+  });
+
+  it("prompts for an explicit update when the partial preview expires", async () => {
+    const { root, createFeedPreview, getFeedPreview, acceptFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2 };
+    const partial = detail("preview-1", []);
+    partial.filteringCounts.blockCheckUnavailableCount = 1;
+    getFeedPreview
+      .mockResolvedValueOnce(partial)
+      .mockRejectedValueOnce(new FeedApiError(404, "Feed preview not found"));
+    const generated = await store.preview(patch);
+    if (!generated) throw new Error("Expected a partial preview");
+    store.acceptPreview(generated);
+
+    await store.retryBlockCheck(patch, () => true);
+
+    expect(store.blockCheckExpired).toBe(true);
+    expect(store.blockRetryError).toContain("Update preview");
+    expect(createFeedPreview).toHaveBeenCalledTimes(1);
+    expect(acceptFeedPreview).not.toHaveBeenCalled();
+  });
+
+  it("regenerates on an explicit Preview when blocks change the cached slate", async () => {
+    const { root, createFeedPreview, getFeedPreview } = harness();
+    const store = new SettingsPreviewStore(root);
+    await store.activateFeed("your-feed");
+    const patch = { freshness: 2 };
+    getFeedPreview
+      .mockResolvedValueOnce(detail("preview-1", ["first", "blocked"]))
+      .mockResolvedValueOnce(detail("preview-1", ["first"]))
+      .mockResolvedValueOnce(detail("preview-2", ["first", "replacement"]));
+    createFeedPreview
+      .mockResolvedValueOnce({
+        requestId: "preview-1",
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        requestId: "preview-2",
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+
+    await store.preview(patch);
+    const preview = await store.preview(patch);
+
+    expect(getFeedPreview.mock.calls).toEqual([["preview-1"], ["preview-1"], ["preview-2"]]);
+    expect(preview?.items.map((item) => item.atUri)).toEqual(["first", "replacement"]);
   });
 
   it("exposes a stale-preference conflict only as an internal recovery signal", async () => {

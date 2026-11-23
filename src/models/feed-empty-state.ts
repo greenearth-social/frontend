@@ -1,5 +1,8 @@
 import type { FilteringCounts, GeneratorDiagnostic } from "./feed-debug-snapshot";
 
+export const BLOCK_CHECK_WARNING =
+  "Some posts may be missing because Bluesky’s block check couldn’t finish.";
+
 function generatorLabel(name: string): string {
   switch (name) {
     case "followed_users":
@@ -60,6 +63,12 @@ export function emptySnapshotExplanation(
     if (counts.publiclyFilteredCount > 0) {
       removals.push(
         `${String(counts.publiclyFilteredCount)} ${counts.publiclyFilteredCount === 1 ? "was" : "were"} filtered`,
+      );
+    }
+    const blockedCount = counts.blockedItemCount ?? 0;
+    if (blockedCount > 0) {
+      removals.push(
+        `${String(blockedCount)} ${blockedCount === 1 ? "was" : "were"} hidden by blocks`,
       );
     }
     if (counts.unavailableCount > 0) {

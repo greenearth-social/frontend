@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { RootStore } from "../src/stores/root-store";
 
 async function openSettings(page: Page): Promise<void> {
   await page.goto("/#/auth/finish?token=test-token", { waitUntil: "domcontentloaded" });
@@ -480,6 +481,69 @@ test("changes persist immediately and each displayed Preview is accepted exactly
     expect(call.displayedItemUris.length).toBeGreaterThan(0);
     expect(new Set(call.displayedItemUris).size).toBe(call.displayedItemUris.length);
   }
+});
+
+test("Retry recovers a preview after every block check fails", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSettings(page);
+  await expect(page.locator("settings-feed-preview .feed")).toBeVisible();
+  await page.evaluate(async () => {
+    const modulePath = "/src/main.ts";
+    const { getRootStore } = (await import(modulePath)) as { getRootStore(): RootStore };
+    const service = getRootStore().services.feedApiService;
+    const create = service.createFeedPreview.bind(service);
+    const get = service.getFeedPreview.bind(service);
+    const accept = service.acceptFeedPreview.bind(service);
+    const events: string[] = [];
+    (window as Window & { blockCheckEvents?: string[] }).blockCheckEvents = events;
+    service.createFeedPreview = async (...args) => {
+      const preview = await create(...args);
+      events.push(`created ${preview.requestId}`);
+      return preview;
+    };
+    service.getFeedPreview = async (requestId) => {
+      const firstRead = !events.includes(`read ${requestId}`);
+      events.push(`read ${requestId}`);
+      const result = await get(requestId);
+      if (!firstRead) return result;
+      return {
+        ...result,
+        items: [],
+        filteringCounts: {
+          ...result.filteringCounts,
+          displayedItemCount: 0,
+          blockCheckUnavailableCount: result.items?.length ?? 0,
+        },
+      };
+    };
+    service.acceptFeedPreview = (...args) => {
+      events.push(`accepted ${args[1]}`);
+      return accept(...args);
+    };
+  });
+  const events = () =>
+    page.evaluate(
+      () => (window as Window & { blockCheckEvents?: string[] }).blockCheckEvents ?? [],
+    );
+  const settings = page.locator("settings-page");
+  await releaseFreshness(page, "2");
+  await settings.getByRole("button", { name: "Preview", exact: true }).click();
+  const warning = settings.getByText(
+    "Some posts may be missing because Bluesky’s block check couldn’t finish.",
+  );
+  await expect(warning).toBeVisible({ timeout: 12_000 });
+  await expect(settings.locator("settings-feed-preview .feed")).toHaveCount(0);
+  const beforeRetry = await events();
+  const requestId = beforeRetry[0]?.replace("created ", "");
+  if (!requestId) throw new Error("Expected a generated preview");
+  expect(requestId).toMatch(/^preview-/);
+  expect(beforeRetry).toEqual([`created ${requestId}`, `read ${requestId}`]);
+
+  await settings.getByRole("button", { name: "Retry", exact: true }).click();
+
+  await expect(warning).toHaveCount(0);
+  await expect(settings.locator("settings-feed-preview .feed")).toBeVisible();
+  expect(await events()).toEqual([...beforeRetry, `read ${requestId}`, `accepted ${requestId}`]);
 });
 
 test("a new edit after Undo replaces Redo and Defaults is one undoable action", async ({

@@ -275,6 +275,8 @@ describe("FeedApiService", () => {
       storedItemCount: 4,
       displayedItemCount: 1,
       publiclyFilteredCount: 2,
+      blockedItemCount: 0,
+      blockCheckUnavailableCount: 0,
       unavailableCount: 1,
       partialItemCount: 0,
     });

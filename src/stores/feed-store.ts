@@ -260,7 +260,15 @@ export class FeedStore {
     }
   }
 
-  async loadFeedDetail(requestId: string, options?: { background?: boolean }): Promise<void> {
+  async retryBlockCheck(): Promise<void> {
+    if (!this.currentRequestId || this.isLoading) return;
+    await this.loadFeedDetail(this.currentRequestId, { keepCurrentOnError: true });
+  }
+
+  async loadFeedDetail(
+    requestId: string,
+    options?: { background?: boolean; keepCurrentOnError?: boolean },
+  ): Promise<void> {
     const background = options?.background ?? false;
     const seq = ++this._loadSeq;
     if (!background) {
@@ -290,6 +298,7 @@ export class FeedStore {
       console.error("FeedStore.loadFeedDetail error:", e);
       if (background) return;
       this.error = e instanceof Error ? e.message : "Failed to load feed";
+      if (options?.keepCurrentOnError) return;
       this._allItems = [];
       this.currentApiReleaseSha = null;
       this._currentPage = 1;

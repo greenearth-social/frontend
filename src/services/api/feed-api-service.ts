@@ -118,6 +118,8 @@ interface ApiFeedDetailResponse {
   stored_item_count?: number;
   displayed_item_count?: number;
   publicly_filtered_count?: number;
+  blocked_item_count?: number;
+  block_check_unavailable_count?: number;
   unavailable_count?: number;
   partial_item_count?: number;
   generator_diagnostics?: ApiFeedSummary["generator_diagnostics"];
@@ -243,6 +245,8 @@ function mapFeedDetail(response: ApiFeedDetailResponse): FeedDetailResponse {
       storedItemCount: response.stored_item_count ?? response.items.length,
       displayedItemCount: response.displayed_item_count ?? response.items.length,
       publiclyFilteredCount: response.publicly_filtered_count ?? 0,
+      blockedItemCount: response.blocked_item_count ?? 0,
+      blockCheckUnavailableCount: response.block_check_unavailable_count ?? 0,
       unavailableCount: response.unavailable_count ?? 0,
       partialItemCount: response.partial_item_count ?? 0,
     },

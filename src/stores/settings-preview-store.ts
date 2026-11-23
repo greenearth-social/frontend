@@ -1,6 +1,7 @@
 import { makeAutoObservable } from "mobx";
 import type { AlgorithmId } from "../constants/algorithms";
 import type {
+  FeedDetailResponse,
   FeedItemView,
   FilteringCounts,
   GeneratorDiagnostic,
@@ -84,6 +85,8 @@ export type BaselineRefreshOutcome = {
   status: "updated" | "unchanged" | "deferred" | "error";
 };
 
+type DisplayedRequest = { kind: "detail" | "preview"; requestId: string };
+
 const EMPTY_FILTERING_COUNTS: FilteringCounts = {
   storedItemCount: 0,
   displayedItemCount: 0,
@@ -104,6 +107,9 @@ export class SettingsPreviewStore {
   isLoadingBaseline = false;
   isRefreshingBaseline = false;
   isGenerating = false;
+  isRetryingBlockCheck = false;
+  blockRetryError: string | null = null;
+  blockCheckExpired = false;
   acceptanceConflict = false;
   error: string | null = null;
   warning: string | null = null;
@@ -115,6 +121,8 @@ export class SettingsPreviewStore {
   private previewOperation = 0;
   private refreshOperation = 0;
   private displayRevision = 0;
+  private displayedRequest: DisplayedRequest | null = null;
+  private pendingPreview: GeneratedSettingsPreview | null = null;
   private activationPromise: Promise<void> | null = null;
   private activationPromiseFeed: AlgorithmId | null = null;
   private refreshPromise: Promise<BaselineRefreshOutcome> | null = null;
@@ -163,6 +171,8 @@ export class SettingsPreviewStore {
     this.isLoadingBaseline = false;
     this.isRefreshingBaseline = false;
     this.isGenerating = false;
+    this.isRetryingBlockCheck = false;
+    this.setDisplayedRequest(null);
     this.acceptanceConflict = false;
     this.displayRevision = 0;
     this.activationPromise = null;
@@ -208,6 +218,8 @@ export class SettingsPreviewStore {
     this.isLoadingBaseline = true;
     this.isRefreshingBaseline = false;
     this.isGenerating = false;
+    this.isRetryingBlockCheck = false;
+    this.setDisplayedRequest(null);
     this.acceptanceConflict = false;
     this.displayRevision = 0;
     this.refreshPromise = null;
@@ -266,6 +278,7 @@ export class SettingsPreviewStore {
           null,
           detail.generatedAt,
           this.displayRevision === initialDisplayRevision,
+          session.requestId,
         );
         this.lastObservedServedRequestId = staleRequestId;
       } catch (refreshError) {
@@ -300,7 +313,12 @@ export class SettingsPreviewStore {
     if (this.refreshPromise && this.refreshPromiseFeed === feedName) {
       return this.refreshPromise;
     }
-    if (this.isLoadingBaseline || this.isGenerating || this.isRefreshingBaseline) {
+    if (
+      this.isLoadingBaseline ||
+      this.isGenerating ||
+      this.isRefreshingBaseline ||
+      this.isRetryingBlockCheck
+    ) {
       return { status: "deferred" };
     }
 
@@ -382,37 +400,46 @@ export class SettingsPreviewStore {
   }
 
   async preview(patch: FeedPreferences): Promise<GeneratedSettingsPreview | null> {
-    if (!this.activeFeed || this.isGenerating) return null;
+    if (!this.activeFeed || this.isGenerating || this.isRetryingBlockCheck) return null;
     const feedName = this.activeFeed;
-    const previewSignature = signature(
-      this.accountId,
-      feedName,
-      this.root.preferencesStore.llmPrompt?.promptKey ?? null,
-      patch,
-    );
+    const previewSignature = this.previewSignature(feedName, patch);
     const generation = this.feedGeneration;
     const previewOperation = ++this.previewOperation;
+    const isCurrent = (): boolean =>
+      previewOperation === this.previewOperation && this.isCurrentFeed(feedName, generation);
     this.refreshOperation++;
     this.isRefreshingBaseline = false;
     this.acceptanceConflict = false;
     this.error = null;
     const cached = this.cachedPreview(previewSignature, generation);
-    if (cached) return cached;
 
     this.isGenerating = true;
     try {
-      const generated = await this.generatePreview(feedName, patch, previewSignature, generation);
-      if (previewOperation !== this.previewOperation || !this.isCurrentFeed(feedName, generation)) {
-        return null;
+      if (cached) {
+        try {
+          const detail = await this.root.services.feedApiService.getFeedPreview(cached.requestId);
+          if (!isCurrent()) return null;
+          const refreshed = this.withDetail(cached, detail);
+          if (
+            !refreshed.filteringCounts.blockCheckUnavailableCount &&
+            sameSlate(cached.items, refreshed.items)
+          ) {
+            return this.rememberPreview(refreshed);
+          }
+        } catch (error) {
+          if (!(error instanceof FeedApiError && error.status === 404)) throw error;
+          if (!isCurrent()) return null;
+        }
       }
-      return generated;
+      const generated = await this.generatePreview(feedName, patch, previewSignature, generation);
+      return isCurrent() ? this.rememberPreview(generated) : null;
     } catch (error) {
-      if (previewOperation === this.previewOperation && this.isCurrentFeed(feedName, generation)) {
+      if (isCurrent()) {
         this.error = error instanceof Error ? error.message : "Could not generate a preview";
       }
       return null;
     } finally {
-      if (previewOperation === this.previewOperation && this.isCurrentFeed(feedName, generation)) {
+      if (isCurrent()) {
         this.isGenerating = false;
       }
     }
@@ -425,18 +452,10 @@ export class SettingsPreviewStore {
     const { feedName, generation, signature: previewSignature } = preview;
     if (!this.isCurrentFeed(feedName, generation)) return null;
     this.acceptanceConflict = false;
-
-    const accept = async (candidate: GeneratedSettingsPreview): Promise<void> => {
-      await this.root.services.feedApiService.acceptFeedPreview(
-        candidate.feedName,
-        candidate.requestId,
-        patch,
-        candidate.items.map((item) => item.atUri),
-      );
-    };
+    if (preview.filteringCounts.blockCheckUnavailableCount) return preview;
 
     try {
-      await accept(preview);
+      await this.stagePreview(preview, patch);
       if (!this.isCurrentFeed(feedName, generation)) return null;
       return preview;
     } catch (error) {
@@ -450,9 +469,11 @@ export class SettingsPreviewStore {
             generation,
           );
           if (!this.isCurrentFeed(feedName, generation)) return null;
-          await accept(regenerated);
+          if (!regenerated.filteringCounts.blockCheckUnavailableCount) {
+            await this.stagePreview(regenerated, patch);
+          }
           if (!this.isCurrentFeed(feedName, generation)) return null;
-          return regenerated;
+          return this.rememberPreview(regenerated);
         } catch (retryError) {
           acceptanceError = retryError;
         }
@@ -473,6 +494,99 @@ export class SettingsPreviewStore {
     }
   }
 
+  async retryBlockCheck(patch: FeedPreferences, canStage: () => boolean): Promise<void> {
+    const request = this.displayedRequest;
+    const feed = this.activeFeed;
+    if (
+      !request ||
+      !feed ||
+      this.isGenerating ||
+      this.isRefreshingBaseline ||
+      this.isRetryingBlockCheck ||
+      this.blockCheckExpired
+    ) {
+      return;
+    }
+    const generation = this.feedGeneration;
+    const revision = this.displayRevision;
+    const pending = this.pendingPreview;
+    const isCurrent = (): boolean =>
+      this.isCurrentFeed(feed, generation) && this.displayRevision === revision;
+    this.isRetryingBlockCheck = true;
+    this.blockRetryError = null;
+    try {
+      const api = this.root.services.feedApiService;
+      const detail =
+        request.kind === "detail"
+          ? await api.getFeedDetail(request.requestId)
+          : await api.getFeedPreview(request.requestId);
+      if (!isCurrent()) return;
+      if (pending) {
+        const refreshed = this.withDetail(pending, detail);
+        let stageFailure: { error: unknown } | undefined;
+        if (
+          !detail.filteringCounts.blockCheckUnavailableCount &&
+          canStage() &&
+          this.previewSignature(feed, patch) === pending.signature
+        ) {
+          try {
+            await this.stagePreview(refreshed, patch);
+          } catch (error) {
+            stageFailure = { error };
+          }
+          if (!isCurrent()) return;
+        }
+        this.rememberPreview(refreshed);
+        this.acceptPreview(refreshed);
+        if (stageFailure) {
+          this.setBlockRetryError(
+            stageFailure.error,
+            request.kind,
+            "Preview could not be synchronized with MySky. Select Update preview to try again.",
+          );
+        }
+      } else {
+        this.setBaseline(
+          transformFeedItems(detail.items),
+          detail.filteringCounts,
+          request.kind === "detail" ? request.requestId : null,
+          detail.generatedAt,
+          true,
+          request.kind === "preview" ? request.requestId : undefined,
+        );
+      }
+    } catch (error) {
+      if (isCurrent()) this.setBlockRetryError(error, request.kind);
+    } finally {
+      if (this.isCurrentFeed(feed, generation)) this.isRetryingBlockCheck = false;
+    }
+  }
+
+  private stagePreview(
+    preview: GeneratedSettingsPreview,
+    patch: FeedPreferences,
+  ): Promise<unknown> {
+    return this.root.services.feedApiService.acceptFeedPreview(
+      preview.feedName,
+      preview.requestId,
+      patch,
+      preview.items.map((item) => item.atUri),
+    );
+  }
+
+  private setBlockRetryError(
+    error: unknown,
+    kind: DisplayedRequest["kind"],
+    message = "The preview could not be updated. Please try again.",
+  ): void {
+    this.blockCheckExpired = error instanceof FeedApiError && error.status === 404;
+    this.blockRetryError = this.blockCheckExpired
+      ? kind === "preview"
+        ? "This preview expired. Select Preview or Update preview to generate it again."
+        : "This feed snapshot has expired. Select Preview or Update preview to load posts."
+      : message;
+  }
+
   markPreviewSyncFailure(): void {
     this.acceptanceConflict = false;
     this.error = "Preview could not be synchronized with MySky. Try again.";
@@ -482,6 +596,8 @@ export class SettingsPreviewStore {
     if (preview.feedName !== this.activeFeed || preview.generation !== this.feedGeneration) return;
     this.displayedItems = preview.items;
     this.displayedFilteringCounts = preview.filteringCounts;
+    this.setDisplayedRequest({ kind: "preview", requestId: preview.requestId });
+    this.pendingPreview = preview.filteringCounts.blockCheckUnavailableCount ? preview : null;
     this.displayRevision++;
     this.acceptanceConflict = false;
     this.error = null;
@@ -511,17 +627,52 @@ export class SettingsPreviewStore {
     requestId: string | null,
     generatedAt: string | null,
     replaceDisplayed: boolean,
+    previewRequestId?: string,
   ): void {
     this.baselineItems = [...items];
     this.baselineFilteringCounts = { ...filteringCounts };
     if (replaceDisplayed) {
       this.displayedItems = [...items];
       this.displayedFilteringCounts = { ...filteringCounts };
+      const displayedRequestId = requestId ?? previewRequestId;
+      this.setDisplayedRequest(
+        displayedRequestId
+          ? { kind: requestId ? "detail" : "preview", requestId: displayedRequestId }
+          : null,
+      );
       this.displayRevision++;
     }
     this.baselineRequestId = requestId;
     this.baselineGeneratedAt = generatedAt;
     this.error = null;
+  }
+
+  private setDisplayedRequest(request: DisplayedRequest | null): void {
+    this.displayedRequest = request;
+    this.pendingPreview = null;
+    this.blockRetryError = null;
+    this.blockCheckExpired = false;
+  }
+
+  private previewSignature(feed: AlgorithmId, patch: FeedPreferences): string {
+    return signature(
+      this.accountId,
+      feed,
+      this.root.preferencesStore.llmPrompt?.promptKey ?? null,
+      patch,
+    );
+  }
+
+  private withDetail(
+    preview: GeneratedSettingsPreview,
+    detail: FeedDetailResponse,
+  ): GeneratedSettingsPreview {
+    return {
+      ...preview,
+      items: transformFeedItems(detail.items),
+      filteringCounts: detail.filteringCounts,
+      generatorDiagnostics: detail.generatorDiagnostics ?? [],
+    };
   }
 
   private isCurrentFeed(feedName: AlgorithmId, generation: number): boolean {
@@ -539,8 +690,7 @@ export class SettingsPreviewStore {
       this.previewCache.delete(previewSignature);
       return null;
     }
-    // Refresh insertion order so the bounded cache keeps recently revisited
-    // Undo/Redo states available for the duration of the server-side TTL.
+    // Keep recently requested settings available for the server-side TTL.
     this.previewCache.delete(previewSignature);
     this.previewCache.set(previewSignature, cached);
     return {
@@ -572,18 +722,15 @@ export class SettingsPreviewStore {
     const session = await this.root.services.feedApiService.createFeedPreview(feedName, patch);
     let detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
     for (const retryDelay of HYDRATION_RETRY_DELAYS_MS) {
-      if ((detail.filteringCounts.partialItemCount ?? 0) === 0) break;
+      if (
+        !detail.filteringCounts.partialItemCount ||
+        detail.filteringCounts.blockCheckUnavailableCount
+      )
+        break;
       await delay(retryDelay);
       if (!this.isCurrentFeed(feedName, generation)) break;
       try {
-        const retried = await this.root.services.feedApiService.getFeedPreview(session.requestId);
-        if (
-          (retried.filteringCounts.partialItemCount ?? 0) <
-            (detail.filteringCounts.partialItemCount ?? 0) ||
-          (retried.items?.length ?? 0) > (detail.items?.length ?? 0)
-        ) {
-          detail = retried;
-        }
+        detail = await this.root.services.feedApiService.getFeedPreview(session.requestId);
       } catch {
         // The initial hydrated response remains truthful and usable. A failed
         // follow-up should not discard it or turn a transient cache read into
@@ -597,13 +744,13 @@ export class SettingsPreviewStore {
         diagnostic.weight > 0 &&
         ["error", "timeout", "not_configured", "not_run"].includes(diagnostic.status),
     );
-    if ((detail.items?.length ?? 0) === 0 && failedDiagnostics.length > 0) {
+    if (detail.filteringCounts.storedItemCount === 0 && failedDiagnostics.length > 0) {
       const sources = failedDiagnostics.map((diagnostic) => generatorLabel(diagnostic.name));
       throw new Error(
         `Preview could not load ${sources.join(" and ")} posts. Your current preview was kept; try again.`,
       );
     }
-    return this.rememberPreview({
+    return {
       feedName,
       generation,
       requestId: session.requestId,
@@ -613,6 +760,6 @@ export class SettingsPreviewStore {
       filteringCounts: detail.filteringCounts,
       generatorDiagnostics: diagnostics,
       signature: previewSignature,
-    });
+    };
   }
 }
