@@ -362,11 +362,15 @@ export class FeedTabs extends LitElement {
                   ${filtering.displayedItemCount} are displayed here. Public labels filtered
                   ${filtering.publiclyFilteredCount} and ${filtering.unavailableCount} were
                   unavailable.
+                  ${
+                    filtering.blockedItemCount
+                      ? html`Blocks hid ${filtering.blockedItemCount}.`
+                      : ""
+                  }
                 `
               : html`Select this snapshot to calculate its displayed and filtered counts.`
           }
-          This is a public-label approximation; private Bluesky moderation can hide additional
-          posts.
+          Bluesky moderation preferences can hide additional posts.
         </div>
         ${
           feed.generatorDiagnostics.length === 0

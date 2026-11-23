@@ -11,6 +11,7 @@ import "../components/feed-view";
 import "../components/feed-tabs";
 import "../components/pagination-control";
 import type { FeedTabs } from "../components/feed-tabs";
+import { BLOCK_CHECK_WARNING } from "../models/feed-empty-state";
 
 const PULL_REFRESH_THRESHOLD = 56;
 const PULL_REFRESH_MAX_DISTANCE = 88;
@@ -73,6 +74,23 @@ export class FeedPage extends MobxLitElement {
       align-items: center;
       justify-content: center;
       min-height: 400px;
+    }
+    .block-check-warning {
+      margin: 0.75rem 1rem 0;
+    }
+    .block-check-warning button {
+      margin-inline-start: 0.5rem;
+      padding: 0.25rem 0.55rem;
+      border: 1px solid var(--bluesky-border);
+      border-radius: 0.375rem;
+      background: var(--bluesky-bg-card);
+      color: var(--bluesky-text);
+      font: inherit;
+      cursor: pointer;
+    }
+    .block-check-warning button:disabled {
+      opacity: 0.6;
+      cursor: default;
     }
     .empty-state {
       display: flex;
@@ -506,6 +524,24 @@ export class FeedPage extends MobxLitElement {
                     ${feedStore.error}
                   </wa-callout>
                 </div>
+              `
+            : ""
+        }
+        ${
+          feedStore.currentFilteringCounts?.blockCheckUnavailableCount
+            ? html`
+                <wa-callout class="block-check-warning" variant="warning" role="status">
+                  ${BLOCK_CHECK_WARNING}
+                  <button
+                    type="button"
+                    ?disabled=${feedStore.isLoading}
+                    @click=${() => {
+                      void feedStore.retryBlockCheck();
+                    }}
+                  >
+                    Retry
+                  </button>
+                </wa-callout>
               `
             : ""
         }

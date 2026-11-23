@@ -90,6 +90,40 @@ describe("FeedStore pagination", () => {
   });
 });
 
+it("retries the selected snapshot and restores newly verified cards in order", async () => {
+  const store = makeStore(vi.fn());
+  const getDetail = vi.mocked(store.root.services.feedApiService.getFeedDetail);
+  const items = [makeFeedItem(1), makeFeedItem(2), makeFeedItem(3)];
+  const filteringCounts = {
+    storedItemCount: 3,
+    displayedItemCount: 2,
+    publiclyFilteredCount: 0,
+    unavailableCount: 0,
+    blockCheckUnavailableCount: 1,
+  };
+  const snapshot = { requestId: "r1", generatedAt: "2026-08-16T00:00:00Z", apiReleaseSha: null };
+  getDetail
+    .mockResolvedValueOnce({
+      ...snapshot,
+      items: items.filter((item) => item.rank !== 2),
+      filteringCounts,
+    })
+    .mockResolvedValueOnce({
+      ...snapshot,
+      items,
+      filteringCounts: { ...filteringCounts, displayedItemCount: 3, blockCheckUnavailableCount: 0 },
+    });
+
+  await store.loadFeedDetail("r1");
+  expect(store.items.map((item) => item.atUri)).toEqual([items[0]?.atUri, items[2]?.atUri]);
+  expect(store.currentFilteringCounts?.blockCheckUnavailableCount).toBe(1);
+  await store.retryBlockCheck();
+
+  expect(getDetail.mock.calls).toEqual([["r1"], ["r1"]]);
+  expect(store.items.map((item) => item.atUri)).toEqual(items.map((item) => item.atUri));
+  expect(store.currentFilteringCounts?.blockCheckUnavailableCount).toBe(0);
+});
+
 describe("FeedStore.loadFeedList", () => {
   it("records a successful empty response as loaded", async () => {
     const listFeeds = vi.fn().mockResolvedValue({ feeds: [] });

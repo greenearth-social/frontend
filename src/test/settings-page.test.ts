@@ -2119,6 +2119,8 @@ describe("SettingsPage", () => {
       )?.disabled,
     ).toBe(false);
     expect(element.shadowRoot?.querySelector(".save-changes-btn, .discard-changes-btn")).toBeNull();
+    expect(testState.rootStore.settingsPreviewStore.preview).not.toHaveBeenCalled();
+    expect(testState.rootStore.settingsPreviewStore.acceptGeneratedPreview).not.toHaveBeenCalled();
   });
 
   it("keeps explanations clickable independently from controls", async () => {

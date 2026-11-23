@@ -24,6 +24,7 @@ import "../components/feedback-form";
 import "../components/settings-feed-preview";
 import type { SettingsFeedPreview } from "../components/settings-feed-preview";
 import { renderSettingsDetailDialog } from "./settings-detail-dialog";
+import { BLOCK_CHECK_WARNING } from "../models/feed-empty-state";
 import { settingsPageStyles } from "./settings-page.styles";
 import {
   LIFECYCLE_ICONS,
@@ -256,7 +257,10 @@ export class SettingsPage extends MobxLitElement {
     const previewGenerating =
       this.previewPhase === "generating" || Boolean(previewStore?.isGenerating);
     const previewReordering = this.previewPhase === "reordering";
-    const previewBusy = previewGenerating || previewReordering;
+    const previewBusy =
+      previewGenerating || previewReordering || Boolean(previewStore?.isRetryingBlockCheck);
+    const previewFilteringCounts = previewStore?.displayedFilteringCounts ?? null;
+    const incompleteBlockCheck = Boolean(previewFilteringCounts?.blockCheckUnavailableCount);
     const previewIsStatus =
       previewBusy || (this.previewPhase === "complete" && !this.previewNeeded);
     const hasGeneratedPreview = (previewStore?.lastPreviewRequestId ?? null) !== null;
@@ -438,7 +442,7 @@ export class SettingsPage extends MobxLitElement {
                     previewGenerating
                   }
                   .error=${previewStore?.error ?? ""}
-                  .filteringCounts=${previewStore?.displayedFilteringCounts ?? null}
+                  .filteringCounts=${previewFilteringCounts}
                 ></settings-feed-preview>
               </div>
             </div>
@@ -450,6 +454,30 @@ export class SettingsPage extends MobxLitElement {
                 : ""
             }
           </div>
+          ${
+            previewStore && (incompleteBlockCheck || previewStore.blockRetryError)
+              ? html`
+                  <div class="preview-error" role="status">
+                    <span>${previewStore.blockRetryError ?? BLOCK_CHECK_WARNING}</span>
+                    ${
+                      incompleteBlockCheck && !previewStore.blockCheckExpired
+                        ? html`
+                            <button
+                              type="button"
+                              ?disabled=${previewBusy || previewStore.isRefreshingBaseline}
+                              @click=${() => {
+                                void this.#retryBlockCheck();
+                              }}
+                            >
+                              Retry
+                            </button>
+                          `
+                        : ""
+                    }
+                  </div>
+                `
+              : ""
+          }
           ${
             previewStore?.error && previewStore.displayedItems.length > 0
               ? html` <div class="preview-error" role="alert">
@@ -1333,6 +1361,29 @@ export class SettingsPage extends MobxLitElement {
     return this.historyEntry;
   }
 
+  async #retryBlockCheck(): Promise<void> {
+    const root = getRootStore();
+    const store = getSettingsPreviewStore();
+    if (!root || !store) return;
+    const feed = this.selectedAlgorithm;
+    const revision = this.settingsRevision;
+    const patch = this.#settingsPatch(root.preferencesStore.valuesFor(feed));
+    const isCurrent = (): boolean => this.isConnected && this.selectedAlgorithm === feed;
+    await store.retryBlockCheck(
+      patch,
+      () => isCurrent() && this.settingsRevision === revision && !this.#settingsBusy(),
+    );
+    if (isCurrent()) {
+      if (
+        store.blockCheckExpired ||
+        (store.blockRetryError && !store.displayedFilteringCounts.blockCheckUnavailableCount)
+      ) {
+        this.previewNeeded = true;
+      }
+      this.#drainBaselineSyncQueue();
+    }
+  }
+
   async #previewChanges(): Promise<void> {
     const store = getSettingsPreviewStore();
     const root = getRootStore();
@@ -1583,6 +1634,7 @@ export class SettingsPage extends MobxLitElement {
   #isPreviewBusy(store = getSettingsPreviewStore()): boolean {
     return (
       Boolean(store?.isGenerating) ||
+      Boolean(store?.isRetryingBlockCheck) ||
       this.previewPhase === "generating" ||
       this.previewPhase === "reordering"
     );
