@@ -16,7 +16,7 @@ export const settingsPageStyles = css`
   .feed-column {
     display: none;
     min-width: 0;
-    background: var(--bluesky-bg, #0f1720);
+    background: var(--color-bg);
   }
 
   .preview-header {
@@ -279,7 +279,7 @@ export const settingsPageStyles = css`
     z-index: 2;
     inset: 0;
     display: grid;
-    background: color-mix(in srgb, var(--bluesky-bg, #0f1720) 24%, transparent);
+    background: color-mix(in srgb, var(--color-bg) 24%, transparent);
     pointer-events: auto;
     place-items: center;
     touch-action: none;

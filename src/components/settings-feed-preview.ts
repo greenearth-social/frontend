@@ -166,7 +166,7 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 2.75rem;
       place-items: center;
       padding: 0;
-      border: 1px solid var(--bluesky-border, #2f3336);
+      border: 1px solid var(--color-border);
       border-radius: 999px;
       background: color-mix(in srgb, var(--color-surface-legacy) 88%, transparent);
       color: var(--color-text);
@@ -175,8 +175,8 @@ export class SettingsFeedPreview extends LitElement {
 
     .page-button:hover:not(:disabled),
     .page-button:focus-visible {
-      border-color: var(--bluesky-brand, #1083fe);
-      background: color-mix(in srgb, var(--bluesky-brand, #1083fe) 12%, transparent);
+      border-color: var(--color-accent);
+      background: color-mix(in srgb, var(--color-accent) 12%, transparent);
       outline: none;
     }
 
@@ -215,7 +215,7 @@ export class SettingsFeedPreview extends LitElement {
     a.card:hover,
     a.card:focus-visible {
       background: color-mix(in srgb, var(--color-surface-legacy) 92%, white);
-      outline: 2px solid var(--bluesky-brand, #1083fe);
+      outline: 2px solid var(--color-accent);
       outline-offset: 1px;
     }
 
@@ -298,15 +298,15 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .movement.up {
-      color: var(--bluesky-brand, #1083fe);
+      color: var(--color-accent);
     }
 
     .movement.down {
-      color: var(--bluesky-danger, #f4212e);
+      color: var(--color-danger);
     }
 
     .movement.new {
-      color: var(--bluesky-repost, #00ba7c);
+      color: var(--color-success);
     }
 
     .movement.unchanged {
