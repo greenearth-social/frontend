@@ -131,7 +131,7 @@ export class SettingsFeedPreview extends LitElement {
     :host {
       display: block;
       min-height: 100%;
-      color: var(--color-text);
+      color: var(--color-text-default);
     }
 
     .status {
@@ -166,17 +166,17 @@ export class SettingsFeedPreview extends LitElement {
       min-height: 2.75rem;
       place-items: center;
       padding: 0;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--color-border-default);
       border-radius: 999px;
-      background: color-mix(in srgb, var(--color-surface-legacy) 88%, transparent);
-      color: var(--color-text);
+      background: color-mix(in srgb, var(--color-background-surface-legacy) 88%, transparent);
+      color: var(--color-text-default);
       cursor: pointer;
     }
 
     .page-button:hover:not(:disabled),
     .page-button:focus-visible {
-      border-color: var(--color-accent);
-      background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+      border-color: var(--color-border-focus);
+      background: color-mix(in srgb, var(--color-border-focus) 12%, transparent);
       outline: none;
     }
 
@@ -200,7 +200,7 @@ export class SettingsFeedPreview extends LitElement {
       padding: 0.75rem;
       border: 2px solid var(--source-border);
       border-radius: 0.875rem;
-      background: var(--color-surface-legacy);
+      background: var(--color-background-surface-legacy);
       color: inherit;
       opacity: 1;
       text-decoration: none;
@@ -214,8 +214,8 @@ export class SettingsFeedPreview extends LitElement {
 
     a.card:hover,
     a.card:focus-visible {
-      background: color-mix(in srgb, var(--color-surface-legacy) 92%, white);
-      outline: 2px solid var(--color-accent);
+      background: color-mix(in srgb, var(--color-background-surface-legacy) 92%, white);
+      outline: 2px solid var(--color-border-focus);
       outline-offset: 1px;
     }
 
@@ -298,15 +298,15 @@ export class SettingsFeedPreview extends LitElement {
     }
 
     .movement.up {
-      color: var(--color-accent);
+      color: var(--color-text-info);
     }
 
     .movement.down {
-      color: var(--color-danger);
+      color: var(--color-text-danger);
     }
 
     .movement.new {
-      color: var(--color-success);
+      color: var(--color-text-success);
     }
 
     .movement.unchanged {
@@ -318,7 +318,7 @@ export class SettingsFeedPreview extends LitElement {
       overflow: hidden;
       max-height: 2.5rem;
       margin-top: 0.45rem;
-      color: var(--color-text);
+      color: var(--color-text-default);
       font-size: 0.8125rem;
       line-height: 1.25rem;
       opacity: 1;

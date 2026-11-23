@@ -326,9 +326,9 @@ describe("settings feed movement presentation", () => {
     expect(
       element.shadowRoot?.querySelector(".movement.up, .movement.down, .movement.new"),
     ).toBeNull();
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-accent)");
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-danger)");
-    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-success)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-text-info)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-text-danger)");
+    expect(SettingsFeedPreview.styles.cssText).toContain("var(--color-text-success)");
     expect(SettingsFeedPreview.styles.cssText).not.toMatch(/var\(--bluesky-[a-z-]+,/);
     element.remove();
   });

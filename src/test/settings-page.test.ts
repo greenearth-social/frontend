@@ -1443,13 +1443,13 @@ describe("SettingsPage", () => {
     expect(settingsHistory?.querySelector("wa-icon")?.getAttribute("name")).toBe("undo");
     expect(settingsPageStyles.cssText).toMatch(/\.history-btn\s*\{[^}]*background:\s*transparent/s);
     expect(settingsPageStyles.cssText).toMatch(
-      /\.history-btn\s*\{[^}]*border-color:\s*var\(--color-border\)/s,
+      /\.history-btn\s*\{[^}]*border-color:\s*var\(--color-border-default\)/s,
     );
     expect(settingsPageStyles.cssText).toMatch(
-      /\.mobile-preview-btn\s*\{[^}]*background:\s*var\(--color-accent\)/s,
+      /\.mobile-preview-btn\s*\{[^}]*background:\s*var\(--color-background-action\)/s,
     );
     expect(settingsPageStyles.cssText).toMatch(
-      /\.update-preview-btn\s*\{[^}]*background:\s*var\(--color-accent\)/s,
+      /\.update-preview-btn\s*\{[^}]*background:\s*var\(--color-background-action\)/s,
     );
     expect(settingsPageStyles.cssText).toMatch(
       /@media \(min-width: 1024px\)[\s\S]*\.update-preview-btn\s*\{[^}]*left:\s*50%/s,

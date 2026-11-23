@@ -26,7 +26,7 @@
 
   /* ==========================================================================
      Design tokens
-     Additive layer: nothing consumes these yet, so there is no visual change.
+     Components should use these semantic tokens instead of --bluesky-* directly (so far: settings page and feed preview).
      Colors are aliases of --bluesky-* (resolved on :root), so they follow any
      redefinition of those variables made on :root.
      Breakpoints, by convention: 480 / 768 / 1024px. CSS variables can't be
@@ -73,24 +73,34 @@
   --radius-xl: 1rem;
   --radius-full: 9999px;
 
-  /* Semantic colors */
-  --color-bg: var(--bluesky-bg);
-  --color-surface: var(--bluesky-bg-card);
-  --color-surface-hover: var(--bluesky-bg-hover);
-  --color-nav: var(--bluesky-nav-bg);
-  --color-border: var(--bluesky-border);
-  --color-text: var(--bluesky-text);
+  /* Semantic colors: --color-{element}-{role}[-{state}], e.g. --color-background-surface-hover */
+  /* background */
+  --color-background-page: var(--bluesky-bg);
+  --color-background-surface: var(--bluesky-bg-card);
+  --color-background-surface-hover: var(--bluesky-bg-hover);
+  --color-background-nav: var(--bluesky-nav-bg);
+  --color-background-header: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
+  --color-background-scrim: rgb(0 0 0 / 0.5);
+  --color-background-action: var(--bluesky-brand);
+  --color-background-action-hover: var(--bluesky-brand-hover);
+  /* Legacy value kept so #133 causes no visual change. Temporary: merge into --color-background-surface later. */
+  --color-background-surface-legacy: #16181c;
+  /* border */
+  --color-border-default: var(--bluesky-border);
+  --color-border-action: var(--bluesky-brand);
+  --color-border-focus: var(--bluesky-brand);
+  /* text */
+  --color-text-default: var(--bluesky-text);
   --color-text-muted: var(--bluesky-text-secondary);
-  /* Legacy values kept so api#631 causes no visual change. Temporary: consolidate into --color-surface / --color-text-muted later. */
-  --color-surface-legacy: #16181c;
+  /* Legacy value kept so #133 causes no visual change. Temporary: merge into --color-text-muted later. */
   --color-text-muted-legacy: #8b98a5;
-  --color-accent: var(--bluesky-brand);
-  --color-accent-hover: var(--bluesky-brand-hover);
-  --color-on-accent: #fff;
-  --color-danger: var(--bluesky-danger);
-  --color-success: var(--bluesky-repost);
-  --color-header-glass: color-mix(in srgb, var(--bluesky-bg) 85%, transparent);
-  --color-scrim: rgb(0 0 0 / 0.5);
+  --color-text-on-action: #fff;
+  --color-text-link: var(--bluesky-brand);
+  --color-text-info: var(--bluesky-brand);
+  --color-text-danger: var(--bluesky-danger);
+  --color-text-success: var(--bluesky-repost);
+  /* icon */
+  --color-icon-action: var(--bluesky-brand);
 
   /* Shadows (copied from the most-used box-shadow values in src/) */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
