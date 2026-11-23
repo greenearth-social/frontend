@@ -16,7 +16,7 @@ export const settingsPageStyles = css`
   .feed-column {
     display: none;
     min-width: 0;
-    background: var(--bluesky-bg, #0f1720);
+    background: var(--color-background-page);
   }
 
   .preview-header {
@@ -27,7 +27,7 @@ export const settingsPageStyles = css`
     justify-content: space-between;
     gap: 1rem;
     padding: 0.65rem 1rem;
-    border-bottom: 1px solid var(--bluesky-border);
+    border-bottom: 1px solid var(--color-border-default);
     box-sizing: border-box;
     background: rgba(21, 32, 43, 0.94);
   }
@@ -37,10 +37,10 @@ export const settingsPageStyles = css`
   .history-btn {
     min-height: 36px;
     padding: 0.4rem 0.75rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 999px;
-    background: var(--bluesky-bg-card);
-    color: var(--bluesky-text);
+    background: var(--color-background-surface);
+    color: var(--color-text-default);
     font: inherit;
     font-size: 0.75rem;
     font-weight: 700;
@@ -51,12 +51,12 @@ export const settingsPageStyles = css`
     display: none;
     min-height: 44px;
     padding: 0.6rem 1.25rem;
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-brand);
+    border-color: var(--color-border-action);
+    background: var(--color-background-action);
     color: #fff;
     font-size: 0.875rem;
     white-space: nowrap;
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-background-action) 30%, transparent);
   }
 
   .preview-progress {
@@ -95,11 +95,11 @@ export const settingsPageStyles = css`
     align-items: center;
     justify-content: center;
     padding-inline: 1rem;
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-brand);
+    border-color: var(--color-border-action);
+    background: var(--color-background-action);
     color: #fff;
     font-size: 0.8125rem;
-    box-shadow: 0 3px 12px color-mix(in srgb, var(--bluesky-brand) 28%, transparent);
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--color-background-action) 28%, transparent);
   }
 
   .history-btn {
@@ -111,7 +111,7 @@ export const settingsPageStyles = css`
     justify-content: center;
     gap: 0.35rem;
     padding: 0.35rem 0.55rem;
-    border-color: var(--bluesky-border);
+    border-color: var(--color-border-default);
     background: transparent;
   }
 
@@ -140,7 +140,7 @@ export const settingsPageStyles = css`
   .mobile-preview-status {
     grid-column: 2;
     justify-self: center;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     font-size: 1.125rem;
     font-weight: 800;
     line-height: 1.1;
@@ -150,56 +150,56 @@ export const settingsPageStyles = css`
 
   .update-preview-btn:hover:not(:disabled),
   .mobile-preview-btn:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--bluesky-brand) 82%, white);
-    background: color-mix(in srgb, var(--bluesky-brand) 86%, black);
+    border-color: color-mix(in srgb, var(--color-border-action) 82%, white);
+    background: color-mix(in srgb, var(--color-background-action) 86%, black);
   }
 
   .history-btn:hover:not(:disabled) {
-    border-color: var(--bluesky-brand);
-    background: var(--bluesky-bg-hover);
+    border-color: var(--color-border-action);
+    background: var(--color-background-surface-hover);
   }
 
   .update-preview-btn:focus-visible,
   .mobile-preview-btn:focus-visible,
   .history-btn:focus-visible {
-    outline: 2px solid var(--bluesky-brand);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
   }
 
   .update-preview-btn:disabled,
   .mobile-preview-btn:disabled,
   .history-btn:disabled {
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     cursor: default;
     opacity: 0.5;
   }
 
   .update-preview-btn:disabled,
   .mobile-preview-btn:disabled {
-    border-color: var(--bluesky-border);
-    background: var(--bluesky-bg-card);
+    border-color: var(--color-border-default);
+    background: var(--color-background-surface);
     box-shadow: none;
   }
 
   .update-preview-btn.is-generating:disabled {
     padding-right: 1.75rem;
     padding-left: 1rem;
-    border-color: color-mix(in srgb, var(--bluesky-brand) 82%, white);
-    background: color-mix(in srgb, var(--bluesky-brand) 88%, black);
+    border-color: color-mix(in srgb, var(--color-border-action) 82%, white);
+    background: color-mix(in srgb, var(--color-background-action) 88%, black);
     color: #fff;
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--bluesky-brand) 30%, transparent);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-background-action) 30%, transparent);
     cursor: progress;
     opacity: 1;
   }
 
   .preview-header h2 {
     margin: 0.1rem 0 0;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     font-size: 0.9375rem;
   }
 
   .preview-eyebrow {
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -210,10 +210,10 @@ export const settingsPageStyles = css`
   .preview-error button {
     min-height: 36px;
     padding: 0.4rem 0.75rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 999px;
-    background: var(--bluesky-bg-card);
-    color: var(--bluesky-text);
+    background: var(--color-background-surface);
+    color: var(--color-text-default);
     font: inherit;
     font-size: 0.75rem;
     font-weight: 650;
@@ -242,7 +242,7 @@ export const settingsPageStyles = css`
   }
 
   .preview-close:focus-visible {
-    outline: 2px solid var(--bluesky-brand);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
   }
 
@@ -279,7 +279,7 @@ export const settingsPageStyles = css`
     z-index: 2;
     inset: 0;
     display: grid;
-    background: color-mix(in srgb, var(--bluesky-bg, #0f1720) 24%, transparent);
+    background: color-mix(in srgb, var(--color-background-page) 24%, transparent);
     pointer-events: auto;
     place-items: center;
     touch-action: none;
@@ -288,15 +288,15 @@ export const settingsPageStyles = css`
   .preview-generation-overlay wa-spinner {
     width: 2.5rem;
     height: 2.5rem;
-    color: var(--bluesky-brand);
+    color: var(--color-icon-action);
     font-size: 2.5rem;
   }
 
   .preview-movement-help {
     margin: 0;
     padding: 0.6rem 0.9rem;
-    border-bottom: 1px solid var(--bluesky-border);
-    color: var(--bluesky-text-secondary);
+    border-bottom: 1px solid var(--color-border-default);
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     line-height: 1.35;
     text-align: center;
@@ -305,10 +305,10 @@ export const settingsPageStyles = css`
   .settings-error {
     margin: 0.75rem 1rem 0;
     padding: 0.7rem 0.8rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 0.75rem;
-    background: var(--bluesky-bg-card);
-    color: var(--bluesky-text-secondary);
+    background: var(--color-background-surface);
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     line-height: 1.4;
   }
@@ -320,8 +320,8 @@ export const settingsPageStyles = css`
     gap: 0.75rem;
     margin: 0;
     padding: 0.6rem 0.9rem;
-    border-top: 1px solid var(--bluesky-border);
-    color: var(--bluesky-text-secondary);
+    border-top: 1px solid var(--color-border-default);
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     line-height: 1.35;
   }
@@ -330,7 +330,7 @@ export const settingsPageStyles = css`
     position: sticky;
     top: 0;
     z-index: 30;
-    border-bottom: 1px solid var(--bluesky-border);
+    border-bottom: 1px solid var(--color-border-default);
     background: rgba(21, 32, 43, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -346,7 +346,7 @@ export const settingsPageStyles = css`
   h1 {
     flex: 1;
     margin: 0;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     font-size: 1.25rem;
     font-weight: 700;
   }
@@ -374,10 +374,10 @@ export const settingsPageStyles = css`
     min-height: 40px;
     flex-shrink: 0;
     padding: 0.45rem 0.75rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 9999px;
-    background: var(--bluesky-bg-card);
-    color: var(--bluesky-text);
+    background: var(--color-background-surface);
+    color: var(--color-text-default);
     font: inherit;
     font-size: 0.8125rem;
     font-weight: 600;
@@ -389,17 +389,17 @@ export const settingsPageStyles = css`
   }
 
   .reset-defaults-btn:hover:not(:disabled) {
-    border-color: var(--bluesky-text-secondary);
-    background: var(--bluesky-bg-hover);
+    border-color: var(--color-text-muted);
+    background: var(--color-background-surface-hover);
   }
 
   .reset-defaults-btn:focus-visible {
-    outline: 2px solid var(--bluesky-brand);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
   }
 
   .reset-defaults-btn:disabled {
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     cursor: default;
     opacity: 0.58;
   }
@@ -422,7 +422,7 @@ export const settingsPageStyles = css`
     border: 0;
     border-radius: 9999px;
     background: transparent;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     cursor: pointer;
   }
 
@@ -575,7 +575,7 @@ export const settingsPageStyles = css`
     width: min(560px, 100%);
     min-height: 15rem;
     box-sizing: border-box;
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     font-size: 0.875rem;
     font-weight: 600;
     text-align: center;
@@ -1030,10 +1030,10 @@ export const settingsPageStyles = css`
     gap: 0.75rem;
     width: min(26rem, calc(100vw - 2rem));
     padding: 1rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 0.875rem;
-    background: var(--bluesky-bg-card);
-    color: var(--bluesky-text);
+    background: var(--color-background-surface);
+    color: var(--color-text-default);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -1061,12 +1061,12 @@ export const settingsPageStyles = css`
   }
 
   .prompt-toast button:focus-visible {
-    outline: 2px solid var(--bluesky-brand);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
   }
 
   .prompt-toast button:hover {
-    background: var(--bluesky-bg-hover);
+    background: var(--color-background-surface-hover);
   }
 
   .source-slider-main {
@@ -1214,9 +1214,9 @@ export const settingsPageStyles = css`
     width: 100%;
     box-sizing: border-box;
     padding: 1rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 14px;
-    background: var(--bluesky-bg-card);
+    background: var(--color-background-surface);
   }
 
   .politics-heading {
@@ -1230,7 +1230,7 @@ export const settingsPageStyles = css`
   .politics-heading .component-title {
     width: auto;
     margin: 0;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
   }
 
   feedback-form {
@@ -1259,7 +1259,7 @@ export const settingsPageStyles = css`
     width: min(420px, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: 1.25rem 1.5rem;
-    border: 1px solid var(--bluesky-border);
+    border: 1px solid var(--color-border-default);
     border-radius: 16px;
     box-sizing: border-box;
     overflow-y: auto;
@@ -1276,7 +1276,7 @@ export const settingsPageStyles = css`
 
   .popup-title {
     margin: 0;
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     font-size: 1rem;
   }
 
@@ -1289,13 +1289,13 @@ export const settingsPageStyles = css`
     border: 0;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.1);
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     cursor: pointer;
   }
 
   .popup-description {
     margin: 0.75rem 0 0;
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     font-size: 0.875rem;
     line-height: 1.6;
   }
@@ -1325,14 +1325,14 @@ export const settingsPageStyles = css`
   }
 
   .popup-metric-label {
-    color: var(--bluesky-text-secondary);
+    color: var(--color-text-muted);
     font-size: 0.6875rem;
     font-weight: 700;
     text-transform: uppercase;
   }
 
   .popup-metric-value {
-    color: var(--bluesky-text);
+    color: var(--color-text-default);
     font-size: 0.9375rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -1344,7 +1344,7 @@ export const settingsPageStyles = css`
     gap: 0.35rem;
     min-height: 44px;
     margin-top: 0.5rem;
-    color: var(--bluesky-brand);
+    color: var(--color-text-link);
     font-size: 0.875rem;
     font-weight: 700;
     text-decoration: none;
@@ -1356,7 +1356,7 @@ export const settingsPageStyles = css`
 
   .popup-more:focus-visible {
     border-radius: 4px;
-    outline: 2px solid var(--bluesky-brand);
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 3px;
   }
 
@@ -1578,7 +1578,7 @@ export const settingsPageStyles = css`
     .controls-column {
       overflow-y: auto;
       overscroll-behavior: contain;
-      border-right: 1px solid var(--bluesky-border);
+      border-right: 1px solid var(--color-border-default);
     }
 
     .feed-column {
@@ -1613,7 +1613,7 @@ export const settingsPageStyles = css`
       border: 0;
       border-radius: 0;
       background: transparent;
-      color: var(--bluesky-text);
+      color: var(--color-text-default);
       font-size: 1.125rem;
       font-weight: 800;
       line-height: 1.1;
