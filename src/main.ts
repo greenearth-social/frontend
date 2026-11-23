@@ -7,11 +7,15 @@ import type { ServiceProvider } from "./services/service-provider";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { createFeedbackService } from "./services/feedback/feedback-service";
 import { createAnalyticsService } from "./services/analytics/analytics-service";
+import { initTelemetry } from "./services/telemetry/telemetry-service";
 import { runtimeConfig as blueskyRuntimeConfig } from "./config";
 
 setBasePath("/");
 
 const useMock = import.meta.env.VITE_USE_MOCK_SERVICES !== "false";
+const apiBaseUrl: string = (import.meta.env.VITE_API_BASE_URL as string) || "";
+
+initTelemetry({ apiBaseUrl });
 
 let rootStore: RootStore | null = null;
 
@@ -51,8 +55,6 @@ async function init() {
     const { FeedApiService } = await import(
       "./services/api/feed-api-service"
     );
-
-    const apiBaseUrl: string = (import.meta.env.VITE_API_BASE_URL as string) || "";
 
     const authService = new FirebaseAuthService();
 

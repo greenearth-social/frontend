@@ -6,6 +6,7 @@ import type { FeedControlEventProperties, FeedControlName } from "../services/an
 import { FRESHNESS_PRESETS } from "../constants/preferences";
 import { FeedApiError } from "../services/types";
 import { describeLlmPromptError, type LlmPromptFailure } from "../utils/llm-prompt-error";
+import { reportClientError } from "../services/telemetry/telemetry-service";
 
 export type SourceWeightChangeOrigin =
   | "following"
@@ -663,6 +664,10 @@ export class PreferencesStore {
         this.valuesByFeed[feedName] = currentValues;
       }
       console.error("Failed to save preferences:", error);
+      reportClientError("SettingsSaveError", {
+        feedName,
+        message: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
@@ -787,6 +792,10 @@ export class PreferencesStore {
         this.valuesByFeed[feedName] = rolledBackValues;
       }
       console.error("Failed to restore default preferences:", error);
+      reportClientError("SettingsResetError", {
+        feedName,
+        message: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
